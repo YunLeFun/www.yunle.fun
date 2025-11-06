@@ -1,37 +1,39 @@
 <script setup lang="ts">
-const columns = [{
-  label: 'Resources',
+import type { FooterColumn } from '@nuxt/ui'
+import YlfLogo from './YlfLogo.vue'
+import { socialList } from '~/config'
+
+const columns: FooterColumn[] = [{
+  label: '资源',
   children: [{
-    label: 'Help center'
+    label: '网站地图',
+    to: '/docs/sitemap/'
   }, {
-    label: 'Docs'
+    label: '文档',
+    to: '/docs/'
   }, {
-    label: 'Roadmap'
+    label: '博客',
+    to: '/blog'
   }, {
-    label: 'Changelog'
+    label: '日志',
+    to: '/changelog'
   }]
 }, {
-  label: 'Features',
-  children: [{
-    label: 'Affiliates'
-  }, {
-    label: 'Portal'
-  }, {
-    label: 'Jobs'
-  }, {
-    label: 'Sponsors'
-  }]
-}, {
-  label: 'Company',
-  children: [{
-    label: 'About'
-  }, {
-    label: 'Pricing'
-  }, {
-    label: 'Careers'
-  }, {
-    label: 'Blog'
-  }]
+  label: '关于',
+  children: [
+    {
+      label: '服务协议',
+      to: '/docs/terms-of-service'
+    },
+    {
+      label: '隐私政策',
+      to: '/docs/privacy-policy'
+    },
+    {
+      label: '联系我们',
+      to: '/docs/contact'
+    }
+  ]
 }]
 
 const toast = useToast()
@@ -50,10 +52,7 @@ function onSubmit() {
 </script>
 
 <template>
-  <USeparator
-    icon="i-simple-icons-nuxtdotjs"
-    class="h-px"
-  />
+  <USeparator :icon="YlfLogo" class="h-px" />
 
   <UFooter :ui="{ top: 'border-b border-default' }">
     <template #top>
@@ -61,24 +60,10 @@ function onSubmit() {
         <UFooterColumns :columns="columns">
           <template #right>
             <form @submit.prevent="onSubmit">
-              <UFormField
-                name="email"
-                label="Subscribe to our newsletter"
-                size="lg"
-              >
-                <UInput
-                  v-model="email"
-                  type="email"
-                  class="w-full"
-                  placeholder="Enter your email"
-                >
+              <UFormField name="email" label="Subscribe to our newsletter" size="lg">
+                <UInput v-model="email" type="email" class="w-full" placeholder="Enter your email">
                   <template #trailing>
-                    <UButton
-                      type="submit"
-                      size="xs"
-                      color="neutral"
-                      label="Subscribe"
-                    />
+                    <UButton type="submit" size="xs" color="neutral" label="Subscribe" />
                   </template>
                 </UInput>
               </UFormField>
@@ -89,36 +74,18 @@ function onSubmit() {
     </template>
 
     <template #left>
+      <p>
+        苏ICP备2023020936号
+      </p>
+
       <p class="text-muted text-sm">
-        Built with Nuxt UI • © {{ new Date().getFullYear() }}
+        © {{ new Date().getFullYear() }} 云乐坊信息技术工作室
       </p>
     </template>
 
     <template #right>
-      <UButton
-        to="https://go.nuxt.com/discord"
-        target="_blank"
-        icon="i-simple-icons-discord"
-        aria-label="Nuxt on Discord"
-        color="neutral"
-        variant="ghost"
-      />
-      <UButton
-        to="https://go.nuxt.com/x"
-        target="_blank"
-        icon="i-simple-icons-x"
-        aria-label="Nuxt on X"
-        color="neutral"
-        variant="ghost"
-      />
-      <UButton
-        to="https://github.com/nuxt-ui-templates/saas"
-        target="_blank"
-        icon="i-simple-icons-github"
-        aria-label="Nuxt UI on GitHub"
-        color="neutral"
-        variant="ghost"
-      />
+      <UButton v-for="item in socialList" :key="item.to" :to="item.to" target="_blank" :icon="item.icon"
+        :aria-label="item.title" color="neutral" variant="ghost" :title="item.title" />
     </template>
   </UFooter>
 </template>

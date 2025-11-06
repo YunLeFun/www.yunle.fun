@@ -2,6 +2,7 @@
 export default defineNuxtConfig({
   modules: [
     '@nuxt/eslint',
+    '@nuxt/icon',
     '@nuxt/image',
     '@nuxt/ui',
     '@nuxt/content',
@@ -19,7 +20,7 @@ export default defineNuxtConfig({
     '/docs': { redirect: '/docs/getting-started', prerender: false }
   },
 
-  compatibilityDate: '2024-07-11',
+  compatibilityDate: 'latest',
 
   nitro: {
     prerender: {

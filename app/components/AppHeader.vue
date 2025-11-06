@@ -1,29 +1,35 @@
 <script setup lang="ts">
 const route = useRoute()
 
-const items = computed(() => [{
-  label: 'Docs',
-  to: '/docs',
-  active: route.path.startsWith('/docs')
-}, {
-  label: 'Pricing',
-  to: '/pricing'
-}, {
-  label: 'Blog',
-  to: '/blog'
-}, {
-  label: 'Changelog',
-  to: '/changelog'
-}])
+const items = computed(() => [
+  {
+    label: '文档',
+    to: '/docs',
+    active: route.path.startsWith('/docs')
+  },
+  {
+    label: '会员',
+    to: '/pricing'
+  },
+  {
+    label: '博客',
+    to: '/blog'
+  },
+  {
+    label: '日志',
+    to: '/changelog'
+  }])
 </script>
 
 <template>
   <UHeader>
     <template #left>
-      <NuxtLink to="/">
-        <AppLogo class="w-auto h-6 shrink-0" />
-      </NuxtLink>
-      <TemplateMenu />
+      <div class="flex items-center justify-center gap-2">
+        <NuxtLink to="/">
+          <AppLogo class="w-auto h-6 shrink-0" />
+        </NuxtLink>
+        <YlfSiteMenu />
+      </div>
     </template>
 
     <UNavigationMenu
@@ -43,7 +49,7 @@ const items = computed(() => [{
       />
 
       <UButton
-        label="Sign in"
+        label="登录"
         color="neutral"
         variant="outline"
         to="/login"
@@ -51,7 +57,7 @@ const items = computed(() => [{
       />
 
       <UButton
-        label="Sign up"
+        label="注册"
         color="neutral"
         trailing-icon="i-lucide-arrow-right"
         class="hidden lg:inline-flex"

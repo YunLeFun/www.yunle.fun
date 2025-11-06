@@ -141,5 +141,51 @@ export const collections = {
       date: z.date(),
       image: z.string()
     })
+  }),
+  developer: defineCollection({
+    source: '5.developer.yml',
+    type: 'page',
+    schema: z.object({
+      hero: z.object({
+        links: z.array(createLinkSchema())
+      }),
+      sections: z.array(
+        createBaseSchema().extend({
+          id: z.string().optional(),
+          orientation: orientationEnum.optional(),
+          reverse: z.boolean().optional(),
+          features: z.array(createFeatureItemSchema())
+        })
+      ),
+      features: createBaseSchema().extend({
+        items: z.array(createFeatureItemSchema())
+      }),
+      resources: createBaseSchema().extend({
+        headline: z.string().optional(),
+        items: z.array(
+          createFeatureItemSchema().extend({
+            to: z.string().optional(),
+            target: z.string().optional()
+          })
+        )
+      }),
+      pricing: createBaseSchema().extend({
+        headline: z.string().optional(),
+        items: z.array(
+          z.object({
+            title: z.string().nonempty(),
+            description: z.string().nonempty(),
+            price: z.string().nonempty(),
+            period: z.string().optional(),
+            highlight: z.boolean().optional(),
+            features: z.array(z.string().nonempty()),
+            cta: createLinkSchema()
+          })
+        )
+      }),
+      cta: createBaseSchema().extend({
+        links: z.array(createLinkSchema())
+      })
+    })
   })
 }

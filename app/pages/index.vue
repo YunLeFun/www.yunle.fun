@@ -31,7 +31,7 @@ useSeoMeta({
         />
       </template>
 
-      <PromotionalVideo />
+      <!-- <PromotionalVideo /> -->
     </UPageHero>
 
     <UPageSection

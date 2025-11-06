@@ -1,0 +1,149 @@
+title: 云乐坊 [开发者平台]{class="text-primary"}
+description: 为开发者提供强大的工具和资源，快速构建、发布和管理你的云端应用。
+seo:
+  title: 开发者平台 - 云乐坊
+  description: 强大的开发工具，丰富的 API 文档，助你快速构建云端应用
+navigation: false
+hero:
+  links:
+    - label: 快速开始
+      icon: i-lucide-rocket
+      trailing: true
+      to: /docs
+      size: xl
+    - label: 查看文档
+      icon: i-lucide-book-open
+      size: xl
+      color: neutral
+      variant: subtle
+      to: /docs
+sections:
+  - title: 完整的开发工具链
+    description: 从代码编写到应用部署，我们提供全流程的开发工具支持，让你专注于创造价值。
+    id: tools
+    orientation: horizontal
+    features:
+      - name: 云端 IDE
+        description: 基于浏览器的集成开发环境，随时随地编写代码，内置智能代码补全和调试工具。
+        icon: i-lucide-code
+      - name: API 管理
+        description: 完善的 API 文档和管理工具，支持 RESTful 和 GraphQL，快速集成第三方服务。
+        icon: i-lucide-puzzle
+      - name: 实时协作
+        description: 与团队成员实时协作开发，代码审查、评论和版本控制一应俱全。
+        icon: i-lucide-users
+  - title: 强大的云服务支持
+    description: 利用我们的云基础设施，轻松部署和扩展你的应用，专注于业务逻辑而非基础设施管理。
+    orientation: horizontal
+    reverse: true
+    features:
+      - name: 自动部署
+        description: 集成 CI/CD 流程，代码提交即自动部署，支持灰度发布和回滚机制。
+        icon: i-lucide-rocket
+      - name: 弹性扩展
+        description: 自动根据流量调整资源配置，确保应用始终保持最佳性能。
+        icon: i-lucide-trending-up
+      - name: 全球加速
+        description: CDN 加速和边缘计算支持，为全球用户提供极速访问体验。
+        icon: i-lucide-globe
+features:
+  title: 开发者专属特性
+  description: 我们为开发者提供了一系列强大的工具和服务，帮助你更高效地构建应用。
+  items:
+    - title: SDK & 组件库
+      description: 提供多语言 SDK 和丰富的 UI 组件库，加速开发进程，减少重复工作。
+      icon: i-lucide-package
+    - title: 数据分析
+      description: 实时监控应用性能和用户行为，提供详细的数据分析报告和可视化图表。
+      icon: i-lucide-bar-chart
+    - title: 安全保障
+      description: 企业级安全防护，包括 DDoS 防护、数据加密和安全审计，保护你的应用和用户数据。
+      icon: i-lucide-shield
+    - title: 版本管理
+      description: Git 集成，支持多分支开发，轻松管理代码版本和发布流程。
+      icon: i-lucide-git-branch
+    - title: 应用市场
+      description: 一键发布应用到云乐坊应用市场，让更多用户发现和使用你的作品。
+      icon: i-lucide-store
+    - title: 开发者社区
+      description: 活跃的开发者社区，分享经验、解决问题，与其他开发者共同成长。
+      icon: i-lucide-message-circle
+resources:
+  headline: 开发资源
+  title: 丰富的文档和示例
+  description: 从入门教程到高级技巧，我们提供全面的开发资源
+  items:
+    - title: API 文档
+      description: 详细的 API 参考文档，包含请求示例和响应说明。
+      icon: i-lucide-book
+      to: /docs
+    - title: 快速开始
+      description: 从零开始，10 分钟搭建你的第一个云端应用。
+      icon: i-lucide-play-circle
+      to: /docs/getting-started
+    - title: 示例项目
+      description: 浏览完整的示例项目，学习最佳实践和设计模式。
+      icon: i-lucide-code-2
+      to: https://github.com/YunLeFun
+      target: _blank
+    - title: 视频教程
+      description: 跟随视频教程，直观学习开发技巧和平台功能。
+      icon: i-lucide-video
+      to: /docs
+pricing:
+  headline: 定价方案
+  title: 适合各种规模的开发需求
+  description: 从个人开发者到企业团队，我们都有合适的方案
+  items:
+    - title: 免费版
+      description: 适合个人开发者和小型项目
+      price: ¥0
+      period: /月
+      features:
+        - 5 个应用项目
+        - 1GB 存储空间
+        - 基础 API 调用
+        - 社区支持
+      cta:
+        label: 开始使用
+        to: /signup
+    - title: 专业版
+      description: 适合专业开发者和中小团队
+      price: ¥99
+      period: /月
+      highlight: true
+      features:
+        - 无限应用项目
+        - 50GB 存储空间
+        - 高级 API 调用
+        - 优先技术支持
+        - 自定义域名
+        - 团队协作功能
+      cta:
+        label: 立即订阅
+        to: /pricing
+    - title: 企业版
+      description: 适合大型团队和企业级应用
+      price: 联系我们
+      period: ''
+      features:
+        - 一切专业版功能
+        - 无限存储空间
+        - 专属技术顾问
+        - SLA 保障
+        - 私有化部署选项
+        - 定制化服务
+      cta:
+        label: 联系销售
+        to: /docs/contact
+cta:
+  title: 准备开始你的开发之旅了吗？
+  description: 立即注册云乐坊开发者平台，开始构建你的下一个伟大应用！
+  links:
+    - label: 免费注册
+      to: /signup
+      trailingIcon: i-lucide-arrow-right
+    - label: 查看文档
+      to: /docs
+      variant: subtle
+      icon: i-lucide-book-open
