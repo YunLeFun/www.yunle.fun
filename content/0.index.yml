@@ -9,7 +9,7 @@ hero:
     - label: 开始探索
       icon: i-lucide-arrow-right
       trailing: true
-      to: https://ui.nuxt.com/docs/getting-started/installation/nuxt
+      to: https://apps.yunle.fun
       target: _blank
       size: xl
     - label: 下载 APP
@@ -17,8 +17,8 @@ hero:
       size: xl
       color: neutral
       variant: subtle
-      to: https://github.com/nuxt-ui-templates/saas
-      target: _blank
+      to: /apps/download
+      # target: _blank
 sections:
   - title: 云端应用 APP 市场
     description: 探索 N+ 云端应用，云同步收藏夹，分享你的作品

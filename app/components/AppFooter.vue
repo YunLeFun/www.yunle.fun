@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { FooterColumn } from '@nuxt/ui'
-import YlfLogo from './YlfLogo.vue'
+import YlfLogo from './ylf/Logo.vue'
 import { socialList } from '~/config'
 
 const columns: FooterColumn[] = [{
@@ -58,7 +58,7 @@ function onSubmit() {
     <template #top>
       <UContainer>
         <UFooterColumns :columns="columns">
-          <template #right>
+          <!-- <template #right>
             <form @submit.prevent="onSubmit">
               <UFormField name="email" label="Subscribe to our newsletter" size="lg">
                 <UInput v-model="email" type="email" class="w-full" placeholder="Enter your email">
@@ -68,7 +68,7 @@ function onSubmit() {
                 </UInput>
               </UFormField>
             </form>
-          </template>
+          </template> -->
         </UFooterColumns>
       </UContainer>
     </template>
