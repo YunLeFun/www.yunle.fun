@@ -8,7 +8,7 @@ useSeoMeta({
   title,
   ogTitle: title,
   description,
-  ogDescription: description
+  ogDescription: description,
 })
 </script>
 
@@ -91,7 +91,7 @@ useSeoMeta({
           class="flex flex-col"
         >
           <template #header>
-            <div class="flex items-baseline gap-1">
+            <div class="flex gap-1 items-baseline">
               <span class="text-3xl font-bold">{{ plan.price }}</span>
               <span
                 v-if="plan.period"
@@ -100,11 +100,11 @@ useSeoMeta({
             </div>
           </template>
 
-          <ul class="space-y-3 mb-6 flex-1">
+          <ul class="mb-6 flex-1 space-y-3">
             <li
               v-for="(feature, idx) in plan.features"
               :key="idx"
-              class="flex items-center gap-2"
+              class="flex gap-2 items-center"
             >
               <UIcon
                 name="i-lucide-check"

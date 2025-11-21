@@ -8,7 +8,7 @@ if (!post.value) {
 
 const { data: surround } = await useAsyncData(`${route.path}-surround`, () => {
   return queryCollectionItemSurroundings('posts', route.path, {
-    fields: ['description']
+    fields: ['description'],
   })
 })
 
@@ -19,16 +19,17 @@ useSeoMeta({
   title,
   ogTitle: title,
   description,
-  ogDescription: description
+  ogDescription: description,
 })
 
 if (post.value.image?.src) {
   defineOgImage({
-    url: post.value.image.src
+    url: post.value.image.src,
   })
-} else {
+}
+else {
   defineOgImageComponent('Saas', {
-    headline: 'Blog'
+    headline: 'Blog',
   })
 }
 </script>
@@ -48,7 +49,7 @@ if (post.value.image?.src) {
         <time class="text-muted">{{ new Date(post.date).toLocaleDateString('en', { year: 'numeric', month: 'short', day: 'numeric' }) }}</time>
       </template>
 
-      <div class="flex flex-wrap items-center gap-3 mt-4">
+      <div class="mt-4 flex flex-wrap gap-3 items-center">
         <UButton
           v-for="(author, index) in post.authors"
           :key="index"

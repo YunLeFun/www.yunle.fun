@@ -6,7 +6,7 @@ const wxKfLink = 'https://work.weixin.qq.com/kfid/kfc9d4dcc4b6bd1c69e'
   <UButton
     color="success"
     icon="i-ri:customer-service-2-line"
-    to="https://work.weixin.qq.com/kfid/kfc9d4dcc4b6bd1c69e"
+    :to="wxKfLink"
     target="_blank"
   >
     联系客服（微信）

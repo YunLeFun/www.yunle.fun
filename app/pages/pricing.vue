@@ -8,7 +8,7 @@ useSeoMeta({
   title,
   ogTitle: title,
   description,
-  ogDescription: description
+  ogDescription: description,
 })
 
 defineOgImageComponent('Saas')
@@ -18,12 +18,12 @@ const isYearly = ref('0')
 const items = ref([
   {
     label: 'Monthly',
-    value: '0'
+    value: '0',
   },
   {
     label: 'Yearly',
-    value: '1'
-  }
+    value: '1',
+  },
 ])
 </script>
 
@@ -43,7 +43,7 @@ const items = ref([
           :ui="{
             list: 'ring ring-accented rounded-full',
             indicator: 'rounded-full',
-            trigger: 'w-1/2'
+            trigger: 'w-1/2',
           }"
         />
       </template>
@@ -67,7 +67,7 @@ const items = ref([
           v-for="icon in page.logos.icons"
           :key="icon"
           :name="icon"
-          class="w-12 h-12 flex-shrink-0 text-muted"
+          class="text-muted flex-shrink-0 h-12 w-12"
         />
       </UPageLogos>
     </UPageSection>
@@ -81,10 +81,10 @@ const items = ref([
         :unmount-on-hide="false"
         :default-value="['0']"
         type="multiple"
-        class="max-w-3xl mx-auto"
+        class="mx-auto max-w-3xl"
         :ui="{
           trigger: 'text-base text-highlighted',
-          body: 'text-base text-muted'
+          body: 'text-base text-muted',
         }"
       />
     </UPageSection>

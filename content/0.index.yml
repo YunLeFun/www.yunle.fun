@@ -99,7 +99,7 @@ cta:
   description: 加入云乐坊创意社区，发现更多有趣的云端应用，或分享你自己的作品，让世界看到你的创意！
   links:
     - label: 开发者平台
-      to: '/developer/'
+      to: /developer/
       target: _blank
       trailingIcon: i-lucide-arrow-right
     - label: 开发者社区

@@ -1,54 +1,53 @@
 <script setup lang="ts">
-import type { FooterColumn } from '@nuxt/ui'
-import YlfLogo from './ylf/Logo.vue'
 import { socialList } from '~/config'
+import YlfLogo from './ylf/Logo.vue'
 
-const columns: FooterColumn[] = [{
+const columns = [{
   label: '资源',
   children: [{
     label: '网站地图',
-    to: '/docs/sitemap/'
+    to: '/docs/sitemap/',
   }, {
     label: '文档',
-    to: '/docs/'
+    to: '/docs/',
   }, {
     label: '博客',
-    to: '/blog'
+    to: '/blog',
   }, {
     label: '日志',
-    to: '/changelog'
-  }]
+    to: '/changelog',
+  }],
 }, {
   label: '关于',
   children: [
     {
       label: '服务协议',
-      to: '/docs/terms-of-service'
+      to: '/docs/terms-of-service',
     },
     {
       label: '隐私政策',
-      to: '/docs/privacy-policy'
+      to: '/docs/privacy-policy',
     },
     {
       label: '联系我们',
-      to: '/docs/contact'
-    }
-  ]
+      to: '/docs/contact',
+    },
+  ],
 }]
 
-const toast = useToast()
+// const toast = useToast()
 
-const email = ref('')
-const loading = ref(false)
+// const email = ref('')
+// const loading = ref(false)
 
-function onSubmit() {
-  loading.value = true
+// function onSubmit() {
+//   loading.value = true
 
-  toast.add({
-    title: 'Subscribed!',
-    description: 'You\'ve been subscribed to our newsletter.'
-  })
-}
+//   toast.add({
+//     title: 'Subscribed!',
+//     description: 'You\'ve been subscribed to our newsletter.',
+//   })
+// }
 </script>
 
 <template>
@@ -84,8 +83,10 @@ function onSubmit() {
     </template>
 
     <template #right>
-      <UButton v-for="item in socialList" :key="item.to" :to="item.to" target="_blank" :icon="item.icon"
-        :aria-label="item.title" color="neutral" variant="ghost" :title="item.title" />
+      <UButton
+        v-for="item in socialList" :key="item.to" :to="item.to" target="_blank" :icon="item.icon"
+        :aria-label="item.title" color="neutral" variant="ghost" :title="item.title"
+      />
     </template>
   </UFooter>
 </template>

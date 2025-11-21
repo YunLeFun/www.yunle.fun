@@ -16,10 +16,10 @@ onMounted(() => {
 
 <template>
   <div
-    class="absolute w-full -top-px transition-all text-primary shrink-0"
+    class="text-primary shrink-0 w-full transition-all absolute -top-px"
     :class="[
       isLoading ? 'animate-pulse' : (appear ? '' : 'opacity-0'),
-      appeared ? 'duration-[400ms]': 'duration-1000'
+      appeared ? 'duration-[400ms]' : 'duration-1000',
     ]"
   >
     <svg

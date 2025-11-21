@@ -5,32 +5,40 @@ const colorEnum = z.enum(['primary', 'secondary', 'neutral', 'error', 'warning',
 const sizeEnum = z.enum(['xs', 'sm', 'md', 'lg', 'xl'])
 const orientationEnum = z.enum(['vertical', 'horizontal'])
 
-const createBaseSchema = () => z.object({
-  title: z.string().nonempty(),
-  description: z.string().nonempty()
-})
+function createBaseSchema() {
+  return z.object({
+    title: z.string().nonempty(),
+    description: z.string().nonempty(),
+  })
+}
 
-const createFeatureItemSchema = () => createBaseSchema().extend({
-  icon: z.string().nonempty().editor({ input: 'icon' })
-})
+function createFeatureItemSchema() {
+  return createBaseSchema().extend({
+    icon: z.string().nonempty().editor({ input: 'icon' }),
+  })
+}
 
-const createLinkSchema = () => z.object({
-  label: z.string().nonempty(),
-  to: z.string().nonempty(),
-  icon: z.string().optional().editor({ input: 'icon' }),
-  size: sizeEnum.optional(),
-  trailing: z.boolean().optional(),
-  target: z.string().optional(),
-  color: colorEnum.optional(),
-  variant: variantEnum.optional()
-})
+function createLinkSchema() {
+  return z.object({
+    label: z.string().nonempty(),
+    to: z.string().nonempty(),
+    icon: z.string().optional().editor({ input: 'icon' }),
+    size: sizeEnum.optional(),
+    trailing: z.boolean().optional(),
+    target: z.string().optional(),
+    color: colorEnum.optional(),
+    variant: variantEnum.optional(),
+  })
+}
 
-const createImageSchema = () => z.object({
-  src: z.string().nonempty().editor({ input: 'media' }),
-  alt: z.string().optional(),
-  loading: z.enum(['lazy', 'eager']).optional(),
-  srcset: z.string().optional()
-})
+function createImageSchema() {
+  return z.object({
+    src: z.string().nonempty().editor({ input: 'media' }),
+    alt: z.string().optional(),
+    loading: z.enum(['lazy', 'eager']).optional(),
+    srcset: z.string().optional(),
+  })
+}
 
 export const collections = {
   index: defineCollection({
@@ -38,18 +46,18 @@ export const collections = {
     type: 'page',
     schema: z.object({
       hero: z.object(({
-        links: z.array(createLinkSchema())
+        links: z.array(createLinkSchema()),
       })),
       sections: z.array(
         createBaseSchema().extend({
           id: z.string().nonempty(),
           orientation: orientationEnum.optional(),
           reverse: z.boolean().optional(),
-          features: z.array(createFeatureItemSchema())
-        })
+          features: z.array(createFeatureItemSchema()),
+        }),
       ),
       features: createBaseSchema().extend({
-        items: z.array(createFeatureItemSchema())
+        items: z.array(createFeatureItemSchema()),
       }),
       testimonials: createBaseSchema().extend({
         headline: z.string().optional(),
@@ -61,19 +69,19 @@ export const collections = {
               description: z.string().nonempty(),
               to: z.string().nonempty(),
               target: z.string().nonempty(),
-              avatar: createImageSchema()
-            })
-          })
-        )
+              avatar: createImageSchema(),
+            }),
+          }),
+        ),
       }),
       cta: createBaseSchema().extend({
-        links: z.array(createLinkSchema())
-      })
-    })
+        links: z.array(createLinkSchema()),
+      }),
+    }),
   }),
   docs: defineCollection({
     source: '1.docs/**/*',
-    type: 'page'
+    type: 'page',
   }),
   pricing: defineCollection({
     source: '2.pricing.yml',
@@ -85,32 +93,32 @@ export const collections = {
           description: z.string().nonempty(),
           price: z.object({
             month: z.string().nonempty(),
-            year: z.string().nonempty()
+            year: z.string().nonempty(),
           }),
           billing_period: z.string().nonempty(),
           billing_cycle: z.string().nonempty(),
           button: createLinkSchema(),
           features: z.array(z.string().nonempty()),
-          highlight: z.boolean().optional()
-        })
+          highlight: z.boolean().optional(),
+        }),
       ),
       logos: z.object({
         title: z.string().nonempty(),
-        icons: z.array(z.string())
+        icons: z.array(z.string()),
       }),
       faq: createBaseSchema().extend({
         items: z.array(
           z.object({
             label: z.string().nonempty(),
-            content: z.string().nonempty()
-          })
-        )
-      })
-    })
+            content: z.string().nonempty(),
+          }),
+        ),
+      }),
+    }),
   }),
   blog: defineCollection({
     source: '3.blog.yml',
-    type: 'page'
+    type: 'page',
   }),
   posts: defineCollection({
     source: '3.blog/**/*',
@@ -121,16 +129,16 @@ export const collections = {
         z.object({
           name: z.string().nonempty(),
           to: z.string().nonempty(),
-          avatar: z.object({ src: z.string().nonempty().editor({ input: 'media' }) })
-        })
+          avatar: z.object({ src: z.string().nonempty().editor({ input: 'media' }) }),
+        }),
       ),
       date: z.date(),
-      badge: z.object({ label: z.string().nonempty() })
-    })
+      badge: z.object({ label: z.string().nonempty() }),
+    }),
   }),
   changelog: defineCollection({
     source: '4.changelog.yml',
-    type: 'page'
+    type: 'page',
   }),
   versions: defineCollection({
     source: '4.changelog/**/*',
@@ -139,35 +147,35 @@ export const collections = {
       title: z.string().nonempty(),
       description: z.string(),
       date: z.date(),
-      image: z.string()
-    })
+      image: z.string(),
+    }),
   }),
   developer: defineCollection({
     source: '5.developer.yml',
     type: 'page',
     schema: z.object({
       hero: z.object({
-        links: z.array(createLinkSchema())
+        links: z.array(createLinkSchema()),
       }),
       sections: z.array(
         createBaseSchema().extend({
           id: z.string().optional(),
           orientation: orientationEnum.optional(),
           reverse: z.boolean().optional(),
-          features: z.array(createFeatureItemSchema())
-        })
+          features: z.array(createFeatureItemSchema()),
+        }),
       ),
       features: createBaseSchema().extend({
-        items: z.array(createFeatureItemSchema())
+        items: z.array(createFeatureItemSchema()),
       }),
       resources: createBaseSchema().extend({
         headline: z.string().optional(),
         items: z.array(
           createFeatureItemSchema().extend({
             to: z.string().optional(),
-            target: z.string().optional()
-          })
-        )
+            target: z.string().optional(),
+          }),
+        ),
       }),
       pricing: createBaseSchema().extend({
         headline: z.string().optional(),
@@ -179,13 +187,13 @@ export const collections = {
             period: z.string().optional(),
             highlight: z.boolean().optional(),
             features: z.array(z.string().nonempty()),
-            cta: createLinkSchema()
-          })
-        )
+            cta: createLinkSchema(),
+          }),
+        ),
       }),
       cta: createBaseSchema().extend({
-        links: z.array(createLinkSchema())
-      })
-    })
-  })
+        links: z.array(createLinkSchema()),
+      }),
+    }),
+  }),
 }

@@ -6,22 +6,31 @@ useSeoMeta({
   title,
   ogTitle: title,
   description,
-  ogDescription: description
+  ogDescription: description,
 })
 
 defineOgImageComponent('Saas')
 
 // 平台下载链接
-const platforms = ref([
+const platforms = ref<{
+  name: string
+  icon: string
+  description: string
+  version: string
+  link: string
+  color: 'primary' | 'secondary' | 'success' | 'info' | 'warning' | 'error' | 'neutral'
+  requirements: string
+  isWeb: boolean
+}[]>([
   {
     name: 'iOS',
     icon: 'i-simple-icons-apple',
     description: 'iPhone 和 iPad',
     version: '最新版本 2.0.0',
     link: '#',
-    color: 'gray',
+    color: 'neutral',
     requirements: 'iOS 14.0 或更高版本',
-    isWeb: false
+    isWeb: false,
   },
   {
     name: 'Android',
@@ -29,9 +38,9 @@ const platforms = ref([
     description: 'Android 设备',
     version: '最新版本 2.0.0',
     link: '#',
-    color: 'green',
+    color: 'success',
     requirements: 'Android 8.0 或更高版本',
-    isWeb: false
+    isWeb: false,
   },
   {
     name: 'Web',
@@ -39,10 +48,10 @@ const platforms = ref([
     description: '网页版',
     version: '无需下载',
     link: '#',
-    color: 'purple',
+    color: 'primary',
     requirements: '现代浏览器',
-    isWeb: true
-  }
+    isWeb: true,
+  },
 ])
 
 // 特性列表
@@ -50,43 +59,43 @@ const features = ref([
   {
     icon: 'i-heroicons-bolt',
     title: '极速体验',
-    description: '优化的性能，流畅的操作体验'
+    description: '优化的性能，流畅的操作体验',
   },
   {
     icon: 'i-heroicons-shield-check',
     title: '安全可靠',
-    description: '端到端加密，保护您的隐私数据'
+    description: '端到端加密，保护您的隐私数据',
   },
   {
     icon: 'i-heroicons-arrow-path',
     title: '自动同步',
-    description: '跨设备实时同步，随时随地访问'
+    description: '跨设备实时同步，随时随地访问',
   },
   {
     icon: 'i-heroicons-device-phone-mobile',
     title: '跨平台支持',
-    description: '支持所有主流操作系统和设备'
-  }
+    description: '支持所有主流操作系统和设备',
+  },
 ])
 
 // FAQ
 const faqItems = ref([
   {
     label: '应用是免费的吗？',
-    content: '是的，我们的应用提供免费版本。高级功能需要订阅专业版。'
+    content: '是的，我们的应用提供免费版本。高级功能需要订阅专业版。',
   },
   {
     label: '如何更新应用？',
-    content: '应用会自动检查更新。您也可以在设置中手动检查更新。'
+    content: '应用会自动检查更新。您也可以在设置中手动检查更新。',
   },
   {
     label: '支持哪些语言？',
-    content: '目前支持简体中文、繁体中文、英语等多种语言。'
+    content: '目前支持简体中文、繁体中文、英语等多种语言。',
   },
   {
     label: '遇到问题怎么办？',
-    content: '您可以访问帮助中心或联系我们的客服团队获取支持。'
-  }
+    content: '您可以访问帮助中心或联系我们的客服团队获取支持。',
+  },
 ])
 </script>
 
@@ -105,17 +114,14 @@ const faqItems = ref([
           :title="platform.name"
           :description="platform.description"
           :icon="platform.icon"
-          :ui="{
-            icon: {
-              base: `w-16 h-16 flex-shrink-0 text-${platform.color}-500`
-            }
-          }"
         >
           <template #footer>
             <div class="flex flex-col gap-3">
-              <div class="text-sm text-muted">
+              <div class="text-muted text-sm">
                 <div>{{ platform.version }}</div>
-                <div class="text-xs mt-1">{{ platform.requirements }}</div>
+                <div class="text-xs mt-1">
+                  {{ platform.requirements }}
+                </div>
               </div>
               <UButton
                 :to="platform.link"
@@ -159,44 +165,44 @@ const faqItems = ref([
       title="系统要求"
       description="确保您的设备满足以下最低要求"
     >
-      <div class="max-w-3xl mx-auto">
+      <div class="mx-auto max-w-3xl">
         <UPageCard variant="subtle">
           <div class="space-y-4">
-            <div class="grid md:grid-cols-2 gap-6">
+            <div class="gap-6 grid md:grid-cols-2">
               <div>
-                <h3 class="font-semibold mb-2 text-highlighted">
+                <h3 class="text-highlighted font-semibold mb-2">
                   移动设备
                 </h3>
-                <ul class="space-y-2 text-muted text-sm">
-                  <li class="flex items-start gap-2">
-                    <UIcon name="i-heroicons-check-circle" class="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                <ul class="text-muted text-sm space-y-2">
+                  <li class="flex gap-2 items-start">
+                    <UIcon name="i-heroicons-check-circle" class="text-primary mt-0.5 flex-shrink-0 h-5 w-5" />
                     <span>iOS 14.0+ / Android 8.0+</span>
                   </li>
-                  <li class="flex items-start gap-2">
-                    <UIcon name="i-heroicons-check-circle" class="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                  <li class="flex gap-2 items-start">
+                    <UIcon name="i-heroicons-check-circle" class="text-primary mt-0.5 flex-shrink-0 h-5 w-5" />
                     <span>至少 2GB RAM</span>
                   </li>
-                  <li class="flex items-start gap-2">
-                    <UIcon name="i-heroicons-check-circle" class="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                  <li class="flex gap-2 items-start">
+                    <UIcon name="i-heroicons-check-circle" class="text-primary mt-0.5 flex-shrink-0 h-5 w-5" />
                     <span>500MB 可用存储空间</span>
                   </li>
                 </ul>
               </div>
               <div>
-                <h3 class="font-semibold mb-2 text-highlighted">
+                <h3 class="text-highlighted font-semibold mb-2">
                   桌面设备
                 </h3>
-                <ul class="space-y-2 text-muted text-sm">
-                  <li class="flex items-start gap-2">
-                    <UIcon name="i-heroicons-check-circle" class="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                <ul class="text-muted text-sm space-y-2">
+                  <li class="flex gap-2 items-start">
+                    <UIcon name="i-heroicons-check-circle" class="text-primary mt-0.5 flex-shrink-0 h-5 w-5" />
                     <span>Windows 10+ / macOS 11+ / Linux</span>
                   </li>
-                  <li class="flex items-start gap-2">
-                    <UIcon name="i-heroicons-check-circle" class="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                  <li class="flex gap-2 items-start">
+                    <UIcon name="i-heroicons-check-circle" class="text-primary mt-0.5 flex-shrink-0 h-5 w-5" />
                     <span>至少 4GB RAM</span>
                   </li>
-                  <li class="flex items-start gap-2">
-                    <UIcon name="i-heroicons-check-circle" class="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                  <li class="flex gap-2 items-start">
+                    <UIcon name="i-heroicons-check-circle" class="text-primary mt-0.5 flex-shrink-0 h-5 w-5" />
                     <span>1GB 可用存储空间</span>
                   </li>
                 </ul>
@@ -218,10 +224,10 @@ const faqItems = ref([
         :items="faqItems"
         :unmount-on-hide="false"
         type="single"
-        class="max-w-3xl mx-auto"
+        class="mx-auto max-w-3xl"
         :ui="{
           trigger: 'text-base text-highlighted',
-          body: 'text-base text-muted'
+          body: 'text-base text-muted',
         }"
       />
     </UPageSection>

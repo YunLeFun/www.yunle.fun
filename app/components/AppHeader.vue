@@ -5,28 +5,29 @@ const items = computed(() => [
   {
     label: '文档',
     to: '/docs',
-    active: route.path.startsWith('/docs')
+    active: route.path.startsWith('/docs'),
   },
   {
     label: '会员',
-    to: '/pricing'
+    to: '/pricing',
   },
   {
     label: '博客',
-    to: '/blog'
+    to: '/blog',
   },
   {
     label: '日志',
-    to: '/changelog'
-  }])
+    to: '/changelog',
+  },
+])
 </script>
 
 <template>
   <UHeader>
     <template #left>
-      <div class="flex items-center justify-center gap-2">
+      <div class="flex gap-2 items-center justify-center">
         <NuxtLink to="/">
-          <AppLogo class="w-auto h-6 shrink-0" />
+          <AppLogo class="shrink-0 h-6 w-auto" />
         </NuxtLink>
         <YlfSiteMenu />
       </div>

@@ -4,9 +4,11 @@ import { socialList } from '~/config'
 
 <template>
   <div
-    class="inline-flex p-4 text-2xl"
+    class="text-2xl p-4 inline-flex"
   >
-    <UButton size="xl" v-for="item in socialList" :key="item.to" :to="item.to" target="_blank" :icon="item.icon"
-        :aria-label="item.title" color="neutral" variant="ghost" :title="item.title" />
+    <UButton
+      v-for="item in socialList" :key="item.to" size="xl" :to="item.to" target="_blank" :icon="item.icon"
+      :aria-label="item.title" color="neutral" variant="ghost" :title="item.title"
+    />
   </div>
 </template>

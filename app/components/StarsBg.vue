@@ -16,18 +16,18 @@ const props = withDefaults(defineProps<{
   speed: 'normal',
   size: () => ({
     min: 1,
-    max: 2
-  })
+    max: 2,
+  }),
 })
 
 // Generate random star positions and sizes
-const generateStars = (count: number): Star[] => {
+function generateStars(count: number): Star[] {
   return Array.from({ length: count }, () => ({
     x: Math.floor(Math.random() * 2000),
     y: Math.floor(Math.random() * 2000),
     size: typeof props.size === 'number'
       ? props.size
-      : Math.random() * (props.size.max - props.size.min) + props.size.min
+      : Math.random() * (props.size.max - props.size.min) + props.size.min,
   }))
 }
 
@@ -35,7 +35,7 @@ const generateStars = (count: number): Star[] => {
 const speedMap = {
   slow: { duration: 200, opacity: 0.5, ratio: 0.3 },
   normal: { duration: 150, opacity: 0.75, ratio: 0.3 },
-  fast: { duration: 100, opacity: 1, ratio: 0.4 }
+  fast: { duration: 100, opacity: 1, ratio: 0.4 },
 }
 
 // Use a more efficient approach to generate and store stars
@@ -43,7 +43,7 @@ const stars = useState<{ slow: Star[], normal: Star[], fast: Star[] }>('stars', 
   return {
     slow: generateStars(Math.floor(props.starCount * speedMap.slow.ratio)),
     normal: generateStars(Math.floor(props.starCount * speedMap.normal.ratio)),
-    fast: generateStars(Math.floor(props.starCount * speedMap.fast.ratio))
+    fast: generateStars(Math.floor(props.starCount * speedMap.fast.ratio)),
   }
 })
 
@@ -51,14 +51,14 @@ const stars = useState<{ slow: Star[], normal: Star[], fast: Star[] }>('stars', 
 const starLayers = computed(() => [
   { stars: stars.value.fast, ...speedMap.fast },
   { stars: stars.value.normal, ...speedMap.normal },
-  { stars: stars.value.slow, ...speedMap.slow }
+  { stars: stars.value.slow, ...speedMap.slow },
 ])
 </script>
 
 <template>
-  <div class="absolute pointer-events-none z-[-1] inset-y-0 inset-x-5 sm:inset-x-7 lg:inset-x-9 overflow-hidden">
+  <div class="pointer-events-none inset-x-5 inset-y-0 absolute z-[-1] overflow-hidden lg:inset-x-9 sm:inset-x-7">
     <svg
-      class="absolute inset-0 pointer-events-none"
+      class="pointer-events-none inset-0 absolute"
       viewBox="0 0 1017 181"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
@@ -117,7 +117,7 @@ const starLayers = computed(() => [
       </defs>
     </svg>
 
-    <div class="stars size-full absolute inset-x-0 top-0">
+    <div class="stars size-full inset-x-0 top-0 absolute">
       <div
         v-for="(layer, index) in starLayers"
         :key="index"
@@ -125,20 +125,20 @@ const starLayers = computed(() => [
         :style="{
           '--star-duration': `${layer.duration}s`,
           '--star-opacity': layer.opacity,
-          '--star-color': color
+          '--star-color': color,
         }"
       >
         <div
           v-for="(star, starIndex) in layer.stars"
           :key="starIndex"
-          class="star absolute rounded-full"
+          class="star rounded-full absolute"
           :style="{
             left: `${star.x}px`,
             top: `${star.y}px`,
             width: `${star.size}px`,
             height: `${star.size}px`,
             backgroundColor: 'var(--star-color)',
-            opacity: 'var(--star-opacity)'
+            opacity: 'var(--star-opacity)',
           }"
         />
       </div>
@@ -150,18 +150,22 @@ const starLayers = computed(() => [
 .stars {
   left: 50%;
   transform: translate(-50%);
-  -webkit-mask-image: linear-gradient(180deg,
-      rgba(217, 217, 217, 0) 0%,
-      rgba(217, 217, 217, 0.8) 25%,
-      #d9d9d9 50%,
-      rgba(217, 217, 217, 0.8) 75%,
-      rgba(217, 217, 217, 0) 100%);
-  mask-image: linear-gradient(180deg,
-      rgba(217, 217, 217, 0) 0%,
-      rgba(217, 217, 217, 0.8) 25%,
-      #d9d9d9 50%,
-      rgba(217, 217, 217, 0.8) 75%,
-      rgba(217, 217, 217, 0) 100%);
+  -webkit-mask-image: linear-gradient(
+    180deg,
+    rgba(217, 217, 217, 0) 0%,
+    rgba(217, 217, 217, 0.8) 25%,
+    #d9d9d9 50%,
+    rgba(217, 217, 217, 0.8) 75%,
+    rgba(217, 217, 217, 0) 100%
+  );
+  mask-image: linear-gradient(
+    180deg,
+    rgba(217, 217, 217, 0) 0%,
+    rgba(217, 217, 217, 0.8) 25%,
+    #d9d9d9 50%,
+    rgba(217, 217, 217, 0.8) 75%,
+    rgba(217, 217, 217, 0) 100%
+  );
   -webkit-mask-size: cover;
   mask-size: cover;
 }

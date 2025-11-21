@@ -9,24 +9,24 @@ const menuItems: DropdownMenuItem[] = [
     to: 'https://www.yunle.fun',
     color: 'primary',
     checked: true,
-    type: 'checkbox'
+    type: 'checkbox',
   },
   {
     label: '应用',
-    to: 'https://apps.yunle.fun/'
+    to: 'https://apps.yunle.fun/',
   },
   {
     label: '博客',
-    to: '/blog'
+    to: '/blog',
   },
   {
     label: '日志',
-    to: '/changelog'
+    to: '/changelog',
   },
   {
     label: '工作室',
-    to: 'https://studio.yunle.fun/'
-  }
+    to: 'https://studio.yunle.fun/',
+  },
   // {
   //   label: 'Docs',
   //   to: 'https://docs.yunle.fun/'
@@ -67,7 +67,7 @@ const menuItems: DropdownMenuItem[] = [
       class="font-semibold rounded-full truncate"
       :class="[open && 'bg-primary/15']"
       :ui="{
-        trailingIcon: ['transition-transform duration-200', open ? 'rotate-180' : undefined].filter(Boolean).join(' ')
+        trailingIcon: ['transition-transform duration-200', open ? 'rotate-180' : undefined].filter(Boolean).join(' '),
       }"
     />
   </UDropdownMenu>

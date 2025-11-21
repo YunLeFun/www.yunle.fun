@@ -2,9 +2,9 @@
   <UPageCard
     variant="subtle"
   >
-    <div class="relative overflow-hidden rounded-sm border border-dashed border-accented opacity-75 px-4 flex items-center justify-center aspect-video">
+    <div class="border-accented px-4 border rounded-sm border-dashed opacity-75 flex aspect-video items-center justify-center relative overflow-hidden">
       <svg
-        class="absolute inset-0 h-full w-full stroke-inverted/10"
+        class="stroke-inverted/10 h-full w-full inset-0 absolute"
         fill="none"
       >
         <defs>
