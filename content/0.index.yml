@@ -1,4 +1,4 @@
-title: 探索 [有趣]{class="text-primary"} 的云端应用
+title: 探索 [有趣]{class="text-primary"} 的云端应用（Deving...）
 description: 发现和分享更多的云端应用，让世界更加有趣多彩。
 seo:
   title: 云乐坊
@@ -26,13 +26,13 @@ sections:
     orientation: horizontal
     features:
       - name: 10+ APPs
-        description: 来自云乐坊的 10+ 自研应用
+        description: 来自云乐坊的 10+ 自研应用与社区优质应用
         icon: i-ri:smartphone-line
       - name: 用户信息
         description: 每日推荐，链接个人账户，云同步你的快捷入口、收藏喜好
         icon: i-ri:user-2-line
       - name: 创意工坊
-        description: 上架分享你的作品，让世界看到你的创意
+        description: 上架分享你的作品或 AI 应用，让世界看到你的创意
         icon: i-lucide-code-2
   - title: 开发者平台
     description: 一站式部署托管或自由上架云端应用，与云乐坊一起共建你的创意社区
@@ -46,7 +46,7 @@ sections:
         description: 自由接入第三方云服务商上架你的应用
         icon: i-ri:cloud-line
       - name: 分享你的创意
-        description: 分享你的作品，让世界看到你的创意
+        description: 分享你的作品或 AI 应用，让世界看到你的创意
         icon: i-lucide-globe
 features:
   title: 让你的创意有一个家
