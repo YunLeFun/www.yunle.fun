@@ -10,7 +10,7 @@ catalogs:
       specifier: ^6.2.0
       version: 6.2.0
     '@iconify-json/lucide':
-      specifier: ^1.2.73
+      specifier: ^1.2.74
       version: 1.2.74
     '@iconify-json/ri':
       specifier: ^1.2.6
@@ -31,19 +31,16 @@ catalogs:
       specifier: ^2.0.0
       version: 2.0.0
     '@nuxt/ui':
-      specifier: ^4.1.0
+      specifier: ^4.2.1
       version: 4.2.1
     '@standard-schema/spec':
       specifier: ^1.0.0
       version: 1.0.0
-    '@unocss/eslint-plugin':
-      specifier: ^66.5.9
-      version: 66.5.9
     '@vueuse/nuxt':
       specifier: ^14.0.0
       version: 14.0.0
     better-sqlite3:
-      specifier: ^12.4.1
+      specifier: ^12.4.5
       version: 12.4.5
     eslint:
       specifier: ^9.39.1
@@ -117,9 +114,6 @@ importers:
       '@nuxt/icon':
         specifier: 'catalog:'
         version: 2.1.0(magicast@0.5.1)(vite@7.2.4(@types/node@24.10.1)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.1))(vue@3.5.24(typescript@5.9.3))
-      '@unocss/eslint-plugin':
-        specifier: 'catalog:'
-        version: 66.5.9(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3)
       eslint:
         specifier: 'catalog:'
         version: 9.39.1(jiti@2.6.1)
@@ -7854,6 +7848,7 @@ snapshots:
   '@quansync/fs@0.1.5':
     dependencies:
       quansync: 0.2.11
+    optional: true
 
   '@resvg/resvg-js-android-arm-eabi@2.6.2':
     optional: true
@@ -8354,6 +8349,7 @@ snapshots:
     dependencies:
       '@unocss/core': 66.5.9
       unconfig: 7.4.1
+    optional: true
 
   '@unocss/core@66.5.9': {}
 
@@ -8369,6 +8365,7 @@ snapshots:
       - eslint
       - supports-color
       - typescript
+    optional: true
 
   '@unocss/extractor-arbitrary-variants@66.5.9':
     dependencies:
@@ -12618,6 +12615,7 @@ snapshots:
     dependencies:
       '@quansync/fs': 0.1.5
       quansync: 0.2.11
+    optional: true
 
   unconfig@7.4.1:
     dependencies:
@@ -12626,6 +12624,7 @@ snapshots:
       jiti: 2.6.1
       quansync: 0.2.11
       unconfig-core: 7.4.1
+    optional: true
 
   uncrypto@0.1.3: {}
 
