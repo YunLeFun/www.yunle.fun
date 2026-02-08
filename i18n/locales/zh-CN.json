@@ -1,0 +1,50 @@
+{
+  "nav": {
+    "docs": "文档",
+    "pricing": "会员",
+    "blog": "博客",
+    "changelog": "日志",
+    "login": "登录",
+    "signup": "注册"
+  },
+  "common": {
+    "welcome": "欢迎",
+    "search": "搜索",
+    "language": "语言",
+    "theme": "主题",
+    "light": "浅色",
+    "dark": "深色",
+    "system": "系统"
+  },
+  "user": {
+    "profile": "个人中心",
+    "settings": "设置"
+  },
+  "auth": {
+    "login": {
+      "title": "欢迎回来",
+      "description": "选择您的登录方式",
+      "email": "邮箱",
+      "password": "密码",
+      "remember": "记住我",
+      "forgotPassword": "忘记密码？",
+      "noAccount": "还没有账户？",
+      "signupLink": "立即注册",
+      "submit": "登录",
+      "loginWith": "使用 {provider} 登录"
+    },
+    "signup": {
+      "title": "创建账户",
+      "description": "开始您的旅程",
+      "hasAccount": "已有账户？",
+      "loginLink": "立即登录",
+      "submit": "注册"
+    },
+    "logout": "退出登录"
+  },
+  "footer": {
+    "copyright": "© {year} YunLeFun. 保留所有权利。",
+    "terms": "服务条款",
+    "privacy": "隐私政策"
+  }
+}

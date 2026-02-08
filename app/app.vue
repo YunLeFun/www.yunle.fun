@@ -1,5 +1,8 @@
 <script setup lang="ts">
+import * as locales from '@nuxt/ui/locale'
+
 const colorMode = useColorMode()
+const { locale } = useI18n()
 
 const color = computed(() => colorMode.value === 'dark' ? '#020618' : 'white')
 
@@ -13,7 +16,7 @@ useHead({
     { rel: 'icon', href: '/favicon.ico' },
   ],
   htmlAttrs: {
-    lang: 'en',
+    lang: locale,
   },
 })
 
@@ -50,10 +53,18 @@ const links = [{
 }]
 
 provide('navigation', navigation)
+
+// Map locale codes to @nuxt/ui locale keys
+const localeMap: Record<string, keyof typeof locales> = {
+  'zh-CN': 'zh_cn',
+  'en': 'en',
+}
+
+const uiLocale = computed(() => locales[localeMap[locale.value] || 'en'])
 </script>
 
 <template>
-  <UApp>
+  <UApp :locale="uiLocale">
     <NuxtLoadingIndicator />
 
     <NuxtLayout>

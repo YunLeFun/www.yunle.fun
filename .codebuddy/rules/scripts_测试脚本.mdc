@@ -1,0 +1,9 @@
+---
+description: scripts 测试脚本
+alwaysApply: false
+enabled: true
+updatedAt: 2025-11-25T02:18:51.568Z
+provider: 
+---
+
+scripts 中的测试脚本优先使用 TypeScript 编写，使用 tsx 执行。

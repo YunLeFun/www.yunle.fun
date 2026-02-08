@@ -9,7 +9,7 @@ useSeoMeta({
   ogDescription: description,
 })
 
-defineOgImageComponent('Saas')
+// defineOgImageComponent('Saas') // Disabled: SSR is required for OG images
 
 // 平台下载链接
 const platforms = ref<{

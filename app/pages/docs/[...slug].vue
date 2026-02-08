@@ -26,7 +26,7 @@ useSeoMeta({
   ogDescription: description,
 })
 
-defineOgImageComponent('Saas')
+// defineOgImageComponent('Saas') // Disabled: SSR is required for OG images
 </script>
 
 <template>

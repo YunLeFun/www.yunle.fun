@@ -1,0 +1,50 @@
+{
+  "nav": {
+    "docs": "Docs",
+    "pricing": "Pricing",
+    "blog": "Blog",
+    "changelog": "Changelog",
+    "login": "Login",
+    "signup": "Sign up"
+  },
+  "common": {
+    "welcome": "Welcome",
+    "search": "Search",
+    "language": "Language",
+    "theme": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "user": {
+    "profile": "Profile",
+    "settings": "Settings"
+  },
+  "auth": {
+    "login": {
+      "title": "Welcome back",
+      "description": "Choose your login method",
+      "email": "Email",
+      "password": "Password",
+      "remember": "Remember me",
+      "forgotPassword": "Forgot password?",
+      "noAccount": "Don't have an account?",
+      "signupLink": "Sign up now",
+      "submit": "Login",
+      "loginWith": "Login with {provider}"
+    },
+    "signup": {
+      "title": "Create Account",
+      "description": "Start your journey",
+      "hasAccount": "Already have an account?",
+      "loginLink": "Login now",
+      "submit": "Sign up"
+    },
+    "logout": "Logout"
+  },
+  "footer": {
+    "copyright": "© {year} YunLeFun. All rights reserved.",
+    "terms": "Terms of Service",
+    "privacy": "Privacy Policy"
+  }
+}

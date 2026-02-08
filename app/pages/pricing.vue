@@ -11,7 +11,7 @@ useSeoMeta({
   ogDescription: description,
 })
 
-defineOgImageComponent('Saas')
+// defineOgImageComponent('Saas') // Disabled: SSR is required for OG images
 
 const isYearly = ref('0')
 
@@ -67,7 +67,7 @@ const items = ref([
           v-for="icon in page.logos.icons"
           :key="icon"
           :name="icon"
-          class="text-muted flex-shrink-0 h-12 w-12"
+          class="text-muted shrink-0 h-12 w-12"
         />
       </UPageLogos>
     </UPageSection>

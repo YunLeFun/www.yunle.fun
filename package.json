@@ -2,7 +2,7 @@
   "name": "www-yunle-fun",
   "type": "module",
   "private": true,
-  "packageManager": "pnpm@10.23.0",
+  "packageManager": "pnpm@10.29.1",
   "scripts": {
     "build": "nuxt build",
     "dev": "nuxt dev",
@@ -29,6 +29,8 @@
     "@iconify-json/ri": "catalog:",
     "@nuxt/eslint": "catalog:",
     "@nuxt/icon": "catalog:",
+    "@nuxtjs/i18n": "catalog:",
+    "baseline-browser-mapping": "catalog:",
     "eslint": "catalog:",
     "eslint-plugin-format": "catalog:",
     "typescript": "catalog:",

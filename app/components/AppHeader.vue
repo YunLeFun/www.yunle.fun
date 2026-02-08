@@ -1,22 +1,23 @@
 <script setup lang="ts">
 const route = useRoute()
+const { t } = useI18n()
 
 const items = computed(() => [
   {
-    label: '文档',
+    label: t('nav.docs'),
     to: '/docs',
     active: route.path.startsWith('/docs'),
   },
   {
-    label: '会员',
+    label: t('nav.pricing'),
     to: '/pricing',
   },
   {
-    label: '博客',
+    label: t('nav.blog'),
     to: '/blog',
   },
   {
-    label: '日志',
+    label: t('nav.changelog'),
     to: '/changelog',
   },
 ])
@@ -39,31 +40,9 @@ const items = computed(() => [
     />
 
     <template #right>
+      <LanguageSwitcher />
       <UColorModeButton />
-
-      <UButton
-        icon="i-lucide-log-in"
-        color="neutral"
-        variant="ghost"
-        to="/login"
-        class="lg:hidden"
-      />
-
-      <UButton
-        label="登录"
-        color="neutral"
-        variant="outline"
-        to="/login"
-        class="hidden lg:inline-flex"
-      />
-
-      <UButton
-        label="注册"
-        color="neutral"
-        trailing-icon="i-lucide-arrow-right"
-        class="hidden lg:inline-flex"
-        to="/signup"
-      />
+      <UserMenu />
     </template>
 
     <template #body>
@@ -75,20 +54,7 @@ const items = computed(() => [
 
       <USeparator class="my-6" />
 
-      <UButton
-        label="Sign in"
-        color="neutral"
-        variant="subtle"
-        to="/login"
-        block
-        class="mb-3"
-      />
-      <UButton
-        label="Sign up"
-        color="neutral"
-        to="/signup"
-        block
-      />
+      <UserMenu />
     </template>
   </UHeader>
 </template>
