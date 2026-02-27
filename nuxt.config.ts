@@ -25,13 +25,14 @@ export default defineNuxtConfig({
       siteUrl: process.env.NUXT_PUBLIC_SITE_URL || 'http://localhost:5173',
       apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || 'http://localhost:3000',
       githubClientId: process.env.NUXT_PUBLIC_GITHUB_CLIENT_ID || '',
+      cloudbaseEnvId: process.env.NUXT_PUBLIC_CLOUDBASE_ENV_ID || '',
+      cloudbaseRegion: process.env.NUXT_PUBLIC_CLOUDBASE_REGION || 'ap-shanghai',
+      cloudbaseAccessKey: process.env.NUXT_PUBLIC_CLOUDBASE_ACCESS_KEY || '',
     },
   },
 
   routeRules: {
     '/docs': { redirect: '/docs/getting-started', prerender: false },
-    '/sw.js': { headers: { 'cache-control': 'public, max-age=0, must-revalidate' } },
-    '/workbox-*.js': { headers: { 'cache-control': 'public, max-age=0, must-revalidate' } },
   },
 
   compatibilityDate: 'latest',
@@ -42,6 +43,12 @@ export default defineNuxtConfig({
         '/',
       ],
       crawlLinks: true,
+    },
+  },
+
+  vite: {
+    server: {
+      allowedHosts: true,
     },
   },
 

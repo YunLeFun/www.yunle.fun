@@ -1,0 +1,243 @@
+<script setup lang="ts">
+import type { AppRecord } from '~/types/app'
+
+definePageMeta({ layout: 'default' })
+
+const route = useRoute()
+const { user } = useTcbAuth()
+const { getAppBySlug, deleteApp: removeApp } = useApps()
+const toast = useToast()
+const router = useRouter()
+
+const slug = computed(() => route.params.slug as string)
+const appData = ref<AppRecord | null>(null)
+const loading = ref(true)
+const deleting = ref(false)
+const showDeleteConfirm = ref(false)
+
+const isOwner = computed(() => {
+  if (!user.value || !appData.value) return false
+  return user.value.id === appData.value.ownerId
+})
+
+useSeoMeta({
+  title: computed(() => appData.value ? `${appData.value.name} - YunLeFun` : '应用 - YunLeFun'),
+  description: computed(() => appData.value?.description || ''),
+})
+
+onMounted(async () => {
+  try {
+    // 数据库写入后可能有短暂同步延迟，重试最多 3 次
+    for (let i = 0; i < 3; i++) {
+      appData.value = await getAppBySlug(slug.value)
+      if (appData.value) break
+      if (i < 2) await new Promise(r => setTimeout(r, 500))
+    }
+    if (!appData.value) {
+      throw createError({ statusCode: 404, statusMessage: '应用不存在' })
+    }
+  }
+  catch (err: unknown) {
+    if (err && typeof err === 'object' && 'statusCode' in err) throw err
+    console.error('加载应用失败:', err)
+  }
+  finally {
+    loading.value = false
+  }
+})
+
+function formatDate(ts: number) {
+  return new Date(ts).toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
+}
+
+async function handleDelete() {
+  if (!appData.value) return
+  try {
+    deleting.value = true
+    await removeApp(appData.value._id)
+    toast.add({ title: '删除成功', description: '应用已被删除', color: 'success' })
+    router.push('/apps')
+  }
+  catch (err: unknown) {
+    toast.add({
+      title: '删除失败',
+      description: err instanceof Error ? err.message : '请稍后重试',
+      color: 'error',
+    })
+  }
+  finally {
+    deleting.value = false
+    showDeleteConfirm.value = false
+  }
+}
+</script>
+
+<template>
+  <UContainer class="py-12">
+    <div v-if="loading" class="flex justify-center py-20">
+      <UIcon name="i-lucide-loader-2" class="text-3xl text-muted animate-spin" />
+    </div>
+
+    <div v-else-if="!appData" class="text-center py-20">
+      <UIcon name="i-lucide-package-x" class="text-5xl text-muted mb-4" />
+      <p class="text-lg text-muted mb-4">
+        应用不存在
+      </p>
+      <UButton to="/apps" label="返回应用列表" icon="i-lucide-arrow-left" color="neutral" variant="outline" />
+    </div>
+
+    <div v-else class="max-w-3xl mx-auto space-y-6">
+      <!-- 导航 -->
+      <div class="flex items-center gap-2 text-sm text-muted">
+        <NuxtLink to="/apps" class="hover:text-default transition-colors">
+          应用
+        </NuxtLink>
+        <UIcon name="i-lucide-chevron-right" class="text-xs" />
+        <span class="text-default font-medium">{{ appData.name }}</span>
+      </div>
+
+      <!-- 头部 -->
+      <div class="flex items-start gap-5">
+        <div class="shrink-0 w-16 h-16 rounded-xl bg-elevated flex items-center justify-center border border-default">
+          <img
+            v-if="appData.icon"
+            :src="appData.icon"
+            :alt="appData.name"
+            class="w-12 h-12 rounded-lg"
+          >
+          <UIcon v-else name="i-lucide-box" class="text-3xl text-muted" />
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-3 mb-1">
+            <h1 class="text-2xl font-bold truncate">
+              {{ appData.name }}
+            </h1>
+            <UBadge
+              :label="appData.isPublic ? '公开' : '私有'"
+              :color="appData.isPublic ? 'success' : 'neutral'"
+              variant="subtle"
+              size="sm"
+            />
+          </div>
+          <p class="text-sm text-muted font-mono">
+            {{ appData.slug }}
+          </p>
+        </div>
+        <!-- 操作按钮 -->
+        <div v-if="isOwner" class="flex items-center gap-2 shrink-0">
+          <UButton
+            :to="`/apps/${appData.slug}/edit`"
+            label="编辑"
+            icon="i-lucide-pencil"
+            color="primary"
+            variant="subtle"
+            size="sm"
+          />
+          <UButton
+            label="删除"
+            icon="i-lucide-trash-2"
+            color="error"
+            variant="ghost"
+            size="sm"
+            @click="showDeleteConfirm = true"
+          />
+        </div>
+      </div>
+
+      <!-- 描述 -->
+      <UPageCard v-if="appData.description" class="p-5">
+        <p class="text-sm leading-relaxed">
+          {{ appData.description }}
+        </p>
+      </UPageCard>
+
+      <!-- 详细信息 -->
+      <UPageCard class="p-5">
+        <h3 class="text-base font-semibold mb-4">
+          应用信息
+        </h3>
+        <div class="divide-y divide-default">
+          <div class="flex items-center justify-between py-3">
+            <div class="flex items-center gap-3">
+              <UIcon name="i-lucide-tag" class="text-lg text-muted" />
+              <span class="text-sm text-muted">标识符</span>
+            </div>
+            <span class="text-sm font-mono">{{ appData.slug }}</span>
+          </div>
+
+          <div class="flex items-center justify-between py-3">
+            <div class="flex items-center gap-3">
+              <UIcon name="i-lucide-user" class="text-lg text-muted" />
+              <span class="text-sm text-muted">所有者</span>
+            </div>
+            <span class="text-sm font-medium">@{{ appData.ownerLogin }}</span>
+          </div>
+
+          <div v-if="appData.githubRepo" class="flex items-center justify-between py-3">
+            <div class="flex items-center gap-3">
+              <UIcon name="i-simple-icons-github" class="text-lg text-muted" />
+              <span class="text-sm text-muted">GitHub 仓库</span>
+            </div>
+            <a
+              :href="`https://github.com/${appData.githubRepo}`"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="text-sm font-medium text-primary hover:underline flex items-center gap-1"
+            >
+              {{ appData.githubRepo }}
+              <UIcon name="i-lucide-external-link" class="text-xs" />
+            </a>
+          </div>
+
+          <div class="flex items-center justify-between py-3">
+            <div class="flex items-center gap-3">
+              <UIcon name="i-lucide-calendar" class="text-lg text-muted" />
+              <span class="text-sm text-muted">创建时间</span>
+            </div>
+            <span class="text-sm">{{ formatDate(appData.createdAt) }}</span>
+          </div>
+
+          <div class="flex items-center justify-between py-3">
+            <div class="flex items-center gap-3">
+              <UIcon name="i-lucide-clock" class="text-lg text-muted" />
+              <span class="text-sm text-muted">最近更新</span>
+            </div>
+            <span class="text-sm">{{ formatDate(appData.updatedAt) }}</span>
+          </div>
+        </div>
+      </UPageCard>
+
+      <!-- 删除确认弹窗 -->
+      <UModal v-model:open="showDeleteConfirm">
+        <template #content>
+          <div class="p-6 space-y-4">
+            <h3 class="text-lg font-semibold text-error">
+              确认删除应用
+            </h3>
+            <p class="text-sm text-muted">
+              确定要删除应用 <strong>{{ appData.name }}</strong> 吗？此操作不可恢复。
+            </p>
+            <div class="flex justify-end gap-3">
+              <UButton
+                label="取消"
+                color="neutral"
+                variant="outline"
+                @click="showDeleteConfirm = false"
+              />
+              <UButton
+                label="确认删除"
+                color="error"
+                :loading="deleting"
+                @click="handleDelete"
+              />
+            </div>
+          </div>
+        </template>
+      </UModal>
+    </div>
+  </UContainer>
+</template>

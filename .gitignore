@@ -25,3 +25,6 @@ logs
 
 # VSC
 .history
+
+# Environment variables
+.env.local

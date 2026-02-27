@@ -18,7 +18,25 @@
   },
   "user": {
     "profile": "Profile",
-    "settings": "Settings"
+    "myApps": "My Apps",
+    "settings": "Settings",
+    "editProfile": "Edit Profile",
+    "nickname": "Nickname",
+    "username": "Username",
+    "phone": "Phone",
+    "email": "Email",
+    "joinDate": "Joined",
+    "userId": "User ID",
+    "role": "Role",
+    "roleAdmin": "Admin",
+    "roleUser": "User",
+    "notSet": "Not set",
+    "notBound": "Not bound",
+    "bound": "Bound",
+    "basicInfo": "Basic Info",
+    "quickActions": "Quick Actions",
+    "accountSettings": "Account Settings",
+    "securitySettings": "Security Settings"
   },
   "auth": {
     "login": {

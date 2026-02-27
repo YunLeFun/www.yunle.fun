@@ -4,7 +4,7 @@
  * 显示用户头像和下拉菜单
  */
 const { t } = useI18n()
-const { user, isAuthenticated, logout } = useAuth()
+const { user, isAuthenticated, logout } = useTcbAuth()
 
 const items = computed(() => [
   [{
@@ -16,6 +16,10 @@ const items = computed(() => [
     label: t('user.profile'),
     icon: 'i-lucide-user',
     to: '/profile',
+  }, {
+    label: t('user.myApps'),
+    icon: 'i-lucide-layout-grid',
+    to: '/apps',
   }, {
     label: t('user.settings'),
     icon: 'i-lucide-settings',

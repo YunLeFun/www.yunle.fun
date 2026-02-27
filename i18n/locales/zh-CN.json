@@ -18,7 +18,25 @@
   },
   "user": {
     "profile": "个人中心",
-    "settings": "设置"
+    "myApps": "我的应用",
+    "settings": "设置",
+    "editProfile": "编辑资料",
+    "nickname": "昵称",
+    "username": "用户名",
+    "phone": "手机号",
+    "email": "邮箱",
+    "joinDate": "注册时间",
+    "userId": "用户 ID",
+    "role": "账户角色",
+    "roleAdmin": "管理员",
+    "roleUser": "普通用户",
+    "notSet": "未设置",
+    "notBound": "未绑定",
+    "bound": "已绑定",
+    "basicInfo": "基本信息",
+    "quickActions": "快捷操作",
+    "accountSettings": "账户设置",
+    "securitySettings": "安全设置"
   },
   "auth": {
     "login": {
