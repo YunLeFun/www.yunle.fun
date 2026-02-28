@@ -88,12 +88,12 @@ export function useGitHubRepos(options: UseGitHubReposOptions = {}) {
 
     try {
       const response = await $fetch<T>(`https://api.github.com${endpoint}`, {
-        ...options,
+        method: (options.method as 'get' | 'post' | 'put' | 'delete') || 'get',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/vnd.github.v3+json',
           'User-Agent': 'YunLeFun-App',
-          ...options.headers,
+          ...(options.headers as Record<string, string>),
         },
       })
 
@@ -252,7 +252,7 @@ export function useGitHubRepos(options: UseGitHubReposOptions = {}) {
    */
   async function fetchOrgRepos(orgLogin: string, params: RepoSearchParams = {}): Promise<void> {
     const cacheKey = `orgRepos_${orgLogin}_${JSON.stringify(params)}`
-    if (isCacheValid(cacheKey) && orgRepos.value[orgLogin]?.length > 0)
+    if (isCacheValid(cacheKey) && (orgRepos.value[orgLogin]?.length ?? 0) > 0)
       return
 
     try {

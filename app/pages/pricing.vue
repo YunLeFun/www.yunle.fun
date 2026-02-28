@@ -114,7 +114,7 @@ function handleClose() {
           :button="{
             ...plan.button,
             label: plan.label,
-            onClick: () => handlePurchase(plan.planId, plan.cycle),
+            onClick: () => handlePurchase(plan.planId as PlanId, plan.cycle),
           }"
         />
       </div>

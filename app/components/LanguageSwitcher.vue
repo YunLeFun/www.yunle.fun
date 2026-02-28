@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// @ts-expect-error useI18n is provided by @nuxtjs/i18n which is currently disabled
 const { locale, setLocale } = useI18n()
 
 const availableLocales: {

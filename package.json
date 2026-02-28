@@ -10,7 +10,8 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "lint": "eslint .",
-    "typecheck": "nuxt typecheck"
+    "typecheck": "nuxt typecheck",
+    "ci": "npm i -g corepack && pnpm install"
   },
   "dependencies": {
     "@cloudbase/js-sdk": "catalog:",

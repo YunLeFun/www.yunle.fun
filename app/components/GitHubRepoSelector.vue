@@ -41,7 +41,7 @@ const {
 // 本地状态
 const isOpen = ref(false)
 const searchQuery = ref('')
-const selectedRepo = ref<RepoSelectorOption | null>(null)
+const selectedRepo = ref<RepoSelectorOption | undefined>(undefined)
 const showManualMode = ref(false)
 const manualInput = ref('')
 
@@ -68,12 +68,12 @@ watch(() => props.modelValue, (newValue) => {
     else {
       // 如果没找到，可能是手动输入的值
       manualInput.value = newValue
-      selectedRepo.value = null
+      selectedRepo.value = undefined
       showManualMode.value = true
     }
   }
   else if (!newValue) {
-    selectedRepo.value = null
+    selectedRepo.value = undefined
     manualInput.value = ''
     showManualMode.value = false
   }
@@ -89,8 +89,10 @@ watch(manualInput, (newValue) => {
 /**
  * 处理仓库选择
  */
-function handleRepoSelect(repo: RepoSelectorOption) {
-  selectedRepo.value = repo
+function handleRepoSelect(repo: any) {
+  if (!repo)
+    return
+  selectedRepo.value = repo as RepoSelectorOption
   showManualMode.value = false
   manualInput.value = ''
   searchQuery.value = ''
@@ -118,7 +120,7 @@ async function handleOwnerSwitch(owner: RepoOwner) {
  */
 function switchToManualMode() {
   showManualMode.value = true
-  selectedRepo.value = null
+  selectedRepo.value = undefined
   manualInput.value = props.modelValue || ''
   isOpen.value = false
 }
@@ -158,7 +160,7 @@ async function handleOpen() {
  * 清除选择
  */
 function clearSelection() {
-  selectedRepo.value = null
+  selectedRepo.value = undefined
   manualInput.value = ''
   showManualMode.value = false
   searchQuery.value = ''
@@ -284,36 +286,33 @@ function formatRepoDescription(repo: RepoSelectorOption): string {
         <!-- 仓库选择器 -->
         <USelectMenu
           v-model="selectedRepo"
-          :options="filteredRepos"
+          :items="filteredRepos"
           :loading="loading"
           :disabled="disabled"
           :placeholder="placeholder"
-          searchable
-          searchable-placeholder="搜索仓库..."
-          option-attribute="label"
-          value-attribute="value"
-          clear-search-on-close
-          @open="handleOpen"
+          :search-input="{ placeholder: '搜索仓库...' }"
+          label-key="label"
+          @update:open="(v: boolean) => { if (v) handleOpen() }"
           @update:model-value="handleRepoSelect"
         >
-          <template #label>
-            <div v-if="selectedRepo" class="flex items-center gap-2">
-              <UIcon :name="selectedRepo.icon || 'i-lucide-book-open'" class="text-sm" />
-              <span class="font-mono">{{ selectedRepo.value }}</span>
+          <template #default="{ modelValue: selectedValue }">
+            <div v-if="selectedValue" class="flex items-center gap-2">
+              <UIcon :name="selectedRepo?.icon || 'i-lucide-book-open'" class="text-sm" />
+              <span class="font-mono">{{ selectedRepo?.value }}</span>
             </div>
             <span v-else class="text-gray-500 dark:text-gray-400">
               {{ placeholder }}
             </span>
           </template>
 
-          <template #option="{ option }">
+          <template #item="{ item }">
             <div class="flex items-center gap-3 w-full">
-              <UIcon :name="option.icon || 'i-lucide-book-open'" class="text-sm shrink-0" />
+              <UIcon :name="(item as any).icon || 'i-lucide-book-open'" class="text-sm shrink-0" />
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2">
-                  <span class="font-medium font-mono text-sm">{{ option.label }}</span>
+                  <span class="font-medium font-mono text-sm">{{ (item as any).label }}</span>
                   <UBadge
-                    v-if="option.private"
+                    v-if="(item as any).private"
                     size="xs"
                     color="warning"
                     variant="subtle"
@@ -322,24 +321,24 @@ function formatRepoDescription(repo: RepoSelectorOption): string {
                   </UBadge>
                 </div>
                 <p
-                  v-if="formatRepoDescription(option)"
+                  v-if="formatRepoDescription(item as any)"
                   class="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5"
                 >
-                  {{ formatRepoDescription(option) }}
+                  {{ formatRepoDescription(item as any) }}
                 </p>
               </div>
             </div>
           </template>
 
-          <template #option-empty="{ query }">
+          <template #empty="{ searchTerm }">
             <div class="flex flex-col items-center gap-2 py-6 text-center">
               <UIcon name="i-lucide-search-x" class="text-2xl text-gray-400" />
               <div>
                 <p class="text-sm font-medium text-gray-900 dark:text-gray-100">
                   未找到仓库
                 </p>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  没有找到包含 "{{ query }}" 的仓库
+                <p v-if="searchTerm" class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  没有找到包含 "{{ searchTerm }}" 的仓库
                 </p>
               </div>
             </div>

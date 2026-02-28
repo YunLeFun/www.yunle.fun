@@ -177,7 +177,7 @@ function draw() {
   for (const corner of corners) {
     if (!corner)
       continue
-    const [cx, cy] = corner
+    const [cx, cy] = corner as [number, number]
     ctx.fillRect(cx - handleSize / 2, cy - handleSize / 2, handleSize, handleSize)
   }
 }

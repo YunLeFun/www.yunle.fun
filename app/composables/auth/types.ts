@@ -44,6 +44,7 @@ export interface UserIdentity {
   id: string
   name: string
   picture: string
+  accessToken?: string
 }
 
 export interface User {
