@@ -22,6 +22,8 @@ const form = reactive({
   slug: '',
   description: '',
   githubRepo: '',
+  websiteUrl: '',
+  backupUrl: '',
   isPublic: true,
 })
 
@@ -96,6 +98,8 @@ async function handleSubmit() {
       slug: form.slug,
       description: form.description.trim(),
       githubRepo: form.githubRepo.trim(),
+      websiteUrl: form.websiteUrl.trim(),
+      backupUrl: form.backupUrl.trim(),
       isPublic: form.isPublic,
     })
 
@@ -174,6 +178,26 @@ async function handleSubmit() {
               v-model="form.githubRepo"
               placeholder="选择或输入 GitHub 仓库..."
               @select="handleRepoSelect"
+            />
+          </UFormField>
+
+          <!-- 网页链接 -->
+          <UFormField label="网页链接" hint="应用的官方网站地址">
+            <UInput
+              v-model="form.websiteUrl"
+              placeholder="https://example.com"
+              icon="i-lucide-globe"
+              class="w-full"
+            />
+          </UFormField>
+
+          <!-- 备用链接 -->
+          <UFormField label="备用链接" hint="可选">
+            <UInput
+              v-model="form.backupUrl"
+              placeholder="https://mirror.example.com"
+              icon="i-lucide-link"
+              class="w-full"
             />
           </UFormField>
 

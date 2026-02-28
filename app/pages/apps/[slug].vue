@@ -202,6 +202,38 @@ async function handleDelete() {
             </a>
           </div>
 
+          <div v-if="appData.websiteUrl" class="flex items-center justify-between py-3">
+            <div class="flex items-center gap-3">
+              <UIcon name="i-lucide-globe" class="text-lg text-muted" />
+              <span class="text-sm text-muted">网页链接</span>
+            </div>
+            <a
+              :href="appData.websiteUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="text-sm font-medium text-primary hover:underline flex items-center gap-1 max-w-xs truncate"
+            >
+              {{ appData.websiteUrl }}
+              <UIcon name="i-lucide-external-link" class="text-xs shrink-0" />
+            </a>
+          </div>
+
+          <div v-if="appData.backupUrl" class="flex items-center justify-between py-3">
+            <div class="flex items-center gap-3">
+              <UIcon name="i-lucide-link" class="text-lg text-muted" />
+              <span class="text-sm text-muted">备用链接</span>
+            </div>
+            <a
+              :href="appData.backupUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="text-sm font-medium text-primary hover:underline flex items-center gap-1 max-w-xs truncate"
+            >
+              {{ appData.backupUrl }}
+              <UIcon name="i-lucide-external-link" class="text-xs shrink-0" />
+            </a>
+          </div>
+
           <div class="flex items-center justify-between py-3">
             <div class="flex items-center gap-3">
               <UIcon name="i-lucide-calendar" class="text-lg text-muted" />

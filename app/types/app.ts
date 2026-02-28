@@ -16,6 +16,10 @@ export interface AppRecord {
   description?: string
   /** 绑定的 GitHub 仓库（可选，格式：owner/repo） */
   githubRepo?: string
+  /** 应用网页链接 */
+  websiteUrl?: string
+  /** 备用链接 */
+  backupUrl?: string
   /** 应用图标 URL */
   icon?: string
   /** 是否公开 */
@@ -32,6 +36,8 @@ export interface CreateAppForm {
   slug: string
   description?: string
   githubRepo?: string
+  websiteUrl?: string
+  backupUrl?: string
   icon?: string
   isPublic: boolean
 }

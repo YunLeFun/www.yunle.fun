@@ -9,6 +9,23 @@ const saving = ref(false)
 const form = reactive({
   nickname: '',
   avatar: '',
+  description: '',
+  gender: '' as '' | 'MALE' | 'FEMALE',
+})
+
+const DESCRIPTION_MAX_LENGTH = 200
+
+const genderOptions = [
+  { label: '保密', value: '', icon: '🔒' },
+  { label: '男', value: 'MALE', icon: '♂' },
+  { label: '女', value: 'FEMALE', icon: '♀' },
+]
+
+const genderLabel = computed(() => {
+  const opt = genderOptions.find(o => o.value === (user.value?.gender || ''))
+  if (!opt || !opt.value)
+    return '保密'
+  return `${opt.icon} ${opt.label}`
 })
 
 // 头像上传相关
@@ -158,12 +175,16 @@ watch(user, (u) => {
   if (u) {
     form.nickname = u.nickname || ''
     form.avatar = u.avatar || ''
+    form.description = u.description || ''
+    form.gender = u.gender || ''
   }
 }, { immediate: true })
 
 function startEdit() {
   form.nickname = user.value?.nickname || ''
   form.avatar = user.value?.avatar || ''
+  form.description = user.value?.description || ''
+  form.gender = user.value?.gender || ''
   editing.value = true
 }
 
@@ -183,8 +204,14 @@ async function save() {
     if (form.avatar !== (user.value?.avatar || '')) {
       updateData.avatar_url = form.avatar
     }
+    if (form.description !== (user.value?.description || '')) {
+      (updateData as Record<string, unknown>).description = form.description
+    }
+    if (form.gender !== (user.value?.gender || '')) {
+      (updateData as Record<string, unknown>).gender = form.gender || undefined
+    }
 
-    if (!updateData.nickname && !updateData.avatar_url) {
+    if (Object.keys(updateData).length === 0) {
       editing.value = false
       return
     }
@@ -292,6 +319,41 @@ async function save() {
           />
           <p v-else class="text-sm py-2">
             {{ user?.nickname || '未设置' }}
+          </p>
+        </UFormField>
+
+        <UFormField label="个人简介">
+          <UTextarea
+            v-if="editing"
+            v-model="form.description"
+            placeholder="介绍一下自己吧"
+            :maxlength="DESCRIPTION_MAX_LENGTH"
+            :rows="3"
+            autoresize
+            class="w-full"
+          />
+          <p v-else class="text-sm py-2 whitespace-pre-wrap">
+            {{ user?.description || '未填写' }}
+          </p>
+          <template v-if="editing" #hint>
+            <span class="text-xs text-dimmed">{{ form.description.length }}/{{ DESCRIPTION_MAX_LENGTH }}</span>
+          </template>
+        </UFormField>
+
+        <UFormField label="性别">
+          <div v-if="editing" class="flex gap-2 py-1">
+            <UButton
+              v-for="opt in genderOptions"
+              :key="opt.value"
+              :label="`${opt.icon} ${opt.label}`"
+              size="sm"
+              :color="form.gender === opt.value ? 'primary' : 'neutral'"
+              :variant="form.gender === opt.value ? 'solid' : 'outline'"
+              @click="form.gender = opt.value as '' | 'MALE' | 'FEMALE'"
+            />
+          </div>
+          <p v-else class="text-sm py-2">
+            {{ genderLabel }}
           </p>
         </UFormField>
 

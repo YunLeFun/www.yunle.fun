@@ -37,6 +37,10 @@ const displayContact = computed(() => {
   }
   return user.value?.email || '未绑定'
 })
+const displayGender = computed(() => {
+  const map: Record<string, string> = { MALE: '♂ 男', FEMALE: '♀ 女' }
+  return map[user.value?.gender || ''] || '保密'
+})
 
 // 我的应用
 const myApps = ref<AppRecord[]>([])
@@ -124,6 +128,22 @@ function formatAppDate(ts: number) {
               <span class="text-sm text-muted">昵称</span>
             </div>
             <span class="text-sm font-medium">{{ displayName }}</span>
+          </div>
+
+          <div v-if="user.description" class="flex items-start justify-between py-3">
+            <div class="flex items-center gap-3 shrink-0">
+              <UIcon name="i-lucide-file-text" class="text-lg text-muted" />
+              <span class="text-sm text-muted">简介</span>
+            </div>
+            <span class="text-sm font-medium text-right max-w-xs whitespace-pre-wrap">{{ user.description }}</span>
+          </div>
+
+          <div class="flex items-center justify-between py-3">
+            <div class="flex items-center gap-3">
+              <UIcon name="i-lucide-person-standing" class="text-lg text-muted" />
+              <span class="text-sm text-muted">性别</span>
+            </div>
+            <span class="text-sm font-medium">{{ displayGender }}</span>
           </div>
 
           <div class="flex items-center justify-between py-3">

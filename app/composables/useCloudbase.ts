@@ -29,6 +29,7 @@ export function useCloudbase() {
     region: config.public.cloudbaseRegion as string,
     accessKey: config.public.cloudbaseAccessKey as string,
     persistence: 'local' as const,
+    // @ts-expect-error 文档是这么写的，但是类型不存在
     auth: {
       detectSessionInUrl: true,
     },

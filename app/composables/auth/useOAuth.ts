@@ -90,8 +90,10 @@ export function useTcbOAuth(core: ReturnType<typeof import('./useAuthCore').useT
         let pollTimer: ReturnType<typeof setInterval>
 
         const handleMessage = (event: MessageEvent) => {
-          if (event.origin !== window.location.origin) return
-          if (event.data?.type !== 'oauth_callback') return
+          if (event.origin !== window.location.origin)
+            return
+          if (event.data?.type !== 'oauth_callback')
+            return
 
           window.removeEventListener('message', handleMessage)
           clearInterval(pollTimer)

@@ -20,6 +20,8 @@ const form = reactive({
   slug: '',
   description: '',
   githubRepo: '',
+  websiteUrl: '',
+  backupUrl: '',
   isPublic: true,
 })
 
@@ -48,6 +50,8 @@ onMounted(async () => {
     form.slug = data.slug
     form.description = data.description || ''
     form.githubRepo = data.githubRepo || ''
+    form.websiteUrl = data.websiteUrl || ''
+    form.backupUrl = data.backupUrl || ''
     form.isPublic = data.isPublic
   }
   catch (err) {
@@ -94,6 +98,8 @@ async function handleSubmit() {
       slug: form.slug,
       description: form.description.trim(),
       githubRepo: form.githubRepo.trim(),
+      websiteUrl: form.websiteUrl.trim(),
+      backupUrl: form.backupUrl.trim(),
       isPublic: form.isPublic,
     })
 
@@ -173,6 +179,26 @@ async function handleSubmit() {
               placeholder="owner/repo"
               icon="i-simple-icons-github"
               class="w-full font-mono"
+            />
+          </UFormField>
+
+          <!-- 网页链接 -->
+          <UFormField label="网页链接" hint="应用的官方网站地址">
+            <UInput
+              v-model="form.websiteUrl"
+              placeholder="https://example.com"
+              icon="i-lucide-globe"
+              class="w-full"
+            />
+          </UFormField>
+
+          <!-- 备用链接 -->
+          <UFormField label="备用链接" hint="可选">
+            <UInput
+              v-model="form.backupUrl"
+              placeholder="https://mirror.example.com"
+              icon="i-lucide-link"
+              class="w-full"
             />
           </UFormField>
 

@@ -47,6 +47,8 @@ export interface UserIdentity {
   accessToken?: string
 }
 
+export type UserGender = 'MALE' | 'FEMALE' | ''
+
 export interface User {
   id: string
   login?: string | null
@@ -54,6 +56,8 @@ export interface User {
   phone?: string | null
   nickname?: string
   avatar?: string | null
+  description?: string
+  gender?: UserGender
   role: string
   hasPassword: boolean
   providers: string[]
@@ -90,6 +94,8 @@ export function mapCloudbaseUser(cbUser: TcbRawUser): User | null {
     phone: cbUser.phone || null,
     nickname: cbUser.user_metadata?.nickName || cbUser.user_metadata?.name || cbUser.user_metadata?.username || undefined,
     avatar: cbUser.user_metadata?.avatarUrl || cbUser.user_metadata?.picture || null,
+    description: (cbUser.user_metadata?.description as string) || '',
+    gender: (['MALE', 'FEMALE'].includes(cbUser.user_metadata?.gender as string) ? cbUser.user_metadata.gender : '') as UserGender,
     role: cbUser.role?.[0] || 'USER',
     hasPassword: passwordStatus === 'SET',
     providers: cbUser.app_metadata?.providers || [],

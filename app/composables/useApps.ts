@@ -80,6 +80,8 @@ export function useApps() {
       slug: form.slug,
       description: form.description || '',
       githubRepo: form.githubRepo || '',
+      websiteUrl: form.websiteUrl || '',
+      backupUrl: form.backupUrl || '',
       icon: form.icon || '',
       isPublic: form.isPublic,
       createdAt: now,
