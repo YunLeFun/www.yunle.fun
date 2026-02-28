@@ -34,7 +34,7 @@ export default defineNuxtConfig({
       siteUrl: process.env.NUXT_PUBLIC_SITE_URL || 'http://localhost:5173',
       apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || 'http://localhost:3000',
       githubClientId: process.env.NUXT_PUBLIC_GITHUB_CLIENT_ID || '',
-      cloudbaseEnvId: process.env.NUXT_PUBLIC_CLOUDBASE_ENV_ID || '',
+      cloudbaseEnvId: process.env.NUXT_PUBLIC_CLOUDBASE_ENV_ID || 'yunlefun-8g7ybcxc7345c490',
       cloudbaseRegion: process.env.NUXT_PUBLIC_CLOUDBASE_REGION || 'ap-shanghai',
       cloudbaseAccessKey: process.env.NUXT_PUBLIC_CLOUDBASE_ACCESS_KEY || '',
       enableH5Pay: process.env.NUXT_PUBLIC_ENABLE_H5_PAY === 'true',

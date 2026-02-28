@@ -29,9 +29,11 @@ const showPaymentModal = ref(false)
  * 构建月付和年付两个套餐选项
  */
 const billingPlans = computed(() => {
-  if (!page.value?.plans) return []
+  if (!page.value?.plans)
+    return []
   const plan = page.value.plans[0] // 只有一个基础版
-  if (!plan) return []
+  if (!plan)
+    return []
 
   const basePlan = {
     ...plan,
@@ -78,7 +80,8 @@ function handlePurchase(planId: PlanId, cycle: BillingCycle) {
  * 切换计费周期
  */
 function handleSwitchCycle(cycle: 'month' | 'year') {
-  if (!payment.selectedPlan.value) return
+  if (!payment.selectedPlan.value)
+    return
   payment.selectPlan(payment.selectedPlan.value, cycle)
 }
 
@@ -157,7 +160,7 @@ function handleClose() {
       :loading="payment.loading.value"
       :error-message="payment.errorMessage.value"
       :code-url="payment.currentOrder.value?.codeUrl"
-      :plan-id="payment.selectedPlan.value"
+      :plan-id="payment.selectedPlan.value ?? undefined"
       @confirm="handleConfirmPay"
       @close="handleClose"
       @switch-cycle="handleSwitchCycle"

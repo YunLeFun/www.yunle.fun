@@ -5,6 +5,7 @@ trustPolicy: no-downgrade
 catalog:
   '@antfu/eslint-config': ^7.6.1
   '@cloudbase/js-sdk': ^2.25.7
+  '@cloudbase/node-sdk': latest
   '@iconify-json/lucide': ^1.2.94
   '@iconify-json/ri': ^1.2.10
   '@iconify-json/simple-icons': ^1.2.71
@@ -15,12 +16,14 @@ catalog:
   '@nuxt/image': ^2.0.0
   '@nuxt/ui': ^4.5.0
   '@nuxtjs/i18n': ^10.2.3
+  '@types/qrcode': ^1.5.6
   '@vueuse/nuxt': ^14.2.1
   baseline-browser-mapping: ^2.10.0
   better-sqlite3: ^12.6.2
   eslint: ^10.0.2
   eslint-plugin-format: ^2.0.1
   nuxt: ^4.3.1
+  qrcode: ^1.5.4
   typescript: ^5.9.3
   vue-tsc: ^3.2.5
   zod: ^4.3.6

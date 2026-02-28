@@ -14,3 +14,7 @@ export default antfu(
   },
 )
   .append(nuxt())
+  .overrideRules({
+    'pnpm/yaml-no-unused-catalog-item': 'off',
+    'vue/v-on-event-hyphenation': 'off',
+  })

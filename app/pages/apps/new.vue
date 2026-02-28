@@ -58,10 +58,6 @@ function onSlugInput() {
   slugError.value = ''
 }
 
-function onRepoInput() {
-  autoRepo.value = false
-}
-
 /**
  * 处理GitHub仓库选择
  */

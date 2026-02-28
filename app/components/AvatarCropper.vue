@@ -52,7 +52,8 @@ const MIN_ZOOM = 0.5
 const MAX_ZOOM = 3
 
 watch(() => props.file, async (file) => {
-  if (!file) return
+  if (!file)
+    return
   imgLoaded.value = false
   const image = new Image()
   image.onload = () => {
@@ -72,7 +73,8 @@ watch(open, (v) => {
 function initLayout() {
   const canvas = canvasRef.value
   const container = containerRef.value
-  if (!canvas || !container || !img.value) return
+  if (!canvas || !container || !img.value)
+    return
 
   const rect = container.getBoundingClientRect()
   canvasW.value = Math.floor(rect.width)
@@ -109,7 +111,8 @@ function initLayout() {
 function draw() {
   const canvas = canvasRef.value
   const ctx = canvas?.getContext('2d')
-  if (!canvas || !ctx || !img.value) return
+  if (!canvas || !ctx || !img.value)
+    return
 
   ctx.clearRect(0, 0, canvas.width, canvas.height)
 
@@ -125,8 +128,10 @@ function draw() {
   // 绘制图片
   ctx.drawImage(
     img.value,
-    renderState.imgX, renderState.imgY,
-    renderState.imgW, renderState.imgH,
+    renderState.imgX,
+    renderState.imgY,
+    renderState.imgW,
+    renderState.imgH,
   )
 
   // 半透明遮罩（裁剪框外部）
@@ -169,14 +174,18 @@ function draw() {
     [crop.x, crop.y + crop.size],
     [crop.x + crop.size, crop.y + crop.size],
   ]
-  for (const [cx, cy] of corners) {
+  for (const corner of corners) {
+    if (!corner)
+      continue
+    const [cx, cy] = corner
     ctx.fillRect(cx - handleSize / 2, cy - handleSize / 2, handleSize, handleSize)
   }
 }
 
 function getCanvasPos(e: MouseEvent | TouchEvent) {
   const canvas = canvasRef.value
-  if (!canvas) return { x: 0, y: 0 }
+  if (!canvas)
+    return { x: 0, y: 0 }
   const rect = canvas.getBoundingClientRect()
   const clientX = 'touches' in e ? e.touches[0]!.clientX : e.clientX
   const clientY = 'touches' in e ? e.touches[0]!.clientY : e.clientY
@@ -195,7 +204,8 @@ function getHitZone(x: number, y: number): typeof dragging.value {
     [crop.x + crop.size, crop.y + crop.size, 'se'],
   ]
   for (const [cx, cy, zone] of corners) {
-    if (Math.abs(x - cx) < handleR && Math.abs(y - cy) < handleR) return zone
+    if (Math.abs(x - cx) < handleR && Math.abs(y - cy) < handleR)
+      return zone
   }
   if (x >= crop.x && x <= crop.x + crop.size && y >= crop.y && y <= crop.y + crop.size) {
     return 'crop'
@@ -206,7 +216,8 @@ function getHitZone(x: number, y: number): typeof dragging.value {
 function onPointerDown(e: MouseEvent | TouchEvent) {
   const pos = getCanvasPos(e)
   const zone = getHitZone(pos.x, pos.y)
-  if (!zone) return
+  if (!zone)
+    return
 
   e.preventDefault()
   dragging.value = zone
@@ -224,9 +235,12 @@ function onPointerMove(e: MouseEvent | TouchEvent) {
     const zone = getHitZone(pos.x, pos.y)
     const canvas = canvasRef.value
     if (canvas) {
-      if (zone === 'nw' || zone === 'se') canvas.style.cursor = 'nwse-resize'
-      else if (zone === 'ne' || zone === 'sw') canvas.style.cursor = 'nesw-resize'
-      else if (zone === 'crop') canvas.style.cursor = 'move'
+      if (zone === 'nw' || zone === 'se')
+        canvas.style.cursor = 'nwse-resize'
+      else if (zone === 'ne' || zone === 'sw')
+        canvas.style.cursor = 'nesw-resize'
+      else if (zone === 'crop')
+        canvas.style.cursor = 'move'
       else canvas.style.cursor = 'default'
     }
     return
@@ -306,7 +320,8 @@ function onZoom(val: number) {
   const oldZoom = zoomLevel.value
   zoomLevel.value = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, val))
 
-  if (!img.value) return
+  if (!img.value)
+    return
 
   const ratio = zoomLevel.value / oldZoom
   const image = img.value
@@ -334,7 +349,8 @@ function onZoom(val: number) {
 }
 
 async function confirm() {
-  if (!img.value) return
+  if (!img.value)
+    return
 
   const image = img.value
   // 计算在原图上的裁剪区域
@@ -357,7 +373,8 @@ async function confirm() {
     offscreen.toBlob(resolve, 'image/jpeg', outputQuality.value),
   )
 
-  if (!blob) return
+  if (!blob)
+    return
 
   const file = new File([blob], `avatar_${Date.now()}.jpg`, { type: 'image/jpeg' })
   emit('confirm', file)
@@ -371,7 +388,8 @@ function cancel() {
 
 // 预览尺寸信息
 const previewInfo = computed(() => {
-  if (!img.value) return null
+  if (!img.value)
+    return null
   const srcSize = Math.round(crop.size / renderState.scale)
   const outputSize = Math.min(maxOutput.value, srcSize)
   return { srcSize, outputSize }

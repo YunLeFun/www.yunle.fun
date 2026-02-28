@@ -22,7 +22,7 @@
     "@vueuse/nuxt": "catalog:",
     "better-sqlite3": "catalog:",
     "nuxt": "catalog:",
-    "qrcode": "^1.5.4",
+    "qrcode": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
@@ -32,7 +32,7 @@
     "@nuxt/eslint": "catalog:",
     "@nuxt/icon": "catalog:",
     "@nuxtjs/i18n": "catalog:",
-    "@types/qrcode": "^1.5.6",
+    "@types/qrcode": "catalog:",
     "baseline-browser-mapping": "catalog:",
     "eslint": "catalog:",
     "eslint-plugin-format": "catalog:",

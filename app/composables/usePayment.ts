@@ -1,12 +1,21 @@
 import type {
   BillingCycle,
   CreateOrderResult,
-  PayType,
   PaymentPhase,
+  PayType,
   PlanId,
   QueryOrderResult,
 } from '~/types/payment'
 import { PLAN_NAMES, PLAN_PRICES } from '~/types/payment'
+
+/** 微信 JSSDK 全局对象 */
+declare const WeixinJSBridge: undefined | {
+  invoke: (
+    api: string,
+    params: Record<string, string>,
+    callback: (res: { err_msg: string }) => void,
+  ) => void
+}
 
 /**
  * 检测当前支付环境
@@ -15,15 +24,18 @@ import { PLAN_NAMES, PLAN_PRICES } from '~/types/payment'
  * - 其他环境 -> native（扫码）
  */
 export function detectPayType(): PayType {
-  if (import.meta.server) return 'native'
+  if (import.meta.server)
+    return 'native'
   const ua = navigator.userAgent.toLowerCase()
   const isWechat = ua.includes('micromessenger')
   const isMobile = /android|iphone|ipad|ipod|mobile/i.test(ua)
 
-  if (isWechat) return 'jsapi'
+  if (isWechat)
+    return 'jsapi'
   if (isMobile) {
     const { enableH5Pay } = useRuntimeConfig().public
-    if (enableH5Pay) return 'h5'
+    if (enableH5Pay)
+      return 'h5'
   }
   return 'native'
 }
@@ -60,7 +72,8 @@ export function usePayment() {
   )
 
   const selectedPlanPrice = computed(() => {
-    if (!selectedPlan.value) return 0
+    if (!selectedPlan.value)
+      return 0
     return PLAN_PRICES[selectedPlan.value][selectedCycle.value]
   })
 
@@ -83,7 +96,8 @@ export function usePayment() {
    * 创建订单并发起支付
    */
   async function createOrder() {
-    if (!selectedPlan.value) return
+    if (!selectedPlan.value)
+      return
     if (!user.value) {
       toast.add({ title: '请先登录', color: 'warning' })
       navigateTo(`/login?redirect=/pricing`)
@@ -258,13 +272,4 @@ export function usePayment() {
     reset,
     stopPolling,
   }
-}
-
-// WeixinJSBridge 类型声明
-declare const WeixinJSBridge: {
-  invoke: (
-    api: string,
-    params: Record<string, string>,
-    callback: (res: { err_msg: string }) => void,
-  ) => void
 }

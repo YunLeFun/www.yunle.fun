@@ -33,6 +33,7 @@ export interface TcbRawUser {
     id: string
     name: string
     picture: string
+    accessToken?: string
   }> | null
   created_at: string
   updated_at: string

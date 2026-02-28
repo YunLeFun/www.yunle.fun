@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import QRCode from 'qrcode'
 import type { PaymentPhase } from '~/types/payment'
+import QRCode from 'qrcode'
 import { detectPayType, formatPrice } from '~/composables/usePayment'
 
 const props = defineProps<{
@@ -19,7 +19,7 @@ const emit = defineEmits<{
   'update:open': [value: boolean]
   'confirm': []
   'close': []
-  'switch-cycle': [cycle: 'month' | 'year']
+  'switchCycle': [cycle: 'month' | 'year']
 }>()
 
 // 当前是否为年付
@@ -109,7 +109,7 @@ function handleClose() {
                 <span
                   class="font-medium cursor-pointer hover:text-primary transition-colors"
                   :class="{ 'text-primary': !isYearly }"
-                  @click="!isYearly || emit('switch-cycle', 'month')"
+                  @click="!isYearly || emit('switchCycle', 'month')"
                 >
                   月付
                 </span>
@@ -117,7 +117,7 @@ function handleClose() {
                 <span
                   class="font-medium cursor-pointer hover:text-primary transition-colors"
                   :class="{ 'text-primary': isYearly }"
-                  @click="isYearly || emit('switch-cycle', 'year')"
+                  @click="isYearly || emit('switchCycle', 'year')"
                 >
                   年付
                 </span>

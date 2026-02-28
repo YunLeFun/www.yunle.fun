@@ -1,5 +1,7 @@
+const { Buffer } = require('node:buffer')
+const crypto = require('node:crypto')
+const process = require('node:process')
 const cloudbase = require('@cloudbase/node-sdk')
-const crypto = require('crypto')
 
 const app = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV })
 const db = app.database()
@@ -8,7 +10,7 @@ const ORDERS_COLLECTION = 'orders'
 /**
  * 验证微信支付 V3 回调签名
  */
-function verifySignature(headers, body) {
+function verifySignature(headers, _body) {
   const timestamp = headers['wechatpay-timestamp']
   const nonce = headers['wechatpay-nonce']
   const signature = headers['wechatpay-signature']
@@ -88,7 +90,7 @@ exports.main = async (event) => {
 
     // 检查事件类型
     if (notification.event_type !== 'TRANSACTION.SUCCESS') {
-      console.log('非支付成功事件，忽略:', notification.event_type)
+      console.warn('非支付成功事件，忽略:', notification.event_type)
       return {
         isBase64Encoded: false,
         statusCode: 200,
@@ -99,12 +101,12 @@ exports.main = async (event) => {
 
     // 解密通知数据
     const resource = decryptResource(notification.resource)
-    console.log('支付通知解密结果:', JSON.stringify(resource))
+    console.warn('支付通知解密结果:', JSON.stringify(resource))
 
     const { out_trade_no, transaction_id, trade_state } = resource
 
     if (trade_state !== 'SUCCESS') {
-      console.log('交易状态非成功:', trade_state)
+      console.warn('交易状态非成功:', trade_state)
       return {
         isBase64Encoded: false,
         statusCode: 200,
@@ -124,7 +126,7 @@ exports.main = async (event) => {
       const order = data[0]
       // 防止重复处理
       if (order.status === 'paid') {
-        console.log('订单已支付，跳过:', out_trade_no)
+        console.warn('订单已支付，跳过:', out_trade_no)
       }
       else {
         await db.collection(ORDERS_COLLECTION).doc(order._id).update({
@@ -133,7 +135,7 @@ exports.main = async (event) => {
           paidAt: Date.now(),
           updatedAt: Date.now(),
         })
-        console.log('订单状态已更新为 paid:', out_trade_no)
+        console.warn('订单状态已更新为 paid:', out_trade_no)
       }
     }
     else {

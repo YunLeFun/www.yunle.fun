@@ -1,5 +1,6 @@
+const crypto = require('node:crypto')
+const process = require('node:process')
 const cloudbase = require('@cloudbase/node-sdk')
-const crypto = require('crypto')
 
 const app = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV })
 const db = app.database()
@@ -22,7 +23,8 @@ function normalizePrivateKey(raw) {
   // 2. 去掉首尾空白
   key = key.trim()
   // 3. 如果已经是正确的多行 PEM，直接返回
-  if (key.includes('\n')) return key
+  if (key.includes('\n'))
+    return key
   // 4. 单行情况：提取纯 base64 内容，按 64 字符折行
   const base64 = key
     .replace(/-----BEGIN (?:RSA )?PRIVATE KEY-----/, '')

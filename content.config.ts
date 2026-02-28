@@ -90,7 +90,7 @@ export const collections = {
       plans: z.array(
         z.object({
           title: z.string().nonempty(),
-          planId: z.string().optional(),
+          planId: z.string(),
           description: z.string().nonempty(),
           price: z.object({
             month: z.string().nonempty(),

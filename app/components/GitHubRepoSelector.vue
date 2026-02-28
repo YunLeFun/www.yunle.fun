@@ -51,11 +51,6 @@ const filteredRepos = computed(() => {
   return reposToOptions(repos).slice(0, 50) // 限制显示数量以提升性能
 })
 
-// 是否显示空状态
-const showEmptyState = computed(() => {
-  return !loading.value && filteredRepos.value.length === 0 && searchQuery.value
-})
-
 // 是否显示未连接状态
 const showNotConnected = computed(() => {
   return !isGitHubConnected.value
@@ -69,13 +64,15 @@ watch(() => props.modelValue, (newValue) => {
     if (found) {
       selectedRepo.value = found
       showManualMode.value = false
-    } else {
+    }
+    else {
       // 如果没找到，可能是手动输入的值
       manualInput.value = newValue
       selectedRepo.value = null
       showManualMode.value = true
     }
-  } else if (!newValue) {
+  }
+  else if (!newValue) {
     selectedRepo.value = null
     manualInput.value = ''
     showManualMode.value = false
@@ -98,7 +95,7 @@ function handleRepoSelect(repo: RepoSelectorOption) {
   manualInput.value = ''
   searchQuery.value = ''
   isOpen.value = false
-  
+
   emit('update:modelValue', repo.value)
   emit('select', repo)
 }
@@ -110,7 +107,8 @@ async function handleOwnerSwitch(owner: RepoOwner) {
   try {
     await switchOwner(owner)
     searchQuery.value = '' // 清空搜索
-  } catch (err) {
+  }
+  catch (err) {
     console.error('切换拥有者失败:', err)
   }
 }
@@ -131,7 +129,7 @@ function switchToManualMode() {
 function switchToSelectMode() {
   showManualMode.value = false
   manualInput.value = ''
-  
+
   // 如果当前值在仓库列表中，自动选中
   if (props.modelValue) {
     const found = filteredRepos.value.find(repo => repo.value === props.modelValue)
@@ -145,10 +143,11 @@ function switchToSelectMode() {
  * 处理下拉框打开
  */
 async function handleOpen() {
-  if (!isGitHubConnected.value) return
-  
+  if (!isGitHubConnected.value)
+    return
+
   isOpen.value = true
-  
+
   // 如果还没有初始化数据，则初始化
   if (ownerOptions.value.length === 0) {
     await initialize()
@@ -163,16 +162,9 @@ function clearSelection() {
   manualInput.value = ''
   showManualMode.value = false
   searchQuery.value = ''
-  
+
   emit('update:modelValue', '')
   emit('select', null)
-}
-
-/**
- * 格式化仓库显示文本
- */
-function formatRepoLabel(repo: RepoSelectorOption): string {
-  return repo.label
 }
 
 /**
@@ -180,19 +172,19 @@ function formatRepoLabel(repo: RepoSelectorOption): string {
  */
 function formatRepoDescription(repo: RepoSelectorOption): string {
   const parts: string[] = []
-  
+
   if (repo.language) {
     parts.push(repo.language)
   }
-  
+
   if (repo.private) {
     parts.push('私有')
   }
-  
+
   if (repo.description) {
     parts.push(repo.description)
   }
-  
+
   return parts.join(' • ')
 }
 </script>
@@ -213,7 +205,7 @@ function formatRepoDescription(repo: RepoSelectorOption): string {
       <UButton
         to="/settings"
         size="xs"
-        color="amber"
+        color="warning"
         variant="outline"
         label="去绑定"
         icon="i-lucide-external-link"
@@ -226,7 +218,7 @@ function formatRepoDescription(repo: RepoSelectorOption): string {
       <div v-if="showManualInput" class="flex items-center gap-2">
         <UButton
           :variant="!showManualMode ? 'solid' : 'outline'"
-          :color="!showManualMode ? 'primary' : 'gray'"
+          :color="!showManualMode ? 'primary' : 'neutral'"
           size="xs"
           icon="i-lucide-search"
           label="选择仓库"
@@ -234,7 +226,7 @@ function formatRepoDescription(repo: RepoSelectorOption): string {
         />
         <UButton
           :variant="showManualMode ? 'solid' : 'outline'"
-          :color="showManualMode ? 'primary' : 'gray'"
+          :color="showManualMode ? 'primary' : 'neutral'"
           size="xs"
           icon="i-lucide-edit"
           label="手动输入"
@@ -264,7 +256,7 @@ function formatRepoDescription(repo: RepoSelectorOption): string {
               v-for="owner in ownerOptions"
               :key="`${owner.type}-${owner.login}`"
               :variant="currentOwner?.login === owner.login ? 'solid' : 'outline'"
-              :color="currentOwner?.login === owner.login ? 'primary' : 'gray'"
+              :color="currentOwner?.login === owner.login ? 'primary' : 'neutral'"
               size="xs"
               @click="handleOwnerSwitch(owner)"
             >
@@ -279,7 +271,7 @@ function formatRepoDescription(repo: RepoSelectorOption): string {
               <UBadge
                 v-if="owner.type === 'organization'"
                 size="xs"
-                color="blue"
+                color="info"
                 variant="subtle"
                 class="ml-1"
               >
@@ -323,7 +315,7 @@ function formatRepoDescription(repo: RepoSelectorOption): string {
                   <UBadge
                     v-if="option.private"
                     size="xs"
-                    color="amber"
+                    color="warning"
                     variant="subtle"
                   >
                     私有
@@ -358,7 +350,7 @@ function formatRepoDescription(repo: RepoSelectorOption): string {
         <div v-if="selectedRepo" class="flex justify-end">
           <UButton
             size="xs"
-            color="gray"
+            color="neutral"
             variant="ghost"
             icon="i-lucide-x"
             label="清除选择"
