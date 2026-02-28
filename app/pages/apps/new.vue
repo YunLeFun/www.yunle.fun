@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { RepoSelectorOption } from '~/types/github'
+
 definePageMeta({ layout: 'default' })
 useSeoMeta({ title: '创建应用 - YunLeFun', description: '创建一个新应用' })
 
@@ -60,6 +62,16 @@ function onRepoInput() {
   autoRepo.value = false
 }
 
+/**
+ * 处理GitHub仓库选择
+ */
+function handleRepoSelect(repo: RepoSelectorOption | null) {
+  if (repo) {
+    form.githubRepo = repo.value
+    autoRepo.value = false
+  }
+}
+
 const SLUG_REGEX = /^[a-z][a-z0-9-]{1,49}$/
 
 async function handleSubmit() {
@@ -92,7 +104,7 @@ async function handleSubmit() {
     })
 
     toast.add({ title: '创建成功', description: '应用已创建', color: 'success' })
-    router.push(`/apps/${form.slug}`)
+    router.push({ path: `/apps/${form.slug}`, query: { new: '1' } })
   }
   catch (err: unknown) {
     toast.add({
@@ -161,13 +173,11 @@ async function handleSubmit() {
           </UFormField>
 
           <!-- GitHub 仓库 -->
-          <UFormField label="GitHub 仓库" hint="可选">
-            <UInput
+          <UFormField label="GitHub 仓库" hint="可选，关联到 GitHub 仓库便于管理">
+            <GitHubRepoSelector
               v-model="form.githubRepo"
-              :placeholder="githubLogin ? `${githubLogin}/repo-name` : 'owner/repo'"
-              icon="i-simple-icons-github"
-              class="w-full font-mono"
-              @input="onRepoInput"
+              placeholder="选择或输入 GitHub 仓库..."
+              @select="handleRepoSelect"
             />
           </UFormField>
 

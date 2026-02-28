@@ -6,6 +6,7 @@
   "scripts": {
     "build": "nuxt build",
     "dev": "nuxt dev --host",
+    "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "lint": "eslint .",
@@ -21,6 +22,7 @@
     "@vueuse/nuxt": "catalog:",
     "better-sqlite3": "catalog:",
     "nuxt": "catalog:",
+    "qrcode": "^1.5.4",
     "zod": "catalog:"
   },
   "devDependencies": {
@@ -30,6 +32,7 @@
     "@nuxt/eslint": "catalog:",
     "@nuxt/icon": "catalog:",
     "@nuxtjs/i18n": "catalog:",
+    "@types/qrcode": "^1.5.6",
     "baseline-browser-mapping": "catalog:",
     "eslint": "catalog:",
     "eslint-plugin-format": "catalog:",

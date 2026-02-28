@@ -52,14 +52,28 @@ export function useApps() {
   }
 
   /**
-   * 创建应用
+   * 根据文档 ID 获取应用详情（主键查询，立即一致，无索引延迟）
    */
-  async function createApp(form: CreateAppForm): Promise<void> {
+  async function getAppById(id: string): Promise<AppRecord | null> {
+    const { data } = await db
+      .collection(COLLECTION)
+      .doc(id)
+      .get()
+    if (Array.isArray(data)) {
+      return (data as AppRecord[])[0] || null
+    }
+    return (data as AppRecord) || null
+  }
+
+  /**
+   * 创建应用，返回新文档 ID
+   */
+  async function createApp(form: CreateAppForm): Promise<string> {
     if (!user.value)
       throw new Error('请先登录')
 
     const now = Date.now()
-    await db.collection(COLLECTION).add({
+    const res = await db.collection(COLLECTION).add({
       ownerId: user.value.id,
       ownerLogin: user.value.login || user.value.id,
       name: form.name,
@@ -70,7 +84,8 @@ export function useApps() {
       isPublic: form.isPublic,
       createdAt: now,
       updatedAt: now,
-    })
+    }) as unknown as { id: string }
+    return res.id
   }
 
   /**
@@ -105,6 +120,7 @@ export function useApps() {
   return {
     getMyApps,
     getUserApps,
+    getAppById,
     getAppBySlug,
     createApp,
     updateApp,

@@ -1,82 +1,35 @@
-title: A plan for every need
-description: Our plans are designed to meet the requirements of both beginners and players. Get the right plan that suits you.
+title: 加入云乐坊会员
+description: 成为云乐坊会员，享受用户数据同步与收藏历史功能。
 seo:
-  title: Pricing
-  description: Choose the plan that's right for you.
+  title: 会员价格
+  description: 加入云乐坊会员。
 navigation.icon: i-lucide-credit-card
 plans:
-  - title: Basic
-    description: A basic plan for individuals.
+  - title: 云乐坊会员
+    planId: basic
     price:
-      month: $9.9
-      year: $99.9
+      month: ¥9.9
+      year: ¥99.9
     button:
-      label: Get Started
+      label: 立即开始
       color: neutral
       variant: subtle
     features:
-      - 1 GB Storage
-      - 1 Email Account
-      - 1 Domain
-      - 1 Website
-      - 1 Database
-      - 1 SSL Certificate
-      - 1 Support Ticket
-  - title: Standard
-    description: A standard plan for small teams.
-    price:
-      month: $19.9
-      year: $199.9
-    highlight: true
-    scale: true
-    button:
-      label: Get Started
-    features:
-      - 10 GB Storage
-      - 10 Email Accounts
-      - 10 Domains
-      - 10 Websites
-      - 10 Databases
-      - 10 SSL Certificates
-      - 10 Support Tickets
-  - title: Premium
-    description: A premium plan for large teams.
-    price:
-      month: $29.9
-      year: $299.9
-    button:
-      label: Get Started
-      color: neutral
-      variant: subtle
-    features:
-      - 100 GB Storage
-      - 100 Email Accounts
-      - 100 Domains
-      - 100 Websites
-      - 100 Databases
-      - 100 SSL Certificates
-      - 100 Support Tickets
+      - 用户数据同步
+      - 收藏/历史记录
 logos:
-  title: Trusted by the world's best
+  title: 值得信赖的合作伙伴
   icons:
-    - i-simple-icons-amazonaws
-    - i-simple-icons-heroku
-    - i-simple-icons-netlify
-    - i-simple-icons-vercel
-    - i-simple-icons-cloudflare
+    - ❄️
+    - 🍲
+    - 💬
 faq:
-  title: Frequently asked questions
-  description: Culpa consectetur dolor pariatur commodo aliqua amet tempor nisi enim deserunt elit cillum.
+  title: 常见问题
+  description: 以下是用户最常问到的问题，希望能帮助您更好地了解我们的服务。
   items:
-    - label: Is this a secure service?
-      content: Qui sunt nostrud aliquip reprehenderit enim proident veniam magna aliquip velit occaecat eiusmod nisi deserunt sunt.
-    - label: How can I cancel my subscription?
-      content: Consectetur irure Lorem nostrud adipisicing aliqua mollit Lorem sit officia magna eiusmod cupidatat.
-    - label: How does the free trial work?
-      content: Quis officia commodo magna eu qui aliquip duis.
-    - label: Can I switch plans later?
-      content: Dolore irure ullamco dolore eu occaecat magna eiusmod dolor aliqua culpa labore.
-    - label: Do you offer refunds?
-      content: Duis mollit nostrud voluptate mollit Lorem dolore commodo veniam incididunt eiusmod.
-    - label: Do you offer support?
-      content: Aliqua sit nisi consequat pariatur Lorem minim irure qui.
+    - label: 如何取消订阅？
+      content: 您可以随时在账户设置中取消订阅。取消后，您的服务将在当前计费周期结束时停止，期间您仍可正常使用所有功能。
+    - label: 你们提供退款吗？
+      content: 我们提供 7 天无理由退款保障。如果您对服务不满意，可以在购买后 7 天内申请全额退款。
+    - label: 你们提供技术支持吗？
+      content: 您可以通过工单联系我们获得技术支持。

@@ -28,13 +28,17 @@ useSeoMeta({
 
 onMounted(async () => {
   try {
-    // 数据库写入后可能有短暂同步延迟，重试最多 3 次
-    for (let i = 0; i < 3; i++) {
+    const isNew = route.query.new === '1'
+    // 新创建的应用可能存在索引延迟，使用更长的重试
+    const maxRetries = isNew ? 6 : 3
+    const baseDelay = isNew ? 600 : 500
+
+    for (let i = 0; i < maxRetries; i++) {
       appData.value = await getAppBySlug(slug.value)
       if (appData.value)
         break
-      if (i < 2)
-        await new Promise(r => setTimeout(r, 500))
+      if (i < maxRetries - 1)
+        await new Promise(r => setTimeout(r, baseDelay * (i + 1)))
     }
     if (!appData.value) {
       throw createError({ statusCode: 404, statusMessage: '应用不存在' })

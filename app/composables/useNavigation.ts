@@ -12,10 +12,10 @@ export function useNavigation() {
   })
 
   const links = [
-    { label: 'Docs', icon: 'i-lucide-book', to: '/docs/getting-started' },
-    { label: 'Pricing', icon: 'i-lucide-credit-card', to: '/pricing' },
-    { label: 'Blog', icon: 'i-lucide-pencil', to: '/blog' },
-    { label: 'Changelog', icon: 'i-lucide-history', to: '/changelog' },
+    { label: '文档', icon: 'i-lucide-book', to: '/docs/getting-started' },
+    { label: '会员', icon: 'i-lucide-credit-card', to: '/pricing' },
+    { label: '博客', icon: 'i-lucide-pencil', to: '/blog' },
+    { label: '日志', icon: 'i-lucide-history', to: '/changelog' },
   ]
 
   return { navigation, files, links }

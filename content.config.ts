@@ -90,16 +90,16 @@ export const collections = {
       plans: z.array(
         z.object({
           title: z.string().nonempty(),
+          planId: z.string().optional(),
           description: z.string().nonempty(),
           price: z.object({
             month: z.string().nonempty(),
             year: z.string().nonempty(),
           }),
-          billing_period: z.string().nonempty(),
-          billing_cycle: z.string().nonempty(),
           button: createLinkSchema(),
           features: z.array(z.string().nonempty()),
           highlight: z.boolean().optional(),
+          scale: z.boolean().optional(),
         }),
       ),
       logos: z.object({

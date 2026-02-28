@@ -16,14 +16,18 @@ const avatarInput = ref<HTMLInputElement | null>(null)
 const uploading = ref(false)
 const uploadProgress = ref(0)
 
-const AVATAR_MAX_SIZE = 2 * 1024 * 1024 // 2MB
+// 裁剪弹窗相关
+const showCropper = ref(false)
+const cropFile = ref<File | null>(null)
+
+const AVATAR_MAX_SIZE = 10 * 1024 * 1024 // 原图限制放宽到 10MB（裁剪后会压缩）
 const AVATAR_ACCEPT = 'image/jpeg,image/png,image/gif,image/webp'
 
 function triggerAvatarUpload() {
   avatarInput.value?.click()
 }
 
-async function handleAvatarChange(e: Event) {
+function handleAvatarChange(e: Event) {
   const input = e.target as HTMLInputElement
   const file = input.files?.[0]
   if (!file)
@@ -31,7 +35,7 @@ async function handleAvatarChange(e: Event) {
 
   // 校验文件大小
   if (file.size > AVATAR_MAX_SIZE) {
-    toast.add({ title: '文件过大', description: '头像图片不能超过 2MB', color: 'error' })
+    toast.add({ title: '文件过大', description: '图片不能超过 10MB', color: 'error' })
     input.value = ''
     return
   }
@@ -43,18 +47,24 @@ async function handleAvatarChange(e: Event) {
     return
   }
 
+  // 打开裁剪弹窗
+  cropFile.value = file
+  showCropper.value = true
+  input.value = ''
+}
+
+async function handleCropConfirm(croppedFile: File) {
   try {
     uploading.value = true
     uploadProgress.value = 0
 
     const { app } = useCloudbase()
-    const ext = file.name.split('.').pop() || 'jpg'
-    const cloudPath = `avatars/${user.value!.id}_${Date.now()}.${ext}`
+    const cloudPath = `avatars/${user.value!.id}_${Date.now()}.jpg`
 
-    // 上传到云存储
+    // 上传裁剪后的图片到云存储
     const { fileID } = await app.uploadFile({
       cloudPath,
-      filePath: file as any,
+      filePath: croppedFile as any,
       onUploadProgress: (event: { loaded: number, total: number }) => {
         uploadProgress.value = Math.round((event.loaded / event.total) * 100)
       },
@@ -80,7 +90,7 @@ async function handleAvatarChange(e: Event) {
   finally {
     uploading.value = false
     uploadProgress.value = 0
-    input.value = ''
+    cropFile.value = null
   }
 }
 
@@ -256,7 +266,7 @@ async function save() {
         </div>
         <div v-if="editing" class="flex-1 space-y-2">
           <p class="text-sm text-muted">
-            点击头像上传图片，支持 JPG/PNG/GIF/WebP，最大 2MB
+            点击头像上传图片，支持裁剪为正方形并自动压缩
           </p>
           <UButton
             label="选择图片"
@@ -403,5 +413,15 @@ async function save() {
         </UCard>
       </template>
     </UModal>
+
+    <!-- 头像裁剪弹窗 -->
+    <AvatarCropper
+      v-model:open="showCropper"
+      :file="cropFile"
+      :max-size="512"
+      :quality="0.85"
+      @confirm="handleCropConfirm"
+      @cancel="cropFile = null"
+    />
   </div>
 </template>

@@ -1,23 +1,26 @@
 <script setup lang="ts">
 const route = useRoute()
-const { t } = useI18n()
 
 const items = computed(() => [
   {
-    label: t('nav.docs'),
+    label: '文档',
     to: '/docs',
     active: route.path.startsWith('/docs'),
   },
   {
-    label: t('nav.pricing'),
+    label: '开发者',
+    to: '/developer',
+  },
+  {
+    label: '会员',
     to: '/pricing',
   },
   {
-    label: t('nav.blog'),
+    label: '博客',
     to: '/blog',
   },
   {
-    label: t('nav.changelog'),
+    label: '日志',
     to: '/changelog',
   },
 ])
@@ -40,7 +43,6 @@ const items = computed(() => [
     />
 
     <template #right>
-      <LanguageSwitcher />
       <UColorModeButton />
       <ClientOnly>
         <UserMenu />

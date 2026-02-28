@@ -1,5 +1,13 @@
 <script setup lang="ts">
+import type { BillingCycle, PlanId } from '~/types/payment'
+
 const { data: page } = await useAsyncData('pricing', () => queryCollection('pricing').first())
+
+// 判断是否为 emoji (通过检查是否不是图标名称格式)
+function isEmoji(str: string): boolean {
+  // 图标名称格式通常是 i-xxx-xxx，其他都是 emoji
+  return !str.startsWith('i-')
+}
 
 const title = page.value?.seo?.title || page.value?.title
 const description = page.value?.seo?.description || page.value?.description
@@ -11,20 +19,77 @@ useSeoMeta({
   ogDescription: description,
 })
 
-// defineOgImageComponent('Saas') // Disabled: SSR is required for OG images
+// 支付相关
+const { user } = useTcbAuth()
+const toast = useToast()
+const payment = usePayment()
+const showPaymentModal = ref(false)
 
-const isYearly = ref('0')
+/**
+ * 构建月付和年付两个套餐选项
+ */
+const billingPlans = computed(() => {
+  if (!page.value?.plans) return []
+  const plan = page.value.plans[0] // 只有一个基础版
+  if (!plan) return []
 
-const items = ref([
-  {
-    label: 'Monthly',
-    value: '0',
-  },
-  {
-    label: 'Yearly',
-    value: '1',
-  },
-])
+  const basePlan = {
+    ...plan,
+    planId: plan.planId,
+    features: plan.features,
+  }
+
+  return [
+    {
+      ...basePlan,
+      title: '月付会员',
+      cycle: 'month' as BillingCycle,
+      price: plan.price.month,
+      billingCycle: '/月',
+      label: '立即订阅',
+    },
+    {
+      ...basePlan,
+      title: '年付会员',
+      cycle: 'year' as BillingCycle,
+      price: plan.price.year,
+      billingCycle: '/年',
+      label: '立即订阅',
+      highlight: true,
+    },
+  ]
+})
+
+/**
+ * 点击套餐按钮
+ */
+function handlePurchase(planId: PlanId, cycle: BillingCycle) {
+  if (!user.value) {
+    toast.add({ title: '请先登录后再购买', color: 'warning' })
+    navigateTo(`/login?redirect=/pricing`)
+    return
+  }
+
+  payment.selectPlan(planId, cycle)
+  showPaymentModal.value = true
+}
+
+/**
+ * 切换计费周期
+ */
+function handleSwitchCycle(cycle: 'month' | 'year') {
+  if (!payment.selectedPlan.value) return
+  payment.selectPlan(payment.selectedPlan.value, cycle)
+}
+
+function handleConfirmPay() {
+  payment.createOrder()
+}
+
+function handleClose() {
+  showPaymentModal.value = false
+  payment.reset()
+}
 </script>
 
 <template>
@@ -32,43 +97,36 @@ const items = ref([
     <UPageHero
       :title="page.title"
       :description="page.description"
-    >
-      <template #links>
-        <UTabs
-          v-model="isYearly"
-          :items="items"
-          color="neutral"
-          size="xs"
-          class="w-48"
-          :ui="{
-            list: 'ring ring-accented rounded-full',
-            indicator: 'rounded-full',
-            trigger: 'w-1/2',
-          }"
-        />
-      </template>
-    </UPageHero>
+    />
 
     <UContainer>
-      <UPricingPlans scale>
+      <div class="grid md:grid-cols-2 gap-6 max-w-2xl mx-auto">
         <UPricingPlan
-          v-for="(plan, index) in page.plans"
+          v-for="(plan, index) in billingPlans"
           :key="index"
           v-bind="plan"
-          :price="isYearly === '1' ? plan.price.year : plan.price.month"
-          :billing-cycle="isYearly === '1' ? '/year' : '/month'"
+          :price="plan.price"
+          :billing-cycle="plan.billingCycle"
+          :highlight="plan.highlight"
+          :button="{
+            ...plan.button,
+            label: plan.label,
+            onClick: () => handlePurchase(plan.planId, plan.cycle),
+          }"
         />
-      </UPricingPlans>
+      </div>
     </UContainer>
 
     <UPageSection>
       <UPageLogos>
-        <UIcon
-          v-for="icon in page.logos.icons"
-          :key="icon"
-          :name="icon"
-          class="text-muted shrink-0 h-12 w-12"
-        />
+        <template v-for="icon in page.logos.icons" :key="icon">
+          <UIcon
+            v-if="!isEmoji(icon)"
+            :name="icon"
+            class="text-muted shrink-0 h-12 w-12"
+          />
+          <span v-else class="text-4xl shrink-0">{{ icon }}</span>
+        </template>
       </UPageLogos>
     </UPageSection>
 
@@ -88,5 +146,21 @@ const items = ref([
         }"
       />
     </UPageSection>
+
+    <!-- 支付弹窗 -->
+    <PaymentModal
+      v-model:open="showPaymentModal"
+      :plan-name="payment.selectedPlanName.value"
+      :price="payment.selectedPlanPrice.value"
+      :billing-cycle="payment.selectedCycle.value"
+      :phase="payment.phase.value"
+      :loading="payment.loading.value"
+      :error-message="payment.errorMessage.value"
+      :code-url="payment.currentOrder.value?.codeUrl"
+      :plan-id="payment.selectedPlan.value"
+      @confirm="handleConfirmPay"
+      @close="handleClose"
+      @switch-cycle="handleSwitchCycle"
+    />
   </div>
 </template>

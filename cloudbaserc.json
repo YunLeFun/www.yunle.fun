@@ -6,7 +6,33 @@
     "name": "www-yunle-fun"
   },
   "functionRoot": "./functions",
-  "functions": [],
+  "functions": [
+    {
+      "name": "wxpay-order",
+      "timeout": 30,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true,
+      "envVariables": {
+        "WX_MCH_ID": "",
+        "WX_SERIAL_NO": "",
+        "WX_PRIVATE_KEY": "",
+        "WX_APIV3_KEY": "",
+        "WX_APPID": "",
+        "WX_NOTIFY_URL": ""
+      }
+    },
+    {
+      "name": "wxpay-notify",
+      "timeout": 10,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true,
+      "envVariables": {
+        "WX_APIV3_KEY": ""
+      }
+    }
+  ],
   "ai": {
     "defaultAgent": "{{env.AI_DEFAULT_AGENT}}",
     "agents": {

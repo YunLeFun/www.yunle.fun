@@ -3,7 +3,6 @@
  * 用户菜单组件
  * 显示用户头像和下拉菜单
  */
-const { t } = useI18n()
 const { user, isAuthenticated, logout } = useTcbAuth()
 
 const items = computed(() => [
@@ -13,20 +12,20 @@ const items = computed(() => [
     type: 'label' as const,
   }],
   [{
-    label: t('user.profile'),
+    label: '个人中心',
     icon: 'i-lucide-user',
     to: '/profile',
   }, {
-    label: t('user.myApps'),
+    label: '我的应用',
     icon: 'i-lucide-layout-grid',
     to: '/apps',
   }, {
-    label: t('user.settings'),
+    label: '设置',
     icon: 'i-lucide-settings',
     to: '/settings',
   }],
   [{
-    label: t('auth.logout'),
+    label: '退出登录',
     icon: 'i-lucide-log-out',
     onSelect: () => logout(),
   }],
@@ -77,7 +76,7 @@ const items = computed(() => [
   <div v-else class="flex items-center gap-2">
     <UButton
       to="/login"
-      :label="t('nav.login')"
+      label="登录"
       color="neutral"
       variant="outline"
       class="hidden lg:inline-flex"
@@ -90,7 +89,7 @@ const items = computed(() => [
       class="lg:hidden"
     />
     <UButton
-      :label="t('nav.signup')"
+      label="注册"
       color="neutral"
       trailing-icon="i-lucide-arrow-right"
       class="hidden lg:inline-flex"

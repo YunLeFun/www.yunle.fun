@@ -74,7 +74,7 @@ const columns = [{
 
     <template #left>
       <p>
-        苏ICP备2023020936号
+        <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" class="hover:underline">苏ICP备2023020936号</a>
       </p>
 
       <p class="text-muted text-sm">

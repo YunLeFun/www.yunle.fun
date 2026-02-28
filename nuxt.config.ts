@@ -8,11 +8,11 @@ export default defineNuxtConfig({
     '@nuxt/ui',
     '@nuxt/image',
     '@vueuse/nuxt',
-    '@nuxtjs/i18n',
+    // '@nuxtjs/i18n', // 暂时禁用国际化，未来重新启用
   ],
 
-  // 启用 SSR，公开页面享受服务端渲染带来的 SEO 和首屏性能提升
-  ssr: true,
+  // 关闭 SSR，作为纯静态站点托管
+  ssr: false,
 
   devtools: {
     enabled: true,
@@ -37,24 +37,12 @@ export default defineNuxtConfig({
       cloudbaseEnvId: process.env.NUXT_PUBLIC_CLOUDBASE_ENV_ID || '',
       cloudbaseRegion: process.env.NUXT_PUBLIC_CLOUDBASE_REGION || 'ap-shanghai',
       cloudbaseAccessKey: process.env.NUXT_PUBLIC_CLOUDBASE_ACCESS_KEY || '',
+      enableH5Pay: process.env.NUXT_PUBLIC_ENABLE_H5_PAY === 'true',
     },
   },
 
   routeRules: {
-    '/docs': { redirect: '/docs/getting-started', prerender: false },
-    // 需要 CloudBase Auth 的页面禁用 SSR
-    '/login': { ssr: false },
-    '/signup': { ssr: false },
-    '/profile': { ssr: false },
-    '/settings': { ssr: false },
-    '/apps/**': { ssr: false },
-    '/auth/**': { ssr: false },
-    // 静态内容页预渲染
-    '/': { prerender: true },
-    '/pricing': { prerender: true },
-    '/blog/**': { prerender: true },
-    '/changelog/**': { prerender: true },
-    '/docs/**': { prerender: true },
+    '/docs': { redirect: '/docs/getting-started' },
   },
 
   experimental: {
@@ -63,12 +51,7 @@ export default defineNuxtConfig({
 
   compatibilityDate: 'latest',
 
-  nitro: {
-    prerender: {
-      routes: ['/'],
-      crawlLinks: true,
-    },
-  },
+  nitro: {},
 
   vite: {
     server: {
@@ -85,10 +68,6 @@ export default defineNuxtConfig({
         },
       },
     },
-    // SSR 构建时将 CloudBase SDK 标记为外部依赖，避免在 Node 中打包浏览器 SDK
-    ssr: {
-      external: ['@cloudbase/js-sdk'],
-    },
   },
 
   eslint: {
@@ -100,27 +79,15 @@ export default defineNuxtConfig({
     },
   },
 
-  i18n: {
-    locales: [
-      {
-        code: 'zh-CN',
-        iso: 'zh-CN',
-        name: '简体中文',
-        file: 'zh-CN.json',
-      },
-      {
-        code: 'en',
-        iso: 'en-US',
-        name: 'English',
-        file: 'en.json',
-      },
-    ],
-    defaultLocale: 'zh-CN',
-    strategy: 'no_prefix',
-    detectBrowserLanguage: {
-      useCookie: true,
-      redirectOn: 'root',
-    },
-    langDir: 'locales',
-  },
+  // i18n 配置暂时禁用，未来重新启用时取消注释
+  // i18n: {
+  //   locales: [
+  //     { code: 'zh-CN', iso: 'zh-CN', name: '简体中文', file: 'zh-CN.json' },
+  //     { code: 'en', iso: 'en-US', name: 'English', file: 'en.json' },
+  //   ],
+  //   defaultLocale: 'zh-CN',
+  //   strategy: 'no_prefix',
+  //   detectBrowserLanguage: { useCookie: true, redirectOn: 'root' },
+  //   langDir: 'locales',
+  // },
 })
