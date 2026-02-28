@@ -135,6 +135,90 @@ function generateJsapiPayParams(prepayId) {
 // ============ 业务逻辑 ============
 
 /**
+ * 创建测试订单（自定义金额）
+ */
+async function handleCreateTestOrder(event, context) {
+  const { amount: customAmount, payType, description: customDesc, wxOpenid } = event
+  const { OPENID: openid } = context.env || {}
+
+  if (!customAmount || !payType) {
+    throw new Error('参数缺失: amount, payType 必填')
+  }
+  const amount = Math.round(Number(customAmount))
+  if (!Number.isFinite(amount) || amount < 1) {
+    throw new Error('金额无效，最小 1 分')
+  }
+
+  const outTradeNo = generateOutTradeNo()
+  const notifyUrl = process.env.WX_NOTIFY_URL
+  const appId = process.env.WX_APPID
+  const mchId = process.env.WX_MCH_ID
+
+  if (!notifyUrl || !appId || !mchId) {
+    throw new Error('微信支付配置缺失，请联系管理员')
+  }
+
+  const orderParams = {
+    appid: appId,
+    mchid: mchId,
+    description: customDesc || `云乐坊测试支付 ${(amount / 100).toFixed(2)} 元`,
+    out_trade_no: outTradeNo,
+    notify_url: notifyUrl,
+    amount: { total: amount, currency: 'CNY' },
+  }
+
+  let wxResult, apiPath
+
+  if (payType === 'native') {
+    apiPath = '/v3/pay/transactions/native'
+    wxResult = await wxpayRequest('POST', apiPath, orderParams)
+  }
+  else if (payType === 'jsapi') {
+    apiPath = '/v3/pay/transactions/jsapi'
+    const payer = wxOpenid || openid
+    if (!payer)
+      throw new Error('JSAPI 支付需要微信 openid')
+    wxResult = await wxpayRequest('POST', apiPath, { ...orderParams, payer: { openid: payer } })
+  }
+  else if (payType === 'h5') {
+    apiPath = '/v3/pay/transactions/h5'
+    wxResult = await wxpayRequest('POST', apiPath, {
+      ...orderParams,
+      scene_info: { payer_client_ip: event.clientIp || '127.0.0.1', h5_info: { type: 'Wap' } },
+    })
+  }
+  else {
+    throw new Error(`不支持的支付方式: ${payType}`)
+  }
+
+  const now = Date.now()
+  await db.collection(ORDERS_COLLECTION).add({
+    userId: openid || '',
+    planId: 'test',
+    billingCycle: 'once',
+    amount,
+    payType,
+    status: 'pending',
+    outTradeNo,
+    codeUrl: wxResult.code_url || '',
+    h5Url: wxResult.h5_url || '',
+    prepayId: wxResult.prepay_id || '',
+    createdAt: now,
+    updatedAt: now,
+  })
+
+  const result = { outTradeNo, payType }
+  if (payType === 'native')
+    result.codeUrl = wxResult.code_url
+  else if (payType === 'h5')
+    result.h5Url = wxResult.h5_url
+  else if (payType === 'jsapi')
+    result.jsapiParams = generateJsapiPayParams(wxResult.prepay_id)
+
+  return result
+}
+
+/**
  * 创建订单
  */
 async function handleCreateOrder(event, context) {
@@ -279,6 +363,8 @@ exports.main = async (event, context) => {
   switch (action) {
     case 'createOrder':
       return handleCreateOrder(event, context)
+    case 'createTestOrder':
+      return handleCreateTestOrder(event, context)
     case 'queryOrder':
       return handleQueryOrder(event)
     default:

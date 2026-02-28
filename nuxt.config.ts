@@ -41,6 +41,11 @@ export default defineNuxtConfig({
     },
   },
 
+  // 生产构建时排除测试页面
+  ignore: [
+    ...(process.env.NODE_ENV === 'production' ? ['pages/test/**'] : []),
+  ],
+
   routeRules: {
     '/docs': { redirect: '/docs/getting-started' },
   },

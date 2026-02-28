@@ -31,42 +31,40 @@ const payType = computed(() => detectPayType())
 const priceFormatted = computed(() => formatPrice(props.price))
 const cycleLabel = computed(() => props.billingCycle === 'year' ? '年付' : '月付')
 
-// 生成二维码
-watch(
-  () => props.codeUrl,
-  async (url) => {
-    if (url && qrCanvas.value) {
-      await QRCode.toCanvas(qrCanvas.value, url, {
-        width: 240,
-        margin: 2,
-        color: {
-          dark: '#111827',
-          light: '#FFFFFF',
-        },
-      })
-    }
-  },
-)
+// 生成二维码的通用方法
+async function renderQRCode() {
+  if (!props.codeUrl)
+    return
+  // 等待 DOM 更新，确保 canvas 已挂载
+  await nextTick()
+  if (qrCanvas.value) {
+    await QRCode.toCanvas(qrCanvas.value, props.codeUrl, {
+      width: 240,
+      margin: 2,
+      color: {
+        dark: '#111827',
+        light: '#FFFFFF',
+      },
+    })
+  }
+}
+
+// 当 codeUrl 变化时生成二维码
+watch(() => props.codeUrl, renderQRCode)
+
+// 当 phase 变为 paying 时生成二维码（此时 canvas 才会渲染到 DOM）
+watch(() => props.phase, (newPhase) => {
+  if (newPhase === 'paying' && props.codeUrl) {
+    renderQRCode()
+  }
+})
 
 // 弹窗打开后生成二维码
-watch(
-  () => props.open,
-  async (isOpen) => {
-    if (isOpen && props.codeUrl) {
-      await nextTick()
-      if (qrCanvas.value) {
-        await QRCode.toCanvas(qrCanvas.value, props.codeUrl, {
-          width: 240,
-          margin: 2,
-          color: {
-            dark: '#111827',
-            light: '#FFFFFF',
-          },
-        })
-      }
-    }
-  },
-)
+watch(() => props.open, (isOpen) => {
+  if (isOpen && props.codeUrl) {
+    renderQRCode()
+  }
+})
 
 function handleClose() {
   emit('update:open', false)
