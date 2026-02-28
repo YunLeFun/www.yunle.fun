@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import * as locales from '@nuxt/ui/locale'
+import { en, zh_cn } from '@nuxt/ui/locale'
 
 const colorMode = useColorMode()
 const { locale } = useI18n()
@@ -21,46 +21,19 @@ useHead({
 })
 
 useSeoMeta({
-  titleTemplate: '%s - Nuxt SaaS template',
+  titleTemplate: '%s - 云乐坊',
   ogImage: 'https://ui.nuxt.com/assets/templates/nuxt/saas-light.png',
   twitterImage: 'https://ui.nuxt.com/assets/templates/nuxt/saas-light.png',
   twitterCard: 'summary_large_image',
 })
 
-const { data: navigation } = await useAsyncData('navigation', () => queryCollectionNavigation('docs'), {
-  transform: data => data.find(item => item.path === '/docs')?.children || [],
-})
-const { data: files } = useLazyAsyncData('search', () => queryCollectionSearchSections('docs'), {
-  server: false,
-})
-
-const links = [{
-  label: 'Docs',
-  icon: 'i-lucide-book',
-  to: '/docs/getting-started',
-}, {
-  label: 'Pricing',
-  icon: 'i-lucide-credit-card',
-  to: '/pricing',
-}, {
-  label: 'Blog',
-  icon: 'i-lucide-pencil',
-  to: '/blog',
-}, {
-  label: 'Changelog',
-  icon: 'i-lucide-history',
-  to: '/changelog',
-}]
-
+const { navigation, files, links } = useNavigation()
 provide('navigation', navigation)
 
-// Map locale codes to @nuxt/ui locale keys
-const localeMap: Record<string, keyof typeof locales> = {
-  'zh-CN': 'zh_cn',
-  'en': 'en',
-}
+// Map locale codes to @nuxt/ui locale objects
+const localeMap = { 'zh-CN': zh_cn, 'en': en } as const
 
-const uiLocale = computed(() => locales[localeMap[locale.value] || 'en'])
+const uiLocale = computed(() => localeMap[locale.value as keyof typeof localeMap] || en)
 </script>
 
 <template>

@@ -11,7 +11,7 @@ const props = withDefaults(defineProps<{
   speed?: 'slow' | 'normal' | 'fast'
   size?: { min: number, max: number }
 }>(), {
-  starCount: 300,
+  starCount: 120,
   color: 'var(--ui-primary)',
   speed: 'normal',
   size: () => ({

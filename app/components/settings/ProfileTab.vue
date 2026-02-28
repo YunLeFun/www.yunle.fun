@@ -26,7 +26,8 @@ function triggerAvatarUpload() {
 async function handleAvatarChange(e: Event) {
   const input = e.target as HTMLInputElement
   const file = input.files?.[0]
-  if (!file) return
+  if (!file)
+    return
 
   // 校验文件大小
   if (file.size > AVATAR_MAX_SIZE) {
@@ -62,7 +63,8 @@ async function handleAvatarChange(e: Event) {
     // 获取临时访问 URL
     const urlResult = await app.getTempFileURL({ fileList: [fileID] })
     const tempUrl = urlResult.fileList?.[0]?.tempFileURL
-    if (!tempUrl) throw new Error('获取头像地址失败')
+    if (!tempUrl)
+      throw new Error('获取头像地址失败')
 
     form.avatar = tempUrl
     toast.add({ title: '上传成功', description: '头像已上传，点击保存生效', color: 'success' })
@@ -99,11 +101,16 @@ const usernameRules = {
 }
 
 function validateUsername(value: string): string {
-  if (!value) return '请输入用户名'
-  if (value.length < usernameRules.minLength) return `用户名至少 ${usernameRules.minLength} 个字符`
-  if (value.length > usernameRules.maxLength) return `用户名不能超过 ${usernameRules.maxLength} 个字符`
-  if (!/^[a-zA-Z]/.test(value)) return '用户名必须以字母开头'
-  if (!usernameRules.pattern.test(value)) return '只允许字母、数字、下划线和连字符'
+  if (!value)
+    return '请输入用户名'
+  if (value.length < usernameRules.minLength)
+    return `用户名至少 ${usernameRules.minLength} 个字符`
+  if (value.length > usernameRules.maxLength)
+    return `用户名不能超过 ${usernameRules.maxLength} 个字符`
+  if (!/^[a-z]/i.test(value))
+    return '用户名必须以字母开头'
+  if (!usernameRules.pattern.test(value))
+    return '只允许字母、数字、下划线和连字符'
   return ''
 }
 

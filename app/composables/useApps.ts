@@ -15,7 +15,8 @@ export function useApps() {
    * 获取当前用户的所有应用
    */
   async function getMyApps(): Promise<AppRecord[]> {
-    if (!user.value) return []
+    if (!user.value)
+      return []
     const { data } = await db
       .collection(COLLECTION)
       .where({ ownerId: user.value.id })
@@ -54,7 +55,8 @@ export function useApps() {
    * 创建应用
    */
   async function createApp(form: CreateAppForm): Promise<void> {
-    if (!user.value) throw new Error('请先登录')
+    if (!user.value)
+      throw new Error('请先登录')
 
     const now = Date.now()
     await db.collection(COLLECTION).add({

@@ -4,7 +4,7 @@ import type { AppRecord } from '~/types/app'
 definePageMeta({ layout: 'default' })
 useSeoMeta({ title: '我的应用 - YunLeFun', description: '管理您发布的应用' })
 
-const { user, isAuthenticated, loading: authLoading } = useTcbAuth()
+const { isAuthenticated, loading: authLoading } = useTcbAuth()
 const { getMyApps } = useApps()
 const router = useRouter()
 

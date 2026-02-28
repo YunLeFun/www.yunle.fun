@@ -37,7 +37,7 @@ watch(() => form.name, (name) => {
   if (autoSlug.value) {
     form.slug = name
       .toLowerCase()
-      .replace(/[^a-z0-9\u4e00-\u9fff-]/g, '-')
+      .replace(/[^a-z0-9\u4E00-\u9FFF-]/g, '-')
       .replace(/-+/g, '-')
       .replace(/^-|-$/g, '')
       .slice(0, 50)

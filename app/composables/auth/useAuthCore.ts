@@ -1,0 +1,120 @@
+/**
+ * 认证核心状态管理
+ * 提供 user, loading, error 以及 fetchUser/checkAuthStatus/logout 等基础方法
+ */
+import type { TcbRawUser, User } from './types'
+import { getErrorMessage, mapCloudbaseUser } from './types'
+
+export function useTcbAuthCore() {
+  const { auth } = useCloudbase()
+  const router = useRouter()
+  const toast = useToast()
+
+  const user = useState<User | null>('auth_user', () => null)
+  const loading = ref(false)
+  const error = ref<string | null>(null)
+  const isAuthenticated = computed(() => !!user.value)
+
+  const clearAuth = () => {
+    user.value = null
+    error.value = null
+  }
+
+  const fetchUser = async () => {
+    try {
+      loading.value = true
+      error.value = null
+      const { data, error: authError } = await auth.getUser()
+      if (authError || !data?.user) {
+        clearAuth()
+        return null
+      }
+      user.value = mapCloudbaseUser(data.user as unknown as TcbRawUser)
+      return user.value
+    }
+    catch (err: unknown) {
+      console.error('获取用户信息失败:', err)
+      error.value = getErrorMessage(err)
+      clearAuth()
+      return null
+    }
+    finally {
+      loading.value = false
+    }
+  }
+
+  const checkAuthStatus = async () => {
+    try {
+      const { data } = await auth.getSession()
+      if (data?.session) {
+        await fetchUser()
+      }
+    }
+    catch {
+      // CloudBase 未登录
+    }
+  }
+
+  const logout = async () => {
+    try {
+      loading.value = true
+      await auth.signOut()
+      clearAuth()
+      toast.add({ title: '已退出登录', description: '期待您的再次光临', color: 'neutral' })
+      await router.push('/login')
+    }
+    catch (err: unknown) {
+      console.error('退出登录失败:', err)
+      clearAuth()
+      toast.add({ title: '退出失败', description: getErrorMessage(err), color: 'error' })
+    }
+    finally {
+      loading.value = false
+    }
+  }
+
+  const setUsername = async (username: string) => {
+    try {
+      loading.value = true
+      error.value = null
+      if (user.value?.login)
+        throw new Error('用户名已设置，不可修改')
+      if (!/^[a-z][\w-]{2,19}$/i.test(username))
+        throw new Error('用户名格式不正确：3-20 个字符，以字母开头，只允许字母、数字、下划线和连字符')
+
+      const { error: updateError } = await auth.updateUser({ username })
+      if (updateError) {
+        const msg = updateError.message || '设置用户名失败'
+        throw new Error(msg.includes('duplicate') || msg.includes('already') || msg.includes('exists')
+          ? '该用户名已被占用，请换一个试试'
+          : msg)
+      }
+      await fetchUser()
+      toast.add({ title: '设置成功', description: `您的用户名已设置为 @${username}`, color: 'success' })
+    }
+    catch (err: unknown) {
+      console.error('设置用户名失败:', err)
+      error.value = getErrorMessage(err)
+      toast.add({ title: '设置失败', description: getErrorMessage(err) || '请稍后重试', color: 'error' })
+      throw err
+    }
+    finally {
+      loading.value = false
+    }
+  }
+
+  return {
+    auth,
+    router,
+    toast,
+    user,
+    loading,
+    error,
+    isAuthenticated,
+    clearAuth,
+    fetchUser,
+    checkAuthStatus,
+    logout,
+    setUsername,
+  }
+}

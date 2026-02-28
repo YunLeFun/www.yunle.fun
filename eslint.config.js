@@ -7,6 +7,10 @@ export default antfu(
     unocss: false,
     formatters: true,
     pnpm: true,
+    ignores: [
+      '.codebuddy/**',
+      'rules/**',
+    ],
   },
 )
   .append(nuxt())

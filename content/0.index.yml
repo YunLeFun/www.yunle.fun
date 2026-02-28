@@ -80,13 +80,13 @@ testimonials:
         name: 沃兹基硕德
         description: 前端开发工程师
         avatar:
-          src: https://i.pravatar.cc/120?img=1
+          src: https://www.yunyoujun.cn/images/avatar.jpg
     - quote: LGTM!
       user:
         name: 云游君
         description: GitHub 活跃开发者
         avatar:
-          src: https://github.com/YunYouJun
+          src: https://www.yunyoujun.cn/images/avatar.jpg
     - quote: El Psy Congroo.
       user:
         name: 小云

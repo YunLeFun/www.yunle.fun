@@ -10,35 +10,16 @@ defineProps({
 
 useHead({
   htmlAttrs: {
-    lang: 'en',
+    lang: 'zh-CN',
   },
 })
 
 useSeoMeta({
-  title: 'Page not found',
-  description: 'We are sorry but this page could not be found.',
+  title: '页面未找到',
+  description: '抱歉，您访问的页面不存在。',
 })
 
-const { data: navigation } = await useAsyncData('navigation', () => queryCollectionNavigation('docs'), {
-  transform: data => data.find(item => item.path === '/docs')?.children || [],
-})
-const { data: files } = useLazyAsyncData('search', () => queryCollectionSearchSections('docs'), {
-  server: false,
-})
-
-const links = [{
-  label: 'Docs',
-  icon: 'i-lucide-book',
-  to: '/docs/getting-started',
-}, {
-  label: 'Pricing',
-  icon: 'i-lucide-credit-card',
-  to: '/pricing',
-}, {
-  label: 'Blog',
-  icon: 'i-lucide-pencil',
-  to: '/blog',
-}]
+const { navigation, files, links } = useNavigation()
 </script>
 
 <template>

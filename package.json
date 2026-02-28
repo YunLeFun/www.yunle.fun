@@ -18,16 +18,15 @@
     "@nuxt/content": "catalog:",
     "@nuxt/image": "catalog:",
     "@nuxt/ui": "catalog:",
-    "@standard-schema/spec": "catalog:",
     "@vueuse/nuxt": "catalog:",
     "better-sqlite3": "catalog:",
     "nuxt": "catalog:",
-    "nuxt-og-image": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@antfu/eslint-config": "catalog:",
     "@iconify-json/ri": "catalog:",
+    "@iconify-json/twemoji": "catalog:",
     "@nuxt/eslint": "catalog:",
     "@nuxt/icon": "catalog:",
     "@nuxtjs/i18n": "catalog:",

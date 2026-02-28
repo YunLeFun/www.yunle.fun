@@ -65,7 +65,8 @@ useSeoMeta({
 const SLUG_REGEX = /^[a-z][a-z0-9-]{1,49}$/
 
 async function handleSubmit() {
-  if (!appData.value) return
+  if (!appData.value)
+    return
 
   if (!form.name.trim()) {
     toast.add({ title: '请输入应用名称', color: 'error' })

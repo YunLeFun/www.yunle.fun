@@ -6,16 +6,25 @@ export default defineNuxtConfig({
     '@nuxt/eslint',
     '@nuxt/content',
     '@nuxt/ui',
-    '@nuxt/icon',
     '@nuxt/image',
     '@vueuse/nuxt',
-    // 'nuxt-og-image', // Disabled: requires SSR to be enabled
     '@nuxtjs/i18n',
   ],
-  ssr: false,
+
+  // 启用 SSR，公开页面享受服务端渲染带来的 SEO 和首屏性能提升
+  ssr: true,
 
   devtools: {
     enabled: true,
+  },
+
+  // 预连接外部域名加速首屏
+  app: {
+    head: {
+      link: [
+        { rel: 'preconnect', href: 'https://tcb-api.tencentcloudapi.com' },
+      ],
+    },
   },
 
   css: ['~/assets/css/main.css'],
@@ -33,15 +42,30 @@ export default defineNuxtConfig({
 
   routeRules: {
     '/docs': { redirect: '/docs/getting-started', prerender: false },
+    // 需要 CloudBase Auth 的页面禁用 SSR
+    '/login': { ssr: false },
+    '/signup': { ssr: false },
+    '/profile': { ssr: false },
+    '/settings': { ssr: false },
+    '/apps/**': { ssr: false },
+    '/auth/**': { ssr: false },
+    // 静态内容页预渲染
+    '/': { prerender: true },
+    '/pricing': { prerender: true },
+    '/blog/**': { prerender: true },
+    '/changelog/**': { prerender: true },
+    '/docs/**': { prerender: true },
+  },
+
+  experimental: {
+    payloadExtraction: true,
   },
 
   compatibilityDate: 'latest',
 
   nitro: {
     prerender: {
-      routes: [
-        '/',
-      ],
+      routes: ['/'],
       crawlLinks: true,
     },
   },
@@ -49,6 +73,21 @@ export default defineNuxtConfig({
   vite: {
     server: {
       allowedHosts: true,
+    },
+    build: {
+      rollupOptions: {
+        output: {
+          // 将大型依赖拆分为独立 chunk
+          manualChunks(id) {
+            if (id.includes('@cloudbase'))
+              return 'cloudbase'
+          },
+        },
+      },
+    },
+    // SSR 构建时将 CloudBase SDK 标记为外部依赖，避免在 Node 中打包浏览器 SDK
+    ssr: {
+      external: ['@cloudbase/js-sdk'],
     },
   },
 
@@ -77,7 +116,7 @@ export default defineNuxtConfig({
       },
     ],
     defaultLocale: 'zh-CN',
-    strategy: 'no_prefix', // 不在 URL 中添加语言前缀
+    strategy: 'no_prefix',
     detectBrowserLanguage: {
       useCookie: true,
       redirectOn: 'root',

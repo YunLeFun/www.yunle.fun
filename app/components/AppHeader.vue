@@ -42,7 +42,9 @@ const items = computed(() => [
     <template #right>
       <LanguageSwitcher />
       <UColorModeButton />
-      <UserMenu />
+      <ClientOnly>
+        <UserMenu />
+      </ClientOnly>
     </template>
 
     <template #body>
@@ -54,7 +56,9 @@ const items = computed(() => [
 
       <USeparator class="my-6" />
 
-      <UserMenu />
+      <ClientOnly>
+        <UserMenu />
+      </ClientOnly>
     </template>
   </UHeader>
 </template>

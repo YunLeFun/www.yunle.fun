@@ -168,7 +168,6 @@ onUnmounted(() => {
         :disabled="!formValid"
         @click="handleSignUp"
       />
-
     </div>
 
     <!-- 步骤 2: 验证码验证 -->

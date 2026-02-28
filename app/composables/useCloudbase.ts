@@ -1,32 +1,39 @@
 import cloudbase from '@cloudbase/js-sdk'
 
 type TcbApp = ReturnType<typeof cloudbase.init>
-
-let _app: TcbApp | null = null
-let _auth: ReturnType<TcbApp['auth']> | null = null
+type TcbAuth = ReturnType<TcbApp['auth']>
 
 /**
- * CloudBase SDK 全局单例
- * 提供 app 和 auth 实例
+ * CloudBase SDK 全局单例（SSR 安全）
+ * 使用 useNuxtApp 在请求级别隔离实例
  */
 export function useCloudbase() {
+  const nuxtApp = useNuxtApp()
   const config = useRuntimeConfig()
 
-  if (!_app) {
-    _app = cloudbase.init({
-      env: config.public.cloudbaseEnvId as string,
-      region: config.public.cloudbaseRegion as string,
-      accessKey: config.public.cloudbaseAccessKey as string,
-      persistence: 'local' as const,
-    })
+  // SSR 时返回空占位，CloudBase 认证仅在客户端使用
+  if (import.meta.server) {
+    return { app: null as unknown as TcbApp, auth: null as unknown as TcbAuth }
   }
 
-  if (!_auth) {
-    _auth = _app.auth({ persistence: 'local' })
+  // 已初始化则直接返回缓存
+  const cachedApp = nuxtApp._cloudbaseApp as TcbApp | undefined
+  const cachedAuth = nuxtApp._cloudbaseAuth as TcbAuth | undefined
+  if (cachedApp && cachedAuth) {
+    return { app: cachedApp, auth: cachedAuth }
   }
 
-  return {
-    app: _app,
-    auth: _auth,
-  }
+  // 初始化 CloudBase SDK
+  const app: TcbApp = cloudbase.init({
+    env: config.public.cloudbaseEnvId as string,
+    region: config.public.cloudbaseRegion as string,
+    accessKey: config.public.cloudbaseAccessKey as string,
+    persistence: 'local' as const,
+  })
+  const auth: TcbAuth = app.auth({ persistence: 'local' })
+
+  nuxtApp._cloudbaseApp = app
+  nuxtApp._cloudbaseAuth = auth
+
+  return { app, auth }
 }

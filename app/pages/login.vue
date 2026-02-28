@@ -48,16 +48,14 @@ const phone = ref('')
 const phoneOtpCode = ref('')
 const phoneOtpData = ref<TcbOtpData | null>(null)
 const phoneCodeSent = ref(false)
-const phoneCountdown = ref(0)
-let phoneCountdownTimer: ReturnType<typeof setInterval> | null = null
+const { remaining: phoneCountdown, isActive: phoneCountdownActive, start: startPhoneCountdown } = useCountdown()
 
 // 邮箱登录状态
 const email = ref('')
 const emailOtpCode = ref('')
 const emailOtpData = ref<TcbOtpData | null>(null)
 const emailCodeSent = ref(false)
-const emailCountdown = ref(0)
-let emailCountdownTimer: ReturnType<typeof setInterval> | null = null
+const { remaining: emailCountdown, isActive: emailCountdownActive, start: startEmailCountdown } = useCountdown()
 
 // 密码登录状态
 const passwordAccount = ref('')
@@ -75,8 +73,7 @@ const resetData = ref<TcbResetPasswordData | null>(null)
 const resetStep = ref<'input' | 'verify' | 'newpwd'>('input')
 const newPassword = ref('')
 const confirmNewPassword = ref('')
-const resetCountdown = ref(0)
-let resetCountdownTimer: ReturnType<typeof setInterval> | null = null
+const { remaining: resetCountdown, isActive: resetCountdownActive, start: startResetCountdown } = useCountdown()
 
 const providers = [
   {
@@ -223,48 +220,6 @@ async function handleConfirmReset() {
   }
 }
 
-// 手机倒计时
-function startPhoneCountdown() {
-  phoneCountdown.value = 60
-  if (phoneCountdownTimer)
-    clearInterval(phoneCountdownTimer)
-  phoneCountdownTimer = setInterval(() => {
-    phoneCountdown.value--
-    if (phoneCountdown.value <= 0) {
-      clearInterval(phoneCountdownTimer!)
-      phoneCountdownTimer = null
-    }
-  }, 1000)
-}
-
-// 邮箱倒计时
-function startEmailCountdown() {
-  emailCountdown.value = 60
-  if (emailCountdownTimer)
-    clearInterval(emailCountdownTimer)
-  emailCountdownTimer = setInterval(() => {
-    emailCountdown.value--
-    if (emailCountdown.value <= 0) {
-      clearInterval(emailCountdownTimer!)
-      emailCountdownTimer = null
-    }
-  }, 1000)
-}
-
-// 重置密码倒计时
-function startResetCountdown() {
-  resetCountdown.value = 60
-  if (resetCountdownTimer)
-    clearInterval(resetCountdownTimer)
-  resetCountdownTimer = setInterval(() => {
-    resetCountdown.value--
-    if (resetCountdown.value <= 0) {
-      clearInterval(resetCountdownTimer!)
-      resetCountdownTimer = null
-    }
-  }, 1000)
-}
-
 function openResetPassword() {
   showResetPassword.value = true
   resetStep.value = 'input'
@@ -274,15 +229,6 @@ function openResetPassword() {
   confirmNewPassword.value = ''
   resetData.value = null
 }
-
-onUnmounted(() => {
-  if (phoneCountdownTimer)
-    clearInterval(phoneCountdownTimer)
-  if (emailCountdownTimer)
-    clearInterval(emailCountdownTimer)
-  if (resetCountdownTimer)
-    clearInterval(resetCountdownTimer)
-})
 </script>
 
 <template>
@@ -376,11 +322,11 @@ onUnmounted(() => {
               @keyup.enter="handleVerifyPhoneOtp()"
             />
             <UButton
-              :label="phoneCountdown > 0 ? `${phoneCountdown}s` : '重新发送'"
+              :label="phoneCountdownActive ? `${phoneCountdown}s` : '重新发送'"
               color="neutral"
               variant="outline"
               size="lg"
-              :disabled="phoneCountdown > 0 || loading"
+              :disabled="phoneCountdownActive || loading"
               @click="handleSendPhoneOtp"
             />
           </div>
@@ -440,11 +386,11 @@ onUnmounted(() => {
               @keyup.enter="handleVerifyEmailOtp()"
             />
             <UButton
-              :label="emailCountdown > 0 ? `${emailCountdown}s` : '重新发送'"
+              :label="emailCountdownActive ? `${emailCountdown}s` : '重新发送'"
               color="neutral"
               variant="outline"
               size="lg"
-              :disabled="emailCountdown > 0 || loading"
+              :disabled="emailCountdownActive || loading"
               @click="handleSendEmailOtp"
             />
           </div>
@@ -652,11 +598,11 @@ onUnmounted(() => {
                   class="flex-1"
                 />
                 <UButton
-                  :label="resetCountdown > 0 ? `${resetCountdown}s` : '重新发送'"
+                  :label="resetCountdownActive ? `${resetCountdown}s` : '重新发送'"
                   color="neutral"
                   variant="outline"
                   size="lg"
-                  :disabled="resetCountdown > 0 || loading"
+                  :disabled="resetCountdownActive || loading"
                   @click="handleSendReset"
                 />
               </div>

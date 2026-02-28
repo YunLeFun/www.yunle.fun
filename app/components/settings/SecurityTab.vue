@@ -21,8 +21,7 @@ const emailAddress = ref('')
 const otpCode = ref('')
 const bindData = ref<TcbBindVerificationData | null>(null)
 const step = ref<'input' | 'verify'>('input')
-const countdown = ref(0)
-let countdownTimer: ReturnType<typeof setInterval> | null = null
+const { remaining: countdown, isActive: countdownActive, start: startCountdown } = useCountdown()
 
 // 解绑确认弹窗
 const showUnbindConfirm = ref(false)
@@ -41,8 +40,7 @@ const showConfirmPassword = ref(false)
 const setPasswordStep = ref<'otp' | 'verify'>('otp')
 const setPasswordOtpCode = ref('')
 const setPasswordResetData = ref<TcbResetPasswordData | null>(null)
-const setPasswordCountdown = ref(0)
-let setPasswordCountdownTimer: ReturnType<typeof setInterval> | null = null
+const { remaining: setPasswordCountdown, isActive: setPasswordCountdownActive, start: startSetPasswordCountdown } = useCountdown()
 
 const emailValid = computed(() => /^[^\s@]+@[^\s@][^\s.@]*\.[^\s@]+$/.test(emailAddress.value))
 
@@ -182,42 +180,9 @@ async function handleChangePassword() {
   }
 }
 
-function startSetPasswordCountdown() {
-  setPasswordCountdown.value = 60
-  if (setPasswordCountdownTimer)
-    clearInterval(setPasswordCountdownTimer)
-  setPasswordCountdownTimer = setInterval(() => {
-    setPasswordCountdown.value--
-    if (setPasswordCountdown.value <= 0) {
-      clearInterval(setPasswordCountdownTimer!)
-      setPasswordCountdownTimer = null
-    }
-  }, 1000)
-}
-
-function startCountdown() {
-  countdown.value = 60
-  if (countdownTimer)
-    clearInterval(countdownTimer)
-  countdownTimer = setInterval(() => {
-    countdown.value--
-    if (countdown.value <= 0) {
-      clearInterval(countdownTimer!)
-      countdownTimer = null
-    }
-  }, 1000)
-}
-
 // 页面挂载时刷新用户信息，确保绑定状态是最新的
 onMounted(() => {
   fetchUser()
-})
-
-onUnmounted(() => {
-  if (countdownTimer)
-    clearInterval(countdownTimer)
-  if (setPasswordCountdownTimer)
-    clearInterval(setPasswordCountdownTimer)
 })
 </script>
 
@@ -459,11 +424,11 @@ onUnmounted(() => {
                   @keyup.enter="handleVerify"
                 />
                 <UButton
-                  :label="countdown > 0 ? `${countdown}s` : '重新发送'"
+                  :label="countdownActive ? `${countdown}s` : '重新发送'"
                   color="neutral"
                   variant="outline"
                   size="lg"
-                  :disabled="countdown > 0 || authLoading"
+                  :disabled="countdownActive || authLoading"
                   @click="handleSendOtp"
                 />
               </div>
@@ -680,11 +645,11 @@ onUnmounted(() => {
                   class="flex-1"
                 />
                 <UButton
-                  :label="setPasswordCountdown > 0 ? `${setPasswordCountdown}s` : '重新发送'"
+                  :label="setPasswordCountdownActive ? `${setPasswordCountdown}s` : '重新发送'"
                   color="neutral"
                   variant="outline"
                   size="lg"
-                  :disabled="setPasswordCountdown > 0 || authLoading"
+                  :disabled="setPasswordCountdownActive || authLoading"
                   @click="handleSendSetPasswordOtp"
                 />
               </div>

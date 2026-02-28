@@ -16,7 +16,8 @@ const deleting = ref(false)
 const showDeleteConfirm = ref(false)
 
 const isOwner = computed(() => {
-  if (!user.value || !appData.value) return false
+  if (!user.value || !appData.value)
+    return false
   return user.value.id === appData.value.ownerId
 })
 
@@ -30,15 +31,18 @@ onMounted(async () => {
     // 数据库写入后可能有短暂同步延迟，重试最多 3 次
     for (let i = 0; i < 3; i++) {
       appData.value = await getAppBySlug(slug.value)
-      if (appData.value) break
-      if (i < 2) await new Promise(r => setTimeout(r, 500))
+      if (appData.value)
+        break
+      if (i < 2)
+        await new Promise(r => setTimeout(r, 500))
     }
     if (!appData.value) {
       throw createError({ statusCode: 404, statusMessage: '应用不存在' })
     }
   }
   catch (err: unknown) {
-    if (err && typeof err === 'object' && 'statusCode' in err) throw err
+    if (err && typeof err === 'object' && 'statusCode' in err)
+      throw err
     console.error('加载应用失败:', err)
   }
   finally {
@@ -55,7 +59,8 @@ function formatDate(ts: number) {
 }
 
 async function handleDelete() {
-  if (!appData.value) return
+  if (!appData.value)
+    return
   try {
     deleting.value = true
     await removeApp(appData.value._id)
