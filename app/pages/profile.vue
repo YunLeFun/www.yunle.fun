@@ -244,7 +244,7 @@ function formatAppDate(ts: number) {
             block
           />
           <UButton
-            to="/settings#security"
+            to="/settings?tab=security"
             label="安全设置"
             icon="i-lucide-lock"
             color="neutral"

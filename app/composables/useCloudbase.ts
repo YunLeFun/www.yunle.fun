@@ -29,6 +29,9 @@ export function useCloudbase() {
     region: config.public.cloudbaseRegion as string,
     accessKey: config.public.cloudbaseAccessKey as string,
     persistence: 'local' as const,
+    auth: {
+      detectSessionInUrl: true,
+    },
   })
   const auth: TcbAuth = app.auth({ persistence: 'local' })
 

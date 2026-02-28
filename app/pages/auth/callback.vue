@@ -3,11 +3,11 @@
  * 通用 OAuth 回调页面
  *
  * 同时处理两种场景：
- * 1. OAuth 登录回调（GitHub / 微信）
- * 2. OAuth 绑定回调（linkIdentity 完成后的回调）
+ * 1. OAuth 登录回调（GitHub / 微信）— 在当前窗口中完成，跳转到目标页
+ * 2. OAuth 绑定回调（弹窗模式）— 通过 postMessage 通知父窗口，然后自动关闭
  *
  * 通过 localStorage 中的 auth_link_provider 标记区分：
- * - 存在 → 绑定模式，完成后跳转到设置页
+ * - 存在 → 绑定模式（弹窗），处理完成后 postMessage 通知父窗口并关闭自身
  * - 不存在 → 登录模式，完成后跳转到首页或指定页面
  */
 
@@ -22,35 +22,46 @@ const toast = useToast()
 const status = ref<'checking' | 'success' | 'error'>('checking')
 const message = ref('正在处理中...')
 const isBinding = ref(false)
+const isPopup = ref(false)
 
 onMounted(async () => {
   const linkProvider = localStorage.getItem('auth_link_provider')
   isBinding.value = !!linkProvider
+  isPopup.value = !!window.opener
 
   try {
     // CloudBase SDK detectSessionInUrl: true 会自动处理 URL 中的 OAuth 回调参数
     await new Promise(resolve => setTimeout(resolve, 500))
 
     if (isBinding.value) {
-      // 绑定模式：刷新用户信息
+      // 绑定模式
       localStorage.removeItem('auth_link_provider')
-      await fetchUser()
 
       status.value = 'success'
-      message.value = '绑定成功！正在跳转...'
+      message.value = '绑定成功！'
 
-      toast.add({
-        title: '绑定成功',
-        description: `已成功绑定${linkProvider === 'github' ? ' GitHub' : '微信'}账号`,
-        color: 'success',
-      })
-
-      const redirect = localStorage.getItem('auth_redirect') || '/settings#security'
-      localStorage.removeItem('auth_redirect')
-
-      setTimeout(() => {
-        router.push(redirect)
-      }, 1000)
+      if (isPopup.value) {
+        // 弹窗模式：通过 postMessage 通知父窗口，然后关闭弹窗
+        message.value = '绑定成功，窗口即将关闭...'
+        window.opener.postMessage(
+          { type: 'oauth_callback', success: true, provider: linkProvider },
+          window.location.origin,
+        )
+        setTimeout(() => window.close(), 500)
+      }
+      else {
+        // 非弹窗模式（兜底）：刷新用户信息并跳转
+        await fetchUser()
+        message.value = '绑定成功！正在跳转...'
+        toast.add({
+          title: '绑定成功',
+          description: `已成功绑定${linkProvider === 'github' ? ' GitHub' : '微信'}账号`,
+          color: 'success',
+        })
+        const redirect = localStorage.getItem('auth_redirect') || '/settings?tab=security'
+        localStorage.removeItem('auth_redirect')
+        setTimeout(() => router.push(redirect), 1000)
+      }
     }
     else {
       // 登录模式
@@ -66,7 +77,7 @@ onMounted(async () => {
           color: 'success',
         })
 
-        const redirect = localStorage.getItem('auth_redirect') || '/'
+        const redirect = localStorage.getItem('auth_redirect') || '/profile'
         localStorage.removeItem('auth_redirect')
 
         setTimeout(() => {
@@ -87,15 +98,24 @@ onMounted(async () => {
     localStorage.removeItem('auth_link_provider')
     localStorage.removeItem('auth_redirect')
 
-    toast.add({
-      title: isBinding.value ? '绑定失败' : '登录失败',
-      description: errMsg || '请重新尝试',
-      color: 'error',
-    })
-
-    setTimeout(() => {
-      router.push(isBinding.value ? '/settings#security' : '/login')
-    }, 3000)
+    if (isPopup.value) {
+      // 弹窗模式：通知父窗口失败
+      window.opener?.postMessage(
+        { type: 'oauth_callback', success: false, error: errMsg },
+        window.location.origin,
+      )
+      setTimeout(() => window.close(), 2000)
+    }
+    else {
+      toast.add({
+        title: isBinding.value ? '绑定失败' : '登录失败',
+        description: errMsg || '请重新尝试',
+        color: 'error',
+      })
+      setTimeout(() => {
+        router.push(isBinding.value ? '/settings?tab=security' : '/login')
+      }, 3000)
+    }
   }
 })
 </script>
@@ -134,7 +154,7 @@ onMounted(async () => {
     <div v-if="status === 'error'" class="flex justify-center gap-3">
       <UButton
         v-if="isBinding"
-        to="/settings#security"
+        to="/settings?tab=security"
         color="primary"
         size="lg"
       >

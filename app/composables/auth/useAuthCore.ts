@@ -29,7 +29,32 @@ export function useTcbAuthCore() {
         clearAuth()
         return null
       }
-      user.value = mapCloudbaseUser(data.user as unknown as TcbRawUser)
+      const rawUser = data.user as unknown as TcbRawUser
+
+      // JS SDK getUser() 不返回密码状态，需通过 HTTP API /auth/v1/user/me 补充
+      try {
+        const { data: sessionData } = await auth.getSession()
+        const accessToken = sessionData?.session?.access_token
+        if (accessToken) {
+          const config = useRuntimeConfig()
+          const envId = config.public.cloudbaseEnvId as string
+          const res = await fetch(`https://${envId}.api.tcloudbasegateway.com/auth/v1/user/me`, {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          })
+          if (res.ok) {
+            const profile = await res.json()
+            // API 返回 password: "SET" | "UNSET" 等
+            if (typeof profile.password === 'string') {
+              ;(rawUser as Record<string, unknown>)._passwordStatus = profile.password
+            }
+          }
+        }
+      }
+      catch (e) {
+        console.warn('[auth] 获取密码状态失败:', e)
+      }
+
+      user.value = mapCloudbaseUser(rawUser)
       return user.value
     }
     catch (err: unknown) {

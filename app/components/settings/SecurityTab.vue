@@ -11,7 +11,7 @@ const {
   changePassword,
   requestSetPasswordOtp,
   confirmSetPassword,
-  fetchUser,
+  getUserIdentities,
   loading: authLoading,
 } = useTcbAuth()
 
@@ -44,9 +44,21 @@ const { remaining: setPasswordCountdown, isActive: setPasswordCountdownActive, s
 
 const emailValid = computed(() => /^[^\s@]+@[^\s@][^\s.@]*\.[^\s@]+$/.test(emailAddress.value))
 
-// 判断是否已绑定某个 provider
-const isGitHubBound = computed(() => user.value?.providers?.includes('github'))
-const isWeChatBound = computed(() => user.value?.providers?.includes('wx_open'))
+// 通过 getUserIdentities API 获取的真实绑定状态
+const boundProviders = ref<string[]>([])
+
+// 判断是否已绑定某个 provider（结合 providers 和 identities 双重来源）
+const isGitHubBound = computed(() =>
+  user.value?.providers?.includes('github') || boundProviders.value.includes('github'),
+)
+const isWeChatBound = computed(() =>
+  user.value?.providers?.includes('wx_open') || boundProviders.value.includes('wechat'),
+)
+
+// 独立的操作 loading 状态
+const githubLoading = ref(false)
+const wechatLoading = ref(false)
+const unbindLoading = ref(false)
 
 // 密码表单校验
 const hasPassword = computed(() => user.value?.hasPassword)
@@ -90,23 +102,46 @@ async function handleVerify() {
   }
 }
 
+// 刷新第三方绑定状态
+async function refreshBoundProviders() {
+  try {
+    const identities = await getUserIdentities()
+    boundProviders.value = identities
+      .filter((i: any) => i.bind)
+      .map((i: any) => i.id)
+  }
+  catch {
+    // 忽略错误
+  }
+}
+
 // 绑定 GitHub
 async function handleBindGitHub() {
   try {
+    githubLoading.value = true
     await bindGitHub()
+    await refreshBoundProviders()
   }
   catch {
     // 错误已在 composable 中处理
+  }
+  finally {
+    githubLoading.value = false
   }
 }
 
 // 绑定微信
 async function handleBindWeChat() {
   try {
+    wechatLoading.value = true
     await bindWeChat()
+    await refreshBoundProviders()
   }
   catch {
     // 错误已在 composable 中处理
+  }
+  finally {
+    wechatLoading.value = false
   }
 }
 
@@ -120,12 +155,17 @@ async function handleUnbind() {
   if (!unbindTarget.value)
     return
   try {
+    unbindLoading.value = true
     await unbindIdentity(unbindTarget.value.provider)
+    await refreshBoundProviders()
     showUnbindConfirm.value = false
     unbindTarget.value = null
   }
   catch {
     // 错误已在 composable 中处理
+  }
+  finally {
+    unbindLoading.value = false
   }
 }
 
@@ -180,9 +220,9 @@ async function handleChangePassword() {
   }
 }
 
-// 页面挂载时刷新用户信息，确保绑定状态是最新的
-onMounted(() => {
-  fetchUser()
+// 页面挂载时刷新第三方绑定状态（用户信息已由全局中间件获取，无需重复调用 fetchUser）
+onMounted(async () => {
+  await refreshBoundProviders()
 })
 </script>
 
@@ -297,7 +337,7 @@ onMounted(() => {
               variant="outline"
               size="xs"
               icon="i-lucide-unlink"
-              :loading="authLoading"
+              :loading="unbindLoading && unbindTarget?.provider === 'github'"
               @click="confirmUnbind('github', 'GitHub')"
             />
             <UButton
@@ -307,7 +347,7 @@ onMounted(() => {
               variant="outline"
               size="xs"
               icon="i-simple-icons-github"
-              :loading="authLoading"
+              :loading="githubLoading"
               @click="handleBindGitHub"
             />
           </div>
@@ -342,7 +382,7 @@ onMounted(() => {
               variant="outline"
               size="xs"
               icon="i-lucide-unlink"
-              :loading="authLoading"
+              :loading="unbindLoading && unbindTarget?.provider === 'wx_open'"
               @click="confirmUnbind('wx_open', '微信')"
             />
             <UButton
@@ -352,7 +392,7 @@ onMounted(() => {
               variant="outline"
               size="xs"
               icon="i-simple-icons-wechat"
-              :loading="authLoading"
+              :loading="wechatLoading"
               @click="handleBindWeChat"
             />
           </div>

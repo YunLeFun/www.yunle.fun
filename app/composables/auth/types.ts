@@ -81,9 +81,8 @@ export type { LinkIdentityReq }
 export function mapCloudbaseUser(cbUser: TcbRawUser): User | null {
   if (!cbUser)
     return null
-  const apiHasPassword = !!cbUser.user_metadata?.hasPassword
-  const localFlag = typeof localStorage !== 'undefined'
-    && localStorage.getItem(`pwd_set_${cbUser.id}`) === '1'
+  // 通过 HTTP API /auth/v1/user/me 返回的 password 字段判断（"SET" 表示已设置）
+  const passwordStatus = (cbUser as Record<string, unknown>)._passwordStatus as string | undefined
   return {
     id: cbUser.id || '',
     login: cbUser.user_metadata?.username || null,
@@ -92,7 +91,7 @@ export function mapCloudbaseUser(cbUser: TcbRawUser): User | null {
     nickname: cbUser.user_metadata?.nickName || cbUser.user_metadata?.name || cbUser.user_metadata?.username || undefined,
     avatar: cbUser.user_metadata?.avatarUrl || cbUser.user_metadata?.picture || null,
     role: cbUser.role?.[0] || 'USER',
-    hasPassword: apiHasPassword || localFlag,
+    hasPassword: passwordStatus === 'SET',
     providers: cbUser.app_metadata?.providers || [],
     identities: (cbUser.identities || []).map(i => ({ id: i.id, name: i.name, picture: i.picture })),
     createdAt: cbUser.created_at || '',

@@ -25,13 +25,12 @@ const tabs = [
   { label: '账户管理', value: 'account', icon: 'i-lucide-settings' },
 ]
 
-const initialTab = typeof route.hash === 'string' && tabs.some(t => t.value === route.hash.replace('#', ''))
-  ? route.hash.replace('#', '')
-  : 'profile'
+const tabParam = (route.query.tab as string) || ''
+const initialTab = tabs.some(t => t.value === tabParam) ? tabParam : 'profile'
 const activeTab = ref(initialTab)
 
 watch(activeTab, (val) => {
-  router.replace({ hash: val === 'profile' ? '' : `#${val}` })
+  router.replace({ query: val === 'profile' ? {} : { tab: val } })
 })
 </script>
 

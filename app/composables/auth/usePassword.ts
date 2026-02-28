@@ -17,7 +17,7 @@ export function useTcbPassword(core: ReturnType<typeof import('./useAuthCore').u
       await fetchUser()
       toast.add({ title: '登录成功', description: '欢迎回来！', color: 'success' })
       const redirect = router.currentRoute.value.query.redirect as string
-      await router.push(redirect || '/')
+      await router.push(redirect || '/profile')
       return data
     }
     catch (err: unknown) {
@@ -64,11 +64,7 @@ export function useTcbPassword(core: ReturnType<typeof import('./useAuthCore').u
       const { error: updateError } = await resetData.updateUser({ nonce, password: newPassword })
       if (updateError)
         throw new Error(updateError.message || '设置密码失败')
-      if (user.value?.id)
-        localStorage.setItem(`pwd_set_${user.value.id}`, '1')
       await fetchUser()
-      if (user.value && !user.value.hasPassword)
-        user.value = { ...user.value, hasPassword: true }
       toast.add({ title: '设置成功', description: '密码已成功设置', color: 'success' })
     }
     catch (err: unknown) {
