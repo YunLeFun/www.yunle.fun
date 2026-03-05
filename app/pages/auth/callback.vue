@@ -2,14 +2,20 @@
 /**
  * 通用 OAuth 回调页面
  *
- * 同时处理两种场景：
+ * 处理三种场景：
  * 1. OAuth 登录回调（GitHub / 微信）— 在当前窗口中完成，跳转到目标页
  * 2. OAuth 绑定回调（弹窗模式）— 通过 postMessage 通知父窗口，然后自动关闭
+ * 3. 原生 App 回调（state 以 'app-' 开头）— 通过 deeplink 把 code+state 传回 App
  *
- * 通过 localStorage 中的 auth_link_provider 标记区分：
+ * 通过 localStorage 中的 auth_link_provider 标记区分场景 1/2：
  * - 存在 → 绑定模式（弹窗），处理完成后 postMessage 通知父窗口并关闭自身
  * - 不存在 → 登录模式，完成后跳转到首页或指定页面
+ *
+ * 场景 3 通过 URL 中 state 参数的 'app-' 前缀识别
  */
+
+/** 与 apps.yunle.fun 中 NATIVE_OAUTH_STATE_PREFIX 保持一致 */
+const NATIVE_OAUTH_STATE_PREFIX = 'app-'
 
 definePageMeta({
   layout: 'auth',
@@ -23,8 +29,41 @@ const status = ref<'checking' | 'success' | 'error'>('checking')
 const message = ref('正在处理中...')
 const isBinding = ref(false)
 const isPopup = ref(false)
+const isNativeApp = ref(false)
+
+/**
+ * 检测是否来自原生 App (apps.yunle.fun) 的 OAuth 回调
+ * 如果是，通过 deeplink 把 code+state 传回 App，不走 Web 端 verifyOAuth
+ */
+function handleNativeAppCallback(): boolean {
+  const params = new URLSearchParams(window.location.search)
+  const code = params.get('code')
+  const state = params.get('state')
+
+  if (!state?.startsWith(NATIVE_OAUTH_STATE_PREFIX) || !code)
+    return false
+
+  isNativeApp.value = true
+  message.value = '正在返回云乐坊 App...'
+
+  // 通过 deeplink 把 code+state 传回原生 App
+  const deeplink = `yunlefun://auth/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`
+  window.location.href = deeplink
+
+  // 如果 deeplink 没有立即关闭页面（用户可能不在 iOS 设备），显示提示
+  setTimeout(() => {
+    status.value = 'success'
+    message.value = '授权成功，请返回云乐坊 App'
+  }, 1500)
+
+  return true
+}
 
 onMounted(async () => {
+  // 先检查是否是原生 App 的回调
+  if (handleNativeAppCallback())
+    return
+
   const linkProvider = localStorage.getItem('auth_link_provider')
   isBinding.value = !!linkProvider
   isPopup.value = !!window.opener
@@ -143,6 +182,7 @@ onMounted(async () => {
     <div class="space-y-2">
       <h1 class="text-2xl font-bold">
         <span v-if="status === 'checking'">处理中</span>
+        <span v-else-if="isNativeApp">授权成功</span>
         <span v-else-if="status === 'success'">{{ isBinding ? '绑定成功' : '登录成功' }}</span>
         <span v-else>{{ isBinding ? '绑定失败' : '登录失败' }}</span>
       </h1>
@@ -151,7 +191,7 @@ onMounted(async () => {
       </p>
     </div>
 
-    <div v-if="status === 'error'" class="flex justify-center gap-3">
+    <div v-if="status === 'error' && !isNativeApp" class="flex justify-center gap-3">
       <UButton
         v-if="isBinding"
         to="/settings?tab=security"
