@@ -28,3 +28,7 @@ logs
 
 # Environment variables
 .env.local
+
+# CloudBase rules (managed globally via skills)
+.codebuddy/rules/tcb
+.codebuddy/rules/cloudbase-rules.mdc

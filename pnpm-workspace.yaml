@@ -3,29 +3,29 @@ shellEmulator: true
 trustPolicy: no-downgrade
 
 catalog:
-  '@antfu/eslint-config': ^7.6.1
-  '@cloudbase/js-sdk': ^2.25.7
+  '@antfu/eslint-config': ^8.2.0
+  '@cloudbase/js-sdk': ^3.3.3
   '@cloudbase/node-sdk': latest
-  '@iconify-json/lucide': ^1.2.95
+  '@iconify-json/lucide': ^1.2.102
   '@iconify-json/ri': ^1.2.10
-  '@iconify-json/simple-icons': ^1.2.71
+  '@iconify-json/simple-icons': ^1.2.78
   '@iconify-json/twemoji': ^1.2.5
-  '@nuxt/content': ^3.12.0
+  '@nuxt/content': ^3.13.0
   '@nuxt/eslint': ^1.15.2
   '@nuxt/icon': ^2.2.1
   '@nuxt/image': ^2.0.0
-  '@nuxt/ui': ^4.5.0
-  '@nuxtjs/i18n': ^10.2.3
+  '@nuxt/ui': ^4.6.1
+  '@nuxtjs/i18n': ^10.2.4
   '@types/qrcode': ^1.5.6
   '@vueuse/nuxt': ^14.2.1
-  baseline-browser-mapping: ^2.10.0
-  better-sqlite3: ^12.6.2
-  eslint: ^10.0.2
+  baseline-browser-mapping: ^2.10.19
+  better-sqlite3: ^12.9.0
+  eslint: ^10.2.0
   eslint-plugin-format: ^2.0.1
-  nuxt: ^4.3.1
+  nuxt: ^4.4.2
   qrcode: ^1.5.4
   typescript: ^5.9.3
-  vue-tsc: ^3.2.5
+  vue-tsc: ^3.2.6
   zod: ^4.3.6
 
 ignoredBuiltDependencies:

@@ -80,7 +80,7 @@ useSeoMeta({
       :description="page.pricing.description"
     >
       <UPageGrid
-        :ui="{ wrapper: 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' }"
+        :ui="{ base: 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' }"
       >
         <UPageCard
           v-for="(plan, index) in page.pricing.items"

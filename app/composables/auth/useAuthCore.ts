@@ -5,6 +5,8 @@
 import type { TcbRawUser, User } from './types'
 import { getErrorMessage, mapCloudbaseUser } from './types'
 
+const RE_USERNAME = /^[a-z][\w-]{2,19}$/i
+
 export function useTcbAuthCore() {
   const { auth } = useCloudbase()
   const router = useRouter()
@@ -104,7 +106,7 @@ export function useTcbAuthCore() {
       error.value = null
       if (user.value?.login)
         throw new Error('用户名已设置，不可修改')
-      if (!/^[a-z][\w-]{2,19}$/i.test(username))
+      if (!RE_USERNAME.test(username))
         throw new Error('用户名格式不正确：3-20 个字符，以字母开头，只允许字母、数字、下划线和连字符')
 
       const { error: updateError } = await auth.updateUser({ username })

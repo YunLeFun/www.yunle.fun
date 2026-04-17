@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import type { TcbOtpData, TcbResetPasswordData } from '~/composables/useTcbAuth'
 
+const RE_USERNAME = /^[a-z][\w-]{2,19}$/i
+const RE_EMAIL = /^[^\s@]+@[^\s@][^\s.@]*\.[^\s@]+$/
+const RE_CN_PHONE = /^1[3-9]\d{9}$/
+
 definePageMeta({
   layout: 'auth',
 })
@@ -63,7 +67,7 @@ const password = ref('')
 const showPassword = ref(false)
 
 // 判断密码登录输入的账号类型
-const isPasswordUsername = computed(() => /^[a-z][\w-]{2,19}$/i.test(passwordAccount.value))
+const isPasswordUsername = computed(() => RE_USERNAME.test(passwordAccount.value))
 
 // 忘记密码状态
 const showResetPassword = ref(false)
@@ -91,21 +95,21 @@ const providers = [
 // 手机号校验（根据区号匹配规则）
 const phoneValid = computed(() => {
   if (phoneAreaCode.value === '+86') {
-    return /^1[3-9]\d{9}$/.test(phone.value)
+    return RE_CN_PHONE.test(phone.value)
   }
   return phone.value.length >= 6
 })
 
 // 邮箱校验
-const emailValid = computed(() => /^[^\s@]+@[^\s@][^\s.@]*\.[^\s@]+$/.test(email.value))
+const emailValid = computed(() => RE_EMAIL.test(email.value))
 
 // 密码登录表单校验
-const isPasswordEmail = computed(() => /^[^\s@]+@[^\s@][^\s.@]*\.[^\s@]+$/.test(passwordAccount.value))
-const isPasswordPhone = computed(() => /^1[3-9]\d{9}$/.test(passwordAccount.value))
+const isPasswordEmail = computed(() => RE_EMAIL.test(passwordAccount.value))
+const isPasswordPhone = computed(() => RE_CN_PHONE.test(passwordAccount.value))
 const passwordFormValid = computed(() => (isPasswordEmail.value || isPasswordPhone.value || isPasswordUsername.value) && password.value.length >= 6)
 
 // 重置密码邮箱校验
-const resetEmailValid = computed(() => /^[^\s@]+@[^\s@][^\s.@]*\.[^\s@]+$/.test(resetEmail.value))
+const resetEmailValid = computed(() => RE_EMAIL.test(resetEmail.value))
 const newPasswordValid = computed(() => newPassword.value.length >= 6 && newPassword.value === confirmNewPassword.value)
 
 // 发送手机验证码

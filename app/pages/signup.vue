@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { TcbSignUpData } from '~/composables/useTcbAuth'
 
+const RE_CN_PHONE = /^1[3-9]\d{9}$/
+
 definePageMeta({
   layout: 'auth',
 })
@@ -45,7 +47,7 @@ const phoneAreaCode = ref('+86')
 // 手机号校验（根据区号匹配规则）
 const phoneValid = computed(() => {
   if (phoneAreaCode.value === '+86') {
-    return /^1[3-9]\d{9}$/.test(phone.value)
+    return RE_CN_PHONE.test(phone.value)
   }
   return phone.value.length >= 6
 })

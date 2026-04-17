@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { UpdateUserReq } from '@cloudbase/auth'
 
+const RE_USERNAME_START = /^[a-z]/i
+
 const { user, fetchUser, setUsername } = useTcbAuth()
 const toast = useToast()
 
@@ -134,7 +136,7 @@ function validateUsername(value: string): string {
     return `用户名至少 ${usernameRules.minLength} 个字符`
   if (value.length > usernameRules.maxLength)
     return `用户名不能超过 ${usernameRules.maxLength} 个字符`
-  if (!/^[a-z]/i.test(value))
+  if (!RE_USERNAME_START.test(value))
     return '用户名必须以字母开头'
   if (!usernameRules.pattern.test(value))
     return '只允许字母、数字、下划线和连字符'

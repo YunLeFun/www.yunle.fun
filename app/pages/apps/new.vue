@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import type { RepoSelectorOption } from '~/types/github'
 
+const RE_SLUG_INVALID = /[^a-z0-9\u4E00-\u9FFF-]/g
+const RE_SLUG_MULTI_DASH = /-+/g
+const RE_SLUG_EDGE_DASH = /^-|-$/g
+
 definePageMeta({ layout: 'default' })
 useSeoMeta({ title: '创建应用 - YunLeFun', description: '创建一个新应用' })
 
@@ -41,9 +45,9 @@ watch(() => form.name, (name) => {
   if (autoSlug.value) {
     form.slug = name
       .toLowerCase()
-      .replace(/[^a-z0-9\u4E00-\u9FFF-]/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-|-$/g, '')
+      .replace(RE_SLUG_INVALID, '-')
+      .replace(RE_SLUG_MULTI_DASH, '-')
+      .replace(RE_SLUG_EDGE_DASH, '')
       .slice(0, 50)
   }
 })

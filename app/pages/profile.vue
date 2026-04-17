@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { AppRecord } from '~/types/app'
 
+const RE_PHONE_MASK = /(\d{3})\d{4}(\d{4})/
+
 definePageMeta({
   layout: 'default',
 })
@@ -33,7 +35,7 @@ const joinDate = computed(() => {
 const displayName = computed(() => user.value?.nickname || user.value?.login || '未设置')
 const displayContact = computed(() => {
   if (user.value?.phone) {
-    return user.value.phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')
+    return user.value.phone.replace(RE_PHONE_MASK, '$1****$2')
   }
   return user.value?.email || '未绑定'
 })

@@ -2,6 +2,11 @@ const crypto = require('node:crypto')
 const process = require('node:process')
 const cloudbase = require('@cloudbase/node-sdk')
 
+const RE_ESCAPE_NEWLINE = /\\n/g
+const RE_PEM_BEGIN = /-----BEGIN (?:RSA )?PRIVATE KEY-----/
+const RE_PEM_END = /-----END (?:RSA )?PRIVATE KEY-----/
+const RE_WHITESPACE = /\s+/g
+
 const app = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV })
 const db = app.database()
 const ORDERS_COLLECTION = 'orders'
@@ -19,7 +24,7 @@ const PLAN_PRICES = {
  */
 function normalizePrivateKey(raw) {
   // 1. 先处理 \n 字面量转义
-  let key = raw.replace(/\\n/g, '\n')
+  let key = raw.replace(RE_ESCAPE_NEWLINE, '\n')
   // 2. 去掉首尾空白
   key = key.trim()
   // 3. 如果已经是正确的多行 PEM，直接返回
@@ -27,9 +32,9 @@ function normalizePrivateKey(raw) {
     return key
   // 4. 单行情况：提取纯 base64 内容，按 64 字符折行
   const base64 = key
-    .replace(/-----BEGIN (?:RSA )?PRIVATE KEY-----/, '')
-    .replace(/-----END (?:RSA )?PRIVATE KEY-----/, '')
-    .replace(/\s+/g, '')
+    .replace(RE_PEM_BEGIN, '')
+    .replace(RE_PEM_END, '')
+    .replace(RE_WHITESPACE, '')
   const lines = []
   for (let i = 0; i < base64.length; i += 64) {
     lines.push(base64.slice(i, i + 64))

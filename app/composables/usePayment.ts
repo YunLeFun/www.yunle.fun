@@ -8,6 +8,8 @@ import type {
 } from '~/types/payment'
 import { PLAN_NAMES, PLAN_PRICES } from '~/types/payment'
 
+const RE_MOBILE = /android|iphone|ipad|ipod|mobile/i
+
 /** 微信 JSSDK 全局对象 */
 declare const WeixinJSBridge: undefined | {
   invoke: (
@@ -28,7 +30,7 @@ export function detectPayType(): PayType {
     return 'native'
   const ua = navigator.userAgent.toLowerCase()
   const isWechat = ua.includes('micromessenger')
-  const isMobile = /android|iphone|ipad|ipod|mobile/i.test(ua)
+  const isMobile = RE_MOBILE.test(ua)
 
   if (isWechat)
     return 'jsapi'

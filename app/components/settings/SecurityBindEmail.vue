@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { TcbBindVerificationData } from '~/composables/useTcbAuth'
 
+const RE_EMAIL = /^[^\s@]+@[^\s@][^\s.@]*\.[^\s@]+$/
+
 const {
   user,
   bindEmail,
@@ -15,7 +17,7 @@ const bindData = ref<TcbBindVerificationData | null>(null)
 const step = ref<'input' | 'verify'>('input')
 const { remaining: countdown, isActive: countdownActive, start: startCountdown } = useCountdown()
 
-const emailValid = computed(() => /^[^\s@]+@[^\s@][^\s.@]*\.[^\s@]+$/.test(emailAddress.value))
+const emailValid = computed(() => RE_EMAIL.test(emailAddress.value))
 
 function openModal() {
   showModal.value = true
