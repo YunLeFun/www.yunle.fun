@@ -41,11 +41,6 @@ export default defineNuxtConfig({
     },
   },
 
-  // 生产构建时排除测试页面
-  ignore: [
-    ...(process.env.NODE_ENV === 'production' ? ['pages/test/**'] : []),
-  ],
-
   routeRules: {
     '/docs': { redirect: '/docs/getting-started' },
   },
@@ -72,6 +67,28 @@ export default defineNuxtConfig({
           },
         },
       },
+    },
+  },
+
+  // 默认排除 /test/* 调试页面（如支付测试页），避免随生产构建上线。
+  // 本地调试时用 `ENABLE_TEST_PAGES=true pnpm dev` 显式开启。
+  // 注意：旧的 `ignore: ['pages/test/**']` 在 nuxt generate 下不可靠，故改用 pages:extend 钩子确定性移除。
+  hooks: {
+    'pages:extend': (pages) => {
+      if (process.env.ENABLE_TEST_PAGES === 'true')
+        return
+      const removeTestPages = (list: typeof pages) => {
+        for (let i = list.length - 1; i >= 0; i--) {
+          const page = list[i]
+          if (!page)
+            continue
+          if (page.path.startsWith('/test'))
+            list.splice(i, 1)
+          else if (page.children?.length)
+            removeTestPages(page.children)
+        }
+      }
+      removeTestPages(pages)
     },
   },
 

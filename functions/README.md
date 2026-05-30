@@ -168,7 +168,9 @@ https://yunlefun-8g7ybcxc7345c490.service.tcloudbase.com/wxpay-notify
 - 页面：`/test/pay`（对应 `app/pages/test/pay.vue`）
 - 该接口走 `wxpay-order` 的 `action: 'createTestOrder'`，支持任意 `1~10000` 分的金额
 
-> ⚠️ `pages/test/**` 在生产构建时会被 `nuxt.config.ts` 的 `ignore` 规则排除，只在 `pnpm dev` 或非 production 构建下可访问。
+> ⚠️ `/test/*` 页面**默认被排除**，不会随生产构建上线（由 `nuxt.config.ts` 的 `pages:extend` 钩子确定性移除）。
+> 需要在本地调试测试页时，显式开启：`ENABLE_TEST_PAGES=true pnpm dev`。
+> （早期版本曾用 `ignore: ['pages/test/**']`，但该方案在 `nuxt generate` 下不生效，已废弃。）
 
 ### 启用开关（默认关闭，必须显式开启）
 
