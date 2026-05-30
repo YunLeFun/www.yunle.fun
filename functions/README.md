@@ -15,20 +15,27 @@
 
 ### wxpay-order 环境变量
 
-| 变量名           | 说明                     | 获取方式                                                                                                        |
-| ---------------- | ------------------------ | --------------------------------------------------------------------------------------------------------------- |
-| `WX_MCH_ID`      | 微信支付商户号           | [微信支付商户平台](https://pay.weixin.qq.com/) → 账户中心 → 商户信息 → 商户号                                   |
-| `WX_APPID`       | 微信应用 AppID           | 使用 **云乐坊工作室服务号**：`wxe6749827b67dfc25`（网站应用不支持绑定微信开放平台，需使用已认证服务号的 AppID） |
-| `WX_SERIAL_NO`   | API 证书序列号           | 见下方「API 证书获取步骤」第 4 步                                                                               |
-| `WX_PRIVATE_KEY` | API 证书私钥（PEM 格式） | 见下方「API 证书获取步骤」第 3 步                                                                               |
-| `WX_APIV3_KEY`   | APIv3 密钥（32 字节）    | 见下方「APIv3 密钥获取步骤」                                                                                    |
-| `WX_NOTIFY_URL`  | 支付回调通知地址         | 见下方「回调地址获取」                                                                                          |
+| 变量名                | 说明                                                 | 获取方式                                                                                                        |
+| --------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `WX_MCH_ID`           | 微信支付商户号                                       | [微信支付商户平台](https://pay.weixin.qq.com/) → 账户中心 → 商户信息 → 商户号                                   |
+| `WX_APPID`            | 微信应用 AppID                                       | 使用 **云乐坊工作室服务号**：`wxe6749827b67dfc25`（网站应用不支持绑定微信开放平台，需使用已认证服务号的 AppID） |
+| `WX_SERIAL_NO`        | API 证书序列号                                       | 见下方「API 证书获取步骤」第 4 步                                                                               |
+| `WX_PRIVATE_KEY`      | API 证书私钥（PEM 格式）                             | 见下方「API 证书获取步骤」第 3 步                                                                               |
+| `WX_APIV3_KEY`        | APIv3 密钥（32 字节）                                | 见下方「APIv3 密钥获取步骤」                                                                                    |
+| `WX_NOTIFY_URL`       | 支付回调通知地址                                     | 见下方「回调地址获取」                                                                                          |
+| `WX_ALLOW_TEST_ORDER` | 是否允许自定义金额的测试下单接口（生产环境务必留空） | 设置为 `true` 时启用 `createTestOrder`，默认禁用                                                                |
 
 ### wxpay-notify 环境变量
 
-| 变量名         | 说明                  | 获取方式                  |
-| -------------- | --------------------- | ------------------------- |
-| `WX_APIV3_KEY` | APIv3 密钥（32 字节） | 与 wxpay-order 中的值相同 |
+| 变量名                     | 说明                                                                      | 获取方式                                                                                  |
+| -------------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `WX_APIV3_KEY`             | APIv3 密钥（32 字节）                                                     | 与 wxpay-order 中的值相同                                                                 |
+| `WX_APPID`                 | 商户 AppID（用于回调字段校验）                                            | 与 wxpay-order 中的值相同                                                                 |
+| `WX_MCH_ID`                | 商户号（用于回调字段校验）                                                | 与 wxpay-order 中的值相同                                                                 |
+| `WX_PLATFORM_CERTIFICATES` | **必填**。微信平台证书 JSON：`{"<序列号>": "<PEM 公钥>"}`，支持多证书轮换 | 商户平台 → API 证书 → 「平台证书」中下载，或调用 `GET /v3/certificates` 由 APIv3 Key 解密 |
+| `WX_TIME_TOLERANCE`        | 验签允许的时钟漂移秒数（默认 300）                                        | 一般保持默认                                                                              |
+
+> 💡 `WX_PLATFORM_CERTIFICATES` 的 PEM 字符串中换行可写作 `\n`，代码会自动还原；多证书时直接增加 JSON key 即可，旧证书在轮换期内可与新证书并存。
 
 ---
 
@@ -152,6 +159,76 @@ https://yunlefun-8g7ybcxc7345c490.service.tcloudbase.com/wxpay-notify
 
 ---
 
+## 测试支付链路（自定义金额小额回归）
+
+正式上线前，可用极小金额（如 0.01 元）跑通「下单 → 支付 → 回调 → 开通会员」全链路。
+
+### 入口
+
+- 页面：`/test/pay`（对应 `app/pages/test/pay.vue`）
+- 该接口走 `wxpay-order` 的 `action: 'createTestOrder'`，支持任意 `1~10000` 分的金额
+
+> ⚠️ `pages/test/**` 在生产构建时会被 `nuxt.config.ts` 的 `ignore` 规则排除，只在 `pnpm dev` 或非 production 构建下可访问。
+
+### 启用开关（默认关闭，必须显式开启）
+
+`createTestOrder` 默认被禁用，避免被人滥用刷单。需在 **wxpay-order** 云函数加环境变量：
+
+| 变量名                | 值     | 说明                                     |
+| --------------------- | ------ | ---------------------------------------- |
+| `WX_ALLOW_TEST_ORDER` | `true` | 仅测试期开启；任何其它值（或不设）= 禁用 |
+
+> 未开启时调用会抛 `测试下单已禁用，请设置 WX_ALLOW_TEST_ORDER=true`，前端表现为 `FUNCTION_INVOCATION_FAILED`。这是预期的保护行为，不是 bug。
+
+### 验证步骤
+
+1. 在 wxpay-order 设 `WX_ALLOW_TEST_ORDER=true`（控制台 → 云函数 → wxpay-order → 环境变量）
+2. **登录后** 打开 `/test/pay`，用 native 方式下 0.01 元订单，微信扫码完成支付
+3. 查 `orders` 集合：该订单 `status: paid`、`transactionId` 有值、`userId` 为你的 CloudBase uid（**不是** openid）
+4. 查 `user_memberships` 集合：你的 uid 多一条记录，`expireAt ≈ paidAt + 31 天`
+5. 前端 `useMembership().isActive` 应为 `true`
+
+### ⚠️ 测试完成后务必关闭
+
+回归通过后，**立即删除 `WX_ALLOW_TEST_ORDER` 或改为 `false`**，否则任意登录用户都能用任意金额调起正式微信下单。
+
+---
+
+## 平台公钥 / 证书轮换 checklist
+
+`wxpay-notify` 用 `WX_PLATFORM_CERTIFICATES` 验签，需要在微信侧轮换时同步更新。本商户当前用的是 **微信支付公钥模式**（2024 年起新商户的默认机制）。
+
+`WX_PLATFORM_CERTIFICATES` 的值是一个 JSON：`{ "<公钥ID 或证书序列号>": "<PEM 公钥>" }`，**支持同时放多个 key**，因此轮换可以无缝过渡——新旧并存一段时间，等微信完全切到新公钥后再删旧的。
+
+### A. 公钥模式（当前商户）
+
+1. 商户平台 → **API 安全** → **微信支付公钥** → 下载新公钥 PEM + 记下新的「公钥 ID」（形如 `PUB_KEY_ID_xxx`）
+2. 在 `wxpay-notify` 的 `WX_PLATFORM_CERTIFICATES` JSON 里**新增**一个 key（保留旧的）：
+   ```jsonc
+   {
+     "PUB_KEY_ID_旧": "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----",
+     "PUB_KEY_ID_新": "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"
+   }
+   ```
+   （PEM 换行写成 `\n`，代码会自动还原）
+3. 等微信回调全部携带新公钥 ID 后，再删掉旧 key
+
+### B. 平台证书模式（若未来切回传统证书）
+
+证书每年到期前需轮换，可用脚本自动拉取解密：
+
+```bash
+WX_MCH_ID=xxx WX_SERIAL_NO=xxx WX_APIV3_KEY=xxx \
+WX_PRIVATE_KEY="$(cat apiclient_key.pem)" \
+node scripts/fetch-wxpay-certificates.mjs
+```
+
+脚本会输出可直接粘贴的 `WX_PLATFORM_CERTIFICATES` JSON（含证书序列号 → PEM 映射）。同样建议新旧并存过渡。
+
+> 验签兼容性已被单测覆盖（`tests/wxpay/signature.test.js` 的 `parsePlatformCertificates` / `verifyCallbackSignature`），公钥 ID 与证书序列号都按同一套 `serial → PEM` 逻辑处理，无需改代码。
+
+---
+
 ## 部署命令
 
 云函数已部署到 CloudBase。如需重新部署，可使用 CloudBase CLI：
@@ -183,6 +260,47 @@ tcb functions deploy --envId yunlefun-8g7ybcxc7345c490
 | `idx_outTradeNo`    | `outTradeNo` ASC           | 唯一   |
 | `idx_userId_status` | `userId` ASC, `status` ASC | 非唯一 |
 
-安全规则：用户只能读取自己的订单（`auth.uid == doc.userId`），不可直接写入。
+> ⚠️ `idx_outTradeNo` 必须**唯一**，否则回调的"条件更新"语义（`status: pending`）在极端并发下无法保证幂等。
+
+会员状态存储在 `user_memberships` 集合，索引：
+
+| 索引名     | 字段         | 唯一性 |
+| ---------- | ------------ | ------ |
+| `idx_user` | `userId` ASC | 唯一   |
+
+文档结构：
+
+```jsonc
+{
+  "_id": "<doc>",
+  "userId": "<cloudbase uid>",
+  "planId": "basic",
+  "activeCycle": "month", // 或 "year"
+  "expireAt": 1735689600000, // 毫秒时间戳
+  "lastOrderId": "YLF1735689000000abcdef1234567890",
+  "createdAt": 1735689000000,
+  "updatedAt": 1735689600000
+}
+```
+
+安全规则：用户只能读取自己的订单与会员（`auth.uid == doc.userId`），写入由云函数完成。
 
 [查看 orders 集合 →](https://tcb.cloud.tencent.com/dev?envId=yunlefun-8g7ybcxc7345c490#/db/doc/collection/orders)
+
+## 共享代码：lib/
+
+两个云函数下都有一份 `lib/`，包含签名、加解密、校验、订单状态机等纯函数。
+**权威源在 `functions/wxpay-order/lib/`**，`wxpay-notify/lib/` 由 `pnpm sync:wxpay-lib` 自动同步，禁止直接修改。
+
+修改流程：
+
+```bash
+# 1. 仅修改 functions/wxpay-order/lib/ 下的文件
+# 2. 同步到 wxpay-notify
+pnpm sync:wxpay-lib
+
+# 3. 跑测试
+pnpm test
+```
+
+CI 会跑 `pnpm sync:wxpay-lib --check`，如果发现 drift 直接 fail。

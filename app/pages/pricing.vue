@@ -25,6 +25,13 @@ const toast = useToast()
 const payment = usePayment()
 const showPaymentModal = ref(false)
 
+// H5 跳转支付后回到本页：尝试恢复轮询，让用户看到结果
+onMounted(() => {
+  const resumed = payment.resumePendingOrder()
+  if (resumed)
+    showPaymentModal.value = true
+})
+
 /**
  * 构建月付和年付两个套餐选项
  */

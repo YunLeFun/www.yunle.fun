@@ -66,7 +66,8 @@ export type PaymentPhase = 'confirm' | 'paying' | 'success' | 'fail'
 
 /** 下单返回结果 */
 export interface CreateOrderResult {
-  orderId: string
+  /** 数据库订单 ID。H5 跳转回来恢复时可能不可用，因此设为可选。 */
+  orderId?: string
   outTradeNo: string
   payType: PayType
   /** Native 支付二维码链接 */

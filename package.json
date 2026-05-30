@@ -11,6 +11,9 @@
     "postinstall": "nuxt prepare",
     "lint": "eslint .",
     "typecheck": "nuxt typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "sync:wxpay-lib": "node scripts/sync-wxpay-lib.mjs",
     "ci": "npm i -g corepack && pnpm install"
   },
   "dependencies": {
@@ -38,6 +41,7 @@
     "eslint": "catalog:",
     "eslint-plugin-format": "catalog:",
     "typescript": "catalog:",
+    "vitest": "catalog:",
     "vue-tsc": "catalog:"
   }
 }

@@ -9,6 +9,9 @@ import type {
 import { PLAN_NAMES, PLAN_PRICES } from '~/types/payment'
 
 const RE_MOBILE = /android|iphone|ipad|ipod|mobile/i
+const POLLING_INTERVAL_MS = 5000
+const POLLING_MAX_ATTEMPTS = 60 // 5 分钟
+const PENDING_ORDER_KEY = 'wxpay:pending-order'
 
 /** 微信 JSSDK 全局对象 */
 declare const WeixinJSBridge: undefined | {
@@ -17,6 +20,14 @@ declare const WeixinJSBridge: undefined | {
     params: Record<string, string>,
     callback: (res: { err_msg: string }) => void,
   ) => void
+}
+
+interface PendingOrderSnapshot {
+  outTradeNo: string
+  payType: PayType
+  planId: PlanId
+  cycle: BillingCycle
+  startedAt: number
 }
 
 /**
@@ -49,12 +60,40 @@ export function formatPrice(amountInCents: number): string {
   return `¥${(amountInCents / 100).toFixed(2)}`
 }
 
+/** sessionStorage 安全读取，防止 SSR / 隐私模式异常 */
+function readPendingOrder(): PendingOrderSnapshot | null {
+  if (import.meta.server || typeof sessionStorage === 'undefined')
+    return null
+  try {
+    const raw = sessionStorage.getItem(PENDING_ORDER_KEY)
+    return raw ? (JSON.parse(raw) as PendingOrderSnapshot) : null
+  }
+  catch {
+    return null
+  }
+}
+
+function writePendingOrder(snapshot: PendingOrderSnapshot | null) {
+  if (import.meta.server || typeof sessionStorage === 'undefined')
+    return
+  try {
+    if (snapshot)
+      sessionStorage.setItem(PENDING_ORDER_KEY, JSON.stringify(snapshot))
+    else
+      sessionStorage.removeItem(PENDING_ORDER_KEY)
+  }
+  catch {
+    // ignore
+  }
+}
+
 /**
  * 支付核心 composable
  */
 export function usePayment() {
   const { app } = useCloudbase()
   const { user } = useTcbAuth()
+  const membership = useMembership()
   const toast = useToast()
 
   const phase = ref<PaymentPhase>('confirm')
@@ -105,8 +144,14 @@ export function usePayment() {
       navigateTo(`/login?redirect=/pricing`)
       return
     }
+    if (!app) {
+      errorMessage.value = '支付服务暂不可用，请刷新页面后重试'
+      phase.value = 'fail'
+      return
+    }
 
     loading.value = true
+    errorMessage.value = ''
     const payType = detectPayType()
 
     try {
@@ -124,29 +169,39 @@ export function usePayment() {
       currentOrder.value = result
       phase.value = 'paying'
 
-      // 根据支付方式处理
+      // 在跳转/调起前持久化订单快照，跳转回来后可恢复轮询
+      writePendingOrder({
+        outTradeNo: result.outTradeNo,
+        payType,
+        planId: selectedPlan.value,
+        cycle: selectedCycle.value,
+        startedAt: Date.now(),
+      })
+
       if (payType === 'native') {
-        // Native 扫码支付：前端展示二维码，启动轮询
         startPolling(result.outTradeNo)
       }
       else if (payType === 'h5') {
-        // H5 支付：跳转微信
         if (result.h5Url) {
           startPolling(result.outTradeNo)
           window.location.href = result.h5Url
         }
+        else {
+          throw new Error('未获取到 H5 支付链接')
+        }
       }
       else if (payType === 'jsapi') {
-        // JSAPI 支付：通过 WeixinJSBridge 调起支付
-        if (result.jsapiParams) {
+        if (result.jsapiParams)
           invokeJsapi(result.jsapiParams, result.outTradeNo)
-        }
+        else
+          throw new Error('未获取到 JSAPI 支付参数')
       }
     }
     catch (err) {
       console.error('创建订单失败:', err)
       errorMessage.value = err instanceof Error ? err.message : '创建订单失败，请稍后重试'
       phase.value = 'fail'
+      writePendingOrder(null)
     }
     finally {
       loading.value = false
@@ -160,6 +215,7 @@ export function usePayment() {
     if (typeof WeixinJSBridge === 'undefined') {
       errorMessage.value = '请在微信浏览器中使用 JSAPI 支付'
       phase.value = 'fail'
+      writePendingOrder(null)
       return
     }
 
@@ -175,14 +231,17 @@ export function usePayment() {
       },
       (res: { err_msg: string }) => {
         if (res.err_msg === 'get_brand_wcpay_request:ok') {
-          phase.value = 'success'
+          // 即使前端拿到 ok，仍以服务端确认为准（防止伪造客户端回调）
+          startPolling(outTradeNo)
         }
         else if (res.err_msg === 'get_brand_wcpay_request:cancel') {
           errorMessage.value = '支付已取消'
           phase.value = 'fail'
+          writePendingOrder(null)
         }
         else {
-          // 支付可能成功但前端未确认，启动轮询
+          // 异常分支：界面留在 paying，开轮询让服务端兜底确认
+          phase.value = 'paying'
           startPolling(outTradeNo)
         }
       },
@@ -193,17 +252,19 @@ export function usePayment() {
    * 轮询订单状态
    */
   function startPolling(outTradeNo: string) {
+    if (!app)
+      return
     stopPolling()
 
     let attempts = 0
-    const maxAttempts = 60 // 最多轮询 5 分钟 (每 5 秒一次)
 
     pollTimer = setInterval(async () => {
       attempts++
-      if (attempts > maxAttempts) {
+      if (attempts > POLLING_MAX_ATTEMPTS) {
         stopPolling()
-        errorMessage.value = '支付超时，请查看微信支付是否成功'
+        errorMessage.value = '支付状态未确认，请刷新页面或查看微信支付记录'
         phase.value = 'fail'
+        writePendingOrder(null)
         return
       }
 
@@ -220,17 +281,22 @@ export function usePayment() {
         if (result.status === 'paid') {
           stopPolling()
           phase.value = 'success'
+          writePendingOrder(null)
+          // 异步刷新会员状态（不阻塞 UI）
+          membership.refresh().catch(() => {})
         }
         else if (result.status === 'failed' || result.status === 'closed') {
           stopPolling()
-          errorMessage.value = '支付失败或已关闭'
+          errorMessage.value = result.status === 'closed' ? '支付已关闭' : '支付失败'
           phase.value = 'fail'
+          writePendingOrder(null)
         }
       }
       catch (err) {
-        console.error('查询订单状态失败:', err)
+        console.warn('查询订单状态失败:', err)
+        // 单次失败不停止轮询
       }
-    }, 5000)
+    }, POLLING_INTERVAL_MS)
   }
 
   /**
@@ -252,6 +318,27 @@ export function usePayment() {
     currentOrder.value = null
     errorMessage.value = ''
     loading.value = false
+    writePendingOrder(null)
+  }
+
+  /**
+   * 恢复中断的支付（H5 跳转回来后调用）
+   */
+  function resumePendingOrder(): PendingOrderSnapshot | null {
+    const snapshot = readPendingOrder()
+    if (!snapshot)
+      return null
+    // 已超过最长轮询窗口的快照直接丢弃
+    if (Date.now() - snapshot.startedAt > POLLING_INTERVAL_MS * POLLING_MAX_ATTEMPTS) {
+      writePendingOrder(null)
+      return null
+    }
+    selectedPlan.value = snapshot.planId
+    selectedCycle.value = snapshot.cycle
+    currentOrder.value = { outTradeNo: snapshot.outTradeNo, payType: snapshot.payType }
+    phase.value = 'paying'
+    startPolling(snapshot.outTradeNo)
+    return snapshot
   }
 
   // 组件卸载时清理
@@ -273,5 +360,6 @@ export function usePayment() {
     createOrder,
     reset,
     stopPolling,
+    resumePendingOrder,
   }
 }

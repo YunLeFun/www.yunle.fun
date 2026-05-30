@@ -1,204 +1,219 @@
-const crypto = require('node:crypto')
+/**
+ * 云函数 wxpay-order
+ *
+ * 路由 action：
+ *   - createOrder      创建套餐订单（需登录）
+ *   - createTestOrder  自定义金额测试下单（默认禁用，需 WX_ALLOW_TEST_ORDER=true 才启用）
+ *   - queryOrder       查询订单（本地状态 + 微信兜底）
+ *
+ * 主入口只做"参数解析 + 鉴权 + 路由"，纯逻辑全部委托给 lib/。
+ */
+
+'use strict'
+
 const process = require('node:process')
 const cloudbase = require('@cloudbase/node-sdk')
 
-const RE_ESCAPE_NEWLINE = /\\n/g
-const RE_PEM_BEGIN = /-----BEGIN (?:RSA )?PRIVATE KEY-----/
-const RE_PEM_END = /-----END (?:RSA )?PRIVATE KEY-----/
-const RE_WHITESPACE = /\s+/g
+const { generateNonceStr, generateOutTradeNo } = require('./lib/crypto')
+const { generateJsapiPayParams } = require('./lib/jsapi')
+const {
+  activateMembership,
+  findOrderByOutTradeNo,
+  markOrderPaid,
+  ORDERS_COLLECTION,
+} = require('./lib/orders')
+const { getPlanAmount } = require('./lib/plans')
+const {
+  assertCreateOrderInput,
+  assertOutTradeNo,
+  assertTestAmount,
+} = require('./lib/validation')
+const { queryTransactionByOutTradeNo, wxpayRequest } = require('./lib/wxpay-client')
 
 const app = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV })
 const db = app.database()
-const ORDERS_COLLECTION = 'orders'
 
-// 套餐价格表（单位：分），与前端保持一致
-const PLAN_PRICES = {
-  basic: { month: 990, year: 9990 },
-}
-
-// ============ 微信支付 V3 工具函数 ============
-
-/**
- * 修复私钥 PEM 格式
- * 兼容：\n 转义、空格分隔、无分隔等多种控制台粘贴格式
- */
-function normalizePrivateKey(raw) {
-  // 1. 先处理 \n 字面量转义
-  let key = raw.replace(RE_ESCAPE_NEWLINE, '\n')
-  // 2. 去掉首尾空白
-  key = key.trim()
-  // 3. 如果已经是正确的多行 PEM，直接返回
-  if (key.includes('\n'))
-    return key
-  // 4. 单行情况：提取纯 base64 内容，按 64 字符折行
-  const base64 = key
-    .replace(RE_PEM_BEGIN, '')
-    .replace(RE_PEM_END, '')
-    .replace(RE_WHITESPACE, '')
-  const lines = []
-  for (let i = 0; i < base64.length; i += 64) {
-    lines.push(base64.slice(i, i + 64))
+/** 必要环境变量校验（运行时） */
+function loadConfig() {
+  const cfg = {
+    appId: process.env.WX_APPID,
+    mchId: process.env.WX_MCH_ID,
+    serialNo: process.env.WX_SERIAL_NO,
+    privateKey: process.env.WX_PRIVATE_KEY,
+    notifyUrl: process.env.WX_NOTIFY_URL,
+    allowTestOrder: process.env.WX_ALLOW_TEST_ORDER === 'true',
   }
-  return `-----BEGIN PRIVATE KEY-----\n${lines.join('\n')}\n-----END PRIVATE KEY-----`
-}
-
-/**
- * 生成随机字符串
- */
-function generateNonceStr(length = 32) {
-  return crypto.randomBytes(length).toString('hex').slice(0, length)
-}
-
-/**
- * 生成商户订单号
- */
-function generateOutTradeNo() {
-  const timestamp = Date.now().toString()
-  const random = crypto.randomBytes(4).toString('hex')
-  return `YLF${timestamp}${random}`
-}
-
-/**
- * V3 签名 - 生成 Authorization Header
- */
-function generateAuthHeader(method, url, body = '') {
-  const mchId = process.env.WX_MCH_ID
-  const serialNo = process.env.WX_SERIAL_NO
-  const privateKey = process.env.WX_PRIVATE_KEY
-
-  if (!mchId || !serialNo || !privateKey) {
-    throw new Error('微信支付商户配置缺失，请配置环境变量')
+  const missing = ['appId', 'mchId', 'serialNo', 'privateKey', 'notifyUrl']
+    .filter(k => !cfg[k])
+  if (missing.length > 0) {
+    throw new Error(`微信支付配置缺失：${missing.join(', ')}`)
   }
-
-  const timestamp = Math.floor(Date.now() / 1000).toString()
-  const nonceStr = generateNonceStr()
-  const message = `${method}\n${url}\n${timestamp}\n${nonceStr}\n${body}\n`
-
-  const sign = crypto
-    .createSign('RSA-SHA256')
-    .update(message)
-    .sign(normalizePrivateKey(privateKey), 'base64')
-
-  return `WECHATPAY2-SHA256-RSA2048 mchid="${mchId}",nonce_str="${nonceStr}",signature="${sign}",timestamp="${timestamp}",serial_no="${serialNo}"`
+  return cfg
 }
 
-/**
- * 调用微信支付 V3 API
- */
-async function wxpayRequest(method, urlPath, body) {
-  const bodyStr = body ? JSON.stringify(body) : ''
-  const authorization = generateAuthHeader(method, urlPath, bodyStr)
-
-  const response = await fetch(`https://api.mch.weixin.qq.com${urlPath}`, {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'Authorization': authorization,
-    },
-    body: bodyStr || undefined,
-  })
-
-  const data = await response.json()
-  if (!response.ok) {
-    console.error('微信支付 API 错误:', JSON.stringify(data))
-    throw new Error(data.message || '微信支付接口调用失败')
+/** 当前调用者 uid（CloudBase Auth） */
+function getCallerUid() {
+  try {
+    const auth = app.auth()
+    const info = auth.getUserInfo()
+    return info?.uid || ''
   }
-  return data
+  catch {
+    return ''
+  }
 }
 
-/**
- * 生成 JSAPI 支付签名参数
- */
-function generateJsapiPayParams(prepayId) {
-  const appId = process.env.WX_APPID
-  const privateKey = process.env.WX_PRIVATE_KEY
-  if (!appId || !privateKey) {
-    throw new Error('微信支付 APPID 或私钥配置缺失')
-  }
+function nowSeconds() {
+  return Math.floor(Date.now() / 1000)
+}
 
-  const timeStamp = Math.floor(Date.now() / 1000).toString()
-  const nonceStr = generateNonceStr()
-  const packageStr = `prepay_id=${prepayId}`
-  const message = `${appId}\n${timeStamp}\n${nonceStr}\n${packageStr}\n`
-
-  const paySign = crypto
-    .createSign('RSA-SHA256')
-    .update(message)
-    .sign(normalizePrivateKey(privateKey), 'base64')
-
+function buildOrderParams({ cfg, amount, outTradeNo, description }) {
   return {
-    appId,
-    timeStamp,
-    nonceStr,
-    package: packageStr,
-    signType: 'RSA',
-    paySign,
-  }
-}
-
-// ============ 业务逻辑 ============
-
-/**
- * 创建测试订单（自定义金额）
- */
-async function handleCreateTestOrder(event, context) {
-  const { amount: customAmount, payType, description: customDesc, wxOpenid } = event
-  const { OPENID: openid } = context.env || {}
-
-  if (!customAmount || !payType) {
-    throw new Error('参数缺失: amount, payType 必填')
-  }
-  const amount = Math.round(Number(customAmount))
-  if (!Number.isFinite(amount) || amount < 1) {
-    throw new Error('金额无效，最小 1 分')
-  }
-
-  const outTradeNo = generateOutTradeNo()
-  const notifyUrl = process.env.WX_NOTIFY_URL
-  const appId = process.env.WX_APPID
-  const mchId = process.env.WX_MCH_ID
-
-  if (!notifyUrl || !appId || !mchId) {
-    throw new Error('微信支付配置缺失，请联系管理员')
-  }
-
-  const orderParams = {
-    appid: appId,
-    mchid: mchId,
-    description: customDesc || `云乐坊测试支付 ${(amount / 100).toFixed(2)} 元`,
+    appid: cfg.appId,
+    mchid: cfg.mchId,
+    description,
     out_trade_no: outTradeNo,
-    notify_url: notifyUrl,
+    notify_url: cfg.notifyUrl,
     amount: { total: amount, currency: 'CNY' },
   }
+}
 
-  let wxResult, apiPath
-
+/** 根据支付方式实际调用对应的下单接口 */
+async function callPrepay({ cfg, payType, orderParams, payerOpenid, clientIp }) {
+  const wxClient = {
+    mchId: cfg.mchId,
+    serialNo: cfg.serialNo,
+    privateKey: cfg.privateKey,
+  }
   if (payType === 'native') {
-    apiPath = '/v3/pay/transactions/native'
-    wxResult = await wxpayRequest('POST', apiPath, orderParams)
-  }
-  else if (payType === 'jsapi') {
-    apiPath = '/v3/pay/transactions/jsapi'
-    const payer = wxOpenid || openid
-    if (!payer)
-      throw new Error('JSAPI 支付需要微信 openid')
-    wxResult = await wxpayRequest('POST', apiPath, { ...orderParams, payer: { openid: payer } })
-  }
-  else if (payType === 'h5') {
-    apiPath = '/v3/pay/transactions/h5'
-    wxResult = await wxpayRequest('POST', apiPath, {
-      ...orderParams,
-      scene_info: { payer_client_ip: event.clientIp || '127.0.0.1', h5_info: { type: 'Wap' } },
+    return wxpayRequest(wxClient, {
+      method: 'POST',
+      urlPath: '/v3/pay/transactions/native',
+      body: orderParams,
     })
   }
-  else {
-    throw new Error(`不支持的支付方式: ${payType}`)
+  if (payType === 'jsapi') {
+    if (!payerOpenid)
+      throw new Error('JSAPI 支付需要微信 openid')
+    return wxpayRequest(wxClient, {
+      method: 'POST',
+      urlPath: '/v3/pay/transactions/jsapi',
+      body: { ...orderParams, payer: { openid: payerOpenid } },
+    })
   }
+  if (payType === 'h5') {
+    return wxpayRequest(wxClient, {
+      method: 'POST',
+      urlPath: '/v3/pay/transactions/h5',
+      body: {
+        ...orderParams,
+        scene_info: {
+          payer_client_ip: clientIp || '127.0.0.1',
+          h5_info: { type: 'Wap' },
+        },
+      },
+    })
+  }
+  throw new Error(`不支持的支付方式: ${payType}`)
+}
+
+function buildPayResult({ payType, cfg, wxResult, outTradeNo }) {
+  const result = { outTradeNo, payType }
+  if (payType === 'native') {
+    result.codeUrl = wxResult.code_url
+  }
+  else if (payType === 'h5') {
+    result.h5Url = wxResult.h5_url
+  }
+  else if (payType === 'jsapi') {
+    result.jsapiParams = generateJsapiPayParams({
+      appId: cfg.appId,
+      prepayId: wxResult.prepay_id,
+      privateKey: cfg.privateKey,
+      timestamp: String(nowSeconds()),
+      nonceStr: generateNonceStr(),
+    })
+  }
+  return result
+}
+
+async function handleCreateOrder(event) {
+  const uid = getCallerUid()
+  if (!uid)
+    throw new Error('请先登录后再下单')
+
+  const { planId, billingCycle, payType, wxOpenid } = assertCreateOrderInput(event)
+  const cfg = loadConfig()
+  const amount = getPlanAmount(planId, billingCycle)
+  const outTradeNo = generateOutTradeNo()
+
+  const orderParams = buildOrderParams({
+    cfg,
+    amount,
+    outTradeNo,
+    description: `云乐坊 ${planId} 套餐 - ${billingCycle === 'month' ? '月付' : '年付'}`,
+  })
+
+  const wxResult = await callPrepay({
+    cfg,
+    payType,
+    orderParams,
+    payerOpenid: wxOpenid,
+    clientIp: event.clientIp,
+  })
 
   const now = Date.now()
   await db.collection(ORDERS_COLLECTION).add({
-    userId: openid || '',
+    userId: uid,
+    planId,
+    billingCycle,
+    amount,
+    payType,
+    status: 'pending',
+    outTradeNo,
+    codeUrl: wxResult.code_url || '',
+    h5Url: wxResult.h5_url || '',
+    prepayId: wxResult.prepay_id || '',
+    createdAt: now,
+    updatedAt: now,
+  })
+
+  return buildPayResult({ payType, cfg, wxResult, outTradeNo })
+}
+
+async function handleCreateTestOrder(event) {
+  const uid = getCallerUid()
+  if (!uid)
+    throw new Error('请先登录后再下单')
+
+  const cfg = loadConfig()
+  if (!cfg.allowTestOrder)
+    throw new Error('测试下单已禁用，请设置 WX_ALLOW_TEST_ORDER=true')
+
+  const amount = assertTestAmount(event.amount)
+  const payType = event.payType
+  if (!['native', 'jsapi', 'h5'].includes(payType))
+    throw new Error(`不支持的支付方式: ${payType}`)
+
+  const outTradeNo = generateOutTradeNo()
+  const orderParams = buildOrderParams({
+    cfg,
+    amount,
+    outTradeNo,
+    description: event.description || `云乐坊测试支付 ${(amount / 100).toFixed(2)} 元`,
+  })
+
+  const wxResult = await callPrepay({
+    cfg,
+    payType,
+    orderParams,
+    payerOpenid: event.wxOpenid,
+    clientIp: event.clientIp,
+  })
+
+  const now = Date.now()
+  await db.collection(ORDERS_COLLECTION).add({
+    userId: uid,
     planId: 'test',
     billingCycle: 'once',
     amount,
@@ -212,167 +227,109 @@ async function handleCreateTestOrder(event, context) {
     updatedAt: now,
   })
 
-  const result = { outTradeNo, payType }
-  if (payType === 'native')
-    result.codeUrl = wxResult.code_url
-  else if (payType === 'h5')
-    result.h5Url = wxResult.h5_url
-  else if (payType === 'jsapi')
-    result.jsapiParams = generateJsapiPayParams(wxResult.prepay_id)
-
-  return result
+  return buildPayResult({ payType, cfg, wxResult, outTradeNo })
 }
 
-/**
- * 创建订单
- */
-async function handleCreateOrder(event, context) {
-  const { planId, billingCycle, payType, wxOpenid } = event
-  const { OPENID: openid } = context.env || {}
-
-  // 参数校验
-  if (!planId || !billingCycle || !payType) {
-    throw new Error('参数缺失: planId, billingCycle, payType 必填')
-  }
-  if (!PLAN_PRICES[planId] || !PLAN_PRICES[planId][billingCycle]) {
-    throw new Error('无效的套餐或计费周期')
-  }
-
-  const amount = PLAN_PRICES[planId][billingCycle]
-  const outTradeNo = generateOutTradeNo()
-  const notifyUrl = process.env.WX_NOTIFY_URL
-  const appId = process.env.WX_APPID
-  const mchId = process.env.WX_MCH_ID
-
-  if (!notifyUrl || !appId || !mchId) {
-    throw new Error('微信支付配置缺失，请联系管理员')
-  }
-
-  // 公共下单参数
-  const orderParams = {
-    appid: appId,
-    mchid: mchId,
-    description: `云乐坊 ${planId} 套餐 - ${billingCycle === 'month' ? '月付' : '年付'}`,
-    out_trade_no: outTradeNo,
-    notify_url: notifyUrl,
-    amount: {
-      total: amount,
-      currency: 'CNY',
-    },
-  }
-
-  let wxResult
-  let apiPath
-
-  // 根据支付方式调用不同 API
-  if (payType === 'native') {
-    apiPath = '/v3/pay/transactions/native'
-    wxResult = await wxpayRequest('POST', apiPath, orderParams)
-  }
-  else if (payType === 'jsapi') {
-    apiPath = '/v3/pay/transactions/jsapi'
-    const payer = wxOpenid || openid
-    if (!payer) {
-      throw new Error('JSAPI 支付需要微信 openid')
-    }
-    wxResult = await wxpayRequest('POST', apiPath, {
-      ...orderParams,
-      payer: { openid: payer },
-    })
-  }
-  else if (payType === 'h5') {
-    apiPath = '/v3/pay/transactions/h5'
-    wxResult = await wxpayRequest('POST', apiPath, {
-      ...orderParams,
-      scene_info: {
-        payer_client_ip: event.clientIp || '127.0.0.1',
-        h5_info: { type: 'Wap' },
-      },
-    })
-  }
-  else {
-    throw new Error(`不支持的支付方式: ${payType}`)
-  }
-
-  // 在数据库中创建订单记录
-  const now = Date.now()
-  const orderRecord = {
-    userId: openid || '',
-    planId,
-    billingCycle,
-    amount,
-    payType,
-    status: 'pending',
-    outTradeNo,
-    codeUrl: wxResult.code_url || '',
-    h5Url: wxResult.h5_url || '',
-    prepayId: wxResult.prepay_id || '',
-    createdAt: now,
-    updatedAt: now,
-  }
-
-  await db.collection(ORDERS_COLLECTION).add(orderRecord)
-
-  // 构造返回结果
-  const result = {
-    orderId: orderRecord._id,
-    outTradeNo,
-    payType,
-  }
-
-  if (payType === 'native') {
-    result.codeUrl = wxResult.code_url
-  }
-  else if (payType === 'h5') {
-    result.h5Url = wxResult.h5_url
-  }
-  else if (payType === 'jsapi') {
-    result.jsapiParams = generateJsapiPayParams(wxResult.prepay_id)
-  }
-
-  return result
-}
-
-/**
- * 查询订单状态
- */
 async function handleQueryOrder(event) {
-  const { outTradeNo } = event
-  if (!outTradeNo) {
-    throw new Error('参数缺失: outTradeNo 必填')
-  }
+  const uid = getCallerUid()
+  if (!uid)
+    throw new Error('请先登录')
 
-  const { data } = await db
-    .collection(ORDERS_COLLECTION)
-    .where({ outTradeNo })
-    .limit(1)
-    .get()
-
-  if (!data || data.length === 0) {
+  const outTradeNo = assertOutTradeNo(event.outTradeNo)
+  const order = await findOrderByOutTradeNo(db, outTradeNo)
+  if (!order)
     throw new Error('订单不存在')
+  if (order.userId !== uid)
+    throw new Error('无权访问该订单')
+
+  // 已经是终态：直接返回
+  if (order.status !== 'pending') {
+    return {
+      status: order.status,
+      transactionId: order.transactionId || null,
+      paidAt: order.paidAt || null,
+    }
   }
 
-  const order = data[0]
-  return {
-    status: order.status,
-    transactionId: order.transactionId || null,
-    paidAt: order.paidAt || null,
+  // pending：主动查微信兜底
+  const cfg = loadConfig()
+  let tx
+  try {
+    tx = await queryTransactionByOutTradeNo(
+      {
+        mchId: cfg.mchId,
+        serialNo: cfg.serialNo,
+        privateKey: cfg.privateKey,
+      },
+      { outTradeNo, mchId: cfg.mchId },
+    )
   }
+  catch (err) {
+    // 查询失败不影响前端，仍返回 pending
+    console.warn('[wxpay-order] 主动查询微信失败:', err.message)
+    return { status: 'pending', transactionId: null, paidAt: null }
+  }
+
+  if (tx?.trade_state === 'SUCCESS') {
+    // 业务校验：appid / mchid / amount
+    if (
+      tx.appid !== cfg.appId
+      || tx.mchid !== cfg.mchId
+      || tx?.amount?.total !== order.amount
+    ) {
+      console.error('[wxpay-order] 查询结果与订单不匹配:', { outTradeNo })
+      return { status: order.status, transactionId: null, paidAt: null }
+    }
+    const now = Date.now()
+    const { updated } = await markOrderPaid(db, {
+      outTradeNo,
+      transactionId: tx.transaction_id,
+      now,
+    })
+    if (updated > 0) {
+      try {
+        await activateMembership(db, {
+          userId: order.userId,
+          planId: order.planId,
+          cycle: order.billingCycle,
+          now,
+          outTradeNo,
+        })
+      }
+      catch (err) {
+        console.error('[wxpay-order] 兜底开通会员失败（需人工补偿）:', err.message)
+      }
+    }
+    return { status: 'paid', transactionId: tx.transaction_id, paidAt: now }
+  }
+
+  if (tx?.trade_state === 'CLOSED' || tx?.trade_state === 'PAYERROR' || tx?.trade_state === 'REVOKED') {
+    const now = Date.now()
+    await db.collection(ORDERS_COLLECTION)
+      .where({ outTradeNo, status: 'pending' })
+      .update({ status: tx.trade_state === 'CLOSED' ? 'closed' : 'failed', updatedAt: now })
+    return { status: tx.trade_state === 'CLOSED' ? 'closed' : 'failed', transactionId: null, paidAt: null }
+  }
+
+  return { status: 'pending', transactionId: null, paidAt: null }
 }
 
-// ============ 云函数入口 ============
-
-exports.main = async (event, context) => {
-  const { action } = event
-
-  switch (action) {
-    case 'createOrder':
-      return handleCreateOrder(event, context)
-    case 'createTestOrder':
-      return handleCreateTestOrder(event, context)
-    case 'queryOrder':
-      return handleQueryOrder(event)
-    default:
-      throw new Error(`未知 action: ${action}`)
+exports.main = async (event) => {
+  const { action } = event || {}
+  try {
+    switch (action) {
+      case 'createOrder':
+        return await handleCreateOrder(event)
+      case 'createTestOrder':
+        return await handleCreateTestOrder(event)
+      case 'queryOrder':
+        return await handleQueryOrder(event)
+      default:
+        throw new Error(`未知 action: ${action}`)
+    }
+  }
+  catch (err) {
+    console.error('[wxpay-order] 处理失败:', err.message)
+    throw err
   }
 }
