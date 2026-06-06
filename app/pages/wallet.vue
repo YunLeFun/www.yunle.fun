@@ -89,10 +89,14 @@ function formatExpire(ts: number | null): string {
   return new Date(ts).toLocaleDateString('zh-CN')
 }
 
-onMounted(() => {
+onMounted(async () => {
   if (user.value) {
-    coin.refresh()
-    loadTransactions(true)
+    // 先兜底对账：把支付成功却卡在 pending（轮询窗口已关 / 回调漏达）的订单补发，
+    // 再刷新余额与流水，避免「付了款余额不变」。
+    const { paid } = await coin.reconcileOrders()
+    await Promise.all([coin.refresh(), loadTransactions(true)])
+    if (paid > 0)
+      useToast().add({ title: '已为你补发到账', description: `${paid} 笔支付已确认入账`, color: 'success' })
   }
   // H5 跳转回来后恢复充值结果
   const resumed = recharge.resumePending()

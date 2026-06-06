@@ -33,12 +33,20 @@ const {
 const app = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV })
 const db = app.database()
 
-/** 当前调用者 uid（CloudBase Auth） */
+/**
+ * 匿名 / 占位身份集合。CloudBase 在「仅用公开 accessKey、未真正登录」时
+ * 会以匿名身份调用云函数，getUserInfo().uid 可能为空或 'anon'。
+ * 这类身份绝不能用于扣费 / 读取余额，否则会命中共享占位账户。
+ */
+const ANON_UIDS = new Set(['', 'anon'])
+
+/** 当前调用者 uid（CloudBase Auth）；匿名 / 占位身份一律视为未登录返回 '' */
 function getCallerUid() {
   try {
     const auth = app.auth()
     const info = auth.getUserInfo()
-    return info?.uid || ''
+    const uid = info?.uid || ''
+    return ANON_UIDS.has(uid) ? '' : uid
   }
   catch {
     return ''

@@ -29,7 +29,11 @@
       "handler": "index.main",
       "installDependency": true,
       "envVariables": {
-        "WX_APIV3_KEY": ""
+        "WX_APIV3_KEY": "",
+        "WX_APPID": "",
+        "WX_MCH_ID": "",
+        "WX_PLATFORM_CERTIFICATES": "",
+        "WX_TIME_TOLERANCE": "300"
       }
     },
     {

@@ -69,7 +69,7 @@ export interface UsePaymentFlowOptions {
  * 以及中断恢复。会员订阅、云币充值等业务复用同一份逻辑，只需传入各自的下单 data 与恢复 meta。
  */
 export function usePaymentFlow(options: UsePaymentFlowOptions) {
-  const { app } = useCloudbase()
+  const { app, auth } = useCloudbase()
 
   const phase = ref<PaymentPhase>('confirm')
   const loading = ref(false)
@@ -123,6 +123,23 @@ export function usePaymentFlow(options: UsePaymentFlowOptions) {
   ) {
     if (!app) {
       errorMessage.value = '支付服务暂不可用，请刷新页面后重试'
+      phase.value = 'fail'
+      return
+    }
+
+    // 关键：下单前确认存在有效登录会话（getSession 会在 refresh token 仍有效时自动续期）。
+    // 否则 CloudBase 会以公开 accessKey 的匿名身份调用云函数，付款将落到共享占位账户（uid='anon'），
+    // 导致「付了钱余额不变」。会话失效时直接拦截并提示重新登录，绝不带着匿名身份继续支付。
+    try {
+      const { data: sessionData } = await auth.getSession()
+      if (!sessionData?.session?.access_token) {
+        errorMessage.value = '登录状态已失效，请重新登录后再支付'
+        phase.value = 'fail'
+        return
+      }
+    }
+    catch {
+      errorMessage.value = '登录状态校验失败，请重新登录后再支付'
       phase.value = 'fail'
       return
     }

@@ -52,12 +52,20 @@ function loadConfig() {
   return cfg
 }
 
-/** 当前调用者 uid（CloudBase Auth） */
+/**
+ * 匿名 / 占位身份集合。CloudBase 在「仅用公开 accessKey、未真正登录」时
+ * 会以匿名身份调用云函数，getUserInfo().uid 可能为空或 'anon'。
+ * 这类身份绝不能用于下单 / 发放权益，否则真实付款会落到共享占位账户上。
+ */
+const ANON_UIDS = new Set(['', 'anon'])
+
+/** 当前调用者 uid（CloudBase Auth）；匿名 / 占位身份一律视为未登录返回 '' */
 function getCallerUid() {
   try {
     const auth = app.auth()
     const info = auth.getUserInfo()
-    return info?.uid || ''
+    const uid = info?.uid || ''
+    return ANON_UIDS.has(uid) ? '' : uid
   }
   catch {
     return ''
@@ -268,29 +276,18 @@ async function handleCreateTestOrder(event) {
   return buildPayResult({ payType, cfg, wxResult, outTradeNo })
 }
 
-async function handleQueryOrder(event) {
-  const uid = getCallerUid()
-  if (!uid)
-    throw new Error('请先登录')
-
-  const outTradeNo = assertOutTradeNo(event.outTradeNo)
-  const order = await findOrderByOutTradeNo(db, outTradeNo)
-  if (!order)
-    throw new Error('订单不存在')
-  if (order.userId !== uid)
-    throw new Error('无权访问该订单')
-
-  // 已经是终态：直接返回
-  if (order.status !== 'pending') {
-    return {
-      status: order.status,
-      transactionId: order.transactionId || null,
-      paidAt: order.paidAt || null,
-    }
-  }
-
-  // pending：主动查微信兜底
-  const cfg = loadConfig()
+/**
+ * 结算单笔 pending 订单：主动查微信 → 命中成功则标 paid 并发放权益。
+ *
+ * 供 queryOrder（前端轮询）与 reconcileOrders（兜底对账）复用，保证「查单 → 发放」逻辑只有一处。
+ * 发放只在 markOrderPaid 返回 updated>0（pending→paid 首次转移）时触发，依赖底层幂等保证不重复。
+ *
+ * @param {object} cfg loadConfig() 结果
+ * @param {object} order pending 订单文档
+ * @returns {Promise<{ status: string, transactionId: string|null, paidAt: number|null }>}
+ */
+async function settlePendingOrder(cfg, order) {
+  const outTradeNo = order.outTradeNo
   let tx
   try {
     tx = await queryTransactionByOutTradeNo(
@@ -346,6 +343,72 @@ async function handleQueryOrder(event) {
   return { status: 'pending', transactionId: null, paidAt: null }
 }
 
+async function handleQueryOrder(event) {
+  const uid = getCallerUid()
+  if (!uid)
+    throw new Error('请先登录')
+
+  const outTradeNo = assertOutTradeNo(event.outTradeNo)
+  const order = await findOrderByOutTradeNo(db, outTradeNo)
+  if (!order)
+    throw new Error('订单不存在')
+  if (order.userId !== uid)
+    throw new Error('无权访问该订单')
+
+  // 已经是终态：直接返回
+  if (order.status !== 'pending') {
+    return {
+      status: order.status,
+      transactionId: order.transactionId || null,
+      paidAt: order.paidAt || null,
+    }
+  }
+
+  // pending：主动查微信兜底
+  const cfg = loadConfig()
+  return settlePendingOrder(cfg, order)
+}
+
+/** reconcileOrders 单次最多对账的订单数（防止恶意刷大量 pending 拖垮函数） */
+const RECONCILE_MAX_ORDERS = 20
+
+/**
+ * 兜底对账：把当前用户最近的 pending 订单逐一向微信核对并补发权益。
+ *
+ * 解决「支付成功但前端轮询窗口已关闭 / 异步回调漏达」导致订单长期卡在 pending、
+ * 权益迟迟未发放的问题。前端进入钱包页时调用一次即可自愈。
+ */
+async function handleReconcile() {
+  const uid = getCallerUid()
+  if (!uid)
+    throw new Error('请先登录')
+
+  const { data } = await db
+    .collection(ORDERS_COLLECTION)
+    .where({ userId: uid, status: 'pending' })
+    .orderBy('createdAt', 'desc')
+    .limit(RECONCILE_MAX_ORDERS)
+    .get()
+  const pending = Array.isArray(data) ? data : []
+  if (pending.length === 0)
+    return { reconciled: 0, paid: 0 }
+
+  const cfg = loadConfig()
+  let paid = 0
+  for (const order of pending) {
+    try {
+      const res = await settlePendingOrder(cfg, order)
+      if (res.status === 'paid')
+        paid++
+    }
+    catch (err) {
+      // 单笔失败不阻断其余订单对账
+      console.warn('[wxpay-order] 对账单笔失败:', order.outTradeNo, err.message)
+    }
+  }
+  return { reconciled: pending.length, paid }
+}
+
 exports.main = async (event) => {
   const { action } = event || {}
   try {
@@ -356,6 +419,8 @@ exports.main = async (event) => {
         return await handleCreateTestOrder(event)
       case 'queryOrder':
         return await handleQueryOrder(event)
+      case 'reconcileOrders':
+        return await handleReconcile()
       default:
         throw new Error(`未知 action: ${action}`)
     }
