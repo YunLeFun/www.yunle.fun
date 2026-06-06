@@ -9,11 +9,13 @@
 
 'use strict'
 
-const { PLAN_PRICES } = require('./plans')
+const { COIN_PACKS, PLAN_PRICES } = require('./plans')
 
 const PAY_TYPES = new Set(['native', 'jsapi', 'h5'])
 const BILLING_CYCLES = new Set(['month', 'year'])
+const ORDER_TYPES = new Set(['membership', 'recharge_coin'])
 const RE_OUT_TRADE_NO = /^\w{6,32}$/
+const RE_APP_ID = /^[\w-]{1,32}$/
 
 /**
  * 校验创建订单入参
@@ -33,6 +35,84 @@ function assertCreateOrderInput(input) {
   if (payType === 'jsapi' && wxOpenid && typeof wxOpenid !== 'string')
     throw new Error('wxOpenid 必须为字符串')
   return { planId, billingCycle, payType, wxOpenid }
+}
+
+/**
+ * 校验应用标识 appId（多租户归属）
+ * @param {unknown} appId
+ * @returns {string}
+ */
+function assertAppId(appId) {
+  if (typeof appId !== 'string' || !RE_APP_ID.test(appId))
+    throw new Error(`无效 appId: ${appId}`)
+  return appId
+}
+
+/**
+ * 校验支付方式
+ * @param {unknown} payType
+ * @returns {string}
+ */
+function assertPayType(payType) {
+  if (!payType || !PAY_TYPES.has(payType))
+    throw new Error(`不支持的支付方式: ${payType}`)
+  return payType
+}
+
+/**
+ * 校验创建会员订单入参（多租户版）
+ * @param {object} input
+ * @returns {{ appId: string, level: string, billingCycle: string, payType: string, wxOpenid?: string }}
+ */
+function assertMembershipOrderInput(input) {
+  if (!input || typeof input !== 'object')
+    throw new Error('参数必须为对象')
+  const { appId, payType, wxOpenid } = input
+  // 兼容旧字段名：level（新）或 planId（旧）
+  const level = input.level || input.planId
+  const billingCycle = input.billingCycle
+  if (!level || !PLAN_PRICES[level])
+    throw new Error(`无效会员套餐: ${level}`)
+  if (!billingCycle || !BILLING_CYCLES.has(billingCycle))
+    throw new Error(`无效计费周期: ${billingCycle}`)
+  assertPayType(payType)
+  if (payType === 'jsapi' && wxOpenid && typeof wxOpenid !== 'string')
+    throw new Error('wxOpenid 必须为字符串')
+  return { appId: assertAppId(appId), level, billingCycle, payType, wxOpenid }
+}
+
+/**
+ * 校验云币充值订单入参
+ * @param {object} input
+ * @returns {{ appId: string, packId: string, payType: string, wxOpenid?: string }}
+ */
+function assertRechargeCoinInput(input) {
+  if (!input || typeof input !== 'object')
+    throw new Error('参数必须为对象')
+  const { appId, packId, payType, wxOpenid } = input
+  if (!packId || !COIN_PACKS[packId])
+    throw new Error(`无效云币套餐: ${packId}`)
+  assertPayType(payType)
+  if (payType === 'jsapi' && wxOpenid && typeof wxOpenid !== 'string')
+    throw new Error('wxOpenid 必须为字符串')
+  return { appId: assertAppId(appId), packId, payType, wxOpenid }
+}
+
+/**
+ * 校验云币扣费入参（account-api deductCoin）
+ * @param {object} input
+ * @returns {{ appId: string, amount: number, bizId?: string }}
+ */
+function assertDeductCoinInput(input) {
+  if (!input || typeof input !== 'object')
+    throw new Error('参数必须为对象')
+  const { appId, amount, bizId } = input
+  const n = Math.round(Number(amount))
+  if (!Number.isInteger(n) || n <= 0)
+    throw new Error('扣费数量必须为正整数')
+  if (bizId !== undefined && typeof bizId !== 'string')
+    throw new Error('bizId 必须为字符串')
+  return { appId: assertAppId(appId), amount: n, bizId }
 }
 
 /**
@@ -86,7 +166,13 @@ function assertResourceMatchesOrder({ resource, order, expectedAppid, expectedMc
 module.exports = {
   PAY_TYPES,
   BILLING_CYCLES,
+  ORDER_TYPES,
   assertCreateOrderInput,
+  assertMembershipOrderInput,
+  assertRechargeCoinInput,
+  assertDeductCoinInput,
+  assertAppId,
+  assertPayType,
   assertTestAmount,
   assertOutTradeNo,
   assertResourceMatchesOrder,

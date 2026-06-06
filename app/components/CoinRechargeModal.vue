@@ -5,65 +5,45 @@ import { detectPayType, formatPrice } from '~/composables/usePaymentFlow'
 
 const props = defineProps<{
   open: boolean
-  planName: string
+  coin: number
   price: number
-  billingCycle: string
   phase: PaymentPhase
   loading: boolean
   errorMessage: string
   codeUrl?: string
-  planId?: string
 }>()
 
 const emit = defineEmits<{
   'update:open': [value: boolean]
   'confirm': []
   'close': []
-  'switchCycle': [cycle: 'month' | 'year']
 }>()
-
-// 当前是否为年付
-const isYearly = computed(() => props.billingCycle === 'year')
 
 const qrCanvas = ref<HTMLCanvasElement | null>(null)
 const payType = computed(() => detectPayType())
-
 const priceFormatted = computed(() => formatPrice(props.price))
-const cycleLabel = computed(() => props.billingCycle === 'year' ? '年付' : '月付')
 
-// 生成二维码的通用方法
 async function renderQRCode() {
   if (!props.codeUrl)
     return
-  // 等待 DOM 更新，确保 canvas 已挂载
   await nextTick()
   if (qrCanvas.value) {
     await QRCode.toCanvas(qrCanvas.value, props.codeUrl, {
       width: 240,
       margin: 2,
-      color: {
-        dark: '#111827',
-        light: '#FFFFFF',
-      },
+      color: { dark: '#111827', light: '#FFFFFF' },
     })
   }
 }
 
-// 当 codeUrl 变化时生成二维码
 watch(() => props.codeUrl, renderQRCode)
-
-// 当 phase 变为 paying 时生成二维码（此时 canvas 才会渲染到 DOM）
-watch(() => props.phase, (newPhase) => {
-  if (newPhase === 'paying' && props.codeUrl) {
+watch(() => props.phase, (p) => {
+  if (p === 'paying' && props.codeUrl)
     renderQRCode()
-  }
 })
-
-// 弹窗打开后生成二维码
 watch(() => props.open, (isOpen) => {
-  if (isOpen && props.codeUrl) {
+  if (isOpen && props.codeUrl)
     renderQRCode()
-  }
 })
 
 function handleClose() {
@@ -78,7 +58,7 @@ function handleClose() {
     @update:open="$emit('update:open', $event)"
   >
     <template #title>
-      <span class="sr-only">支付</span>
+      <span class="sr-only">云币充值</span>
     </template>
     <template #content>
       <div class="p-6 space-y-5">
@@ -86,40 +66,17 @@ function handleClose() {
         <template v-if="phase === 'confirm'">
           <div class="flex items-center gap-3">
             <div class="flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10">
-              <UIcon
-                name="i-lucide-credit-card"
-                class="w-5 h-5 text-primary"
-              />
+              <UIcon name="i-lucide-coins" class="w-5 h-5 text-primary" />
             </div>
             <h3 class="text-lg font-semibold">
-              确认购买
+              确认充值
             </h3>
           </div>
 
           <div class="rounded-xl border border-default p-4 space-y-3">
             <div class="flex items-center justify-between">
-              <span class="text-muted">套餐</span>
-              <span class="font-medium">{{ planName }}</span>
-            </div>
-            <div class="flex items-center justify-between">
-              <span class="text-muted">计费方式</span>
-              <div class="flex items-center gap-2">
-                <span
-                  class="font-medium cursor-pointer hover:text-primary transition-colors"
-                  :class="{ 'text-primary': !isYearly }"
-                  @click="!isYearly || emit('switchCycle', 'month')"
-                >
-                  月付
-                </span>
-                <span class="text-muted">/</span>
-                <span
-                  class="font-medium cursor-pointer hover:text-primary transition-colors"
-                  :class="{ 'text-primary': isYearly }"
-                  @click="isYearly || emit('switchCycle', 'year')"
-                >
-                  年付
-                </span>
-              </div>
+              <span class="text-muted">充值数量</span>
+              <span class="font-medium">{{ coin }} 云币</span>
             </div>
             <USeparator />
             <div class="flex items-center justify-between">
@@ -136,18 +93,15 @@ function handleClose() {
             </div>
           </div>
 
+          <p class="text-xs text-muted">
+            云币为平台虚拟消费凭证，不可提现、不可转账。
+          </p>
+
           <div class="flex gap-3 justify-end">
-            <UButton
-              color="neutral"
-              variant="outline"
-              @click="handleClose"
-            >
+            <UButton color="neutral" variant="outline" @click="handleClose">
               取消
             </UButton>
-            <UButton
-              :loading="loading"
-              @click="$emit('confirm')"
-            >
+            <UButton :loading="loading" @click="$emit('confirm')">
               确认支付
             </UButton>
           </div>
@@ -155,7 +109,6 @@ function handleClose() {
 
         <!-- 支付中阶段 -->
         <template v-else-if="phase === 'paying'">
-          <!-- Native 扫码 -->
           <template v-if="payType === 'native'">
             <div class="text-center space-y-4">
               <h3 class="text-lg font-semibold">
@@ -166,32 +119,22 @@ function handleClose() {
               </p>
               <div class="flex justify-center">
                 <div class="rounded-xl border border-default p-3 bg-white inline-block">
-                  <canvas
-                    ref="qrCanvas"
-                    class="block"
-                  />
+                  <canvas ref="qrCanvas" class="block" />
                 </div>
               </div>
               <div class="flex items-center justify-center gap-2 text-sm text-muted">
-                <UIcon
-                  name="i-lucide-loader-2"
-                  class="w-4 h-4 animate-spin"
-                />
+                <UIcon name="i-lucide-loader-2" class="w-4 h-4 animate-spin" />
                 <span>等待支付结果...</span>
               </div>
               <p class="text-xs text-muted">
-                支付金额 <span class="font-semibold text-primary">{{ priceFormatted }}</span>
+                充值 <span class="font-semibold text-primary">{{ coin }} 云币</span> · {{ priceFormatted }}
               </p>
             </div>
           </template>
 
-          <!-- H5 / JSAPI -->
           <template v-else>
             <div class="text-center space-y-4 py-8">
-              <UIcon
-                name="i-lucide-loader-2"
-                class="w-12 h-12 mx-auto text-primary animate-spin"
-              />
+              <UIcon name="i-lucide-loader-2" class="w-12 h-12 mx-auto text-primary animate-spin" />
               <h3 class="text-lg font-semibold">
                 正在跳转微信支付...
               </h3>
@@ -202,12 +145,7 @@ function handleClose() {
           </template>
 
           <div class="flex justify-center">
-            <UButton
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              @click="handleClose"
-            >
+            <UButton color="neutral" variant="ghost" size="sm" @click="handleClose">
               取消支付
             </UButton>
           </div>
@@ -217,16 +155,13 @@ function handleClose() {
         <template v-else-if="phase === 'success'">
           <div class="text-center space-y-4 py-4">
             <div class="flex items-center justify-center w-16 h-16 mx-auto rounded-full bg-success/10">
-              <UIcon
-                name="i-lucide-check"
-                class="w-8 h-8 text-success"
-              />
+              <UIcon name="i-lucide-check" class="w-8 h-8 text-success" />
             </div>
             <h3 class="text-lg font-semibold">
-              支付成功
+              充值成功
             </h3>
             <p class="text-sm text-muted">
-              {{ planName }} 套餐（{{ cycleLabel }}）已开通
+              已到账 <span class="font-semibold text-primary">{{ coin }} 云币</span>
             </p>
           </div>
           <div class="flex justify-center">
@@ -240,10 +175,7 @@ function handleClose() {
         <template v-else-if="phase === 'fail'">
           <div class="text-center space-y-4 py-4">
             <div class="flex items-center justify-center w-16 h-16 mx-auto rounded-full bg-error/10">
-              <UIcon
-                name="i-lucide-x"
-                class="w-8 h-8 text-error"
-              />
+              <UIcon name="i-lucide-x" class="w-8 h-8 text-error" />
             </div>
             <h3 class="text-lg font-semibold">
               支付失败
@@ -253,11 +185,7 @@ function handleClose() {
             </p>
           </div>
           <div class="flex gap-3 justify-center">
-            <UButton
-              color="neutral"
-              variant="outline"
-              @click="handleClose"
-            >
+            <UButton color="neutral" variant="outline" @click="handleClose">
               关闭
             </UButton>
             <UButton @click="$emit('confirm')">

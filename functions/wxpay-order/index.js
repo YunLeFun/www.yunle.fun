@@ -17,15 +17,16 @@ const cloudbase = require('@cloudbase/node-sdk')
 const { generateNonceStr, generateOutTradeNo } = require('./lib/crypto')
 const { generateJsapiPayParams } = require('./lib/jsapi')
 const {
-  activateMembership,
   findOrderByOutTradeNo,
+  grantOrderEntitlement,
   markOrderPaid,
   ORDERS_COLLECTION,
 } = require('./lib/orders')
-const { getPlanAmount } = require('./lib/plans')
+const { getCoinPack, getMembershipAmount } = require('./lib/plans')
 const {
-  assertCreateOrderInput,
+  assertMembershipOrderInput,
   assertOutTradeNo,
+  assertRechargeCoinInput,
   assertTestAmount,
 } = require('./lib/validation')
 const { queryTransactionByOutTradeNo, wxpayRequest } = require('./lib/wxpay-client')
@@ -137,22 +138,60 @@ function buildPayResult({ payType, cfg, wxResult, outTradeNo }) {
   return result
 }
 
+/** 默认应用标识：历史前端不传 appId 时归属到云乐坊主站 */
+const DEFAULT_APP_ID = 'yunle'
+
+/**
+ * 解析下单入参，按 orderType 算出金额、描述与落库字段。
+ * 默认 orderType=membership、appId=yunle 以兼容历史前端。
+ */
+function resolveOrderPlan(rawEvent) {
+  // 缺省 appId 归属主站，兼容历史调用
+  const event = { ...rawEvent, appId: rawEvent.appId || DEFAULT_APP_ID }
+  const orderType = event.orderType || 'membership'
+
+  if (orderType === 'membership') {
+    const { appId, level, billingCycle, payType, wxOpenid } = assertMembershipOrderInput(event)
+    const amount = getMembershipAmount(level, billingCycle)
+    return {
+      orderType,
+      appId,
+      payType,
+      wxOpenid,
+      amount,
+      description: `云乐坊 ${level} 会员 - ${billingCycle === 'month' ? '月付' : '年付'}`,
+      // 落库字段（含旧 planId 以兼容现有 user_memberships 读取）
+      orderFields: { appId, orderType, level, planId: level, billingCycle },
+    }
+  }
+
+  if (orderType === 'recharge_coin') {
+    const { appId, packId, payType, wxOpenid } = assertRechargeCoinInput(event)
+    const pack = getCoinPack(packId) // 内含汇率守恒校验
+    return {
+      orderType,
+      appId,
+      payType,
+      wxOpenid,
+      amount: pack.amount,
+      description: `云乐坊 云币充值 ${pack.coin} 云币`,
+      orderFields: { appId, orderType, packId, coinAmount: pack.coin },
+    }
+  }
+
+  throw new Error(`未知 orderType: ${orderType}`)
+}
+
 async function handleCreateOrder(event) {
   const uid = getCallerUid()
   if (!uid)
     throw new Error('请先登录后再下单')
 
-  const { planId, billingCycle, payType, wxOpenid } = assertCreateOrderInput(event)
+  const { payType, wxOpenid, amount, description, orderFields } = resolveOrderPlan(event)
   const cfg = loadConfig()
-  const amount = getPlanAmount(planId, billingCycle)
   const outTradeNo = generateOutTradeNo()
 
-  const orderParams = buildOrderParams({
-    cfg,
-    amount,
-    outTradeNo,
-    description: `云乐坊 ${planId} 套餐 - ${billingCycle === 'month' ? '月付' : '年付'}`,
-  })
+  const orderParams = buildOrderParams({ cfg, amount, outTradeNo, description })
 
   const wxResult = await callPrepay({
     cfg,
@@ -165,8 +204,7 @@ async function handleCreateOrder(event) {
   const now = Date.now()
   await db.collection(ORDERS_COLLECTION).add({
     userId: uid,
-    planId,
-    billingCycle,
+    ...orderFields,
     amount,
     payType,
     status: 'pending',
@@ -288,16 +326,10 @@ async function handleQueryOrder(event) {
     })
     if (updated > 0) {
       try {
-        await activateMembership(db, {
-          userId: order.userId,
-          planId: order.planId,
-          cycle: order.billingCycle,
-          now,
-          outTradeNo,
-        })
+        await grantOrderEntitlement(db, { order, now })
       }
       catch (err) {
-        console.error('[wxpay-order] 兜底开通会员失败（需人工补偿）:', err.message)
+        console.error('[wxpay-order] 兜底发放权益失败（需人工补偿）:', err.message)
       }
     }
     return { status: 'paid', transactionId: tx.transaction_id, paidAt: now }

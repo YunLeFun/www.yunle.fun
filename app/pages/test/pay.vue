@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { CreateOrderResult, PaymentPhase, QueryOrderResult } from '~/types/payment'
 import QRCode from 'qrcode'
-import { detectPayType, formatPrice } from '~/composables/usePayment'
+import { detectPayType, formatPrice } from '~/composables/usePaymentFlow'
 
 declare const WeixinJSBridge: undefined | {
   invoke: (api: string, params: Record<string, string>, callback: (res: { err_msg: string }) => void) => void

@@ -12,8 +12,8 @@
 const { decryptResource } = require('./crypto')
 const {
   findOrderByOutTradeNo,
+  grantOrderEntitlement,
   markOrderPaid,
-  activateMembership,
 } = require('./orders')
 const { verifyCallbackSignature } = require('./signature')
 const { assertResourceMatchesOrder } = require('./validation')
@@ -173,29 +173,24 @@ async function handleNotify({ event, db, config }) {
     return buildResponse(200, 'SUCCESS', '幂等成功')
   }
 
-  // 7. 开通会员
+  // 7. 发放权益（会员开通 / 云币入账，按 orderType 分支）
   try {
-    await activateMembership(db, {
-      userId: order.userId,
-      planId: order.planId,
-      cycle: order.billingCycle,
-      now,
-      outTradeNo: order.outTradeNo,
-    })
+    await grantOrderEntitlement(db, { order, now })
   }
   catch (err) {
-    // 会员开通失败：订单已 paid，但用户没拿到会员
+    // 发放失败：订单已 paid，但用户没拿到权益
     // 微信会重试此回调，但 markOrderPaid 会返回 updated=0
     // -> 留下错误日志，需要人工补偿；不能 throw，否则微信反复重试
-    console.error('[wxpay-notify] 会员开通失败（需人工补偿）:', {
+    console.error('[wxpay-notify] 权益发放失败（需人工补偿）:', {
       outTradeNo: order.outTradeNo,
       userId: order.userId,
+      orderType: order.orderType || 'membership',
       err: err.message,
     })
-    return buildResponse(200, 'SUCCESS', '订单已确认，会员开通失败需人工处理')
+    return buildResponse(200, 'SUCCESS', '订单已确认，权益发放失败需人工处理')
   }
 
-  console.warn('[wxpay-notify] 订单已确认 & 会员已开通:', order.outTradeNo)
+  console.warn('[wxpay-notify] 订单已确认 & 权益已发放:', order.outTradeNo)
   return buildResponse(200, 'SUCCESS', '成功')
 }
 

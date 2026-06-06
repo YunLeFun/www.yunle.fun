@@ -1,7 +1,7 @@
 /**
- * 守护：wxpay-order/lib 与 wxpay-notify/lib 必须字节一致。
+ * 守护：wxpay-order/lib 是权威源，所有镜像目录必须字节一致。
  *
- * 测试通过 = 两份代码同步；测试失败 = 请运行 `pnpm sync:wxpay-lib`。
+ * 测试通过 = 各份代码同步；测试失败 = 请运行 `pnpm sync:wxpay-lib`。
  */
 
 import { Buffer } from 'node:buffer'
@@ -13,7 +13,10 @@ import { describe, expect, it } from 'vitest'
 const __filename = fileURLToPath(import.meta.url)
 const ROOT = resolve(__filename, '../../../')
 const SOURCE = resolve(ROOT, 'functions/wxpay-order/lib')
-const MIRROR = resolve(ROOT, 'functions/wxpay-notify/lib')
+const MIRRORS = [
+  resolve(ROOT, 'functions/wxpay-notify/lib'),
+  resolve(ROOT, 'functions/account-api/lib'),
+]
 
 async function listFiles(dir) {
   const entries = await readdir(dir, { withFileTypes: true })
@@ -29,17 +32,17 @@ async function listFiles(dir) {
 }
 
 describe('wxpay lib 同步守护', () => {
-  it('两端文件列表完全相同', async () => {
+  it.each(MIRRORS)('镜像 %s 文件列表与权威源完全相同', async (mirror) => {
     const a = await listFiles(SOURCE)
-    const b = await listFiles(MIRROR)
+    const b = await listFiles(mirror)
     expect(b).toEqual(a)
   })
 
-  it('每个文件内容字节一致', async () => {
+  it.each(MIRRORS)('镜像 %s 每个文件内容字节一致', async (mirror) => {
     const files = await listFiles(SOURCE)
     for (const file of files) {
       const a = await readFile(join(SOURCE, file))
-      const b = await readFile(join(MIRROR, file))
+      const b = await readFile(join(mirror, file))
       expect(
         Buffer.compare(a, b),
         `${file} drifted — 请运行 pnpm sync:wxpay-lib`,

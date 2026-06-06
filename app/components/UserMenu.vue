@@ -16,6 +16,10 @@ const items = computed(() => [
     icon: 'i-lucide-user',
     to: '/profile',
   }, {
+    label: '我的钱包',
+    icon: 'i-lucide-wallet',
+    to: '/wallet',
+  }, {
     label: '我的应用',
     icon: 'i-lucide-layout-grid',
     to: '/apps',

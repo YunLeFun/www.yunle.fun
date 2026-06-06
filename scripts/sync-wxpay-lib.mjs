@@ -25,7 +25,10 @@ import { fileURLToPath } from 'node:url'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
 const SOURCE = resolve(ROOT, 'functions/wxpay-order/lib')
-const TARGETS = [resolve(ROOT, 'functions/wxpay-notify/lib')]
+const TARGETS = [
+  resolve(ROOT, 'functions/wxpay-notify/lib'),
+  resolve(ROOT, 'functions/account-api/lib'),
+]
 
 const checkOnly = process.argv.includes('--check')
 

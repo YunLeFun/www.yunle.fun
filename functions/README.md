@@ -4,10 +4,15 @@
 
 ## 云函数列表
 
-| 云函数         | 用途                        | 超时时间 |
-| -------------- | --------------------------- | -------- |
-| `wxpay-order`  | 创建支付订单 + 查询订单状态 | 30s      |
-| `wxpay-notify` | 接收微信支付异步回调通知    | 10s      |
+| 云函数         | 用途                                      | 超时时间 |
+| -------------- | ----------------------------------------- | -------- |
+| `wxpay-order`  | 创建支付订单（会员 / 云币充值）+ 查询订单 | 30s      |
+| `wxpay-notify` | 接收微信支付异步回调通知                  | 10s      |
+| `account-api`  | 平台账户中心：查账户 / 扣云币 / 云币流水  | 10s      |
+
+> 云币 + 跨应用会员的整体设计见 [`docs/coin-and-membership.md`](../docs/coin-and-membership.md)。
+> 三个云函数共享同一份 `lib/`：权威源在 `wxpay-order/lib`，`pnpm sync:wxpay-lib` 同步到
+> `wxpay-notify/lib` 与 `account-api/lib`，`account-api` 无需任何 `WX_*` 环境变量。
 
 ## 环境变量配置
 
@@ -264,6 +269,9 @@ tcb functions deploy --envId yunlefun-8g7ybcxc7345c490
 
 > ⚠️ `idx_outTradeNo` 必须**唯一**，否则回调的"条件更新"语义（`status: pending`）在极端并发下无法保证幂等。
 
+订单文档新增字段（多租户 + 云币）：`appId`（应用归属，缺省 `yunle`）、`orderType`
+（`membership` | `recharge_coin`）；会员订单带 `level`/`billingCycle`，云币订单带 `packId`/`coinAmount`。
+
 会员状态存储在 `user_memberships` 集合，索引：
 
 | 索引名     | 字段         | 唯一性 |
@@ -288,6 +296,36 @@ tcb functions deploy --envId yunlefun-8g7ybcxc7345c490
 安全规则：用户只能读取自己的订单与会员（`auth.uid == doc.userId`），写入由云函数完成。
 
 [查看 orders 集合 →](https://tcb.cloud.tencent.com/dev?envId=yunlefun-8g7ybcxc7345c490#/db/doc/collection/orders)
+
+### 云币：`user_wallet` + `coin_transactions`（需新建）
+
+云币钱包跨应用共享余额，一个用户一条 `user_wallet`；每笔变更写一条 `coin_transactions` 流水。
+上线前需在 CloudBase 控制台**新建这两个集合并配置索引**：
+
+| 集合                | 索引名          | 字段                           | 唯一性 |
+| ------------------- | --------------- | ------------------------------ | ------ |
+| `user_wallet`       | `idx_user`      | `userId` ASC                   | 唯一   |
+| `coin_transactions` | `idx_user_time` | `userId` ASC, `createdAt` DESC | 非唯一 |
+| `coin_transactions` | `idx_app_time`  | `appId` ASC, `createdAt` DESC  | 非唯一 |
+
+> ⚠️ `user_wallet.idx_user` 必须**唯一**，否则余额的乐观锁（`version` 比对）在并发下可能产生多条钱包记录。
+
+```text
+// user_wallet（一个用户一条）
+{ userId, balance: 1280, version: 7, createdAt, updatedAt }
+
+// coin_transactions（只追加不修改）
+{
+  userId, appId: "yunle",
+  type: "recharge",   // recharge | consume | refund | gift
+  amount: 1000,        // 正=入账，负=扣减
+  balanceAfter: 1280,
+  refId: "YLF…",      // 充值=outTradeNo；消费=业务 bizId（幂等键）
+  meta: {}, createdAt
+}
+```
+
+安全规则：用户只读自己的钱包与流水（`auth.uid == doc.userId`），写入仅由云函数完成。
 
 ## 共享代码：lib/
 

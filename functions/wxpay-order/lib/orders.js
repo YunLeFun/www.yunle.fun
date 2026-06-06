@@ -10,6 +10,7 @@
 'use strict'
 
 const { computeNewExpireAt } = require('./membership')
+const { creditCoin } = require('./wallet')
 
 const ORDERS_COLLECTION = 'orders'
 const MEMBERSHIPS_COLLECTION = 'user_memberships'
@@ -141,10 +142,56 @@ async function activateMembership(db, { userId, planId, cycle, now, outTradeNo }
   throw lastError || new Error(`activateMembership: 订单 ${outTradeNo} 并发重试 ${MEMBERSHIP_MAX_RETRY} 次仍未成功`)
 }
 
+/**
+ * 支付成功后按订单类型发放权益（会员开通 / 云币入账）的唯一分支点。
+ *
+ * 被 wxpay-notify 回调与 wxpay-order 的 queryOrder 兜底共用，保证发放逻辑只有一处。
+ * 调用前提：markOrderPaid 已返回 updated>0（即本次是首次确认），因此本函数内部不再处理订单状态。
+ *
+ * @param {object} db
+ * @param {object} input
+ * @param {object} input.order 已 paid 的订单文档
+ * @param {number} input.now
+ * @returns {Promise<object>} 发放结果（会员到期信息或云币余额）
+ * @throws orderType 未知或发放失败
+ */
+async function grantOrderEntitlement(db, { order, now }) {
+  // 兼容历史订单：无 orderType 视为会员订单
+  const orderType = order.orderType || 'membership'
+
+  if (orderType === 'membership') {
+    return activateMembership(db, {
+      userId: order.userId,
+      // 兼容 level（新）与 planId（旧）
+      planId: order.level || order.planId,
+      cycle: order.billingCycle,
+      now,
+      outTradeNo: order.outTradeNo,
+    })
+  }
+
+  if (orderType === 'recharge_coin') {
+    if (!Number.isInteger(order.coinAmount) || order.coinAmount <= 0)
+      throw new Error(`grantOrderEntitlement: 订单 ${order.outTradeNo} coinAmount 非法: ${order.coinAmount}`)
+    return creditCoin(db, {
+      userId: order.userId,
+      appId: order.appId,
+      amount: order.coinAmount,
+      type: 'recharge',
+      refId: order.outTradeNo, // 幂等键
+      meta: { packId: order.packId || '' },
+      now,
+    })
+  }
+
+  throw new Error(`grantOrderEntitlement: 未知 orderType: ${orderType}`)
+}
+
 module.exports = {
   ORDERS_COLLECTION,
   MEMBERSHIPS_COLLECTION,
   findOrderByOutTradeNo,
   markOrderPaid,
   activateMembership,
+  grantOrderEntitlement,
 }
