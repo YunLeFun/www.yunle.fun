@@ -109,7 +109,15 @@ function handleClose() {
     <UPageHero
       :title="page.title"
       :description="page.description"
-    />
+    >
+      <template #top>
+        <HeroBackground />
+      </template>
+
+      <template #headline>
+        <span class="ylf-eyebrow">{{ page.headline }}</span>
+      </template>
+    </UPageHero>
 
     <UContainer>
       <div class="grid md:grid-cols-2 gap-6 max-w-2xl mx-auto">

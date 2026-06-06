@@ -1,5 +1,6 @@
-title: 探索 [有趣]{class="text-primary"} 的云端应用（Deving...）
+title: 探索 [有趣]{class="ylf-gradient-text"} 的云端应用（Deving...）
 description: 发现和分享更多的云端应用，让世界更加有趣多彩。
+headline: 🎈 云端应用创意社区
 seo:
   title: 云乐坊
   description: 探索更多有趣的云端应用
@@ -16,12 +17,14 @@ hero:
       icon: i-ri:mobile-download-line
       size: xl
       color: neutral
-      variant: subtle
+      variant: outline
+      class: ylf-gradient-border
       to: /apps/download
       # target: _blank
 sections:
   - title: 云端应用 APP 市场
     description: 探索 N+ 云端应用，云同步收藏夹，分享你的作品
+    headline: 🛍️ 应用市场
     id: features
     orientation: horizontal
     features:
@@ -36,6 +39,7 @@ sections:
         icon: i-lucide-code-2
   - title: 开发者平台
     description: 一站式部署托管或自由上架云端应用，与云乐坊一起共建你的创意社区
+    headline: 🚀 开发者平台
     orientation: horizontal
     reverse: true
     features:
@@ -49,6 +53,7 @@ sections:
         description: 分享你的作品或 AI 应用，让世界看到你的创意
         icon: i-lucide-globe
 features:
+  headline: ✨ 为什么选择云乐坊
   title: 让你的创意有一个家
   description: 像橱窗一样展示你的作品，让更多人看到你的创意
   items:
@@ -105,5 +110,6 @@ cta:
     - label: 开发者社区
       to: 'https://github.com/orgs/YunLeFun/discussions'
       target: _blank
-      variant: subtle
+      variant: outline
+      class: ylf-gradient-border
       icon: i-simple-icons-github

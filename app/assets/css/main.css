@@ -123,6 +123,163 @@ body {
   border: 1px solid var(--ui-border);
 }
 
+/* ------------------------------------------------------------------ *
+ * Playful hero background — colorful glow blobs + dotted grid
+ * ------------------------------------------------------------------ */
+.ylf-hero-bg {
+  --blob-blur: 72px;
+}
+
+.ylf-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(var(--blob-blur));
+  opacity: 0.55;
+  will-change: transform;
+  animation: ylf-float 18s ease-in-out infinite;
+}
+
+.dark .ylf-blob {
+  opacity: 0.4;
+}
+
+.ylf-blob--blue {
+  top: -6rem;
+  left: -4rem;
+  width: 32rem;
+  height: 32rem;
+  background: radial-gradient(circle at 30% 30%, #60a5fa, transparent 70%);
+}
+
+.ylf-blob--violet {
+  top: -3rem;
+  right: -6rem;
+  width: 30rem;
+  height: 30rem;
+  background: radial-gradient(circle at 60% 40%, #a78bfa, transparent 70%);
+  animation-delay: -4s;
+  animation-duration: 22s;
+}
+
+.ylf-blob--pink {
+  top: 14rem;
+  left: 24%;
+  width: 26rem;
+  height: 26rem;
+  background: radial-gradient(circle at 50% 50%, #f9a8d4, transparent 70%);
+  animation-delay: -8s;
+  animation-duration: 26s;
+}
+
+.ylf-blob--cyan {
+  top: 8rem;
+  right: 18%;
+  width: 24rem;
+  height: 24rem;
+  background: radial-gradient(circle at 50% 50%, #67e8f9, transparent 70%);
+  animation-delay: -12s;
+  animation-duration: 24s;
+}
+
+.ylf-hero-grid {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(color-mix(in srgb, var(--ui-text) 16%, transparent) 1px, transparent 1px);
+  background-size: 26px 26px;
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, #000 0%, transparent 75%);
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, #000 0%, transparent 75%);
+  opacity: 0.5;
+}
+
+.dark .ylf-hero-grid {
+  opacity: 0.35;
+}
+
+.ylf-hero-fade {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 45%;
+  background: linear-gradient(to bottom, transparent, var(--ui-bg));
+}
+
+@keyframes ylf-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  33% {
+    transform: translate3d(2rem, 1.5rem, 0) scale(1.08);
+  }
+  66% {
+    transform: translate3d(-1.5rem, 1rem, 0) scale(0.95);
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Playful accents — gradient text, eyebrow chip, colorful icon tiles
+ * ------------------------------------------------------------------ */
+.ylf-gradient-text {
+  background: linear-gradient(110deg, #2563eb, #7c3aed 45%, #db2777);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.ylf-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.85rem;
+  border-radius: 9999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--ui-primary);
+  background: color-mix(in srgb, var(--ui-primary) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ui-primary) 24%, transparent);
+}
+
+/* Gradient-outlined button — playful accent for secondary CTAs */
+.ylf-gradient-border {
+  position: relative;
+  border-color: transparent !important;
+  background:
+    linear-gradient(var(--ylf-surface), var(--ylf-surface)) padding-box,
+    linear-gradient(110deg, #2563eb, #7c3aed 45%, #db2777) border-box !important;
+  border-width: 1.5px !important;
+  border-style: solid !important;
+  transition:
+    transform 200ms ease,
+    box-shadow 200ms ease;
+}
+
+.ylf-gradient-border:hover {
+  box-shadow: 0 8px 24px -8px color-mix(in srgb, #7c3aed 45%, transparent);
+  transform: translateY(-1px);
+}
+
+.dark .ylf-gradient-border {
+  background:
+    linear-gradient(var(--ylf-surface-muted), var(--ylf-surface-muted)) padding-box,
+    linear-gradient(110deg, #60a5fa, #a78bfa 45%, #f9a8d4) border-box !important;
+}
+
+/* Soft multi-color wash behind the closing CTA */
+.ylf-cta-glow {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(40% 60% at 18% 20%, color-mix(in srgb, #3b82f6 35%, transparent), transparent 70%),
+    radial-gradient(40% 60% at 82% 30%, color-mix(in srgb, #ec4899 30%, transparent), transparent 70%),
+    radial-gradient(50% 70% at 50% 100%, color-mix(in srgb, #8b5cf6 30%, transparent), transparent 70%);
+  opacity: 0.7;
+}
+
+.dark .ylf-cta-glow {
+  opacity: 0.5;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   ::before,
@@ -131,5 +288,9 @@ body {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .ylf-blob {
+    animation: none !important;
   }
 }

@@ -10,6 +10,13 @@ useSeoMeta({
   description,
   ogDescription: description,
 })
+
+// Rotate icon colors across the feature grid for a playful, colorful look
+const featureIconColors = [
+  'text-blue-500 dark:text-blue-400',
+  'text-violet-500 dark:text-violet-400',
+  'text-pink-500 dark:text-pink-400',
+]
 </script>
 
 <template>
@@ -21,6 +28,10 @@ useSeoMeta({
     >
       <template #top>
         <HeroBackground />
+      </template>
+
+      <template #headline>
+        <span class="ylf-eyebrow">{{ page.headline }}</span>
       </template>
 
       <template #title>
@@ -40,6 +51,10 @@ useSeoMeta({
       :reverse="section.reverse"
       :features="section.features"
     >
+      <template #headline>
+        <span class="ylf-eyebrow">{{ section.headline }}</span>
+      </template>
+
       <MarketingPreview
         kind="developer"
         :index="index"
@@ -50,12 +65,17 @@ useSeoMeta({
       :title="page.features.title"
       :description="page.features.description"
     >
+      <template #headline>
+        <span class="ylf-eyebrow">{{ page.features.headline }}</span>
+      </template>
+
       <UPageGrid>
         <UPageCard
           v-for="(item, index) in page.features.items"
           :key="index"
           v-bind="item"
           spotlight
+          :ui="{ leadingIcon: featureIconColors[index % featureIconColors.length] }"
         />
       </UPageGrid>
     </UPageSection>
@@ -136,6 +156,7 @@ useSeoMeta({
       variant="naked"
       class="overflow-hidden"
     >
+      <div class="ylf-cta-glow" />
       <LazyStarsBg />
     </UPageCTA>
   </div>

@@ -23,11 +23,13 @@ function createLinkSchema() {
     label: z.string().nonempty(),
     to: z.string().nonempty(),
     icon: z.string().optional().editor({ input: 'icon' }),
+    trailingIcon: z.string().optional().editor({ input: 'icon' }),
     size: sizeEnum.optional(),
     trailing: z.boolean().optional(),
     target: z.string().optional(),
     color: colorEnum.optional(),
     variant: variantEnum.optional(),
+    class: z.string().optional(),
   })
 }
 
@@ -45,18 +47,21 @@ export const collections = {
     source: '0.index.yml',
     type: 'page',
     schema: z.object({
+      headline: z.string().optional(),
       hero: z.object(({
         links: z.array(createLinkSchema()),
       })),
       sections: z.array(
         createBaseSchema().extend({
           id: z.string().nonempty(),
+          headline: z.string().optional(),
           orientation: orientationEnum.optional(),
           reverse: z.boolean().optional(),
           features: z.array(createFeatureItemSchema()),
         }),
       ),
       features: createBaseSchema().extend({
+        headline: z.string().optional(),
         items: z.array(createFeatureItemSchema()),
       }),
       testimonials: createBaseSchema().extend({
@@ -87,6 +92,7 @@ export const collections = {
     source: '2.pricing.yml',
     type: 'page',
     schema: z.object({
+      headline: z.string().optional(),
       plans: z.array(
         z.object({
           title: z.string().nonempty(),
@@ -154,18 +160,21 @@ export const collections = {
     source: '5.developer.yml',
     type: 'page',
     schema: z.object({
+      headline: z.string().optional(),
       hero: z.object({
         links: z.array(createLinkSchema()),
       }),
       sections: z.array(
         createBaseSchema().extend({
           id: z.string().optional(),
+          headline: z.string().optional(),
           orientation: orientationEnum.optional(),
           reverse: z.boolean().optional(),
           features: z.array(createFeatureItemSchema()),
         }),
       ),
       features: createBaseSchema().extend({
+        headline: z.string().optional(),
         items: z.array(createFeatureItemSchema()),
       }),
       resources: createBaseSchema().extend({

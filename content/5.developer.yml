@@ -1,5 +1,6 @@
-title: 云乐坊 [开发者平台]{class="text-primary"}
+title: 云乐坊 [开发者平台]{class="ylf-gradient-text"}
 description: 为开发者提供强大的工具和资源，快速构建、发布和管理你的云端应用。
+headline: 🚀 开发者平台
 seo:
   title: 开发者平台 - 云乐坊
   description: 强大的开发工具，丰富的 API 文档，助你快速构建云端应用
@@ -15,11 +16,13 @@ hero:
       icon: i-lucide-book-open
       size: xl
       color: neutral
-      variant: subtle
+      variant: outline
+      class: ylf-gradient-border
       to: /docs
 sections:
   - title: 完整的开发工具链
     description: 从代码编写到应用部署，我们提供全流程的开发工具支持，让你专注于创造价值。
+    headline: 🧰 开发工具链
     id: tools
     orientation: horizontal
     features:
@@ -34,6 +37,7 @@ sections:
         icon: i-lucide-users
   - title: 强大的云服务支持
     description: 利用我们的云基础设施，轻松部署和扩展你的应用，专注于业务逻辑而非基础设施管理。
+    headline: ☁️ 云服务支持
     orientation: horizontal
     reverse: true
     features:
@@ -47,6 +51,7 @@ sections:
         description: CDN 加速和边缘计算支持，为全球用户提供极速访问体验。
         icon: i-lucide-globe
 features:
+  headline: ⚡ 专属特性
   title: 开发者专属特性
   description: 我们为开发者提供了一系列强大的工具和服务，帮助你更高效地构建应用。
   items:
@@ -145,5 +150,6 @@ cta:
       trailingIcon: i-lucide-arrow-right
     - label: 查看文档
       to: /docs
-      variant: subtle
+      variant: outline
+      class: ylf-gradient-border
       icon: i-lucide-book-open
