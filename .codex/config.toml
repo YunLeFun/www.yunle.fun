@@ -1,6 +1,6 @@
 [mcp_servers.cloudbase]
 command = "npx"
-args = ["@cloudbase/cloudbase-mcp@latest"]
+args = [ "@cloudbase/cloudbase-mcp@latest" ]
 
 [mcp_servers.cloudbase.env]
 INTEGRATION_IDE = "Claude"
