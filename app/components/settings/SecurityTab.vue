@@ -1,4 +1,12 @@
 <script setup lang="ts">
+import {
+  getBoundOAuthProviderIds,
+  GITHUB_PROVIDER_ID,
+  hasOAuthProvider,
+  normalizeOAuthProviderId,
+  WECHAT_PROVIDER_ID,
+} from '~/utils/authProviders'
+
 const {
   user,
   bindGitHub,
@@ -10,13 +18,16 @@ const {
 
 // 通过 getUserIdentities API 获取的真实绑定状态
 const boundProviders = ref<string[]>([])
+const userProviders = computed(() =>
+  (user.value?.providers || []).map(normalizeOAuthProviderId).filter(Boolean),
+)
+const allBoundProviders = computed(() => [...userProviders.value, ...boundProviders.value])
 
-// 判断是否已绑定某个 provider（结合 providers 和 identities 双重来源）
 const isGitHubBound = computed(() =>
-  user.value?.providers?.includes('github') || boundProviders.value.includes('github'),
+  hasOAuthProvider(allBoundProviders.value, GITHUB_PROVIDER_ID),
 )
 const isWeChatBound = computed(() =>
-  user.value?.providers?.includes('wx_open') || boundProviders.value.includes('wechat'),
+  hasOAuthProvider(allBoundProviders.value, WECHAT_PROVIDER_ID),
 )
 
 // 第三方绑定状态查询 loading
@@ -35,9 +46,7 @@ const unbindTarget = ref<{ provider: string, label: string } | null>(null)
 async function refreshBoundProviders() {
   try {
     const identities = await getUserIdentities()
-    boundProviders.value = identities
-      .filter((i: any) => i.bind)
-      .map((i: any) => i.id)
+    boundProviders.value = getBoundOAuthProviderIds(identities)
   }
   catch {
     // 忽略错误
