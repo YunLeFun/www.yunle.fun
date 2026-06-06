@@ -50,5 +50,11 @@
     "cloudbase",
     "lucide",
     "wechat"
-  ]
+  ],
+  "chat.tools.terminal.autoApprove": {
+    "/^pnpm config get trust-policy && pnpm config get trust-policy-exclude && pnpm i$/": {
+      "approve": true,
+      "matchCommandLine": true
+    }
+  }
 }
