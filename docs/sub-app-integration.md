@@ -20,9 +20,9 @@
 
 平台账户 = 一个用户（`uid`）下的两类资产，**跨所有子应用共享**：
 
-| 资产 | 是什么 | 你用它来 |
-| --- | --- | --- |
-| **云币**（coin） | 可消费的虚拟货币，1 云币 = 10 分 | 按次/按量扣费 |
+| 资产                         | 是什么                                 | 你用它来                   |
+| ---------------------------- | -------------------------------------- | -------------------------- |
+| **云币**（coin）             | 可消费的虚拟货币，1 云币 = 10 分       | 按次/按量扣费              |
 | **云乐坊会员**（membership） | 按时间授权的权益身份（全局，不分应用） | 判断是否 VIP、解锁高级功能 |
 
 两者**正交**：云币管「有没有钱花」，会员管「是不是 VIP」。
@@ -30,6 +30,7 @@
 ### appId 约定
 
 每个子应用有一个稳定的 `appId`（小写字母/数字/`-`/`_`，≤32 位），用于：
+
 - 云币流水归属（`coin_transactions.appId`）→ 便于分应用对账
 - 订单归属（`orders.appId`）
 
@@ -60,15 +61,15 @@
 ### 拉账户 + 判断会员
 
 ```ts
-const coin = useCoin()           // 来自 app/composables/useCoin.ts
+const coin = useCoin() // 来自 app/composables/useCoin.ts
 
-onMounted(() => coin.refresh())  // 登录后拉取账户
+onMounted(() => coin.refresh()) // 登录后拉取账户
 
 // 余额
-coin.balance.value               // number，云币余额
+coin.balance.value // number，云币余额
 // 会员
-coin.isMember.value              // boolean，会员是否有效
-coin.membership.value            // { isActive, level, expireAt } | null
+coin.isMember.value // boolean，会员是否有效
+coin.membership.value // { isActive, level, expireAt } | null
 
 // 解锁权益（你的应用自定义）
 const FEATURES_BY_LEVEL = { basic: ['hd-export', 'no-ads'] }
@@ -121,6 +122,7 @@ navigateTo('https://www.yunle.fun/wallet')
 
 ```ts
 import cloudbase from '@cloudbase/js-sdk'
+
 const app = cloudbase.init({ env: 'yunlefun-8g7ybcxc7345c490' })
 const auth = app.auth()
 // ……完成登录，确保 auth 已有用户态……
@@ -149,11 +151,11 @@ const { result: txs } = await app.callFunction({
 
 ### account-api 接口速查
 
-| action | 入参 | 返回 |
-| --- | --- | --- |
-| `getAccount` | — | `{ coin, membership: { isActive, level, expireAt } }` |
-| `deductCoin` | `appId`, `amount`(正整数), `bizId?`, `meta?` | `{ balance, deduped }` 或抛「云币余额不足」 |
-| `listTransactions` | `skip?`, `limit?`(≤100) | `{ items, nextSkip }` |
+| action             | 入参                                         | 返回                                                  |
+| ------------------ | -------------------------------------------- | ----------------------------------------------------- |
+| `getAccount`       | —                                            | `{ coin, membership: { isActive, level, expireAt } }` |
+| `deductCoin`       | `appId`, `amount`(正整数), `bizId?`, `meta?` | `{ balance, deduped }` 或抛「云币余额不足」           |
+| `listTransactions` | `skip?`, `limit?`(≤100)                      | `{ items, nextSkip }`                                 |
 
 > 所有接口都要求登录态（服务端从 CloudBase Auth 取 `uid`，**前端无法伪造他人 uid**）。
 
@@ -166,8 +168,8 @@ const { result } = await app.callFunction({
     action: 'createOrder',
     orderType: 'recharge_coin',
     appId: 'my-tool',
-    packId: 'coin_500',     // coin_100 | coin_500 | coin_1000
-    payType: 'native',      // native 扫码 | jsapi | h5
+    packId: 'coin_500', // coin_100 | coin_500 | coin_1000
+    payType: 'native', // native 扫码 | jsapi | h5
   },
 })
 // result.codeUrl → 渲染二维码；再轮询 queryOrder 确认支付，成功后云币自动入账
@@ -175,10 +177,10 @@ const { result } = await app.callFunction({
 
 充值套餐（与服务端一致，定义在 `app/types/payment.ts` 的 `COIN_PACKS`）：
 
-| packId | 云币 | 价格 |
-| --- | --- | --- |
-| `coin_100` | 100 | ¥10 |
-| `coin_500` | 500 | ¥50 |
+| packId      | 云币 | 价格 |
+| ----------- | ---- | ---- |
+| `coin_100`  | 100  | ¥10  |
+| `coin_500`  | 500  | ¥50  |
 | `coin_1000` | 1000 | ¥100 |
 
 ## 5. 会员权益模式

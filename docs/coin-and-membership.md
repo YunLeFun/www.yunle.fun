@@ -12,9 +12,9 @@
 目标是把它从「云乐坊的功能」升级为「平台级账户/支付中心」，让后续的小应用零成本接入。
 账户中心向所有子应用提供**两类资产**：
 
-| 资产 | 名称 | 性质 | 回答的问题 |
-| --- | --- | --- | --- |
-| 消费货币 | **云币**（coin） | 可消费、按次/按量扣 | 「你有多少钱花」 |
+| 资产     | 名称                         | 性质                   | 回答的问题                    |
+| -------- | ---------------------------- | ---------------------- | ----------------------------- |
+| 消费货币 | **云币**（coin）             | 可消费、按次/按量扣    | 「你有多少钱花」              |
 | 权益身份 | **云乐坊会员**（membership） | 按时间授权、跨应用共享 | 「你是不是 VIP / 享什么特权」 |
 
 两者**资产层面正交**：各自独立账本、独立充值入口。会员对云币的影响仅以「权益」形式叠加
@@ -52,8 +52,8 @@
 {
   "_id": "<doc>",
   "userId": "<cloudbase uid>",
-  "balance": 1280,        // 云币余额（整数，最小单位 = 1 云币）
-  "version": 7,           // 乐观锁版本号，每次变更 +1
+  "balance": 1280, // 云币余额（整数，最小单位 = 1 云币）
+  "version": 7, // 乐观锁版本号，每次变更 +1
   "createdAt": 1735689000000,
   "updatedAt": 1735689600000
 }
@@ -69,12 +69,12 @@
 {
   "_id": "<doc>",
   "userId": "<cloudbase uid>",
-  "appId": "yunle",                  // 哪个应用产生的流水，便于分应用对账/分成
-  "type": "recharge",               // recharge | consume | refund | gift
-  "amount": 1000,                   // 正=入账，负=扣减
-  "balanceAfter": 1280,             // 变更后余额（便于审计与回放）
+  "appId": "yunle", // 哪个应用产生的流水，便于分应用对账/分成
+  "type": "recharge", // recharge | consume | refund | gift
+  "amount": 1000, // 正=入账，负=扣减
+  "balanceAfter": 1280, // 变更后余额（便于审计与回放）
   "refId": "YLF1735689000000abcdef", // 充值=outTradeNo；消费=业务 bizId；赠币=订单号
-  "meta": {},                        // 业务自定义（如消费场景、数量）
+  "meta": {}, // 业务自定义（如消费场景、数量）
   "createdAt": 1735689600000
 }
 ```
@@ -91,9 +91,9 @@
 {
   "_id": "<doc>",
   "userId": "<cloudbase uid>",
-  "level": "basic",            // 会员等级，预留多档（basic / pro …）
-  "activeCycle": "month",      // month | year
-  "expireAt": 1738367600000,   // 毫秒时间戳
+  "level": "basic", // 会员等级，预留多档（basic / pro …）
+  "activeCycle": "month", // month | year
+  "expireAt": 1738367600000, // 毫秒时间戳
   "lastOrderId": "YLF…",
   "createdAt": 1735689000000,
   "updatedAt": 1735689600000
@@ -113,10 +113,10 @@
 {
   // …现有字段（userId / amount / payType / status / outTradeNo / …）
   "appId": "yunle",
-  "orderType": "recharge_coin",  // recharge_coin（买云币）| membership（买会员）
-  "coinAmount": 1000,            // orderType=recharge_coin 时：到账云币数
-  "level": "basic",             // orderType=membership 时：会员等级
-  "billingCycle": "month"       // orderType=membership 时：month | year
+  "orderType": "recharge_coin", // recharge_coin（买云币）| membership（买会员）
+  "coinAmount": 1000, // orderType=recharge_coin 时：到账云币数
+  "level": "basic", // orderType=membership 时：会员等级
+  "billingCycle": "month" // orderType=membership 时：month | year
 }
 ```
 
@@ -132,9 +132,9 @@
 ```js
 // 云币充值套餐：packId -> { amount(分), coin }，满足 amount = coin * 10
 const COIN_PACKS = {
-  coin_100:  { amount: 1000,  coin: 100 },   // 10 元
-  coin_500:  { amount: 5000,  coin: 500 },   // 50 元
-  coin_1000: { amount: 10000, coin: 1000 },  // 100 元
+  coin_100: { amount: 1000, coin: 100 }, // 10 元
+  coin_500: { amount: 5000, coin: 500 }, // 50 元
+  coin_1000: { amount: 10000, coin: 1000 }, // 100 元
 }
 
 // 会员套餐：level -> { month, year }（分）
@@ -150,21 +150,21 @@ const MEMBERSHIP_PRICES = {
 
 ### 4.1 `wxpay-order`（扩展现有 action）
 
-| action | 说明 | 关键入参 |
-| --- | --- | --- |
-| `createOrder` | 统一下单。按 `orderType` 分支：买云币 or 买会员 | `appId`, `orderType`, `packId`?/`level`+`billingCycle`?, `payType`, `wxOpenid`? |
-| `queryOrder` | 查询订单（本地 + 微信兜底）。沿用现状，兜底成功后按 `orderType` 入账 | `outTradeNo` |
-| `createTestOrder` | 测试下单。沿用现状（默认禁用，`WX_ALLOW_TEST_ORDER=true` 才启用） | `amount`, `payType` |
+| action            | 说明                                                                 | 关键入参                                                                        |
+| ----------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `createOrder`     | 统一下单。按 `orderType` 分支：买云币 or 买会员                      | `appId`, `orderType`, `packId`?/`level`+`billingCycle`?, `payType`, `wxOpenid`? |
+| `queryOrder`      | 查询订单（本地 + 微信兜底）。沿用现状，兜底成功后按 `orderType` 入账 | `outTradeNo`                                                                    |
+| `createTestOrder` | 测试下单。沿用现状（默认禁用，`WX_ALLOW_TEST_ORDER=true` 才启用）    | `amount`, `payType`                                                             |
 
 > 下单主入口保持「参数解析 + 鉴权 + 路由」职责，纯逻辑全部委托 `lib/`，与现有风格一致。
 
 ### 4.2 `account-api`（新增云函数）
 
-| action | 说明 | 入参 | 返回 |
-| --- | --- | --- | --- |
-| `getAccount` | 一次拿到账户全貌 | — | `{ coin, membership: { isActive, level, expireAt } }` |
-| `deductCoin` | 按次扣云币（核心） | `appId`, `amount`, `bizId`, `meta?` | `{ balance }` 或抛「余额不足」 |
-| `listTransactions` | 云币流水分页 | `cursor?`, `limit?` | `{ items, nextCursor }` |
+| action             | 说明               | 入参                                | 返回                                                  |
+| ------------------ | ------------------ | ----------------------------------- | ----------------------------------------------------- |
+| `getAccount`       | 一次拿到账户全貌   | —                                   | `{ coin, membership: { isActive, level, expireAt } }` |
+| `deductCoin`       | 按次扣云币（核心） | `appId`, `amount`, `bizId`, `meta?` | `{ balance }` 或抛「余额不足」                        |
+| `listTransactions` | 云币流水分页       | `cursor?`, `limit?`                 | `{ items, nextCursor }`                               |
 
 - `deductCoin` 必须在服务端鉴权（`uid` 来自 CloudBase Auth），子应用不能伪造他人 uid。
 - `bizId` 用于**幂等**：同一 `bizId` 重复调用只扣一次（见 §6）。
@@ -199,7 +199,7 @@ await callAccount('deductCoin', { appId: 'xxx', amount: 50, bizId })
 
 - 实现：扣费决策放在**子应用**，而非平台。子应用调 `deductCoin` 前先看 `membership.isActive`
   与本地「该功能是否会员免费」规则；若免费则跳过扣费、记一条 `type:'consume', amount:0,
-  meta:{ waived:true }` 的零额流水（便于统计会员省了多少）。
+meta:{ waived:true }` 的零额流水（便于统计会员省了多少）。
 - 平台 `deductCoin` 不感知「哪个功能对会员免费」，保持解耦。
 
 > 这样的分工：**平台只回答「是不是会员」**，免扣费/折扣的具体业务规则留在各应用，
@@ -222,12 +222,18 @@ async function deductCoin(db, { userId, appId, amount, bizId, meta }) {
     if (!w || w.balance < amount)
       throw new Error('云币余额不足')
     const res = await db.collection('user_wallet')
-      .where({ userId, version: w.version })          // 乐观锁条件
+      .where({ userId, version: w.version }) // 乐观锁条件
       .update({ balance: _.inc(-amount), version: _.inc(1), updatedAt: now })
     if ((res.updated ?? 0) > 0) {
       await db.collection('coin_transactions').add({
-        userId, appId, type: 'consume', amount: -amount,
-        balanceAfter: w.balance - amount, refId: bizId, meta, createdAt: now,
+        userId,
+        appId,
+        type: 'consume',
+        amount: -amount,
+        balanceAfter: w.balance - amount,
+        refId: bizId,
+        meta,
+        createdAt: now,
       })
       return { balance: w.balance - amount }
     }
@@ -266,15 +272,15 @@ async function deductCoin(db, { userId, appId, amount, bizId, meta }) {
 
 ## 9. 索引清单（汇总）
 
-| 集合 | 索引 | 字段 | 唯一 |
-| --- | --- | --- | --- |
-| `orders` | `idx_outTradeNo` | `outTradeNo` | 唯一 |
-| `orders` | `idx_userId_status` | `userId`, `status` | 否 |
-| `orders` | `idx_app_type`（新） | `appId`, `orderType` | 否 |
-| `user_memberships` | `idx_user` | `userId` | 唯一 |
-| `user_wallet`（新） | `idx_user` | `userId` | 唯一 |
-| `coin_transactions`（新） | `idx_user_time` | `userId`, `createdAt`↓ | 否 |
-| `coin_transactions`（新） | `idx_app_time` | `appId`, `createdAt`↓ | 否 |
+| 集合                      | 索引                 | 字段                   | 唯一 |
+| ------------------------- | -------------------- | ---------------------- | ---- |
+| `orders`                  | `idx_outTradeNo`     | `outTradeNo`           | 唯一 |
+| `orders`                  | `idx_userId_status`  | `userId`, `status`     | 否   |
+| `orders`                  | `idx_app_type`（新） | `appId`, `orderType`   | 否   |
+| `user_memberships`        | `idx_user`           | `userId`               | 唯一 |
+| `user_wallet`（新）       | `idx_user`           | `userId`               | 唯一 |
+| `coin_transactions`（新） | `idx_user_time`      | `userId`, `createdAt`↓ | 否   |
+| `coin_transactions`（新） | `idx_app_time`       | `appId`, `createdAt`↓  | 否   |
 
 ## 10. 落地步骤（编码阶段 TODO）
 
