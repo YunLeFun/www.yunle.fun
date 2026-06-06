@@ -4,6 +4,7 @@
  * 路由 action：
  *   - getAccount        一次拿到账户全貌（云币余额 + 会员状态），需登录
  *   - deductCoin        按次扣云币（需登录，幂等键 bizId）
+ *   - deductCoinForUser 内部服务按指定 userId 扣云币（需 ACCOUNT_API_INTERNAL_TOKEN）
  *   - listTransactions  云币流水分页（需登录）
  *
  * 主入口只做"参数解析 + 鉴权 + 路由"，纯逻辑委托给 lib/（与 wxpay-order 共享同一份 lib）。
@@ -15,6 +16,11 @@
 
 const cloudbase = require('@cloudbase/node-sdk')
 
+const {
+  assertInternalServiceToken,
+  assertUserId,
+  handleDeductCoinForUser,
+} = require('./internal')
 const { isMembershipActive } = require('./lib/membership')
 const { MEMBERSHIPS_COLLECTION } = require('./lib/orders')
 const { assertDeductCoinInput } = require('./lib/validation')
@@ -98,17 +104,22 @@ async function handleListTransactions(uid, event) {
 
 exports.main = async (event) => {
   const { action } = event || {}
-  const uid = getCallerUid()
-  if (!uid)
-    throw new Error('请先登录')
   try {
     switch (action) {
+      case 'deductCoinForUser':
+        return await handleDeductCoinForUser(db, event)
       case 'getAccount':
-        return await handleGetAccount(uid)
       case 'deductCoin':
-        return await handleDeductCoin(uid, event)
-      case 'listTransactions':
+      case 'listTransactions': {
+        const uid = getCallerUid()
+        if (!uid)
+          throw new Error('请先登录')
+        if (action === 'getAccount')
+          return await handleGetAccount(uid)
+        if (action === 'deductCoin')
+          return await handleDeductCoin(uid, event)
         return await handleListTransactions(uid, event)
+      }
       default:
         throw new Error(`未知 action: ${action}`)
     }
@@ -117,4 +128,10 @@ exports.main = async (event) => {
     console.error('[account-api] 处理失败:', err.message)
     throw err
   }
+}
+
+exports._private = {
+  assertInternalServiceToken,
+  assertUserId,
+  handleDeductCoinForUser,
 }
