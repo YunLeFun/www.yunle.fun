@@ -1,0 +1,27 @@
+name: 技术问题
+description: 咨询开发、集成、配置或使用过程中的技术问题
+title: '[Question] '
+labels:
+  - question
+body:
+  - type: markdown
+    attributes:
+      value: |
+        GitHub Issues 仅用于技术类问题。账号、订单、退款、客诉等问题请通过微信客服或客服邮箱联系。
+  - type: textarea
+    id: question
+    attributes:
+      label: 问题描述
+      description: 请尽量说明你正在做什么、遇到了什么阻碍。
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: 背景信息
+      description: 请补充相关页面、配置、代码片段或错误信息。提交前请移除敏感信息。
+  - type: input
+    id: environment
+    attributes:
+      label: 环境信息
+      description: 可选。请填写浏览器、系统、Node.js 或相关版本信息。

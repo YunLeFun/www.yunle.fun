@@ -1,0 +1,47 @@
+name: Bug 反馈
+description: 报告云乐坊网站或服务中的技术故障、报错或兼容性问题
+title: '[Bug] '
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈。GitHub Issues 是公开渠道，请不要填写账号、订单、退款、支付凭证等隐私信息。
+  - type: textarea
+    id: problem
+    attributes:
+      label: 问题描述
+      description: 请说明你遇到的问题和实际表现。
+      placeholder: 例如：点击支付后页面一直停留在加载状态。
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 请提供可以复现问题的步骤。
+      placeholder: |
+        1. 打开 ...
+        2. 点击 ...
+        3. 看到 ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望表现
+      description: 请说明你期望发生什么。
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: 环境信息
+      description: 请填写浏览器、系统、设备或相关版本信息。
+      placeholder: Chrome 125 / macOS 15 / iPhone 15
+  - type: textarea
+    id: logs
+    attributes:
+      label: 截图或日志
+      description: 可选。请隐藏所有敏感信息后再提交。
