@@ -6,22 +6,130 @@
 @theme static {
   --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
-  --color-green-50: #effdf5;
-  --color-green-100: #d9fbe8;
-  --color-green-200: #b3f5d1;
-  --color-green-300: #75edae;
-  --color-green-400: #00dc82;
-  --color-green-500: #00c16a;
-  --color-green-600: #00a155;
-  --color-green-700: #007f45;
-  --color-green-800: #016538;
-  --color-green-900: #0a5331;
-  --color-green-950: #052e16;
+  --color-blue-50: #eff6ff;
+  --color-blue-100: #dbeafe;
+  --color-blue-200: #bfdbfe;
+  --color-blue-300: #93c5fd;
+  --color-blue-400: #60a5fa;
+  --color-blue-500: #3b82f6;
+  --color-blue-600: #2563eb;
+  --color-blue-700: #1d4ed8;
+  --color-blue-800: #1e40af;
+  --color-blue-900: #1e3a8a;
+  --color-blue-950: #172554;
+}
+
+:root {
+  color-scheme: light;
+  --ui-bg: #f8fafc;
+  --ui-bg-muted: #f1f5f9;
+  --ui-bg-elevated: #ffffff;
+  --ui-bg-accented: #e2e8f0;
+  --ui-text: #0f172a;
+  --ui-text-muted: #475569;
+  --ui-text-dimmed: #64748b;
+  --ui-text-toned: #334155;
+  --ui-text-highlighted: #020617;
+  --ui-border: #cbd5e1;
+  --ui-border-muted: #e2e8f0;
+  --ui-border-accented: #94a3b8;
+  --ylf-surface: #ffffff;
+  --ylf-surface-muted: #f1f5f9;
+  --ylf-surface-hover: #f8fafc;
+  --ylf-ring: color-mix(in srgb, var(--ui-primary) 36%, transparent);
 }
 
 .dark {
+  color-scheme: dark;
   --ui-bg: var(--ui-color-neutral-950);
   --ui-bg-muted: var(--ui-color-neutral-900);
-  --ui-bg-elevated: var(--ui-color-neutral-900);
-  --ui-bg-accented: var(--ui-color-neutral-800);
+  --ui-bg-elevated: #111827;
+  --ui-bg-accented: #1f2937;
+  --ui-text: #e5e7eb;
+  --ui-text-muted: #cbd5e1;
+  --ui-text-dimmed: #94a3b8;
+  --ui-text-toned: #d1d5db;
+  --ui-text-highlighted: #f8fafc;
+  --ui-border: #334155;
+  --ui-border-muted: #1e293b;
+  --ui-border-accented: #475569;
+  --ylf-surface: #0f172a;
+  --ylf-surface-muted: #111827;
+  --ylf-surface-hover: #1e293b;
+  --ylf-ring: color-mix(in srgb, var(--ui-primary) 45%, transparent);
+}
+
+html {
+  background: var(--ui-bg);
+}
+
+body {
+  min-height: 100vh;
+  background: var(--ui-bg);
+  color: var(--ui-text);
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--ui-primary) 28%, transparent);
+}
+
+:where(a[href], button:not(:disabled), [role='button']:not([aria-disabled='true'])) {
+  cursor: pointer;
+}
+
+:where(a, button, input, textarea, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--ylf-ring);
+  outline-offset: 3px;
+}
+
+.ylf-surface {
+  background: var(--ylf-surface);
+  border: 1px solid var(--ui-border);
+}
+
+.ylf-soft-panel {
+  background: color-mix(in srgb, var(--ylf-surface-muted) 84%, var(--ylf-surface));
+  border: 1px solid var(--ui-border-muted);
+}
+
+.ylf-interactive-card {
+  background: var(--ylf-surface);
+  border: 1px solid var(--ui-border);
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease;
+}
+
+.ylf-interactive-card:hover {
+  background: var(--ylf-surface-hover);
+  border-color: var(--ylf-ring);
+}
+
+.ylf-empty-state {
+  background: color-mix(in srgb, var(--ylf-surface-muted) 86%, transparent);
+  border: 1px dashed var(--ui-border);
+}
+
+.ylf-icon-tile {
+  background: color-mix(in srgb, var(--ui-primary) 12%, var(--ylf-surface));
+  color: var(--ui-primary);
+  border: 1px solid color-mix(in srgb, var(--ui-primary) 20%, transparent);
+}
+
+.ylf-preview-shell {
+  background: var(--ylf-surface);
+  border: 1px solid var(--ui-border);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

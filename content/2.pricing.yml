@@ -20,9 +20,9 @@ plans:
 logos:
   title: 值得信赖的合作伙伴
   icons:
-    - ❄️
-    - 🍲
-    - 💬
+    - i-lucide-cloud
+    - i-lucide-database
+    - i-lucide-message-circle
 faq:
   title: 常见问题
   description: 以下是用户最常问到的问题，希望能帮助您更好地了解我们的服务。
@@ -32,4 +32,5 @@ faq:
     - label: 你们提供退款吗？
       content: 我们提供 7 天无理由退款保障。如果您对服务不满意，可以在购买后 7 天内申请全额退款。
     - label: 你们提供技术支持吗？
-      content: 您可以通过工单联系我们获得技术支持。
+      content: 我们提供技术支持。技术类问题、客诉、退款和一般咨询请查看对应联系渠道。
+      to: /docs/contact

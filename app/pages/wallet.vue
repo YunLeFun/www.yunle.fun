@@ -108,7 +108,10 @@ onMounted(() => {
     </h1>
 
     <!-- 未登录 -->
-    <UCard v-if="!user">
+    <UCard
+      v-if="!user"
+      class="ylf-surface"
+    >
       <div class="text-center py-8 space-y-4">
         <UIcon name="i-lucide-wallet" class="w-12 h-12 mx-auto text-muted" />
         <p class="text-muted">
@@ -123,7 +126,7 @@ onMounted(() => {
     <template v-else>
       <!-- 余额 + 会员状态 -->
       <div class="grid sm:grid-cols-2 gap-4">
-        <UCard>
+        <UCard class="ylf-surface">
           <div class="space-y-1">
             <p class="text-sm text-muted">
               云币余额
@@ -136,7 +139,7 @@ onMounted(() => {
           </div>
         </UCard>
 
-        <UCard>
+        <UCard class="ylf-surface">
           <div class="space-y-1">
             <p class="text-sm text-muted">
               云乐坊会员
@@ -172,10 +175,11 @@ onMounted(() => {
           100 云币 = 10 元；云币为平台虚拟消费凭证，不可提现。
         </p>
         <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
-          <UCard
+          <button
             v-for="pack in packs"
             :key="pack.id"
-            class="cursor-pointer transition-shadow hover:shadow-md"
+            type="button"
+            class="ylf-interactive-card rounded-lg p-4 text-left"
             @click="handleRecharge(pack.id)"
           >
             <div class="text-center space-y-2 py-2">
@@ -190,7 +194,7 @@ onMounted(() => {
                 {{ formatPrice(pack.amount) }}
               </div>
             </div>
-          </UCard>
+          </button>
         </div>
       </section>
 
@@ -200,7 +204,7 @@ onMounted(() => {
           云币明细
         </h2>
 
-        <div v-if="transactions.length === 0 && !txLoading" class="text-center py-8 text-muted">
+        <div v-if="transactions.length === 0 && !txLoading" class="ylf-empty-state rounded-lg py-8 text-center text-muted">
           暂无记录
         </div>
 

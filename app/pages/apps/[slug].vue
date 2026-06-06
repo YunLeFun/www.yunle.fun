@@ -86,12 +86,12 @@ async function handleDelete() {
 </script>
 
 <template>
-  <UContainer class="py-12">
+  <UContainer class="py-10 sm:py-12">
     <div v-if="loading" class="flex justify-center py-20">
       <UIcon name="i-lucide-loader-2" class="text-3xl text-muted animate-spin" />
     </div>
 
-    <div v-else-if="!appData" class="text-center py-20">
+    <div v-else-if="!appData" class="ylf-empty-state rounded-lg px-4 py-20 text-center">
       <UIcon name="i-lucide-package-x" class="text-5xl text-muted mb-4" />
       <p class="text-lg text-muted mb-4">
         应用不存在
@@ -110,18 +110,18 @@ async function handleDelete() {
       </div>
 
       <!-- 头部 -->
-      <div class="flex items-start gap-5">
-        <div class="shrink-0 w-16 h-16 rounded-xl bg-elevated flex items-center justify-center border border-default">
+      <div class="flex flex-col gap-5 sm:flex-row sm:items-start">
+        <div class="ylf-icon-tile flex h-16 w-16 shrink-0 items-center justify-center rounded-lg">
           <img
             v-if="appData.icon"
             :src="appData.icon"
             :alt="appData.name"
-            class="w-12 h-12 rounded-lg"
+            class="h-12 w-12 rounded-md"
           >
           <UIcon v-else name="i-lucide-box" class="text-3xl text-muted" />
         </div>
         <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-3 mb-1">
+          <div class="mb-1 flex flex-wrap items-center gap-3">
             <h1 class="text-2xl font-bold truncate">
               {{ appData.name }}
             </h1>
@@ -137,7 +137,7 @@ async function handleDelete() {
           </p>
         </div>
         <!-- 操作按钮 -->
-        <div v-if="isOwner" class="flex items-center gap-2 shrink-0">
+        <div v-if="isOwner" class="flex shrink-0 items-center gap-2">
           <UButton
             :to="`/apps/${appData.slug}/edit`"
             label="编辑"
@@ -158,19 +158,19 @@ async function handleDelete() {
       </div>
 
       <!-- 描述 -->
-      <UPageCard v-if="appData.description" class="p-5">
+      <UPageCard v-if="appData.description" class="ylf-surface p-5">
         <p class="text-sm leading-relaxed">
           {{ appData.description }}
         </p>
       </UPageCard>
 
       <!-- 详细信息 -->
-      <UPageCard class="p-5">
+      <UPageCard class="ylf-surface p-5">
         <h3 class="text-base font-semibold mb-4">
           应用信息
         </h3>
         <div class="divide-y divide-default">
-          <div class="flex items-center justify-between py-3">
+          <div class="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div class="flex items-center gap-3">
               <UIcon name="i-lucide-tag" class="text-lg text-muted" />
               <span class="text-sm text-muted">标识符</span>
@@ -178,7 +178,7 @@ async function handleDelete() {
             <span class="text-sm font-mono">{{ appData.slug }}</span>
           </div>
 
-          <div class="flex items-center justify-between py-3">
+          <div class="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div class="flex items-center gap-3">
               <UIcon name="i-lucide-user" class="text-lg text-muted" />
               <span class="text-sm text-muted">所有者</span>
@@ -186,7 +186,7 @@ async function handleDelete() {
             <span class="text-sm font-medium">@{{ appData.ownerLogin }}</span>
           </div>
 
-          <div v-if="appData.githubRepo" class="flex items-center justify-between py-3">
+          <div v-if="appData.githubRepo" class="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div class="flex items-center gap-3">
               <UIcon name="i-simple-icons-github" class="text-lg text-muted" />
               <span class="text-sm text-muted">GitHub 仓库</span>
@@ -195,14 +195,14 @@ async function handleDelete() {
               :href="`https://github.com/${appData.githubRepo}`"
               target="_blank"
               rel="noopener noreferrer"
-              class="text-sm font-medium text-primary hover:underline flex items-center gap-1"
+              class="flex items-center gap-1 text-sm font-medium text-primary hover:underline"
             >
               {{ appData.githubRepo }}
               <UIcon name="i-lucide-external-link" class="text-xs" />
             </a>
           </div>
 
-          <div v-if="appData.websiteUrl" class="flex items-center justify-between py-3">
+          <div v-if="appData.websiteUrl" class="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div class="flex items-center gap-3">
               <UIcon name="i-lucide-globe" class="text-lg text-muted" />
               <span class="text-sm text-muted">网页链接</span>
@@ -211,14 +211,14 @@ async function handleDelete() {
               :href="appData.websiteUrl"
               target="_blank"
               rel="noopener noreferrer"
-              class="text-sm font-medium text-primary hover:underline flex items-center gap-1 max-w-xs truncate"
+              class="flex max-w-full items-center gap-1 truncate text-sm font-medium text-primary hover:underline sm:max-w-xs"
             >
               {{ appData.websiteUrl }}
               <UIcon name="i-lucide-external-link" class="text-xs shrink-0" />
             </a>
           </div>
 
-          <div v-if="appData.backupUrl" class="flex items-center justify-between py-3">
+          <div v-if="appData.backupUrl" class="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div class="flex items-center gap-3">
               <UIcon name="i-lucide-link" class="text-lg text-muted" />
               <span class="text-sm text-muted">备用链接</span>
@@ -227,14 +227,14 @@ async function handleDelete() {
               :href="appData.backupUrl"
               target="_blank"
               rel="noopener noreferrer"
-              class="text-sm font-medium text-primary hover:underline flex items-center gap-1 max-w-xs truncate"
+              class="flex max-w-full items-center gap-1 truncate text-sm font-medium text-primary hover:underline sm:max-w-xs"
             >
               {{ appData.backupUrl }}
               <UIcon name="i-lucide-external-link" class="text-xs shrink-0" />
             </a>
           </div>
 
-          <div class="flex items-center justify-between py-3">
+          <div class="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div class="flex items-center gap-3">
               <UIcon name="i-lucide-calendar" class="text-lg text-muted" />
               <span class="text-sm text-muted">创建时间</span>
@@ -242,7 +242,7 @@ async function handleDelete() {
             <span class="text-sm">{{ formatDate(appData.createdAt) }}</span>
           </div>
 
-          <div class="flex items-center justify-between py-3">
+          <div class="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div class="flex items-center gap-3">
               <UIcon name="i-lucide-clock" class="text-lg text-muted" />
               <span class="text-sm text-muted">最近更新</span>

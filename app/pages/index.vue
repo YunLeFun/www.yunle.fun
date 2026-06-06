@@ -43,7 +43,10 @@ useSeoMeta({
       :reverse="section.reverse"
       :features="section.features"
     >
-      <ImagePlaceholder />
+      <MarketingPreview
+        :kind="index === 0 ? 'marketplace' : 'developer'"
+        :index="index"
+      />
     </UPageSection>
 
     <UPageSection

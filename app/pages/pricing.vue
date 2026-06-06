@@ -3,14 +3,16 @@ import type { BillingCycle, PlanId } from '~/types/payment'
 
 const { data: page } = await useAsyncData('pricing', () => queryCollection('pricing').first())
 
-// 判断是否为 emoji (通过检查是否不是图标名称格式)
-function isEmoji(str: string): boolean {
-  // 图标名称格式通常是 i-xxx-xxx，其他都是 emoji
-  return !str.startsWith('i-')
+interface PricingFaqItem {
+  label: string
+  content: string
+  to?: string
 }
 
 const title = page.value?.seo?.title || page.value?.title
 const description = page.value?.seo?.description || page.value?.description
+const faqItems = computed(() => (page.value?.faq.items ?? []) as PricingFaqItem[])
+const logoIcons = computed(() => page.value?.logos.icons ?? [])
 
 useSeoMeta({
   title,
@@ -129,14 +131,12 @@ function handleClose() {
 
     <UPageSection>
       <UPageLogos>
-        <template v-for="icon in page.logos.icons" :key="icon">
-          <UIcon
-            v-if="!isEmoji(icon)"
-            :name="icon"
-            class="text-muted shrink-0 h-12 w-12"
-          />
-          <span v-else class="text-4xl shrink-0">{{ icon }}</span>
-        </template>
+        <UIcon
+          v-for="icon in logoIcons"
+          :key="icon"
+          :name="icon"
+          class="h-12 w-12 shrink-0 text-primary/70 dark:text-primary/80"
+        />
       </UPageLogos>
     </UPageSection>
 
@@ -145,7 +145,7 @@ function handleClose() {
       :description="page.faq.description"
     >
       <UAccordion
-        :items="page.faq.items"
+        :items="faqItems"
         :unmount-on-hide="false"
         :default-value="['0']"
         type="multiple"
@@ -154,7 +154,21 @@ function handleClose() {
           trigger: 'text-base text-highlighted',
           body: 'text-base text-muted',
         }"
-      />
+      >
+        <template #body="{ item }">
+          <p>{{ item.content }}</p>
+          <UButton
+            v-if="item.to"
+            :to="item.to"
+            variant="link"
+            color="primary"
+            trailing-icon="i-lucide-arrow-right"
+            class="mt-2 p-0"
+          >
+            查看联系渠道
+          </UButton>
+        </template>
+      </UAccordion>
     </UPageSection>
 
     <!-- 支付弹窗 -->

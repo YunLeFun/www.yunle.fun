@@ -39,27 +39,33 @@ function formatDate(ts: number) {
 </script>
 
 <template>
-  <UContainer class="py-12">
+  <UContainer class="py-10 sm:py-12">
     <div v-if="authLoading || loading" class="flex justify-center py-20">
       <UIcon name="i-lucide-loader-2" class="text-3xl text-muted animate-spin" />
     </div>
 
     <div v-else class="max-w-4xl mx-auto space-y-6">
       <!-- 页面标题 -->
-      <div class="flex items-center justify-between">
-        <h1 class="text-2xl font-bold">
-          我的应用
-        </h1>
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 class="text-2xl font-bold">
+            我的应用
+          </h1>
+          <p class="mt-1 text-sm text-muted">
+            管理发布到云乐坊的应用入口和链接信息
+          </p>
+        </div>
         <UButton
           to="/apps/new"
           label="创建应用"
           icon="i-lucide-plus"
           color="primary"
+          class="self-start sm:self-auto"
         />
       </div>
 
       <!-- 空状态 -->
-      <div v-if="apps.length === 0" class="text-center py-16">
+      <div v-if="apps.length === 0" class="ylf-empty-state rounded-lg px-4 py-16 text-center">
         <UIcon name="i-lucide-package" class="text-5xl text-muted mb-4" />
         <p class="text-lg text-muted mb-2">
           还没有发布任何应用
@@ -82,16 +88,16 @@ function formatDate(ts: number) {
           v-for="item in apps"
           :key="item._id"
           :to="`/apps/${item.slug}`"
-          class="block"
+          class="block rounded-lg"
         >
-          <div class="group flex items-start gap-4 p-4 rounded-xl border border-default hover:border-primary/40 bg-default hover:bg-elevated/50 transition-all">
+          <div class="ylf-interactive-card group flex items-start gap-4 rounded-lg p-4">
             <!-- 图标 -->
-            <div class="shrink-0 w-10 h-10 rounded-lg bg-elevated flex items-center justify-center">
+            <div class="ylf-icon-tile flex h-10 w-10 shrink-0 items-center justify-center rounded-md">
               <img
                 v-if="item.icon"
                 :src="item.icon"
                 :alt="item.name"
-                class="w-8 h-8 rounded"
+                class="h-8 w-8 rounded"
               >
               <UIcon v-else name="i-lucide-box" class="text-xl text-muted" />
             </div>
@@ -112,7 +118,7 @@ function formatDate(ts: number) {
               <p v-if="item.description" class="text-sm text-muted truncate mb-2">
                 {{ item.description }}
               </p>
-              <div class="flex items-center gap-4 text-xs text-muted">
+              <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">
                 <span class="font-mono">{{ item.slug }}</span>
                 <span v-if="item.githubRepo" class="flex items-center gap-1">
                   <UIcon name="i-simple-icons-github" class="text-sm" />
