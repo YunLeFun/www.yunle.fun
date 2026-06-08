@@ -8,7 +8,7 @@
     "dev": "TMPDIR=/tmp nuxt dev --host",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare",
+    "postinstall": "nuxt prepare && node scripts/setup-hooks.mjs",
     "lint": "eslint .",
     "typecheck": "nuxt typecheck",
     "test": "vitest run",
