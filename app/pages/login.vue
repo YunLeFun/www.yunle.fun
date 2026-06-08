@@ -73,7 +73,7 @@ const isPasswordUsername = computed(() => RE_USERNAME.test(passwordAccount.value
 
 // 忘记密码状态
 const showResetPassword = ref(false)
-const resetEmail = ref('')
+const resetAccount = ref('')
 const resetOtpCode = ref('')
 const resetData = ref<TcbResetPasswordData | null>(null)
 const resetStep = ref<'input' | 'verify' | 'newpwd'>('input')
@@ -110,8 +110,8 @@ const isPasswordEmail = computed(() => RE_EMAIL.test(passwordAccount.value))
 const isPasswordPhone = computed(() => RE_CN_PHONE.test(passwordAccount.value))
 const passwordFormValid = computed(() => (isPasswordEmail.value || isPasswordPhone.value || isPasswordUsername.value) && password.value.length >= 6)
 
-// 重置密码邮箱校验
-const resetEmailValid = computed(() => RE_EMAIL.test(resetEmail.value))
+// 重置密码账号校验（邮箱或中国大陆手机号）
+const resetAccountValid = computed(() => RE_EMAIL.test(resetAccount.value) || RE_CN_PHONE.test(resetAccount.value))
 const newPasswordValid = computed(() => newPassword.value.length >= 6 && newPassword.value === confirmNewPassword.value)
 
 // 输入合法性提示（用户已输入但格式不正确时才提示，避免一上来就报红）
@@ -206,10 +206,10 @@ async function handlePasswordLogin() {
 
 // 忘记密码 - 发送重置验证码
 async function handleSendReset() {
-  if (!resetEmailValid.value)
+  if (!resetAccountValid.value)
     return
   try {
-    resetData.value = await resetPassword(resetEmail.value)
+    resetData.value = await resetPassword(resetAccount.value)
     resetStep.value = 'verify'
     startResetCountdown()
   }
@@ -226,7 +226,7 @@ async function handleConfirmReset() {
     await confirmResetPassword(resetData.value, resetOtpCode.value, newPassword.value)
     showResetPassword.value = false
     resetStep.value = 'input'
-    resetEmail.value = ''
+    resetAccount.value = ''
     resetOtpCode.value = ''
     newPassword.value = ''
     confirmNewPassword.value = ''
@@ -245,7 +245,7 @@ async function handleConfirmReset() {
 function openResetPassword() {
   showResetPassword.value = true
   resetStep.value = 'input'
-  resetEmail.value = ''
+  resetAccount.value = ''
   resetOtpCode.value = ''
   newPassword.value = ''
   confirmNewPassword.value = ''
@@ -585,21 +585,20 @@ function openResetPassword() {
                 重置密码
               </h3>
               <p class="text-sm text-muted">
-                {{ resetStep === 'input' ? '输入您的邮箱，我们将发送验证码' : resetStep === 'verify' ? `验证码已发送至 ${resetEmail}` : '设置新密码' }}
+                {{ resetStep === 'input' ? '输入邮箱或手机号，我们将发送验证码' : resetStep === 'verify' ? `验证码已发送至 ${resetAccount}` : '设置新密码' }}
               </p>
             </div>
           </div>
 
           <!-- 步骤 1: 输入邮箱 -->
           <div v-if="resetStep === 'input'" class="space-y-4">
-            <UFormField label="邮箱地址">
+            <UFormField label="邮箱或手机号">
               <UInput
-                v-model.trim="resetEmail"
-                type="email"
-                autocomplete="email"
-                placeholder="请输入注册时使用的邮箱"
+                v-model.trim="resetAccount"
+                autocomplete="username"
+                placeholder="请输入注册时使用的邮箱或手机号"
                 size="lg"
-                icon="i-lucide-mail"
+                icon="i-lucide-user"
                 :disabled="loading"
                 class="w-full"
                 @keyup.enter="handleSendReset"
@@ -616,7 +615,7 @@ function openResetPassword() {
                 label="发送验证码"
                 color="primary"
                 :loading="loading"
-                :disabled="!resetEmailValid"
+                :disabled="!resetAccountValid"
                 @click="handleSendReset"
               />
             </div>

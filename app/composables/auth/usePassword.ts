@@ -17,7 +17,7 @@ export function useTcbPassword(core: ReturnType<typeof import('./useAuthCore').u
       await fetchUser()
       toast.add({ title: '登录成功', description: '欢迎回来！', color: 'success' })
       const redirect = router.currentRoute.value.query.redirect as string
-      await router.push(redirect || '/profile')
+      await router.push(redirect || '/')
       return data
     }
     catch (err: unknown) {
