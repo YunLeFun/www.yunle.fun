@@ -4,6 +4,7 @@ import type { TcbOtpData, TcbResetPasswordData } from '~/composables/useTcbAuth'
 const RE_USERNAME = /^[a-z][\w-]{2,19}$/i
 const RE_EMAIL = /^[^\s@]+@[^\s@][^\s.@]*\.[^\s@]+$/
 const RE_CN_PHONE = /^1[3-9]\d{9}$/
+const RE_OTP = /^\d{6}$/
 
 definePageMeta({
   layout: 'auth',
@@ -30,10 +31,11 @@ const {
 const router = useRouter()
 const toast = useToast()
 
-// 如果已登录，重定向到首页
+// 如果已登录，重定向（优先 redirect 查询参数，回退首页）
 watch(isAuthenticated, (value) => {
   if (value) {
-    router.push('/')
+    const redirect = router.currentRoute.value.query.redirect as string
+    router.push(redirect || '/')
   }
 }, { immediate: true })
 
@@ -111,6 +113,22 @@ const passwordFormValid = computed(() => (isPasswordEmail.value || isPasswordPho
 // 重置密码邮箱校验
 const resetEmailValid = computed(() => RE_EMAIL.test(resetEmail.value))
 const newPasswordValid = computed(() => newPassword.value.length >= 6 && newPassword.value === confirmNewPassword.value)
+
+// 输入合法性提示（用户已输入但格式不正确时才提示，避免一上来就报红）
+const phoneInvalid = computed(() => phone.value.length > 0 && !phoneValid.value)
+const emailInvalid = computed(() => email.value.length > 0 && !emailValid.value)
+
+// 验证码仅允许数字，自动剔除非数字并限制 6 位
+function sanitizeOtp(code: Ref<string>) {
+  watch(code, (v) => {
+    const cleaned = v.replace(/\D/g, '').slice(0, 6)
+    if (cleaned !== v)
+      code.value = cleaned
+  })
+}
+sanitizeOtp(phoneOtpCode)
+sanitizeOtp(emailOtpCode)
+sanitizeOtp(resetOtpCode)
 
 // 发送手机验证码
 async function handleSendPhoneOtp() {
@@ -238,15 +256,17 @@ function openResetPassword() {
 <template>
   <div class="w-full space-y-6">
     <!-- 标题区域 -->
-    <div class="text-center space-y-2">
+    <div class="text-center space-y-3">
       <div class="flex justify-center">
-        <UIcon
-          name="i-lucide-lock"
-          class="text-3xl text-primary"
-        />
+        <div class="ylf-icon-tile flex size-14 items-center justify-center rounded-2xl">
+          <UIcon
+            name="i-lucide-lock-keyhole"
+            class="size-7"
+          />
+        </div>
       </div>
-      <h1 class="text-2xl font-bold">
-        登录云乐坊
+      <h1 class="text-2xl font-bold tracking-tight">
+        登录 <span class="ylf-gradient-text">云乐坊</span>
       </h1>
       <p class="text-sm text-muted">
         使用您的云乐坊账号继续
@@ -297,7 +317,11 @@ function openResetPassword() {
             :disabled="loading"
           />
           <UInput
-            v-model="phone"
+            v-model.trim="phone"
+            type="tel"
+            inputmode="numeric"
+            autocomplete="tel"
+            maxlength="11"
             placeholder="请输入手机号"
             size="lg"
             icon="i-lucide-smartphone"
@@ -307,7 +331,8 @@ function openResetPassword() {
           />
         </div>
         <template #hint>
-          <span class="text-xs text-dimmed">当前仅支持中国大陆手机号</span>
+          <span v-if="phoneInvalid" class="text-xs text-error">请输入正确的手机号</span>
+          <span v-else class="text-xs text-dimmed">当前仅支持中国大陆手机号</span>
         </template>
       </UFormField>
 
@@ -317,6 +342,8 @@ function openResetPassword() {
           <div class="flex gap-2">
             <UInput
               v-model="phoneOtpCode"
+              inputmode="numeric"
+              autocomplete="one-time-code"
               placeholder="输入 6 位验证码"
               size="lg"
               icon="i-lucide-shield-check"
@@ -342,7 +369,7 @@ function openResetPassword() {
           size="lg"
           block
           :loading="loading"
-          :disabled="!phoneOtpCode || phoneOtpCode.length < 4"
+          :disabled="!RE_OTP.test(phoneOtpCode)"
           @click="handleVerifyPhoneOtp"
         />
       </div>
@@ -364,8 +391,9 @@ function openResetPassword() {
     <div v-else-if="loginMode === 'email'" class="space-y-4">
       <UFormField label="邮箱">
         <UInput
-          v-model="email"
+          v-model.trim="email"
           type="email"
+          autocomplete="email"
           placeholder="请输入您的邮箱"
           size="lg"
           icon="i-lucide-mail"
@@ -373,6 +401,9 @@ function openResetPassword() {
           class="w-full"
           @keyup.enter="emailCodeSent ? handleVerifyEmailOtp() : handleSendEmailOtp()"
         />
+        <template v-if="emailInvalid" #hint>
+          <span class="text-xs text-error">请输入正确的邮箱地址</span>
+        </template>
       </UFormField>
 
       <!-- 验证码输入 -->
@@ -381,6 +412,8 @@ function openResetPassword() {
           <div class="flex gap-2">
             <UInput
               v-model="emailOtpCode"
+              inputmode="numeric"
+              autocomplete="one-time-code"
               placeholder="输入 6 位验证码"
               size="lg"
               icon="i-lucide-shield-check"
@@ -406,7 +439,7 @@ function openResetPassword() {
           size="lg"
           block
           :loading="loading"
-          :disabled="!emailOtpCode || emailOtpCode.length < 4"
+          :disabled="!RE_OTP.test(emailOtpCode)"
           @click="handleVerifyEmailOtp"
         />
       </div>
@@ -432,7 +465,7 @@ function openResetPassword() {
     <form v-else class="space-y-4" @submit.prevent="handlePasswordLogin">
       <UFormField label="用户名、邮箱或手机号">
         <UInput
-          v-model="passwordAccount"
+          v-model.trim="passwordAccount"
           placeholder="请输入用户名、邮箱或手机号"
           size="lg"
           icon="i-lucide-user"
@@ -561,8 +594,9 @@ function openResetPassword() {
           <div v-if="resetStep === 'input'" class="space-y-4">
             <UFormField label="邮箱地址">
               <UInput
-                v-model="resetEmail"
+                v-model.trim="resetEmail"
                 type="email"
+                autocomplete="email"
                 placeholder="请输入注册时使用的邮箱"
                 size="lg"
                 icon="i-lucide-mail"
@@ -594,6 +628,8 @@ function openResetPassword() {
               <div class="flex gap-2">
                 <UInput
                   v-model="resetOtpCode"
+                  inputmode="numeric"
+                  autocomplete="one-time-code"
                   placeholder="输入 6 位验证码"
                   size="lg"
                   icon="i-lucide-shield-check"
@@ -653,7 +689,7 @@ function openResetPassword() {
                 type="submit"
                 color="primary"
                 :loading="loading"
-                :disabled="!resetOtpCode || resetOtpCode.length < 4 || !newPasswordValid"
+                :disabled="!RE_OTP.test(resetOtpCode) || !newPasswordValid"
               />
             </div>
           </form>

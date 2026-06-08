@@ -1,4 +1,5 @@
 import type { AppRecord, CreateAppForm } from '~/types/app'
+import { OFFICIAL_OWNER_LOGINS } from '~/config'
 
 const COLLECTION = 'apps'
 
@@ -20,6 +21,24 @@ export function useApps() {
     const { data } = await db
       .collection(COLLECTION)
       .where({ ownerId: user.value.id })
+      .orderBy('updatedAt', 'desc')
+      .limit(100)
+      .get()
+    return data as AppRecord[]
+  }
+
+  /**
+   * 获取所有官方账号发布的公开应用
+   *
+   * 开发者平台尚未上线，公开展示处只上架官方应用，普通用户暂不可自助发布。
+   */
+  async function getOfficialApps(): Promise<AppRecord[]> {
+    const { data } = await db
+      .collection(COLLECTION)
+      .where({
+        ownerLogin: db.command.in(OFFICIAL_OWNER_LOGINS),
+        isPublic: true,
+      })
       .orderBy('updatedAt', 'desc')
       .limit(100)
       .get()
@@ -121,6 +140,7 @@ export function useApps() {
 
   return {
     getMyApps,
+    getOfficialApps,
     getUserApps,
     getAppById,
     getAppBySlug,

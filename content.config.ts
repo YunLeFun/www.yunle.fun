@@ -161,6 +161,10 @@ export const collections = {
     type: 'page',
     schema: z.object({
       headline: z.string().optional(),
+      notice: z.object({
+        title: z.string().nonempty(),
+        description: z.string().optional(),
+      }).optional(),
       hero: z.object({
         links: z.array(createLinkSchema()),
       }),

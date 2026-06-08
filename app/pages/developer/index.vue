@@ -42,6 +42,19 @@ const featureIconColors = [
       </template>
     </UPageHero>
 
+    <UContainer
+      v-if="page.notice"
+      class="-mt-4 mb-4"
+    >
+      <UAlert
+        :title="page.notice.title"
+        :description="page.notice.description"
+        icon="i-lucide-construction"
+        color="warning"
+        variant="subtle"
+      />
+    </UContainer>
+
     <UPageSection
       v-for="(section, index) in page.sections"
       :key="index"

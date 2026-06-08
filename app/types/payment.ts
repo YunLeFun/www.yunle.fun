@@ -28,6 +28,12 @@ export const PLAN_NAMES: Record<MembershipLevel, string> = {
 /** 云币汇率：1 云币 = 10 分（100 云币 = 10 元），与 lib/plans.js 的 COIN_RATE_FEN 同步 */
 export const COIN_RATE_FEN = 10
 
+/** 自定义充值云币数量下限（与 lib/plans.js 的 COIN_CUSTOM_MIN 同步） */
+export const COIN_CUSTOM_MIN = 100
+
+/** 自定义充值云币数量上限（与 lib/plans.js 的 COIN_CUSTOM_MAX 同步） */
+export const COIN_CUSTOM_MAX = 100_000
+
 /** 云币充值套餐标识 */
 export type CoinPackId = 'coin_100' | 'coin_500' | 'coin_1000'
 
@@ -108,11 +114,14 @@ export interface CreateMembershipOrderParams {
   wxOpenid?: string
 }
 
-/** 创建云币充值订单参数 */
+/** 创建云币充值订单参数（packId 与 coin 二选一） */
 export interface CreateRechargeOrderParams {
   orderType: 'recharge_coin'
   appId: string
-  packId: CoinPackId
+  /** 预设充值套餐 */
+  packId?: CoinPackId
+  /** 自定义充值云币数量（金额由服务端按汇率计算） */
+  coin?: number
   payType: PayType
   wxOpenid?: string
 }

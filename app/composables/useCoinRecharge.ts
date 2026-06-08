@@ -1,6 +1,6 @@
 import type { CoinPackId } from '~/types/payment'
 import { formatPrice, usePaymentFlow } from '~/composables/usePaymentFlow'
-import { COIN_PACKS } from '~/types/payment'
+import { COIN_PACKS, COIN_RATE_FEN } from '~/types/payment'
 
 const PENDING_RECHARGE_KEY = 'wxpay:pending-recharge'
 
@@ -23,36 +23,50 @@ export function useCoinRecharge() {
   })
 
   const selectedPack = ref<CoinPackId | null>(null)
+  /** 自定义充值云币数量（与 selectedPack 互斥） */
+  const customCoin = ref<number | null>(null)
 
   const selectedPackInfo = computed(() =>
     selectedPack.value ? COIN_PACKS[selectedPack.value] : null,
   )
-  const selectedPrice = computed(() => selectedPackInfo.value?.amount ?? 0)
-  const selectedCoin = computed(() => selectedPackInfo.value?.coin ?? 0)
+  const isCustom = computed(() => customCoin.value != null)
+  const selectedCoin = computed(() =>
+    isCustom.value ? (customCoin.value ?? 0) : (selectedPackInfo.value?.coin ?? 0),
+  )
+  const selectedPrice = computed(() =>
+    isCustom.value ? selectedCoin.value * COIN_RATE_FEN : (selectedPackInfo.value?.amount ?? 0),
+  )
   const selectedPriceFormatted = computed(() => formatPrice(selectedPrice.value))
 
-  /** 选择充值包，回到确认阶段 */
+  /** 选择预设充值包，回到确认阶段 */
   function selectPack(packId: CoinPackId) {
     selectedPack.value = packId
+    customCoin.value = null
+    flow.prepareConfirm()
+  }
+
+  /** 选择自定义充值数量，回到确认阶段 */
+  function selectCustom(coin: number) {
+    customCoin.value = coin
+    selectedPack.value = null
     flow.prepareConfirm()
   }
 
   /** 创建充值订单并发起支付 */
   async function createOrder() {
-    if (!selectedPack.value)
+    if (!selectedPack.value && customCoin.value == null)
       return
     if (!user.value) {
       toast.add({ title: '请先登录', color: 'warning' })
       navigateTo(`/login?redirect=/wallet`)
       return
     }
+    const orderData = selectedPack.value
+      ? { orderType: 'recharge_coin' as const, appId: 'yunle', packId: selectedPack.value }
+      : { orderType: 'recharge_coin' as const, appId: 'yunle', coin: customCoin.value as number }
     await flow.createPayment(
-      {
-        orderType: 'recharge_coin',
-        appId: 'yunle',
-        packId: selectedPack.value,
-      },
-      { packId: selectedPack.value },
+      orderData,
+      { packId: selectedPack.value, coin: customCoin.value },
     )
   }
 
@@ -67,6 +81,8 @@ export function useCoinRecharge() {
       return null
     if (meta.packId)
       selectedPack.value = meta.packId as CoinPackId
+    else if (typeof meta.coin === 'number')
+      customCoin.value = meta.coin
     return meta
   }
 
@@ -77,10 +93,13 @@ export function useCoinRecharge() {
     errorMessage: flow.errorMessage,
     selectedPack,
     selectedPackInfo,
+    customCoin,
+    isCustom,
     selectedPrice,
     selectedCoin,
     selectedPriceFormatted,
     selectPack,
+    selectCustom,
     createOrder,
     reset,
     stopPolling: flow.stopPolling,

@@ -22,7 +22,7 @@ const {
   markOrderPaid,
   ORDERS_COLLECTION,
 } = require('./lib/orders')
-const { getCoinPack, getMembershipAmount } = require('./lib/plans')
+const { getCoinPack, getCustomCoinPlan, getMembershipAmount } = require('./lib/plans')
 const {
   assertMembershipOrderInput,
   assertOutTradeNo,
@@ -174,8 +174,10 @@ function resolveOrderPlan(rawEvent) {
   }
 
   if (orderType === 'recharge_coin') {
-    const { appId, packId, payType, wxOpenid } = assertRechargeCoinInput(event)
-    const pack = getCoinPack(packId) // 内含汇率守恒校验
+    const { appId, packId, coin, payType, wxOpenid } = assertRechargeCoinInput(event)
+    // 预设套餐走 getCoinPack（含汇率守恒校验）；自定义数量走 getCustomCoinPlan（含范围校验）。
+    // 两条路径金额均由服务端计算，绝不信任前端传入的金额。
+    const pack = packId ? getCoinPack(packId) : getCustomCoinPlan(coin)
     return {
       orderType,
       appId,
@@ -183,7 +185,7 @@ function resolveOrderPlan(rawEvent) {
       wxOpenid,
       amount: pack.amount,
       description: `云乐坊 云币充值 ${pack.coin} 云币`,
-      orderFields: { appId, orderType, packId, coinAmount: pack.coin },
+      orderFields: { appId, orderType, packId: packId || 'custom', coinAmount: pack.coin },
     }
   }
 

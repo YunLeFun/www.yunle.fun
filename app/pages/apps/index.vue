@@ -1,12 +1,16 @@
 <script setup lang="ts">
 import type { AppRecord } from '~/types/app'
+import { isOfficialOwner } from '~/config'
 
 definePageMeta({ layout: 'default' })
 useSeoMeta({ title: '我的应用 - YunLeFun', description: '管理您发布的应用' })
 
-const { isAuthenticated, loading: authLoading } = useTcbAuth()
+const { user, isAuthenticated, loading: authLoading } = useTcbAuth()
 const { getMyApps } = useApps()
 const router = useRouter()
+
+// 开发者平台未上线，仅官方账号可自助发布应用
+const canCreate = computed(() => isOfficialOwner(user.value?.login))
 
 const apps = ref<AppRecord[]>([])
 const loading = ref(true)
@@ -56,6 +60,7 @@ function formatDate(ts: number) {
           </p>
         </div>
         <UButton
+          v-if="canCreate"
           to="/apps/new"
           label="创建应用"
           icon="i-lucide-plus"
@@ -67,19 +72,29 @@ function formatDate(ts: number) {
       <!-- 空状态 -->
       <div v-if="apps.length === 0" class="ylf-empty-state rounded-lg px-4 py-16 text-center">
         <UIcon name="i-lucide-package" class="text-5xl text-muted mb-4" />
-        <p class="text-lg text-muted mb-2">
-          还没有发布任何应用
-        </p>
-        <p class="text-sm text-muted mb-6">
-          创建你的第一个应用，像管理 GitHub 仓库一样管理它们
-        </p>
-        <UButton
-          to="/apps/new"
-          label="创建第一个应用"
-          icon="i-lucide-plus"
-          color="primary"
-          variant="subtle"
-        />
+        <template v-if="canCreate">
+          <p class="text-lg text-muted mb-2">
+            还没有发布任何应用
+          </p>
+          <p class="text-sm text-muted mb-6">
+            创建你的第一个应用，像管理 GitHub 仓库一样管理它们
+          </p>
+          <UButton
+            to="/apps/new"
+            label="创建第一个应用"
+            icon="i-lucide-plus"
+            color="primary"
+            variant="subtle"
+          />
+        </template>
+        <template v-else>
+          <p class="text-lg text-muted mb-2">
+            开发者发布功能即将开放
+          </p>
+          <p class="text-sm text-muted">
+            目前仅上架官方开发的应用，自助发布敬请期待 🚧
+          </p>
+        </template>
       </div>
 
       <!-- 应用列表 -->

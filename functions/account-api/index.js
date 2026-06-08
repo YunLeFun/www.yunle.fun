@@ -5,6 +5,7 @@
  *   - getAccount        一次拿到账户全貌（云币余额 + 会员状态），需登录
  *   - deductCoin        按次扣云币（需登录，幂等键 bizId）
  *   - deductCoinForUser 内部服务按指定 userId 扣云币（需 ACCOUNT_API_INTERNAL_TOKEN）
+ *   - adminAdjustCoin   管理员人工调账（增/减，需 ACCOUNT_API_INTERNAL_TOKEN）
  *   - listTransactions  云币流水分页（需登录）
  *
  * 主入口只做"参数解析 + 鉴权 + 路由"，纯逻辑委托给 lib/（与 wxpay-order 共享同一份 lib）。
@@ -19,6 +20,7 @@ const cloudbase = require('@cloudbase/node-sdk')
 const {
   assertInternalServiceToken,
   assertUserId,
+  handleAdminAdjustCoin,
   handleDeductCoinForUser,
 } = require('./internal')
 const { isMembershipActive } = require('./lib/membership')
@@ -116,6 +118,8 @@ exports.main = async (event) => {
     switch (action) {
       case 'deductCoinForUser':
         return await handleDeductCoinForUser(db, event)
+      case 'adminAdjustCoin':
+        return await handleAdminAdjustCoin(db, event)
       case 'getAccount':
       case 'deductCoin':
       case 'listTransactions': {
@@ -141,5 +145,6 @@ exports.main = async (event) => {
 exports._private = {
   assertInternalServiceToken,
   assertUserId,
+  handleAdminAdjustCoin,
   handleDeductCoinForUser,
 }

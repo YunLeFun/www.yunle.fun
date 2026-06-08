@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { AppRecord } from '~/types/app'
+import { isOfficialOwner } from '~/config'
 
 const RE_PHONE_MASK = /(\d{3})\d{4}(\d{4})/
 
@@ -43,6 +44,9 @@ const displayGender = computed(() => {
   const map: Record<string, string> = { MALE: '♂ 男', FEMALE: '♀ 女' }
   return map[user.value?.gender || ''] || '保密'
 })
+
+// 开发者平台未上线，仅官方账号可自助发布应用
+const canCreate = computed(() => isOfficialOwner(user.value?.login))
 
 // 我的应用
 const myApps = ref<AppRecord[]>([])
@@ -215,6 +219,7 @@ function formatAppDate(ts: number) {
             还没有发布任何应用
           </p>
           <UButton
+            v-if="canCreate"
             to="/apps/new"
             label="创建应用"
             icon="i-lucide-plus"
@@ -222,6 +227,9 @@ function formatAppDate(ts: number) {
             variant="subtle"
             size="xs"
           />
+          <p v-else class="text-xs text-muted">
+            自助发布敬请期待 🚧
+          </p>
         </div>
         <div v-else class="space-y-2">
           <NuxtLink
@@ -274,6 +282,7 @@ function formatAppDate(ts: number) {
             block
           />
           <UButton
+            v-if="canCreate"
             to="/apps/new"
             label="创建应用"
             icon="i-lucide-plus"

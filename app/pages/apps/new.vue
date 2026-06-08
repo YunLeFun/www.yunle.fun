@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { RepoSelectorOption } from '~/types/github'
+import { isOfficialOwner } from '~/config'
 
 const RE_SLUG_INVALID = /[^a-z0-9\u4E00-\u9FFF-]/g
 const RE_SLUG_MULTI_DASH = /-+/g
@@ -13,9 +14,17 @@ const { createApp, isSlugTaken } = useApps()
 const toast = useToast()
 const router = useRouter()
 
-watch(isAuthenticated, (value) => {
-  if (!value && !authLoading.value) {
+watch([isAuthenticated, authLoading], ([authed, loading]) => {
+  if (loading)
+    return
+  if (!authed) {
     router.push('/login?redirect=/apps/new')
+    return
+  }
+  // 开发者平台未上线，仅官方账号可自助发布应用
+  if (!isOfficialOwner(user.value?.login)) {
+    toast.add({ title: '开发者发布功能即将开放，敬请期待', color: 'info' })
+    router.push('/apps')
   }
 }, { immediate: true })
 

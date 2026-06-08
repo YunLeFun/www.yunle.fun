@@ -82,20 +82,36 @@ function assertMembershipOrderInput(input) {
 }
 
 /**
- * 校验云币充值订单入参
+ * 校验云币充值订单入参。支持两种方式（二选一）：
+ * - packId：预设充值套餐
+ * - coin：自定义充值云币数量（金额由服务端按汇率计算，数值范围由 getCustomCoinPlan 校验）
+ *
  * @param {object} input
- * @returns {{ appId: string, packId: string, payType: string, wxOpenid?: string }}
+ * @returns {{ appId: string, packId?: string, coin?: number, payType: string, wxOpenid?: string }}
  */
 function assertRechargeCoinInput(input) {
   if (!input || typeof input !== 'object')
     throw new Error('参数必须为对象')
-  const { appId, packId, payType, wxOpenid } = input
-  if (!packId || !COIN_PACKS[packId])
-    throw new Error(`无效云币套餐: ${packId}`)
+  const { appId, packId, coin, payType, wxOpenid } = input
+
+  // packId 与 coin 二选一：优先使用预设套餐，否则走自定义云币数量
+  if (packId !== undefined && packId !== null && packId !== '') {
+    if (!COIN_PACKS[packId])
+      throw new Error(`无效云币套餐: ${packId}`)
+  }
+  else if (coin !== undefined && coin !== null) {
+    // 仅做基础类型校验，范围/整数校验交给 getCustomCoinPlan（业务真相源）
+    if (typeof coin !== 'number' || !Number.isInteger(coin) || coin <= 0)
+      throw new Error('自定义云币数量必须为正整数')
+  }
+  else {
+    throw new Error('请提供 packId 或 coin')
+  }
+
   assertPayType(payType)
   if (payType === 'jsapi' && wxOpenid && typeof wxOpenid !== 'string')
     throw new Error('wxOpenid 必须为字符串')
-  return { appId: assertAppId(appId), packId, payType, wxOpenid }
+  return { appId: assertAppId(appId), packId: packId || undefined, coin, payType, wxOpenid }
 }
 
 /**

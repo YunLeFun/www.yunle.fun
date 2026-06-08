@@ -5,6 +5,9 @@ seo:
   title: 开发者平台 - 云乐坊
   description: 强大的开发工具，丰富的 API 文档，助你快速构建云端应用
 navigation: false
+notice:
+  title: 开发者平台建设中
+  description: 以下功能正在开发，暂未上线，敬请期待 🚧 目前仅上架官方开发的应用。
 hero:
   links:
     - label: 快速开始

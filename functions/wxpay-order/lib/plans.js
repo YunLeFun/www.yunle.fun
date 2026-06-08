@@ -19,6 +19,12 @@ const MEMBERSHIP_PRICES = PLAN_PRICES
 /** 云币汇率：1 云币 = 10 分（即 100 云币 = 10 元），线性无折扣 */
 const COIN_RATE_FEN = 10
 
+/** 自定义充值云币数量下限（100 云币 = 10 元） */
+const COIN_CUSTOM_MIN = 100
+
+/** 自定义充值云币数量上限（100000 云币 = 10000 元），防止异常大额下单 */
+const COIN_CUSTOM_MAX = 100_000
+
 /**
  * 云币充值套餐表：packId -> { amount(分), coin }
  * 约束：amount === coin * COIN_RATE_FEN（汇率守恒），由 getCoinPack 运行时校验。
@@ -95,15 +101,33 @@ function getCoinPack(packId) {
   return pack
 }
 
+/**
+ * 校验并返回自定义云币充值方案（金额由服务端按汇率计算，绝不信任前端传入的金额）。
+ *
+ * @param {number} coin 用户期望充值的云币数量
+ * @returns {{ amount: number, coin: number }} amount 单位分，coin 到账云币数
+ * @throws coin 非法（非正整数 / 越界）时抛错
+ */
+function getCustomCoinPlan(coin) {
+  if (typeof coin !== 'number' || !Number.isInteger(coin))
+    throw new Error('云币数量必须为整数')
+  if (coin < COIN_CUSTOM_MIN || coin > COIN_CUSTOM_MAX)
+    throw new Error(`云币数量需在 ${COIN_CUSTOM_MIN} ~ ${COIN_CUSTOM_MAX} 之间`)
+  return { amount: coin * COIN_RATE_FEN, coin }
+}
+
 module.exports = {
   PLAN_PRICES,
   MEMBERSHIP_PRICES,
   COIN_PACKS,
   COIN_RATE_FEN,
+  COIN_CUSTOM_MIN,
+  COIN_CUSTOM_MAX,
   CYCLE_DURATION_DAYS,
   DAY_MS,
   getPlanAmount,
   getMembershipAmount,
   getCoinPack,
+  getCustomCoinPlan,
   getCycleDurationMs,
 }
