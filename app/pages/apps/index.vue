@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { AppRecord } from '~/types/app'
-import { isOfficialOwner } from '~/config'
+import { isOfficialUser } from '~/config'
 
 definePageMeta({ layout: 'default' })
 useSeoMeta({ title: '我的应用 - YunLeFun', description: '管理您发布的应用' })
@@ -10,7 +10,7 @@ const { getMyApps } = useApps()
 const router = useRouter()
 
 // 开发者平台未上线，仅官方账号可自助发布应用
-const canCreate = computed(() => isOfficialOwner(user.value?.login))
+const canCreate = computed(() => isOfficialUser(user.value))
 
 const apps = ref<AppRecord[]>([])
 const loading = ref(true)

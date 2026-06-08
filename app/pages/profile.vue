@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { AppRecord } from '~/types/app'
-import { isOfficialOwner } from '~/config'
+import { isOfficialUser } from '~/config'
 
 const RE_PHONE_MASK = /(\d{3})\d{4}(\d{4})/
 
@@ -46,7 +46,7 @@ const displayGender = computed(() => {
 })
 
 // 开发者平台未上线，仅官方账号可自助发布应用
-const canCreate = computed(() => isOfficialOwner(user.value?.login))
+const canCreate = computed(() => isOfficialUser(user.value))
 
 // 我的应用
 const myApps = ref<AppRecord[]>([])

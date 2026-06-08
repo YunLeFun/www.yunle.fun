@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { RepoSelectorOption } from '~/types/github'
-import { isOfficialOwner } from '~/config'
+import { isOfficialUser } from '~/config'
 
 const RE_SLUG_INVALID = /[^a-z0-9\u4E00-\u9FFF-]/g
 const RE_SLUG_MULTI_DASH = /-+/g
@@ -22,7 +22,7 @@ watch([isAuthenticated, authLoading], ([authed, loading]) => {
     return
   }
   // 开发者平台未上线，仅官方账号可自助发布应用
-  if (!isOfficialOwner(user.value?.login)) {
+  if (!isOfficialUser(user.value)) {
     toast.add({ title: '开发者发布功能即将开放，敬请期待', color: 'info' })
     router.push('/apps')
   }
