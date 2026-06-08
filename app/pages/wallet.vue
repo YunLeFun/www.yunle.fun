@@ -234,7 +234,7 @@ onMounted(async () => {
           <h2 class="text-lg font-semibold">
             云币充值
           </h2>
-          <span class="ylf-eyebrow">💰 100 云币 = 10 元</span>
+          <YlfEyebrow label="💰 100 云币 = 10 元" />
         </div>
 
         <!-- 预设充值包 -->

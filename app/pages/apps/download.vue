@@ -107,6 +107,11 @@ const faqItems = ref([
       description="选择适合您设备的版本，立即开始使用"
       class="pt-12 md:pt-16"
     >
+      <template #headline>
+        <div class="flex justify-center">
+          <YlfEyebrow label="📥 立即下载" />
+        </div>
+      </template>
       <UPageGrid>
         <UPageCard
           v-for="(platform, index) in platforms"
@@ -146,6 +151,11 @@ const faqItems = ref([
       title="为什么选择我们"
       description="强大的功能，卓越的体验"
     >
+      <template #headline>
+        <div class="flex justify-center">
+          <YlfEyebrow label="✨ 核心特性" />
+        </div>
+      </template>
       <UPageGrid>
         <UPageCard
           v-for="(feature, index) in features"
@@ -165,6 +175,11 @@ const faqItems = ref([
       title="系统要求"
       description="确保您的设备满足以下最低要求"
     >
+      <template #headline>
+        <div class="flex justify-center">
+          <YlfEyebrow label="📋 系统要求" />
+        </div>
+      </template>
       <div class="mx-auto max-w-3xl">
         <UPageCard variant="subtle">
           <div class="space-y-4">
@@ -220,6 +235,11 @@ const faqItems = ref([
       title="常见问题"
       description="关于下载和使用应用的常见问题解答"
     >
+      <template #headline>
+        <div class="flex justify-center">
+          <YlfEyebrow label="❓ 常见问题" />
+        </div>
+      </template>
       <UAccordion
         :items="faqItems"
         :unmount-on-hide="false"

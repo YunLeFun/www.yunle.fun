@@ -2,6 +2,7 @@
 import type { TcbSignUpData } from '~/composables/useTcbAuth'
 
 const RE_CN_PHONE = /^1[3-9]\d{9}$/
+const RE_OTP = /^\d{6}$/
 
 definePageMeta({
   layout: 'auth',
@@ -20,10 +21,11 @@ const {
 } = useTcbAuth()
 const router = useRouter()
 
-// 如果已登录，重定向到首页
+// 如果已登录，重定向（优先 redirect 查询参数，回退首页）
 watch(isAuthenticated, (value) => {
   if (value) {
-    router.push('/')
+    const redirect = router.currentRoute.value.query.redirect as string
+    router.push(redirect || '/')
   }
 }, { immediate: true })
 
@@ -35,8 +37,7 @@ const step = ref<Step>('info')
 const phone = ref('')
 const otpCode = ref('')
 const signUpData = ref<TcbSignUpData | null>(null)
-const countdown = ref(0)
-let countdownTimer: ReturnType<typeof setInterval> | null = null
+const { remaining: countdown, isActive: countdownActive, start: startCountdown } = useCountdown()
 
 // 区号选项（当前仅支持中国大陆）
 const phoneAreaCodes = [
@@ -52,6 +53,16 @@ const phoneValid = computed(() => {
   return phone.value.length >= 6
 })
 const formValid = computed(() => phoneValid.value)
+
+// 输入合法性提示（已输入但格式错误时才提示）
+const phoneInvalid = computed(() => phone.value.length > 0 && !phoneValid.value)
+
+// 验证码仅允许数字，自动剔除非数字并限制 6 位
+watch(otpCode, (v) => {
+  const cleaned = v.replace(/\D/g, '').slice(0, 6)
+  if (cleaned !== v)
+    otpCode.value = cleaned
+})
 
 // 发送注册验证码
 async function handleSignUp() {
@@ -90,44 +101,27 @@ async function handleResend() {
   }
 }
 
-// 倒计时
-function startCountdown() {
-  countdown.value = 60
-  if (countdownTimer)
-    clearInterval(countdownTimer)
-  countdownTimer = setInterval(() => {
-    countdown.value--
-    if (countdown.value <= 0) {
-      clearInterval(countdownTimer!)
-      countdownTimer = null
-    }
-  }, 1000)
-}
-
 // 返回信息填写步骤
 function goBackToInfo() {
   step.value = 'info'
   otpCode.value = ''
 }
-
-onUnmounted(() => {
-  if (countdownTimer)
-    clearInterval(countdownTimer)
-})
 </script>
 
 <template>
   <div class="w-full space-y-6">
     <!-- 标题区域 -->
-    <div class="text-center space-y-2">
+    <div class="text-center space-y-3">
       <div class="flex justify-center">
-        <UIcon
-          name="i-lucide-user-plus"
-          class="text-3xl text-primary"
-        />
+        <div class="ylf-icon-tile flex size-14 items-center justify-center rounded-2xl">
+          <UIcon
+            name="i-lucide-user-plus"
+            class="size-7"
+          />
+        </div>
       </div>
-      <h1 class="text-2xl font-bold">
-        注册云乐坊
+      <h1 class="text-2xl font-bold tracking-tight">
+        注册 <span class="ylf-gradient-text">云乐坊</span>
       </h1>
       <p class="text-sm text-muted">
         {{ step === 'info' ? '使用手机号注册云乐坊账号' : `验证码已发送至 ${phoneAreaCode} ${phone}` }}
@@ -147,7 +141,11 @@ onUnmounted(() => {
             :disabled="loading"
           />
           <UInput
-            v-model="phone"
+            v-model.trim="phone"
+            type="tel"
+            inputmode="numeric"
+            autocomplete="tel"
+            maxlength="11"
             placeholder="请输入手机号"
             size="lg"
             icon="i-lucide-smartphone"
@@ -157,7 +155,8 @@ onUnmounted(() => {
           />
         </div>
         <template #hint>
-          <span class="text-xs text-dimmed">当前仅支持中国大陆手机号</span>
+          <span v-if="phoneInvalid" class="text-xs text-error">请输入正确的手机号</span>
+          <span v-else class="text-xs text-dimmed">当前仅支持中国大陆手机号</span>
         </template>
       </UFormField>
 
@@ -178,6 +177,8 @@ onUnmounted(() => {
         <div class="flex gap-2">
           <UInput
             v-model="otpCode"
+            inputmode="numeric"
+            autocomplete="one-time-code"
             placeholder="输入 6 位验证码"
             size="lg"
             icon="i-lucide-shield-check"
@@ -187,11 +188,11 @@ onUnmounted(() => {
             @keyup.enter="handleVerify"
           />
           <UButton
-            :label="countdown > 0 ? `${countdown}s` : '重新发送'"
+            :label="countdownActive ? `${countdown}s` : '重新发送'"
             color="neutral"
             variant="outline"
             size="lg"
-            :disabled="countdown > 0 || loading"
+            :disabled="countdownActive || loading"
             @click="handleResend"
           />
         </div>
@@ -203,7 +204,7 @@ onUnmounted(() => {
         size="lg"
         block
         :loading="loading"
-        :disabled="!otpCode || otpCode.length < 4"
+        :disabled="!RE_OTP.test(otpCode)"
         @click="handleVerify"
       />
 

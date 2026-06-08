@@ -115,7 +115,7 @@ function handleClose() {
       </template>
 
       <template #headline>
-        <span class="ylf-eyebrow">{{ page.headline }}</span>
+        <YlfEyebrow :label="page.headline" />
       </template>
     </UPageHero>
 

@@ -186,7 +186,7 @@ onMounted(async () => {
         <span v-else-if="status === 'success'">{{ isBinding ? '绑定成功' : '登录成功' }}</span>
         <span v-else>{{ isBinding ? '绑定失败' : '登录失败' }}</span>
       </h1>
-      <p class="text-gray-600 dark:text-gray-400">
+      <p class="text-muted">
         {{ message }}
       </p>
     </div>

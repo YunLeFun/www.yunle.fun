@@ -22,7 +22,11 @@ useSeoMeta({
     <UPageHeader
       v-bind="page"
       class="py-[50px]"
-    />
+    >
+      <template #headline>
+        <YlfEyebrow label="🧾 更新日志" />
+      </template>
+    </UPageHeader>
 
     <UPageBody>
       <UChangelogVersions>

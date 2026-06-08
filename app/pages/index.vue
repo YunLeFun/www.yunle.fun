@@ -32,7 +32,7 @@ const featureIconColors = [
       </template>
 
       <template #headline>
-        <span class="ylf-eyebrow">{{ page.headline }}</span>
+        <YlfEyebrow :label="page.headline" />
       </template>
 
       <template #title>
@@ -55,7 +55,7 @@ const featureIconColors = [
       :features="section.features"
     >
       <template #headline>
-        <span class="ylf-eyebrow">{{ section.headline }}</span>
+        <YlfEyebrow :label="section.headline" />
       </template>
 
       <MarketingPreview
@@ -69,7 +69,9 @@ const featureIconColors = [
       :description="page.features.description"
     >
       <template #headline>
-        <span class="ylf-eyebrow">{{ page.features.headline }}</span>
+        <div class="flex justify-center">
+          <YlfEyebrow :label="page.features.headline" />
+        </div>
       </template>
 
       <UPageGrid>

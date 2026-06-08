@@ -22,7 +22,11 @@ useSeoMeta({
     <UPageHeader
       v-bind="page"
       class="py-[50px]"
-    />
+    >
+      <template #headline>
+        <YlfEyebrow label="🗞️ 博客" />
+      </template>
+    </UPageHeader>
 
     <UPageBody>
       <UBlogPosts>
