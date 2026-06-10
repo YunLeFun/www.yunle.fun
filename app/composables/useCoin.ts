@@ -1,17 +1,7 @@
 import type { AccountSnapshot, CoinTransaction } from '~/types/payment'
 
-/** 格式化云币数量 */
-export function formatCoin(amount: number): string {
-  return `${amount} 云币`
-}
-
-/** 云币流水类型的展示名 */
-export const COIN_TX_TYPE_NAMES: Record<CoinTransaction['type'], string> = {
-  recharge: '充值',
-  consume: '消费',
-  refund: '退款',
-  gift: '赠送',
-}
+// 展示工具已收敛到 @yunlefun/types，re-export 保持原引用路径（wallet.vue 等）不变
+export { COIN_TX_TYPE_NAMES, formatCoin } from '@yunlefun/types'
 
 /**
  * 平台账户 composable（云币余额 + 会员状态 + 流水）。
