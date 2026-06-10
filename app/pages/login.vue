@@ -254,14 +254,14 @@ function openResetPassword() {
 </script>
 
 <template>
-  <div class="w-full space-y-6">
+  <div class="ylf-auth-login w-full space-y-6">
     <!-- 标题区域 -->
     <div class="text-center space-y-3">
       <div class="flex justify-center">
-        <div class="ylf-icon-tile flex size-14 items-center justify-center rounded-2xl">
-          <UIcon
-            name="i-lucide-lock-keyhole"
-            class="size-7"
+        <div class="ylf-icon-tile flex h-14 w-16 items-center justify-center rounded-2xl">
+          <YlfLogo
+            class="h-8 w-11"
+            aria-hidden="true"
           />
         </div>
       </div>
@@ -274,30 +274,36 @@ function openResetPassword() {
     </div>
 
     <!-- 登录方式切换 -->
-    <div class="flex rounded-lg bg-elevated p-1">
+    <div class="ylf-auth-tabs flex rounded-xl p-1">
       <button
-        class="flex-1 py-2 text-sm font-medium rounded-md transition-all"
+        type="button"
+        class="ylf-auth-tab flex-1 rounded-lg px-2 py-2 text-sm font-medium transition-colors focus-visible:outline-none"
+        :aria-pressed="loginMode === 'phone'"
         :class="loginMode === 'phone'
-          ? 'bg-default text-default shadow-sm'
-          : 'text-muted hover:text-default'"
+          ? 'bg-default text-highlighted shadow-sm'
+          : 'text-muted hover:bg-default/70 hover:text-highlighted'"
         @click="loginMode = 'phone'"
       >
         手机号
       </button>
       <button
-        class="flex-1 py-2 text-sm font-medium rounded-md transition-all"
+        type="button"
+        class="ylf-auth-tab flex-1 rounded-lg px-2 py-2 text-sm font-medium transition-colors focus-visible:outline-none"
+        :aria-pressed="loginMode === 'email'"
         :class="loginMode === 'email'
-          ? 'bg-default text-default shadow-sm'
-          : 'text-muted hover:text-default'"
+          ? 'bg-default text-highlighted shadow-sm'
+          : 'text-muted hover:bg-default/70 hover:text-highlighted'"
         @click="loginMode = 'email'"
       >
         邮箱
       </button>
       <button
-        class="flex-1 py-2 text-sm font-medium rounded-md transition-all"
+        type="button"
+        class="ylf-auth-tab flex-1 rounded-lg px-2 py-2 text-sm font-medium transition-colors focus-visible:outline-none"
+        :aria-pressed="loginMode === 'password'"
         :class="loginMode === 'password'
-          ? 'bg-default text-default shadow-sm'
-          : 'text-muted hover:text-default'"
+          ? 'bg-default text-highlighted shadow-sm'
+          : 'text-muted hover:bg-default/70 hover:text-highlighted'"
         @click="loginMode = 'password'"
       >
         密码登录
@@ -357,6 +363,7 @@ function openResetPassword() {
               color="neutral"
               variant="outline"
               size="lg"
+              class="ylf-auth-button-secondary"
               :disabled="phoneCountdownActive || loading"
               @click="handleSendPhoneOtp"
             />
@@ -368,6 +375,7 @@ function openResetPassword() {
           color="primary"
           size="lg"
           block
+          class="ylf-auth-button-primary"
           :loading="loading"
           :disabled="!RE_OTP.test(phoneOtpCode)"
           @click="handleVerifyPhoneOtp"
@@ -381,6 +389,7 @@ function openResetPassword() {
         color="primary"
         size="lg"
         block
+        class="ylf-auth-button-primary"
         :loading="loading"
         :disabled="!phoneValid"
         @click="handleSendPhoneOtp"
@@ -427,6 +436,7 @@ function openResetPassword() {
               color="neutral"
               variant="outline"
               size="lg"
+              class="ylf-auth-button-secondary"
               :disabled="emailCountdownActive || loading"
               @click="handleSendEmailOtp"
             />
@@ -438,6 +448,7 @@ function openResetPassword() {
           color="primary"
           size="lg"
           block
+          class="ylf-auth-button-primary"
           :loading="loading"
           :disabled="!RE_OTP.test(emailOtpCode)"
           @click="handleVerifyEmailOtp"
@@ -451,6 +462,7 @@ function openResetPassword() {
         color="primary"
         size="lg"
         block
+        class="ylf-auth-button-primary"
         :loading="loading"
         :disabled="!emailValid"
         @click="handleSendEmailOtp"
@@ -493,6 +505,7 @@ function openResetPassword() {
               color="neutral"
               variant="ghost"
               size="xs"
+              type="button"
               :padded="false"
               @click="showPassword = !showPassword"
             />
@@ -506,6 +519,7 @@ function openResetPassword() {
           color="primary"
           variant="link"
           size="xs"
+          type="button"
           @click="openResetPassword"
         />
       </div>
@@ -516,6 +530,7 @@ function openResetPassword() {
         color="primary"
         size="lg"
         block
+        class="ylf-auth-button-primary"
         :loading="loading"
         :disabled="!passwordFormValid"
       />
@@ -547,6 +562,7 @@ function openResetPassword() {
         variant="subtle"
         size="lg"
         block
+        class="ylf-auth-button-secondary"
       />
     </div>
 
@@ -609,11 +625,14 @@ function openResetPassword() {
                 label="取消"
                 color="neutral"
                 variant="outline"
+                type="button"
+                class="ylf-auth-button-secondary"
                 @click="showResetPassword = false"
               />
               <UButton
                 label="发送验证码"
                 color="primary"
+                class="ylf-auth-button-primary"
                 :loading="loading"
                 :disabled="!resetAccountValid"
                 @click="handleSendReset"
@@ -641,6 +660,8 @@ function openResetPassword() {
                   color="neutral"
                   variant="outline"
                   size="lg"
+                  type="button"
+                  class="ylf-auth-button-secondary"
                   :disabled="resetCountdownActive || loading"
                   @click="handleSendReset"
                 />
@@ -681,12 +702,15 @@ function openResetPassword() {
                 label="返回"
                 color="neutral"
                 variant="outline"
+                type="button"
+                class="ylf-auth-button-secondary"
                 @click="resetStep = 'input'"
               />
               <UButton
                 label="重置密码"
                 type="submit"
                 color="primary"
+                class="ylf-auth-button-primary"
                 :loading="loading"
                 :disabled="!RE_OTP.test(resetOtpCode) || !newPasswordValid"
               />
@@ -697,3 +721,104 @@ function openResetPassword() {
     </UModal>
   </div>
 </template>
+
+<style scoped>
+.ylf-auth-tabs {
+  background: color-mix(in srgb, var(--ylf-surface-muted) 72%, var(--ylf-surface));
+  border: 1px solid var(--ui-border-muted);
+}
+
+.ylf-auth-tab {
+  min-width: 0;
+  min-height: 2.5rem;
+}
+
+.ylf-auth-tab:focus-visible {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--ui-primary) 58%, transparent),
+    0 0 0 3px var(--ylf-ring);
+}
+
+.ylf-auth-login :deep(input[data-slot='base']),
+.ylf-auth-login :deep(button[role='combobox'][data-slot='base']) {
+  min-height: 2.625rem;
+  border-radius: 0.625rem;
+  background: color-mix(in srgb, var(--ylf-surface-muted) 52%, var(--ylf-surface));
+  box-shadow: inset 0 0 0 1px var(--ui-border-muted);
+  outline: none;
+  transition:
+    background-color 160ms ease,
+    box-shadow 160ms ease,
+    color 160ms ease;
+}
+
+.ylf-auth-login :deep(input[data-slot='base']:hover:not(:disabled)),
+.ylf-auth-login :deep(button[role='combobox'][data-slot='base']:hover:not(:disabled)) {
+  background: var(--ylf-surface);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-primary) 28%, var(--ui-border-muted));
+}
+
+.ylf-auth-login :deep(input[data-slot='base']:focus-visible),
+.ylf-auth-login :deep(button[role='combobox'][data-slot='base']:focus-visible) {
+  background: var(--ylf-surface);
+  box-shadow:
+    inset 0 0 0 1.5px color-mix(in srgb, var(--ui-primary) 88%, var(--ylf-surface)),
+    0 0 0 3px var(--ylf-ring);
+}
+
+.ylf-auth-login :deep(.ylf-auth-button-primary[data-slot='base']),
+.ylf-auth-login :deep(.ylf-auth-button-secondary[data-slot='base']) {
+  min-height: 2.625rem;
+  border-radius: 0.625rem;
+  transition:
+    background-color 160ms ease,
+    box-shadow 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.ylf-auth-login :deep(.ylf-auth-button-primary[data-slot='base']) {
+  background: linear-gradient(135deg, var(--ui-primary), color-mix(in srgb, var(--ui-primary) 72%, #7c3aed));
+  box-shadow: 0 10px 22px -14px var(--ui-primary);
+  color: white;
+}
+
+.ylf-auth-login :deep(.ylf-auth-button-primary[data-slot='base']:hover:not(:disabled)) {
+  box-shadow: 0 12px 24px -14px var(--ui-primary);
+  transform: translateY(-1px);
+}
+
+.ylf-auth-login :deep(.ylf-auth-button-primary[data-slot='base']:focus-visible) {
+  outline: none;
+  box-shadow:
+    0 10px 22px -14px var(--ui-primary),
+    0 0 0 3px var(--ylf-ring);
+}
+
+.ylf-auth-login :deep(.ylf-auth-button-primary[data-slot='base']:disabled),
+.ylf-auth-login :deep(.ylf-auth-button-primary[data-slot='base'][aria-disabled='true']) {
+  background: color-mix(in srgb, var(--ui-primary) 42%, var(--ylf-surface));
+  box-shadow: none;
+  color: color-mix(in srgb, white 82%, var(--ui-text-muted));
+  opacity: 1;
+  transform: none;
+}
+
+.ylf-auth-login :deep(.ylf-auth-button-secondary[data-slot='base']) {
+  background: var(--ylf-surface);
+  box-shadow: inset 0 0 0 1px var(--ui-border-muted);
+  color: var(--ui-text);
+}
+
+.ylf-auth-login :deep(.ylf-auth-button-secondary[data-slot='base']:hover:not(:disabled)) {
+  background: color-mix(in srgb, var(--ui-primary) 6%, var(--ylf-surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-primary) 24%, var(--ui-border-muted));
+}
+
+.ylf-auth-login :deep(.ylf-auth-button-secondary[data-slot='base']:focus-visible) {
+  outline: none;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--ui-primary) 52%, var(--ui-border-muted)),
+    0 0 0 3px var(--ylf-ring);
+}
+</style>

@@ -45,7 +45,7 @@ const items = computed(() => [
     <template #right>
       <UColorModeButton />
       <ClientOnly>
-        <UserMenu />
+        <DeferredUserMenu />
       </ClientOnly>
     </template>
 
@@ -59,7 +59,7 @@ const items = computed(() => [
       <USeparator class="my-6" />
 
       <ClientOnly>
-        <UserMenu />
+        <DeferredUserMenu />
       </ClientOnly>
     </template>
   </UHeader>

@@ -1,9 +1,20 @@
 <script setup lang="ts">
+import { useTcbAuthSession } from '~/composables/auth/useAuthSession'
+
 /**
  * 用户菜单组件
  * 显示用户头像和下拉菜单
  */
-const { user, isAuthenticated, logout } = useTcbAuth()
+const { user, isAuthenticated, logout, checkAuthStatus } = useTcbAuthSession()
+const authChecked = useState('auth_checked', () => false)
+
+onMounted(async () => {
+  if (authChecked.value)
+    return
+
+  authChecked.value = true
+  await checkAuthStatus()
+})
 
 const items = computed(() => [
   [{

@@ -7,7 +7,11 @@ export default defineNuxtRouteMiddleware(async (to) => {
   if (import.meta.server)
     return
 
-  const { checkAuthStatus, isAuthenticated } = useTcbAuth()
+  if (isPublicAuthRoute(to.path))
+    return
+
+  const { useTcbAuthSession } = await import('~/composables/auth/useAuthSession')
+  const { checkAuthStatus, isAuthenticated } = useTcbAuthSession()
 
   // 使用 useState 确保 SSR 安全，避免模块级变量跨请求污染
   const authChecked = useState('auth_checked', () => false)
@@ -18,37 +22,14 @@ export default defineNuxtRouteMiddleware(async (to) => {
     await checkAuthStatus()
   }
 
-  // 公开路由（不需要登录）
-  const publicRoutes = [
-    '/',
-    '/login',
-    '/signup',
-    '/auth/github',
-    '/auth/callback',
-    '/docs',
-    '/pricing',
-    '/blog',
-    '/changelog',
-    '/apps',
-    '/developer',
-  ]
+  if (!isAuthenticated.value) {
+    await checkAuthStatus()
+  }
 
-  // 检查是否是公开路由（包括子路由）
-  const isPublicRoute = publicRoutes.some(route =>
-    to.path === route || to.path.startsWith(`${route}/`),
-  )
-
-  // 如果不是公开路由，确保已认证
-  if (!isPublicRoute) {
-    if (!isAuthenticated.value) {
-      await checkAuthStatus()
-    }
-
-    if (!isAuthenticated.value) {
-      return navigateTo({
-        path: '/login',
-        query: { redirect: to.fullPath },
-      })
-    }
+  if (!isAuthenticated.value) {
+    return navigateTo({
+      path: '/login',
+      query: { redirect: to.fullPath },
+    })
   }
 })

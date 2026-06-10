@@ -15,14 +15,17 @@ export default defineNuxtConfig({
   ssr: false,
 
   devtools: {
-    enabled: true,
+    enabled: process.env.NODE_ENV === 'development',
   },
 
   // 预连接外部域名加速首屏
   app: {
     head: {
       link: [
-        { rel: 'preconnect', href: 'https://tcb-api.tencentcloudapi.com' },
+        // 首屏很快会发起 auth 请求，主 API 域名用 preconnect 提前完成 DNS+TCP+TLS
+        { rel: 'preconnect', href: 'https://tcb-api.tencentcloudapi.com', crossorigin: '' },
+        // gateway 域名按需调用，dns-prefetch 解析即可
+        { rel: 'dns-prefetch', href: `https://${process.env.NUXT_PUBLIC_CLOUDBASE_ENV_ID || 'yunlefun-8g7ybcxc7345c490'}.api.tcloudbasegateway.com` },
       ],
     },
   },
@@ -47,15 +50,47 @@ export default defineNuxtConfig({
       cloudbaseEnvId: process.env.NUXT_PUBLIC_CLOUDBASE_ENV_ID || 'yunlefun-8g7ybcxc7345c490',
       cloudbaseRegion: process.env.NUXT_PUBLIC_CLOUDBASE_REGION || 'ap-shanghai',
       cloudbaseAccessKey: process.env.NUXT_PUBLIC_CLOUDBASE_ACCESS_KEY || '',
+      ssoAllowedTargetOrigins: process.env.NUXT_PUBLIC_SSO_ALLOWED_TARGET_ORIGINS || 'https://apps.yunle.fun,https://home.yunle.fun,https://wenta.yunle.fun',
       enableH5Pay: process.env.NUXT_PUBLIC_ENABLE_H5_PAY === 'true',
     },
   },
 
   routeRules: {
     '/docs': { redirect: '/docs/getting-started' },
+    '/_nuxt/**': {
+      headers: {
+        'cache-control': 'public, max-age=31536000, immutable',
+      },
+    },
+    '/favicon.ico': {
+      headers: {
+        'cache-control': 'public, max-age=604800, stale-while-revalidate=86400',
+      },
+    },
+    '/sw.js': {
+      headers: {
+        'cache-control': 'public, max-age=0, must-revalidate',
+      },
+    },
+    '/ylf-logo.svg': {
+      headers: {
+        'cache-control': 'public, max-age=604800, stale-while-revalidate=86400',
+      },
+    },
+    '/ylf.svg': {
+      headers: {
+        'cache-control': 'public, max-age=604800, stale-while-revalidate=86400',
+      },
+    },
   },
 
   experimental: {
+    defaults: {
+      nuxtLink: {
+        // 关闭「视口可见即预取」避免首屏批量预取，保留「悬停/聚焦即预取」让导航接近瞬时
+        prefetchOn: { visibility: false, interaction: true },
+      },
+    },
     payloadExtraction: true,
   },
 
@@ -66,17 +101,6 @@ export default defineNuxtConfig({
   vite: {
     server: {
       allowedHosts: true,
-    },
-    build: {
-      rollupOptions: {
-        output: {
-          // 将大型依赖拆分为独立 chunk
-          manualChunks(id) {
-            if (id.includes('@cloudbase'))
-              return 'cloudbase'
-          },
-        },
-      },
     },
   },
 
