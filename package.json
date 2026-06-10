@@ -32,6 +32,7 @@
   },
   "devDependencies": {
     "@antfu/eslint-config": "catalog:",
+    "@apple/app-store-server-library": "catalog:",
     "@iconify-json/ri": "catalog:",
     "@iconify-json/twemoji": "catalog:",
     "@nuxt/eslint": "catalog:",

@@ -1,138 +1,136 @@
 import { Buffer } from 'node:buffer'
-import crypto from 'node:crypto'
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import {
   assertGrantablePayload,
-  buildApiToken,
-  decodeJwsPayload,
-  getTransactionInfo,
+  createAppStoreService,
+  loadAppleRootCertificates,
 } from '../../functions/wxpay-order/lib/appstore.js'
-
-/** 构造一个仅 payload 有效的 JWS（签名为占位，decode 不校验签名） */
-function makeJws(payload) {
-  const enc = obj => Buffer.from(JSON.stringify(obj)).toString('base64url')
-  return `${enc({ alg: 'ES256' })}.${enc(payload)}.${Buffer.from('sig').toString('base64url')}`
-}
-
-/** 生成临时 EC P-256 密钥对（App Store Connect API Key 同曲线） */
-function makeEcKeyPair() {
-  return crypto.generateKeyPairSync('ec', {
-    namedCurve: 'P-256',
-    publicKeyEncoding: { type: 'spki', format: 'pem' },
-    privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
-  })
-}
 
 const CONFIG = {
   issuerId: 'issuer-1',
   keyId: 'KEY1',
-  privateKeyPem: makeEcKeyPair().privateKey,
+  privateKeyPem: '-----BEGIN PRIVATE KEY-----\nfake\n-----END PRIVATE KEY-----',
   bundleId: 'fun.yunle.apps',
 }
 
-describe('decodeJwsPayload', () => {
-  it('解码合法 JWS 的 payload', () => {
-    const jws = makeJws({ transactionId: '123', productId: 'fun.yunle.apps.coin_100' })
-    expect(decodeJwsPayload(jws)).toEqual({ transactionId: '123', productId: 'fun.yunle.apps.coin_100' })
-  })
+const TX_PAYLOAD = { transactionId: '888', bundleId: 'fun.yunle.apps', productId: 'fun.yunle.apps.coin_100' }
 
-  it('非法输入抛错', () => {
-    expect(() => decodeJwsPayload('')).toThrow()
-    expect(() => decodeJwsPayload('a.b')).toThrow('JWS 格式错误')
-    expect(() => decodeJwsPayload('a.!!!.c')).toThrow()
-  })
-})
+/** 构造注入用的假 client / verifier 工厂 */
+function makeDeps({ production, sandbox } = {}) {
+  const behaviors = { Production: production, Sandbox: sandbox }
+  const clientCalls = []
+  const clientFactory = vi.fn(environment => ({
+    async getTransactionInfo(transactionId) {
+      clientCalls.push({ environment, transactionId })
+      const behavior = behaviors[environment]
+      if (!behavior)
+        throw Object.assign(new Error('not found'), { httpStatusCode: 404 })
+      if (behavior.error)
+        throw behavior.error
+      return { signedTransactionInfo: `jws-${environment}` }
+    },
+  }))
+  const verifierFactory = vi.fn(environment => ({
+    async verifyAndDecodeTransaction(signedTransactionInfo) {
+      const behavior = behaviors[environment]
+      if (behavior?.verifyError)
+        throw behavior.verifyError
+      return { ...TX_PAYLOAD, _from: signedTransactionInfo }
+    },
+    async verifyAndDecodeNotification(signedPayload) {
+      const behavior = behaviors[environment]
+      if (!behavior || behavior.verifyError)
+        throw behavior?.verifyError || new Error('signature mismatch')
+      return { notificationType: 'TEST', _from: signedPayload }
+    },
+  }))
+  return { clientFactory, verifierFactory, clientCalls }
+}
 
-describe('buildApiToken', () => {
-  it('生成可被公钥验证的 ES256 JWT', () => {
-    const { publicKey, privateKey } = makeEcKeyPair()
-    const now = 1750000000000
-    const token = buildApiToken({ ...CONFIG, privateKeyPem: privateKey, now })
-    const [h, p, s] = token.split('.')
-
-    const header = JSON.parse(Buffer.from(h, 'base64url').toString())
-    expect(header).toEqual({ alg: 'ES256', kid: 'KEY1', typ: 'JWT' })
-
-    const payload = JSON.parse(Buffer.from(p, 'base64url').toString())
-    expect(payload.iss).toBe('issuer-1')
-    expect(payload.aud).toBe('appstoreconnect-v1')
-    expect(payload.bid).toBe('fun.yunle.apps')
-    expect(payload.exp - payload.iat).toBe(600)
-
-    const ok = crypto.verify(
-      'sha256',
-      Buffer.from(`${h}.${p}`),
-      { key: crypto.createPublicKey(publicKey), dsaEncoding: 'ieee-p1363' },
-      Buffer.from(s, 'base64url'),
-    )
-    expect(ok).toBe(true)
-  })
-
+describe('createAppStoreService', () => {
   it('缺少配置抛错', () => {
-    expect(() => buildApiToken({ ...CONFIG, issuerId: '' })).toThrow('必填')
+    expect(() => createAppStoreService({ ...CONFIG, issuerId: '' })).toThrow('必填')
   })
 })
 
-describe('getTransactionInfo', () => {
-  const txPayload = { transactionId: '888', bundleId: 'fun.yunle.apps', productId: 'fun.yunle.apps.coin_100' }
-
-  function makeFetch(responsesByHost) {
-    const calls = []
-    const mock = async (url) => {
-      calls.push(url)
-      const entry = Object.entries(responsesByHost).find(([host]) => url.startsWith(host))
-      const res = entry?.[1] ?? { status: 404 }
-      return {
-        status: res.status,
-        ok: res.status >= 200 && res.status < 300,
-        json: async () => res.body,
-      }
-    }
-    mock.calls = calls
-    return mock
-  }
-
-  it('生产环境命中直接返回', async () => {
-    const httpFetch = makeFetch({
-      'https://api.storekit.itunes.apple.com': { status: 200, body: { signedTransactionInfo: makeJws(txPayload) } },
-    })
-    const { payload, environment } = await getTransactionInfo({ transactionId: '888', config: CONFIG, fetch: httpFetch })
+describe('getVerifiedTransaction', () => {
+  it('生产环境命中：查询 + 本地验签', async () => {
+    const deps = makeDeps({ production: {} })
+    const service = createAppStoreService(CONFIG, deps)
+    const { payload, environment } = await service.getVerifiedTransaction('888')
     expect(environment).toBe('Production')
     expect(payload.transactionId).toBe('888')
-    expect(httpFetch.calls).toHaveLength(1)
+    expect(payload._from).toBe('jws-Production')
+    expect(deps.clientCalls).toHaveLength(1)
   })
 
   it('生产 404 回退沙盒', async () => {
-    const httpFetch = makeFetch({
-      'https://api.storekit-sandbox.itunes.apple.com': { status: 200, body: { signedTransactionInfo: makeJws(txPayload) } },
-    })
-    const { environment } = await getTransactionInfo({ transactionId: '888', config: CONFIG, fetch: httpFetch })
+    const deps = makeDeps({ sandbox: {} })
+    const service = createAppStoreService(CONFIG, deps)
+    const { environment } = await service.getVerifiedTransaction('888')
     expect(environment).toBe('Sandbox')
-    expect(httpFetch.calls).toHaveLength(2)
+    expect(deps.clientCalls.map(c => c.environment)).toEqual(['Production', 'Sandbox'])
   })
 
-  it('两个环境都 404 时抛错', async () => {
-    const httpFetch = makeFetch({})
-    await expect(getTransactionInfo({ transactionId: '888', config: CONFIG, fetch: httpFetch }))
-      .rejects
-      .toThrow('交易不存在')
+  it('客户端与验签器按环境缓存复用', async () => {
+    const deps = makeDeps({ production: {} })
+    const service = createAppStoreService(CONFIG, deps)
+    await service.getVerifiedTransaction('888')
+    await service.getVerifiedTransaction('888')
+    expect(deps.clientFactory).toHaveBeenCalledTimes(1)
+    expect(deps.verifierFactory).toHaveBeenCalledTimes(1)
+  })
+
+  it('两个环境都查不到时抛错', async () => {
+    const service = createAppStoreService(CONFIG, makeDeps())
+    await expect(service.getVerifiedTransaction('888')).rejects.toThrow('交易不存在')
   })
 
   it('鉴权失败抛错', async () => {
-    const httpFetch = makeFetch({
-      'https://api.storekit.itunes.apple.com': { status: 401 },
+    const deps = makeDeps({
+      production: { error: Object.assign(new Error('unauthorized'), { httpStatusCode: 401 }) },
     })
-    await expect(getTransactionInfo({ transactionId: '888', config: CONFIG, fetch: httpFetch }))
-      .rejects
-      .toThrow('鉴权失败')
+    const service = createAppStoreService(CONFIG, deps)
+    await expect(service.getVerifiedTransaction('888')).rejects.toThrow('鉴权失败')
+  })
+
+  it('验签失败向上抛出（不入账）', async () => {
+    const deps = makeDeps({ production: { verifyError: new Error('chain invalid') } })
+    const service = createAppStoreService(CONFIG, deps)
+    await expect(service.getVerifiedTransaction('888')).rejects.toThrow('chain invalid')
   })
 
   it('transactionId 非纯数字直接拒绝', async () => {
-    await expect(getTransactionInfo({ transactionId: '../evil', config: CONFIG, fetch: makeFetch({}) }))
-      .rejects
-      .toThrow('transactionId 非法')
+    const service = createAppStoreService(CONFIG, makeDeps({ production: {} }))
+    await expect(service.getVerifiedTransaction('../evil')).rejects.toThrow('transactionId 非法')
+  })
+})
+
+describe('verifyNotification', () => {
+  it('生产验签失败时回退沙盒', async () => {
+    const deps = makeDeps({ sandbox: {} })
+    const service = createAppStoreService(CONFIG, deps)
+    const notification = await service.verifyNotification('signed-payload')
+    expect(notification.notificationType).toBe('TEST')
+  })
+
+  it('两个环境都验签失败时拒绝', async () => {
+    const service = createAppStoreService(CONFIG, makeDeps())
+    await expect(service.verifyNotification('forged')).rejects.toThrow('通知验签失败')
+  })
+})
+
+describe('loadAppleRootCertificates', () => {
+  it('加载打包的 3 张 Apple 根证书（DER）', () => {
+    const certs = loadAppleRootCertificates()
+    expect(certs).toHaveLength(3)
+    for (const cert of certs) {
+      expect(Buffer.isBuffer(cert)).toBe(true)
+      // DER 编码的证书以 SEQUENCE (0x30) 开头
+      expect(cert[0]).toBe(0x30)
+    }
   })
 })
 

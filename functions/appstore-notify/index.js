@@ -3,15 +3,15 @@
  *
  * HTTP 触发（CloudBase HTTP 访问服务绑定路径，URL 配置到 App Store Connect）。
  *
- * 安全模型：通知体的 signedPayload 先解码提取 transactionId（不信任内容），
- * 再通过 TLS 直连 App Store Server API 回查权威交易数据，确认后才处理，
- * 杜绝伪造回调（见 lib/appstore.js 注释）。
+ * 安全模型：signedPayload 用 Apple 官方库本地验签（证书链锚定 Apple 根证书），
+ * 验签失败直接拒绝——无需回查 Server API 即可杜绝伪造回调（见 lib/appstore.js 注释）。
  *
  * 处理的通知类型：
  *   - REFUND / REVOKE：订单标记 refunded；会员订单立即失效；云币订单记录日志待人工追回
  *   - 其他类型（CONSUMPTION_REQUEST、TEST 等）：仅记录日志，返回 200
  *
- * 环境变量同 iap-order（APPSTORE_ISSUER_ID / APPSTORE_KEY_ID / APPSTORE_PRIVATE_KEY / APPSTORE_BUNDLE_ID）。
+ * 环境变量同 iap-order（APPSTORE_ISSUER_ID / APPSTORE_KEY_ID / APPSTORE_PRIVATE_KEY /
+ * APPSTORE_BUNDLE_ID / APPSTORE_APP_APPLE_ID）。
  *
  * lib/ 由 `pnpm sync:wxpay-lib` 从 functions/wxpay-order/lib 同步，禁止直接修改本目录的 lib。
  */
@@ -22,7 +22,7 @@ const { Buffer } = require('node:buffer')
 const process = require('node:process')
 const cloudbase = require('@cloudbase/node-sdk')
 
-const { decodeJwsPayload, getTransactionInfo } = require('./lib/appstore')
+const { createAppStoreService } = require('./lib/appstore')
 const { handleIapRefund } = require('./lib/iap')
 
 const app = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV })
@@ -37,6 +37,9 @@ function loadConfig() {
     keyId: process.env.APPSTORE_KEY_ID,
     privateKeyPem: process.env.APPSTORE_PRIVATE_KEY,
     bundleId: process.env.APPSTORE_BUNDLE_ID || 'fun.yunle.apps',
+    appAppleId: process.env.APPSTORE_APP_APPLE_ID
+      ? Number(process.env.APPSTORE_APP_APPLE_ID)
+      : undefined,
   }
   const missing = []
   if (!cfg.issuerId)
@@ -48,6 +51,14 @@ function loadConfig() {
   if (missing.length > 0)
     throw new Error(`appstore-notify 配置缺失: ${missing.join(', ')}`)
   return cfg
+}
+
+/** App Store 服务（云函数实例存活期间复用） */
+let appstoreService = null
+function getAppStoreService(config) {
+  if (!appstoreService)
+    appstoreService = createAppStoreService(config)
+  return appstoreService
 }
 
 function httpResponse(statusCode, body) {
@@ -91,9 +102,19 @@ exports.main = async (event) => {
   if (!body?.signedPayload)
     return httpResponse(400, { message: 'signedPayload 缺失' })
 
+  const service = getAppStoreService(config)
+
+  // 1. 本地验签通知（验签失败 = 伪造或配置错误，拒绝）
+  let notification
   try {
-    // 1. 解码通知（不信任内容，仅用于提取类型与 transactionId）
-    const notification = decodeJwsPayload(body.signedPayload)
+    notification = await service.verifyNotification(body.signedPayload)
+  }
+  catch (err) {
+    console.warn('[appstore-notify] 通知验签失败:', err.message)
+    return httpResponse(401, { message: '验签失败' })
+  }
+
+  try {
     const { notificationType, subtype } = notification
     console.warn(`[appstore-notify] 收到通知: ${notificationType}${subtype ? `/${subtype}` : ''}`)
 
@@ -107,13 +128,11 @@ exports.main = async (event) => {
       console.warn('[appstore-notify] 通知缺少 signedTransactionInfo')
       return httpResponse(200, { ok: true })
     }
-    const claimed = decodeJwsPayload(signedTx)
 
-    // 2. 回查 Server API 取权威数据（防伪造）
-    const { payload } = await getTransactionInfo({
-      transactionId: String(claimed.transactionId),
-      config,
-    })
+    // 2. 本地验签交易内容（环境取通知 payload 中声明的环境）
+    const environment = notification.data?.environment || 'Production'
+    const payload = await service.verifyTransactionInfo(signedTx, environment)
+
     if (payload.bundleId !== config.bundleId) {
       console.warn(`[appstore-notify] bundleId 不匹配: ${payload.bundleId}`)
       return httpResponse(200, { ok: true })

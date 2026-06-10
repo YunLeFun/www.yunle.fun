@@ -56,7 +56,8 @@
         "APPSTORE_ISSUER_ID": "",
         "APPSTORE_KEY_ID": "",
         "APPSTORE_PRIVATE_KEY": "",
-        "APPSTORE_BUNDLE_ID": "fun.yunle.apps"
+        "APPSTORE_BUNDLE_ID": "fun.yunle.apps",
+        "APPSTORE_APP_APPLE_ID": ""
       }
     },
     {
@@ -69,7 +70,8 @@
         "APPSTORE_ISSUER_ID": "",
         "APPSTORE_KEY_ID": "",
         "APPSTORE_PRIVATE_KEY": "",
-        "APPSTORE_BUNDLE_ID": "fun.yunle.apps"
+        "APPSTORE_BUNDLE_ID": "fun.yunle.apps",
+        "APPSTORE_APP_APPLE_ID": ""
       }
     }
   ],

@@ -5,15 +5,16 @@
  *   - verifyPurchase  校验单笔交易并发放权益（需登录；幂等）
  *   - restore         批量补单（恢复购买 / 杀进程后的 unfinished 交易，需登录）
  *
- * 安全模型：客户端只上送 transactionId，服务端通过 TLS 直连 App Store
- * Server API 取得权威交易数据后才入账（见 lib/appstore.js 注释）。
- * 客户端应在本函数返回成功后再 finishTransaction。
+ * 安全模型：客户端只上送 transactionId，服务端经 App Store Server API 取得
+ * 签名交易后用 Apple 官方库本地验签（证书链锚定 Apple 根证书）才入账
+ *（见 lib/appstore.js 注释）。客户端应在本函数返回成功后再 finishTransaction。
  *
  * 环境变量：
  *   - APPSTORE_ISSUER_ID    App Store Connect API Issuer ID
  *   - APPSTORE_KEY_ID       API Key ID
  *   - APPSTORE_PRIVATE_KEY  .p8 私钥内容（PEM，含 BEGIN/END 行）
  *   - APPSTORE_BUNDLE_ID    默认 fun.yunle.apps
+ *   - APPSTORE_APP_APPLE_ID App Store 的 app Apple ID（可选，生产通知验签需要）
  *
  * lib/ 由 `pnpm sync:wxpay-lib` 从 functions/wxpay-order/lib 同步，禁止直接修改本目录的 lib。
  */
@@ -23,7 +24,7 @@
 const process = require('node:process')
 const cloudbase = require('@cloudbase/node-sdk')
 
-const { assertGrantablePayload, getTransactionInfo } = require('./lib/appstore')
+const { assertGrantablePayload, createAppStoreService } = require('./lib/appstore')
 const { grantIapTransaction } = require('./lib/iap')
 
 const app = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV })
@@ -53,6 +54,9 @@ function loadConfig() {
     keyId: process.env.APPSTORE_KEY_ID,
     privateKeyPem: process.env.APPSTORE_PRIVATE_KEY,
     bundleId: process.env.APPSTORE_BUNDLE_ID || 'fun.yunle.apps',
+    appAppleId: process.env.APPSTORE_APP_APPLE_ID
+      ? Number(process.env.APPSTORE_APP_APPLE_ID)
+      : undefined,
   }
   const missing = []
   if (!cfg.issuerId)
@@ -66,6 +70,14 @@ function loadConfig() {
   return cfg
 }
 
+/** App Store 服务（云函数实例存活期间复用，缓存 API 客户端与验签器） */
+let appstoreService = null
+function getAppStoreService(config) {
+  if (!appstoreService)
+    appstoreService = createAppStoreService(config)
+  return appstoreService
+}
+
 /**
  * 校验并发放单笔交易（verifyPurchase / restore 共用）
  *
@@ -74,7 +86,8 @@ function loadConfig() {
  * @param {object} config
  */
 async function verifyAndGrant(uid, transactionId, config) {
-  const { payload, environment } = await getTransactionInfo({ transactionId, config })
+  const service = getAppStoreService(config)
+  const { payload, environment } = await service.getVerifiedTransaction(transactionId)
   assertGrantablePayload(payload, { bundleId: config.bundleId })
   return grantIapTransaction(db, {
     userId: uid,
