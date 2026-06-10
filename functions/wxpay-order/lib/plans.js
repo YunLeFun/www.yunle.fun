@@ -35,6 +35,19 @@ const COIN_PACKS = Object.freeze({
   coin_1000: Object.freeze({ amount: 10000, coin: 1000 }), // 100 元
 })
 
+/**
+ * iOS App Store 内购商品映射：productId -> 业务商品。
+ * 与 @yunlefun/types 的 iap.ts（IAP_COIN_PRODUCTS / IAP_MEMBER_PRODUCTS）同步。
+ * 入账云币数 / 会员周期按本表查表，与 App Store 标价解耦。
+ */
+const IAP_PRODUCTS = Object.freeze({
+  'fun.yunle.apps.coin_100': Object.freeze({ orderType: 'recharge_coin', packId: 'coin_100' }),
+  'fun.yunle.apps.coin_500': Object.freeze({ orderType: 'recharge_coin', packId: 'coin_500' }),
+  'fun.yunle.apps.coin_1000': Object.freeze({ orderType: 'recharge_coin', packId: 'coin_1000' }),
+  'fun.yunle.apps.member_month': Object.freeze({ orderType: 'membership', level: 'basic', billingCycle: 'month' }),
+  'fun.yunle.apps.member_year': Object.freeze({ orderType: 'membership', level: 'basic', billingCycle: 'year' }),
+})
+
 /** 各计费周期对应的会员有效期天数 */
 const CYCLE_DURATION_DAYS = Object.freeze({
   month: 31,
@@ -116,6 +129,20 @@ function getCustomCoinPlan(coin) {
   return { amount: coin * COIN_RATE_FEN, coin }
 }
 
+/**
+ * 校验并返回 IAP 商品对应的业务商品。
+ *
+ * @param {string} productId App Store 商品 ID（如 'fun.yunle.apps.coin_100'）
+ * @returns {{ orderType: string, packId?: string, level?: string, billingCycle?: string }}
+ * @throws 未知商品时抛错
+ */
+function getIapProduct(productId) {
+  const product = IAP_PRODUCTS[productId]
+  if (!product)
+    throw new Error(`无效 IAP 商品: ${productId}`)
+  return product
+}
+
 module.exports = {
   PLAN_PRICES,
   MEMBERSHIP_PRICES,
@@ -123,6 +150,7 @@ module.exports = {
   COIN_RATE_FEN,
   COIN_CUSTOM_MIN,
   COIN_CUSTOM_MAX,
+  IAP_PRODUCTS,
   CYCLE_DURATION_DAYS,
   DAY_MS,
   getPlanAmount,
@@ -130,4 +158,5 @@ module.exports = {
   getCoinPack,
   getCustomCoinPlan,
   getCycleDurationMs,
+  getIapProduct,
 }

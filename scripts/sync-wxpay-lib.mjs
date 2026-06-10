@@ -28,6 +28,8 @@ const SOURCE = resolve(ROOT, 'functions/wxpay-order/lib')
 const TARGETS = [
   resolve(ROOT, 'functions/wxpay-notify/lib'),
   resolve(ROOT, 'functions/account-api/lib'),
+  resolve(ROOT, 'functions/iap-order/lib'),
+  resolve(ROOT, 'functions/appstore-notify/lib'),
 ]
 
 const checkOnly = process.argv.includes('--check')

@@ -30,6 +30,7 @@ const payType = computed(() => detectPayType())
 
 const priceFormatted = computed(() => formatPrice(props.price))
 const cycleLabel = computed(() => props.billingCycle === 'year' ? '年付' : '月付')
+const { fromApps, returnToApp } = useAppsReturn()
 
 // 生成二维码的通用方法
 async function renderQRCode() {
@@ -229,7 +230,10 @@ function handleClose() {
               {{ planName }} 套餐（{{ cycleLabel }}）已开通
             </p>
           </div>
-          <div class="flex justify-center">
+          <div class="flex gap-3 justify-center">
+            <UButton v-if="fromApps" color="neutral" variant="outline" @click="returnToApp">
+              返回云乐坊
+            </UButton>
             <UButton @click="handleClose">
               完成
             </UButton>

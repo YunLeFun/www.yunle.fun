@@ -42,7 +42,35 @@
       "runtime": "Nodejs18.15",
       "handler": "index.main",
       "installDependency": true,
-      "envVariables": {}
+      "envVariables": {
+        "ACCOUNT_API_INTERNAL_TOKEN": "{{env.ACCOUNT_API_INTERNAL_TOKEN}}"
+      }
+    },
+    {
+      "name": "iap-order",
+      "timeout": 30,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true,
+      "envVariables": {
+        "APPSTORE_ISSUER_ID": "",
+        "APPSTORE_KEY_ID": "",
+        "APPSTORE_PRIVATE_KEY": "",
+        "APPSTORE_BUNDLE_ID": "fun.yunle.apps"
+      }
+    },
+    {
+      "name": "appstore-notify",
+      "timeout": 30,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true,
+      "envVariables": {
+        "APPSTORE_ISSUER_ID": "",
+        "APPSTORE_KEY_ID": "",
+        "APPSTORE_PRIVATE_KEY": "",
+        "APPSTORE_BUNDLE_ID": "fun.yunle.apps"
+      }
     }
   ],
   "ai": {

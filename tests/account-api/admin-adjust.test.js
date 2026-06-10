@@ -40,6 +40,13 @@ describe('account-api adminAdjustCoin', () => {
       .toThrow(/refId 必填/)
   })
 
+  it('超过单笔上限抛错', async () => {
+    const db = makeFakeDb({})
+    await expect(handleAdminAdjustCoin(db, base({ amount: 100_001 }), { expectedToken: TOKEN, now: NOW }))
+      .rejects
+      .toThrow(/单笔调账不得超过/)
+  })
+
   it('入账（amount>0）创建钱包并写 gift 流水带 adminAdjust 标记', async () => {
     const db = makeFakeDb({})
     const res = await handleAdminAdjustCoin(db, base({ amount: 100 }), { expectedToken: TOKEN, now: NOW })

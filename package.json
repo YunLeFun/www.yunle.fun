@@ -24,7 +24,7 @@
     "@nuxt/image": "catalog:",
     "@nuxt/ui": "catalog:",
     "@vueuse/nuxt": "catalog:",
-    "@yunlefun/types": "^0.0.2",
+    "@yunlefun/types": "catalog:",
     "better-sqlite3": "catalog:",
     "nuxt": "catalog:",
     "qrcode": "catalog:",

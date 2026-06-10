@@ -5,6 +5,9 @@ const process = require('node:process')
 const { assertAppId, assertDeductCoinInput } = require('./lib/validation')
 const { creditCoin, deductCoin } = require('./lib/wallet')
 
+/** 单笔管理员调账的云币绝对值上限（防误操作 / 防滥用的资损护栏） */
+const ADMIN_ADJUST_MAX_COIN = 100_000
+
 function getExpectedInternalToken(env = process.env) {
   return env.ACCOUNT_API_INTERNAL_TOKEN || ''
 }
@@ -53,10 +56,12 @@ function assertAdminAdjustInput(input) {
   // appId 用于分应用对账；管理员调账默认归到 'admin'
   const appId = assertAppId(input.appId || 'admin')
 
-  // amount：有符号整数，正=入账、负=扣减，不允许 0
+  // amount：有符号整数，正=入账、负=扣减，不允许 0，且受单笔上限约束
   const amount = Math.round(Number(input.amount))
   if (!Number.isInteger(amount) || amount === 0)
     throw new Error('调账数量必须为非 0 整数（正=入账，负=扣减）')
+  if (Math.abs(amount) > ADMIN_ADJUST_MAX_COIN)
+    throw new Error(`单笔调账不得超过 ${ADMIN_ADJUST_MAX_COIN} 云币`)
 
   // refId：幂等键 + 审计凭证，必填（建议 admin:<操作号>）
   if (typeof input.refId !== 'string' || !input.refId.trim())
@@ -122,6 +127,7 @@ async function handleAdminAdjustCoin(targetDb, event, options = {}) {
 }
 
 module.exports = {
+  ADMIN_ADJUST_MAX_COIN,
   assertInternalServiceToken,
   assertUserId,
   assertAdminAdjustInput,

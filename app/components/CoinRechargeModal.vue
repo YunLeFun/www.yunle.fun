@@ -22,6 +22,7 @@ const emit = defineEmits<{
 const qrCanvas = ref<HTMLCanvasElement | null>(null)
 const payType = computed(() => detectPayType())
 const priceFormatted = computed(() => formatPrice(props.price))
+const { fromApps, returnToApp } = useAppsReturn()
 
 async function renderQRCode() {
   if (!props.codeUrl)
@@ -164,7 +165,10 @@ function handleClose() {
               已到账 <span class="font-semibold text-primary">{{ coin }} 云币</span>
             </p>
           </div>
-          <div class="flex justify-center">
+          <div class="flex gap-3 justify-center">
+            <UButton v-if="fromApps" color="neutral" variant="outline" @click="returnToApp">
+              返回云乐坊
+            </UButton>
             <UButton @click="handleClose">
               完成
             </UButton>
