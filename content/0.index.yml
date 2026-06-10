@@ -28,13 +28,13 @@ sections:
     id: features
     orientation: horizontal
     features:
-      - name: 10+ APPs
+      - title: 10+ APPs
         description: 来自云乐坊的 10+ 自研应用与社区优质应用
         icon: i-ri:smartphone-line
-      - name: 用户信息
+      - title: 用户信息
         description: 每日推荐，链接个人账户，云同步你的快捷入口、收藏喜好
         icon: i-ri:user-2-line
-      - name: 创意工坊
+      - title: 创意工坊
         description: 上架分享你的作品或 AI 应用，让世界看到你的创意
         icon: i-lucide-code-2
   - title: 开发者平台
@@ -43,13 +43,13 @@ sections:
     orientation: horizontal
     reverse: true
     features:
-      - name: CDN 加速
+      - title: CDN 加速
         description: 辅助托管云端应用，接入 CDN 加速
         icon: i-lucide-zap
-      - name: 第三方接入
+      - title: 第三方接入
         description: 自由接入第三方云服务商上架你的应用
         icon: i-ri:cloud-line
-      - name: 分享你的创意
+      - title: 分享你的创意
         description: 分享你的作品或 AI 应用，让世界看到你的创意
         icon: i-lucide-globe
 features:

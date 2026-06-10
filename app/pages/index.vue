@@ -1,8 +1,8 @@
 <script setup lang="ts">
-const { data: page } = await useAsyncData('index', () => queryCollection('index').first())
+import { homePage as page } from '~/config'
 
-const title = page.value?.seo?.title || page.value?.title
-const description = page.value?.seo?.description || page.value?.description
+const title = page.seo.title || page.title
+const description = page.seo.description || page.description
 
 useSeoMeta({
   titleTemplate: '',
@@ -21,7 +21,7 @@ const featureIconColors = [
 </script>
 
 <template>
-  <div v-if="page">
+  <div>
     <UPageHero
       :title="page.title"
       :description="page.description"

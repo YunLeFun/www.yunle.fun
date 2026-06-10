@@ -72,8 +72,8 @@ export const collections = {
             user: z.object({
               name: z.string().nonempty(),
               description: z.string().nonempty(),
-              to: z.string().nonempty(),
-              target: z.string().nonempty(),
+              to: z.string().nonempty().optional(),
+              target: z.string().nonempty().optional(),
               avatar: createImageSchema(),
             }),
           }),

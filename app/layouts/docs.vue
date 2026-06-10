@@ -2,6 +2,11 @@
 import type { ContentNavigationItem } from '@nuxt/content'
 
 const navigation = inject<Ref<ContentNavigationItem[]>>('navigation')
+const requestedOpen = useState('content_search_requested_open', () => false)
+
+function requestContentSearch() {
+  requestedOpen.value = true
+}
 </script>
 
 <template>
@@ -14,7 +19,10 @@ const navigation = inject<Ref<ContentNavigationItem[]>>('navigation')
           <template #left>
             <UPageAside>
               <template #top>
-                <UContentSearchButton :collapsed="false" />
+                <UContentSearchButton
+                  :collapsed="false"
+                  @click="requestContentSearch"
+                />
               </template>
 
               <UContentNavigation

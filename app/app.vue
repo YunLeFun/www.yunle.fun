@@ -26,7 +26,7 @@ useSeoMeta({
   twitterCard: 'summary_large_image',
 })
 
-const { navigation, files, links } = useNavigation()
+const { navigation, links } = useNavigation()
 provide('navigation', navigation)
 </script>
 
@@ -38,14 +38,9 @@ provide('navigation', navigation)
       <NuxtPage />
     </NuxtLayout>
 
-    <ClientOnly>
-      <LazyUContentSearch
-        :files="files"
-        shortcut="meta_k"
-        :navigation="navigation"
-        :links="links"
-        :fuse="{ resultLimit: 42 }"
-      />
-    </ClientOnly>
+    <DeferredContentSearch
+      :navigation="navigation"
+      :links="links"
+    />
   </UApp>
 </template>

@@ -19,7 +19,7 @@ useSeoMeta({
   description: '抱歉，您访问的页面不存在。',
 })
 
-const { navigation, files, links } = useNavigation()
+const { navigation, links } = useNavigation()
 </script>
 
 <template>
@@ -46,15 +46,10 @@ const { navigation, files, links } = useNavigation()
 
     <AppFooter />
 
-    <ClientOnly>
-      <LazyUContentSearch
-        :files="files"
-        shortcut="meta_k"
-        :navigation="navigation"
-        :links="links"
-        :fuse="{ resultLimit: 42 }"
-      />
-    </ClientOnly>
+    <DeferredContentSearch
+      :navigation="navigation"
+      :links="links"
+    />
 
     <UToaster />
   </div>
