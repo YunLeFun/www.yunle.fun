@@ -211,6 +211,79 @@ async function deductCoin(db, { userId, appId, amount, bizId, meta, now }) {
   throw new Error('云币扣费并发冲突，请重试')
 }
 
+/**
+ * 云币追回（支付渠道退款后收回已入账的云币）。
+ *
+ * 与 deductCoin 的区别：余额不足不抛错，扣到零封顶（差额即平台资损，由调用方记日志）。
+ * 幂等：按 (userId, refId, 'refund') 查重；**即使追回 0 也写占位流水**——
+ * 否则通知重试间隙用户再充值会被误扣。
+ *
+ * @param {object} db
+ * @param {object} input
+ * @param {string} input.userId
+ * @param {string} input.appId
+ * @param {number} input.amount 应追回的正整数云币数
+ * @param {string} input.refId 业务引用（退款=订单 outTradeNo），幂等必需
+ * @param {object} [input.meta]
+ * @param {number} input.now
+ * @returns {Promise<{ balance: number, clawed: number, deduped?: boolean }>}
+ */
+async function clawbackCoin(db, { userId, appId, amount, refId, meta, now }) {
+  if (!userId)
+    throw new Error('clawbackCoin: 缺少 userId')
+  if (!Number.isInteger(amount) || amount <= 0)
+    throw new Error(`clawbackCoin: amount 必须为正整数，收到 ${amount}`)
+  if (!refId)
+    throw new Error('clawbackCoin: 缺少 refId（幂等必需）')
+
+  const dup = await findTxByRef(db, { userId, refId, type: 'refund' })
+  if (dup)
+    return { balance: dup.balanceAfter, clawed: Math.abs(dup.amount), deduped: true }
+
+  for (let attempt = 0; attempt < WALLET_MAX_RETRY; attempt++) {
+    const wallet = await getWallet(db, userId)
+
+    if (!wallet) {
+      // 无钱包视为余额 0：只写占位流水挡住后续重试
+      await writeCoinTx(db, {
+        userId,
+        appId,
+        type: 'refund',
+        amount: 0,
+        balanceAfter: 0,
+        refId,
+        meta: { ...meta, requested: amount, clawed: 0 },
+        now,
+      })
+      return { balance: 0, clawed: 0 }
+    }
+
+    const clawed = Math.min(wallet.balance, amount)
+    const newBalance = wallet.balance - clawed
+    const result = await db
+      .collection(WALLET_COLLECTION)
+      .where({ userId, version: wallet.version })
+      .update({ balance: newBalance, version: wallet.version + 1, updatedAt: now })
+    const updated = result?.updated ?? result?.modifiedCount ?? 0
+    if (updated > 0) {
+      await writeCoinTx(db, {
+        userId,
+        appId,
+        type: 'refund',
+        amount: -clawed,
+        balanceAfter: newBalance,
+        refId,
+        meta: { ...meta, requested: amount, clawed },
+        now,
+      })
+      return { balance: newBalance, clawed }
+    }
+    // 被并发改写，重读重试
+  }
+
+  throw new Error(`clawbackCoin: 用户 ${userId} 并发重试 ${WALLET_MAX_RETRY} 次仍未成功`)
+}
+
 module.exports = {
   WALLET_COLLECTION,
   COIN_TX_COLLECTION,
@@ -220,4 +293,5 @@ module.exports = {
   findTxByRef,
   creditCoin,
   deductCoin,
+  clawbackCoin,
 }

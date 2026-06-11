@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { grantOrderEntitlement, MEMBERSHIPS_COLLECTION } from '../../functions/wxpay-order/lib/orders.js'
 import { DAY_MS } from '../../functions/wxpay-order/lib/plans.js'
 import {
+  clawbackCoin,
   COIN_TX_COLLECTION,
   creditCoin,
   deductCoin,
@@ -95,6 +96,76 @@ describe('deductCoin', () => {
     expect(res).toMatchObject({ balance: 450, deduped: true })
     expect(await getBalance(db, 'u1')).toBe(450)
     expect(db._store[COIN_TX_COLLECTION]).toHaveLength(1)
+  })
+})
+
+describe('clawbackCoin', () => {
+  it('余额充足：全额追回，写负数 refund 流水', async () => {
+    const db = makeFakeDb({
+      [WALLET_COLLECTION]: [{ _id: 'w', userId: 'u1', balance: 500, version: 1 }],
+    })
+    const res = await clawbackCoin(db, { userId: 'u1', appId: 'a', amount: 100, refId: 'O1', now: NOW })
+    expect(res).toMatchObject({ balance: 400, clawed: 100 })
+    expect(db._store[WALLET_COLLECTION][0]).toMatchObject({ balance: 400, version: 2 })
+    expect(db._store[COIN_TX_COLLECTION][0]).toMatchObject({
+      type: 'refund',
+      amount: -100,
+      balanceAfter: 400,
+      refId: 'O1',
+      meta: { requested: 100, clawed: 100 },
+    })
+  })
+
+  it('余额不足：扣到零封顶，差额记录在 meta', async () => {
+    const db = makeFakeDb({
+      [WALLET_COLLECTION]: [{ _id: 'w', userId: 'u1', balance: 40, version: 1 }],
+    })
+    const res = await clawbackCoin(db, { userId: 'u1', appId: 'a', amount: 100, refId: 'O1', now: NOW })
+    expect(res).toMatchObject({ balance: 0, clawed: 40 })
+    expect(db._store[COIN_TX_COLLECTION][0]).toMatchObject({
+      type: 'refund',
+      amount: -40,
+      balanceAfter: 0,
+      meta: { requested: 100, clawed: 40 },
+    })
+  })
+
+  it('无钱包：追回 0 也写占位流水挡住后续重试', async () => {
+    const db = makeFakeDb({})
+    const res = await clawbackCoin(db, { userId: 'u1', appId: 'a', amount: 100, refId: 'O1', now: NOW })
+    expect(res).toMatchObject({ balance: 0, clawed: 0 })
+    expect(db._store[COIN_TX_COLLECTION][0]).toMatchObject({
+      type: 'refund',
+      amount: 0,
+      refId: 'O1',
+    })
+  })
+
+  it('同 refId 重复追回幂等：只扣一次', async () => {
+    const db = makeFakeDb({
+      [WALLET_COLLECTION]: [{ _id: 'w', userId: 'u1', balance: 500, version: 1 }],
+    })
+    await clawbackCoin(db, { userId: 'u1', appId: 'a', amount: 100, refId: 'SAME', now: NOW })
+    const res = await clawbackCoin(db, { userId: 'u1', appId: 'a', amount: 100, refId: 'SAME', now: NOW })
+    expect(res).toMatchObject({ balance: 400, clawed: 100, deduped: true })
+    expect(await getBalance(db, 'u1')).toBe(400)
+    expect(db._store[COIN_TX_COLLECTION]).toHaveLength(1)
+  })
+
+  it('幂等占位流水（追回 0）同样挡住重试', async () => {
+    const db = makeFakeDb({})
+    await clawbackCoin(db, { userId: 'u1', appId: 'a', amount: 100, refId: 'O1', now: NOW })
+    // 重试间隙用户重新充值
+    await creditCoin(db, { userId: 'u1', appId: 'a', amount: 300, refId: 'O2', now: NOW + 1 })
+    const res = await clawbackCoin(db, { userId: 'u1', appId: 'a', amount: 100, refId: 'O1', now: NOW + 2 })
+    expect(res).toMatchObject({ clawed: 0, deduped: true })
+    expect(await getBalance(db, 'u1')).toBe(300)
+  })
+
+  it('缺 refId 或 amount 非正整数时抛错', async () => {
+    const db = makeFakeDb({})
+    await expect(clawbackCoin(db, { userId: 'u1', appId: 'a', amount: 100, now: NOW })).rejects.toThrow(/refId/)
+    await expect(clawbackCoin(db, { userId: 'u1', appId: 'a', amount: 0, refId: 'O1', now: NOW })).rejects.toThrow(/正整数/)
   })
 })
 

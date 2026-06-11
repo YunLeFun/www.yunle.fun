@@ -19,6 +19,7 @@ const {
   ORDERS_COLLECTION,
 } = require('./orders')
 const { COIN_PACKS, getIapProduct } = require('./plans')
+const { clawbackCoin } = require('./wallet')
 
 /** IAP 订单归属的应用标识（apps.yunle.fun 的 appId） */
 const IAP_APP_ID = 'apps'
@@ -113,17 +114,17 @@ async function grantIapTransaction(db, { userId, payload, environment, now }) {
 /**
  * 处理 Apple 退款 / 撤销通知（REFUND / REVOKE）。
  *
- * 保守策略（资损边界为产品决策，先不自动追回云币）：
  *   - 订单标记 refunded（conditional update，幂等）
- *   - 会员订单：若会员仍有效则立即失效（expireAt = now）
- *   - 云币订单：仅记录日志，由人工经 adminAdjustCoin 决定是否追回
- *     （余额可能已消费，自动扣成负数需产品拍板）
+ *   - 会员订单：首次转移时立即失效（expireAt = now）
+ *   - 云币订单：自动追回未消费余额，扣到零封顶（clawbackCoin 按 refId 幂等），
+ *     余额不足的差额即平台资损，记日志供人工对账。
+ *     订单已是 refunded 时仍重放追回（幂等），补偿「标记成功但追回中断」的窗口。
  *
  * @param {object} db
  * @param {object} input
  * @param {object} input.payload Apple 交易 payload（须已通过 Server API 回查确认）
  * @param {number} input.now
- * @returns {Promise<{ handled: boolean, orderType?: string, outTradeNo: string }>}
+ * @returns {Promise<{ handled: boolean, orderType?: string, outTradeNo: string, clawed?: number }>}
  */
 async function handleIapRefund(db, { payload, now }) {
   const transactionId = String(payload.transactionId)
@@ -140,23 +141,41 @@ async function handleIapRefund(db, { payload, now }) {
     .where({ outTradeNo, status: 'paid' })
     .update({ status: 'refunded', updatedAt: now })
   const updated = result?.updated ?? result?.modifiedCount ?? 0
-  if (updated === 0)
+  // 既非首次 paid -> refunded 转移，也不是已退款订单的重试补偿（如 pending）：不处理
+  if (updated === 0 && order.status !== 'refunded')
     return { handled: false, orderType: order.orderType, outTradeNo }
 
   if (order.orderType === 'membership') {
-    // 会员立即失效（仅当仍有效；已过期无需处理）
-    await db
-      .collection(MEMBERSHIPS_COLLECTION)
-      .where({ userId: order.userId })
-      .update({ expireAt: now, updatedAt: now })
+    if (updated > 0) {
+      // 会员立即失效（仅首次转移时执行，避免重复通知误伤其后新购的会员）
+      await db
+        .collection(MEMBERSHIPS_COLLECTION)
+        .where({ userId: order.userId })
+        .update({ expireAt: now, updatedAt: now })
+    }
+    return { handled: updated > 0, orderType: order.orderType, outTradeNo }
   }
-  else {
+
+  if (!Number.isInteger(order.coinAmount) || order.coinAmount <= 0) {
+    console.warn(`[iap] 云币退款订单 coinAmount 非法，跳过追回: ${outTradeNo}`)
+    return { handled: updated > 0, orderType: order.orderType, outTradeNo }
+  }
+
+  const { clawed, balance } = await clawbackCoin(db, {
+    userId: order.userId,
+    appId: order.appId || IAP_APP_ID,
+    amount: order.coinAmount,
+    refId: outTradeNo,
+    meta: { source: 'appstore-refund', transactionId },
+    now,
+  })
+  if (clawed < order.coinAmount) {
     console.warn(
-      `[iap] 云币订单退款，待人工处理追回: outTradeNo=${outTradeNo} userId=${order.userId} coin=${order.coinAmount}`,
+      `[iap] 云币退款追回不足（差额计损）: outTradeNo=${outTradeNo} userId=${order.userId} 应追回=${order.coinAmount} 实际=${clawed} 余额=${balance}`,
     )
   }
 
-  return { handled: true, orderType: order.orderType, outTradeNo }
+  return { handled: updated > 0, orderType: order.orderType, outTradeNo, clawed }
 }
 
 module.exports = {

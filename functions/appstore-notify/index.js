@@ -7,7 +7,8 @@
  * 验签失败直接拒绝——无需回查 Server API 即可杜绝伪造回调（见 lib/appstore.js 注释）。
  *
  * 处理的通知类型：
- *   - REFUND / REVOKE：订单标记 refunded；会员订单立即失效；云币订单记录日志待人工追回
+ *   - REFUND / REVOKE：订单标记 refunded；会员订单立即失效；云币订单自动追回
+ *     未消费余额（扣到零封顶，差额计损记日志）
  *   - 其他类型（CONSUMPTION_REQUEST、TEST 等）：仅记录日志，返回 200
  *
  * 环境变量同 iap-order（APPSTORE_ISSUER_ID / APPSTORE_KEY_ID / APPSTORE_PRIVATE_KEY /
