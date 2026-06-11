@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { isAllowedSsoTargetOrigin, readSsoTargetRules } from '~/utils/ssoTargetOrigins'
+
 /**
  * Lightweight SSO bridge for YunLeFun sub-apps.
  *
@@ -28,6 +30,8 @@ interface SsoMessage {
 const LOCAL_TARGET_ORIGINS = [
   'http://localhost:3000',
   'http://127.0.0.1:3000',
+  'http://localhost:2333',
+  'http://127.0.0.1:2333',
   'http://localhost:3333',
   'http://127.0.0.1:3333',
   'http://localhost:5173',
@@ -44,10 +48,10 @@ const route = useRoute()
 const router = useRouter()
 const { auth } = useCloudbase()
 const config = useRuntimeConfig()
-const allowedTargetOrigins = new Set([
-  ...readOriginList(config.public.ssoAllowedTargetOrigins),
-  ...LOCAL_TARGET_ORIGINS,
-])
+const allowedTargetRules = [
+  ...readSsoTargetRules(config.public.ssoAllowedTargetOrigins),
+  ...readSsoTargetRules(LOCAL_TARGET_ORIGINS.join(',')),
+]
 
 const status = ref<'checking' | 'success' | 'error'>('checking')
 const message = ref('正在同步云乐坊账号...')
@@ -58,16 +62,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function firstQueryValue(value: unknown): string {
   return Array.isArray(value) ? String(value[0] ?? '') : String(value ?? '')
-}
-
-function readOriginList(value: unknown): string[] {
-  if (typeof value !== 'string')
-    return []
-
-  return value
-    .split(',')
-    .map(origin => origin.trim())
-    .filter(Boolean)
 }
 
 function readMode(): SsoMode {
@@ -91,7 +85,7 @@ function readNonce(): string {
 }
 
 function isAllowedTarget(origin: string): boolean {
-  return allowedTargetOrigins.has(origin)
+  return isAllowedSsoTargetOrigin(origin, allowedTargetRules)
 }
 
 function isAnonymousSession(session: unknown): boolean {
