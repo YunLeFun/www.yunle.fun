@@ -8,7 +8,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: [
-        'functions/wxpay-order/lib/**/*.js',
+        'cloudfunctions/wxpay-order/lib/**/*.js',
         'app/composables/useMembership.ts',
       ],
       reporter: ['text', 'html'],

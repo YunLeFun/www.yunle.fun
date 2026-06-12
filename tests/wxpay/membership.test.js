@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest'
 import {
   computeNewExpireAt,
   isMembershipActive,
-} from '../../functions/wxpay-order/lib/membership.js'
-import { DAY_MS } from '../../functions/wxpay-order/lib/plans.js'
+} from '../../cloudfunctions/wxpay-order/lib/membership.js'
+import { DAY_MS } from '../../cloudfunctions/wxpay-order/lib/plans.js'
 
 describe('isMembershipActive', () => {
   it('过期返回 false', () => {

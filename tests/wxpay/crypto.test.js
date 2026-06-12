@@ -4,7 +4,7 @@ import {
   decryptResource,
   generateNonceStr,
   generateOutTradeNo,
-} from '../../functions/wxpay-order/lib/crypto.js'
+} from '../../cloudfunctions/wxpay-order/lib/crypto.js'
 import { encryptResource } from '../_fixtures/wxpay.mjs'
 
 const apiV3Key = '12345678901234567890123456789012' // 32 bytes

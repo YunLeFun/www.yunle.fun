@@ -2,7 +2,7 @@
  * 支付相关类型与常量已全部收敛到 @yunlefun/types（YunLeFun/ylf 仓库），
  * 此处纯 re-export 保持原 `~/types/payment` 引用路径不变。
  *
- * 注意：PLAN_PRICES / COIN_* 常量的服务端真相源在 functions/wxpay-order/lib/plans.js
+ * 注意：PLAN_PRICES / COIN_* 常量的服务端真相源在 cloudfunctions/wxpay-order/lib/plans.js
  *（CJS 独立部署），修改时必须同步 @yunlefun/types 与该文件及其 lib 副本。
  */
 export type {

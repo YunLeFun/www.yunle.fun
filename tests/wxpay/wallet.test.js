@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { grantOrderEntitlement, MEMBERSHIPS_COLLECTION } from '../../functions/wxpay-order/lib/orders.js'
-import { DAY_MS } from '../../functions/wxpay-order/lib/plans.js'
+import { grantOrderEntitlement, MEMBERSHIPS_COLLECTION } from '../../cloudfunctions/wxpay-order/lib/orders.js'
+import { DAY_MS } from '../../cloudfunctions/wxpay-order/lib/plans.js'
 import {
   clawbackCoin,
   COIN_TX_COLLECTION,
@@ -10,7 +10,7 @@ import {
   getBalance,
   getWallet,
   WALLET_COLLECTION,
-} from '../../functions/wxpay-order/lib/wallet.js'
+} from '../../cloudfunctions/wxpay-order/lib/wallet.js'
 import { makeFakeDb } from '../_fixtures/wxpay.mjs'
 
 const NOW = 1_700_000_000_000

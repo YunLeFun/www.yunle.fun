@@ -2,8 +2,8 @@
 /**
  * 同步微信支付纯函数库到两个云函数目录。
  *
- * 「权威源」: functions/wxpay-order/lib/
- * 「镜像」:   functions/wxpay-notify/lib/
+ * 「权威源」: cloudfunctions/wxpay-order/lib/
+ * 「镜像」:   cloudfunctions/wxpay-notify/lib/
  *
  * CloudBase 云函数部署单元相互隔离（各自打包 node_modules），无法跨函数 require，
  * 因此必须保持两份代码内容字节一致。本脚本：
@@ -24,12 +24,12 @@ import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
-const SOURCE = resolve(ROOT, 'functions/wxpay-order/lib')
+const SOURCE = resolve(ROOT, 'cloudfunctions/wxpay-order/lib')
 const TARGETS = [
-  resolve(ROOT, 'functions/wxpay-notify/lib'),
-  resolve(ROOT, 'functions/account-api/lib'),
-  resolve(ROOT, 'functions/iap-order/lib'),
-  resolve(ROOT, 'functions/appstore-notify/lib'),
+  resolve(ROOT, 'cloudfunctions/wxpay-notify/lib'),
+  resolve(ROOT, 'cloudfunctions/account-api/lib'),
+  resolve(ROOT, 'cloudfunctions/iap-order/lib'),
+  resolve(ROOT, 'cloudfunctions/appstore-notify/lib'),
 ]
 
 const checkOnly = process.argv.includes('--check')

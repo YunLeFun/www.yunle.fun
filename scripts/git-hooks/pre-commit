@@ -1,13 +1,13 @@
 #!/bin/sh
 # 自动同步微信支付共享 lib。
 #
-# 权威源 functions/wxpay-order/lib/ 一旦在本次提交中变更，自动同步到镜像
+# 权威源 cloudfunctions/wxpay-order/lib/ 一旦在本次提交中变更，自动同步到镜像
 # （wxpay-notify/lib、account-api/lib）并加入暂存，避免「改了源却忘了同步」
 # 导致三个云函数逻辑漂移。CI 里的 lib-sync 测试是最后兜底。
 set -e
 
-if git diff --cached --name-only | grep -q '^functions/wxpay-order/lib/'; then
+if git diff --cached --name-only | grep -q '^cloudfunctions/wxpay-order/lib/'; then
   echo "[pre-commit] 检测到 wxpay-order/lib 变更 → 自动同步镜像 lib..."
   node scripts/sync-wxpay-lib.mjs
-  git add functions/wxpay-notify/lib functions/account-api/lib
+  git add cloudfunctions/wxpay-notify/lib cloudfunctions/account-api/lib
 fi

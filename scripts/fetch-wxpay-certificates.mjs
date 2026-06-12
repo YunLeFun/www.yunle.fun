@@ -18,8 +18,8 @@ import { createRequire } from 'node:module'
 import process from 'node:process'
 
 const require = createRequire(import.meta.url)
-const { decryptResource } = require('../functions/wxpay-order/lib/crypto.js')
-const { wxpayRequest } = require('../functions/wxpay-order/lib/wxpay-client.js')
+const { decryptResource } = require('../cloudfunctions/wxpay-order/lib/crypto.js')
+const { wxpayRequest } = require('../cloudfunctions/wxpay-order/lib/wxpay-client.js')
 
 const { WX_MCH_ID, WX_SERIAL_NO, WX_PRIVATE_KEY, WX_APIV3_KEY } = process.env
 

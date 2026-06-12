@@ -13,7 +13,7 @@ import {
   parsePlatformCertificates,
   signWithPrivateKey,
   verifyCallbackSignature,
-} from '../../functions/wxpay-order/lib/signature.js'
+} from '../../cloudfunctions/wxpay-order/lib/signature.js'
 import { makeKeyPair, signCallback } from '../_fixtures/wxpay.mjs'
 
 describe('normalizePrivateKey', () => {

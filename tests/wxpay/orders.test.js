@@ -6,8 +6,8 @@ import {
   markOrderPaid,
   MEMBERSHIPS_COLLECTION,
   ORDERS_COLLECTION,
-} from '../../functions/wxpay-order/lib/orders.js'
-import { DAY_MS } from '../../functions/wxpay-order/lib/plans.js'
+} from '../../cloudfunctions/wxpay-order/lib/orders.js'
+import { DAY_MS } from '../../cloudfunctions/wxpay-order/lib/plans.js'
 import { makeFakeDb } from '../_fixtures/wxpay.mjs'
 
 const NOW = 1_700_000_000_000

@@ -7,10 +7,10 @@ import {
 } from '@yunlefun/types'
 import { describe, expect, it } from 'vitest'
 
-import * as plans from '../../functions/wxpay-order/lib/plans.js'
+import * as plans from '../../cloudfunctions/wxpay-order/lib/plans.js'
 
 /**
- * @yunlefun/types（前端共享常量）与 functions/wxpay-order/lib/plans.js
+ * @yunlefun/types（前端共享常量）与 cloudfunctions/wxpay-order/lib/plans.js
  * （服务端真相源，CJS 独立部署无法直接 import npm 包）必须保持手动同步。
  * 此测试在两者漂移时让 CI 失败。
  */

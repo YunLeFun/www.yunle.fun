@@ -12,9 +12,9 @@
 import crypto from 'node:crypto'
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { handleNotify } from '../../functions/wxpay-order/lib/notify-handler.js'
-import { MEMBERSHIPS_COLLECTION, ORDERS_COLLECTION } from '../../functions/wxpay-order/lib/orders.js'
-import { DAY_MS } from '../../functions/wxpay-order/lib/plans.js'
+import { handleNotify } from '../../cloudfunctions/wxpay-order/lib/notify-handler.js'
+import { MEMBERSHIPS_COLLECTION, ORDERS_COLLECTION } from '../../cloudfunctions/wxpay-order/lib/orders.js'
+import { DAY_MS } from '../../cloudfunctions/wxpay-order/lib/plans.js'
 import { makeCallbackEvent, makeFakeDb, makeKeyPair, signCallback } from '../_fixtures/wxpay.mjs'
 
 const APPID = 'wxe6749827b67dfc25'

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { handleDeductCoinForUser } from '../../functions/account-api/internal.js'
-import { COIN_TX_COLLECTION, WALLET_COLLECTION } from '../../functions/account-api/lib/wallet.js'
+import { handleDeductCoinForUser } from '../../cloudfunctions/account-api/internal.js'
+import { COIN_TX_COLLECTION, WALLET_COLLECTION } from '../../cloudfunctions/account-api/lib/wallet.js'
 import { makeFakeDb } from '../_fixtures/wxpay.mjs'
 
 const NOW = 1_700_000_000_000

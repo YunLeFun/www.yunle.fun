@@ -4,8 +4,8 @@
 
 import { describe, expect, it, vi } from 'vitest'
 
-import { generateNonceStr } from '../../functions/wxpay-order/lib/crypto.js'
-import { queryTransactionByOutTradeNo, wxpayRequest } from '../../functions/wxpay-order/lib/wxpay-client.js'
+import { generateNonceStr } from '../../cloudfunctions/wxpay-order/lib/crypto.js'
+import { queryTransactionByOutTradeNo, wxpayRequest } from '../../cloudfunctions/wxpay-order/lib/wxpay-client.js'
 import { makeKeyPair } from '../_fixtures/wxpay.mjs'
 
 const { privateKey } = makeKeyPair()

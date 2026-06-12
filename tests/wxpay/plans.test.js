@@ -6,7 +6,7 @@ import {
   getCycleDurationMs,
   getPlanAmount,
   PLAN_PRICES,
-} from '../../functions/wxpay-order/lib/plans.js'
+} from '../../cloudfunctions/wxpay-order/lib/plans.js'
 
 // eslint-disable-next-line test/prefer-lowercase-title
 describe('PLAN_PRICES', () => {

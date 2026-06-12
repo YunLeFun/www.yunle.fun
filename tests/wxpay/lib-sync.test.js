@@ -12,10 +12,10 @@ import { describe, expect, it } from 'vitest'
 
 const __filename = fileURLToPath(import.meta.url)
 const ROOT = resolve(__filename, '../../../')
-const SOURCE = resolve(ROOT, 'functions/wxpay-order/lib')
+const SOURCE = resolve(ROOT, 'cloudfunctions/wxpay-order/lib')
 const MIRRORS = [
-  resolve(ROOT, 'functions/wxpay-notify/lib'),
-  resolve(ROOT, 'functions/account-api/lib'),
+  resolve(ROOT, 'cloudfunctions/wxpay-notify/lib'),
+  resolve(ROOT, 'cloudfunctions/account-api/lib'),
 ]
 
 async function listFiles(dir) {

@@ -1,7 +1,7 @@
 import crypto from 'node:crypto'
 import { describe, expect, it } from 'vitest'
 
-import { generateJsapiPayParams } from '../../functions/wxpay-order/lib/jsapi.js'
+import { generateJsapiPayParams } from '../../cloudfunctions/wxpay-order/lib/jsapi.js'
 import { makeKeyPair } from '../_fixtures/wxpay.mjs'
 
 describe('generateJsapiPayParams', () => {

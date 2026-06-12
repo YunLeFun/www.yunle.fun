@@ -4,8 +4,8 @@ import {
   grantIapTransaction,
   handleIapRefund,
   priceToFen,
-} from '../../functions/wxpay-order/lib/iap.js'
-import { creditCoin, deductCoin } from '../../functions/wxpay-order/lib/wallet.js'
+} from '../../cloudfunctions/wxpay-order/lib/iap.js'
+import { creditCoin, deductCoin } from '../../cloudfunctions/wxpay-order/lib/wallet.js'
 import { makeFakeDb } from '../_fixtures/wxpay.mjs'
 
 const NOW = 1750000000000

@@ -5,7 +5,7 @@
   "cloudrun": {
     "name": "www-yunle-fun"
   },
-  "functionRoot": "./functions",
+  "functionRoot": "./cloudfunctions",
   "functions": [
     {
       "name": "wxpay-order",

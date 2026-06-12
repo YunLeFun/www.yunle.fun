@@ -6,7 +6,7 @@ import {
   assertGrantablePayload,
   createAppStoreService,
   loadAppleRootCertificates,
-} from '../../functions/wxpay-order/lib/appstore.js'
+} from '../../cloudfunctions/wxpay-order/lib/appstore.js'
 
 const CONFIG = {
   issuerId: 'issuer-1',

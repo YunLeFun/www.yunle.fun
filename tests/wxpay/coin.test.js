@@ -5,13 +5,13 @@ import {
   COIN_RATE_FEN,
   getCoinPack,
   getMembershipAmount,
-} from '../../functions/wxpay-order/lib/plans.js'
+} from '../../cloudfunctions/wxpay-order/lib/plans.js'
 import {
   assertAppId,
   assertDeductCoinInput,
   assertMembershipOrderInput,
   assertRechargeCoinInput,
-} from '../../functions/wxpay-order/lib/validation.js'
+} from '../../cloudfunctions/wxpay-order/lib/validation.js'
 
 describe('云币套餐定价', () => {
   it('汇率为 10 分/云币（100 云币 = 10 元）', () => {

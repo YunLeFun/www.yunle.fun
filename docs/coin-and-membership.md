@@ -1,12 +1,12 @@
 # 云币 + 跨应用会员 — 共享支付/账户中心设计
 
 > 状态：设计稿（待 review 后进入编码）
-> 关联代码：`functions/wxpay-order`、`functions/wxpay-notify`、`app/types/payment.ts`
+> 关联代码：`cloudfunctions/wxpay-order`、`cloudfunctions/wxpay-notify`、`app/types/payment.ts`
 
 ## 1. 背景与目标
 
 当前微信支付链路（下单 / 验签 / 回调 / 兜底查单 / 并发安全）已抽成依赖注入的纯函数库
-（`functions/wxpay-order/lib/`），质量良好但**强耦合单一业务**：套餐写死 `basic`、
+（`cloudfunctions/wxpay-order/lib/`），质量良好但**强耦合单一业务**：套餐写死 `basic`、
 描述写死「云乐坊」、会员表只服务云乐坊一个应用。
 
 目标是把它从「云乐坊的功能」升级为「平台级账户/支付中心」，让后续的小应用零成本接入。
@@ -291,7 +291,7 @@ async function deductCoin(db, { userId, appId, amount, bizId, meta }) {
 3. `wxpay-order/index.js`：`createOrder` 按 `orderType` 分支；`queryOrder` 兜底入账分支。
 4. `wxpay-notify/lib/notify-handler.js`：回调成功后按 `orderType` 入账云币 / 开通会员。
 5. 新增 `account-api` 云函数：`getAccount` / `deductCoin` / `listTransactions`。
-6. `pnpm sync:wxpay-lib` 把新 `lib/` 同步到 notify；`pnpm test` 全绿；更新 `functions/README.md`。
+6. `pnpm sync:wxpay-lib` 把新 `lib/` 同步到 notify；`pnpm test` 全绿；更新 `cloudfunctions/README.md`。
 7. CloudBase 控制台建 `user_wallet` / `coin_transactions` 集合与索引、安全规则
    （用户只读自己的，写入仅云函数）。
 

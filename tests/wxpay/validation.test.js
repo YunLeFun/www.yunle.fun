@@ -5,7 +5,7 @@ import {
   assertOutTradeNo,
   assertResourceMatchesOrder,
   assertTestAmount,
-} from '../../functions/wxpay-order/lib/validation.js'
+} from '../../cloudfunctions/wxpay-order/lib/validation.js'
 
 describe('assertCreateOrderInput', () => {
   it('合法 native', () => {
