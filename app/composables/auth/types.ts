@@ -115,6 +115,18 @@ const ERROR_MESSAGE_MAP: Record<string, string> = {
 }
 
 export function getErrorMessage(err: unknown): string {
-  const raw = err instanceof Error ? err.message : String(err)
+  let raw: string
+  if (err instanceof Error) {
+    raw = err.message
+  }
+  else if (err && typeof err === 'object') {
+    // CloudBase SDK 部分接口（如 grantProviderToken）失败时抛出
+    // { error, error_description } 形式的普通对象而非 Error 实例
+    const e = err as Record<string, unknown>
+    raw = String(e.error_description || e.message || e.msg || e.error || err)
+  }
+  else {
+    raw = String(err)
+  }
   return ERROR_MESSAGE_MAP[raw] || raw
 }

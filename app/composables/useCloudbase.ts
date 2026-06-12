@@ -30,7 +30,12 @@ export function useCloudbase() {
     accessKey: config.public.cloudbaseAccessKey as string,
     persistence: 'local' as const,
     auth: {
-      detectSessionInUrl: true,
+      // 不让 SDK 自动消费 URL 中的 OAuth code/state：
+      // 自动模式在交换完成后会执行 window.location.replace 整页刷新，
+      // 与回调页的状态检查产生竞态（先闪「登录失败」再刷新成「成功」），
+      // 且绑定（bind_identity）结果无法被页面感知。
+      // OAuth 回调统一由 /auth/callback 显式调用 grantProviderToken 处理。
+      detectSessionInUrl: false,
     },
   })
   const auth: TcbAuth = app.auth({ persistence: 'local' })

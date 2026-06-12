@@ -116,8 +116,6 @@ export function useTcbOAuth(core: ReturnType<typeof import('./useAuthCore').useT
             reject(new Error('授权窗口已关闭'))
           }
         }, 500)
-
-        window.addEventListener('message', handleMessage)
       })
 
       // 绑定成功，刷新用户信息
