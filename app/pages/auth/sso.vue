@@ -1,4 +1,12 @@
 <script setup lang="ts">
+import type { SsoResultMessage } from '@yunlefun/sso/protocol'
+import {
+  isAnonymousSession,
+  readSsoMode,
+  readSsoNonce,
+  readSsoTargetOrigin,
+  SSO_RESULT_TYPE,
+} from '@yunlefun/sso/protocol'
 import { isAllowedSsoTargetOrigin, readSsoTargetRules } from '~/utils/ssoTargetOrigins'
 
 /**
@@ -16,16 +24,6 @@ useSeoMeta({
   title: '账号同步 - 云乐坊',
   robots: 'noindex,nofollow',
 })
-
-type SsoMode = 'silent' | 'interactive'
-
-interface SsoMessage {
-  type: 'ylf:sso-result'
-  ok: boolean
-  nonce: string
-  reason?: 'invalid_request' | 'not_authenticated'
-  session?: unknown
-}
 
 const LOCAL_TARGET_ORIGINS = [
   'http://localhost:3000',
@@ -56,46 +54,11 @@ const allowedTargetRules = [
 const status = ref<'checking' | 'success' | 'error'>('checking')
 const message = ref('正在同步云乐坊账号...')
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object'
-}
-
-function firstQueryValue(value: unknown): string {
-  return Array.isArray(value) ? String(value[0] ?? '') : String(value ?? '')
-}
-
-function readMode(): SsoMode {
-  return firstQueryValue(route.query.mode) === 'interactive' ? 'interactive' : 'silent'
-}
-
-function readTargetOrigin(): string {
-  const raw = firstQueryValue(route.query.targetOrigin).trim()
-  if (!raw)
-    return ''
-  try {
-    return new URL(raw).origin
-  }
-  catch {
-    return ''
-  }
-}
-
-function readNonce(): string {
-  return firstQueryValue(route.query.nonce).trim()
-}
-
 function isAllowedTarget(origin: string): boolean {
   return isAllowedSsoTargetOrigin(origin, allowedTargetRules)
 }
 
-function isAnonymousSession(session: unknown): boolean {
-  if (!isRecord(session) || !isRecord(session.user))
-    return false
-
-  return session.user.is_anonymous === true
-}
-
-function postToRequester(targetOrigin: string, payload: SsoMessage): void {
+function postToRequester(targetOrigin: string, payload: SsoResultMessage): void {
   const target = window.opener ?? window.parent
   if (!target || target === window) {
     status.value = 'error'
@@ -117,7 +80,7 @@ function postToRequester(targetOrigin: string, payload: SsoMessage): void {
 function postInvalidRequest(targetOrigin: string, nonce: string): void {
   if (targetOrigin && isAllowedTarget(targetOrigin) && nonce) {
     postToRequester(targetOrigin, {
-      type: 'ylf:sso-result',
+      type: SSO_RESULT_TYPE,
       ok: false,
       nonce,
       reason: 'invalid_request',
@@ -133,9 +96,9 @@ function currentSsoPath(): string {
 }
 
 onMounted(async () => {
-  const mode = readMode()
-  const targetOrigin = readTargetOrigin()
-  const nonce = readNonce()
+  const mode = readSsoMode(route.query.mode)
+  const targetOrigin = readSsoTargetOrigin(route.query.targetOrigin)
+  const nonce = readSsoNonce(route.query.nonce)
 
   if (!targetOrigin || !nonce || !isAllowedTarget(targetOrigin)) {
     postInvalidRequest(targetOrigin, nonce)
@@ -147,7 +110,7 @@ onMounted(async () => {
     const session = data?.session
     if (session && !isAnonymousSession(session)) {
       postToRequester(targetOrigin, {
-        type: 'ylf:sso-result',
+        type: SSO_RESULT_TYPE,
         ok: true,
         nonce,
         session,
@@ -164,7 +127,7 @@ onMounted(async () => {
     }
 
     postToRequester(targetOrigin, {
-      type: 'ylf:sso-result',
+      type: SSO_RESULT_TYPE,
       ok: false,
       nonce,
       reason: 'not_authenticated',
@@ -173,7 +136,7 @@ onMounted(async () => {
   catch (err) {
     console.error('[sso] session bridge failed:', err)
     postToRequester(targetOrigin, {
-      type: 'ylf:sso-result',
+      type: SSO_RESULT_TYPE,
       ok: false,
       nonce,
       reason: 'not_authenticated',

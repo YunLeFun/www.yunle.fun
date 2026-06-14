@@ -24,6 +24,7 @@
     "@nuxt/image": "catalog:",
     "@nuxt/ui": "catalog:",
     "@vueuse/nuxt": "catalog:",
+    "@yunlefun/sso": "catalog:",
     "@yunlefun/types": "catalog:",
     "better-sqlite3": "catalog:",
     "nuxt": "catalog:",

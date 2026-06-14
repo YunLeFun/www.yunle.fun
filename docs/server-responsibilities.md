@@ -49,3 +49,5 @@
   EdgeOne Pages 需按 Nuxt 框架预设部署（构建命令 `pnpm build`），不再是 `pnpm generate`。
 - OAuth 回调（`/auth/callback`）是纯客户端逻辑（CloudBase Web SDK），与 server 能力无关，
   不要迁到 server 端。
+- 跨站 SSO 桥接页（`/auth/sso`）同样是纯客户端逻辑：读本站 localStorage 的 session 后
+  用 `postMessage` 发给白名单子站，不涉及服务端。详见 [跨站 SSO 接入指南](./sso-integration.md)。
