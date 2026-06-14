@@ -2,6 +2,7 @@
 
 const process = require('node:process')
 
+const { getAccountSnapshot } = require('./account')
 const { assertAppId, assertDeductCoinInput } = require('./lib/validation')
 const { creditCoin, deductCoin } = require('./lib/wallet')
 
@@ -40,6 +41,23 @@ async function handleDeductCoinForUser(targetDb, event, options = {}) {
     now: options.now || Date.now(),
   })
   return { balance, deduped: !!deduped }
+}
+
+/**
+ * 内部服务按指定 userId 读取账户全貌（余额 + 会员）。
+ *
+ * 需 ACCOUNT_API_INTERNAL_TOKEN；只读、不产生流水。与登录态 getAccount 共用
+ * getAccountSnapshot，保证两条链路返回结构一致（AccountSnapshot）。
+ *
+ * @param {object} targetDb
+ * @param {object} event 需含 serviceToken + userId
+ * @param {object} [options] { expectedToken, now }
+ * @returns {Promise<{ coin: number, membership: object }>} 账户全貌（余额 + 会员）
+ */
+async function handleGetAccountForUser(targetDb, event, options = {}) {
+  assertInternalServiceToken(event?.serviceToken, options.expectedToken)
+  const userId = assertUserId(event?.userId)
+  return getAccountSnapshot(targetDb, userId, options.now || Date.now())
 }
 
 /**
@@ -132,5 +150,6 @@ module.exports = {
   assertUserId,
   assertAdminAdjustInput,
   handleDeductCoinForUser,
+  handleGetAccountForUser,
   handleAdminAdjustCoin,
 }

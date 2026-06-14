@@ -5,6 +5,7 @@
  *   - getAccount        一次拿到账户全貌（云币余额 + 会员状态），需登录
  *   - deductCoin        按次扣云币（需登录，幂等键 bizId）
  *   - deductCoinForUser 内部服务按指定 userId 扣云币（需 ACCOUNT_API_INTERNAL_TOKEN）
+ *   - getAccountForUser 内部服务按指定 userId 读账户全貌（需 ACCOUNT_API_INTERNAL_TOKEN）
  *   - adminAdjustCoin   管理员人工调账（增/减，需 ACCOUNT_API_INTERNAL_TOKEN）
  *   - listTransactions  云币流水分页（需登录）
  *
@@ -17,19 +18,18 @@
 
 const cloudbase = require('@cloudbase/node-sdk')
 
+const { getAccountSnapshot } = require('./account')
 const {
   assertInternalServiceToken,
   assertUserId,
   handleAdminAdjustCoin,
   handleDeductCoinForUser,
+  handleGetAccountForUser,
 } = require('./internal')
-const { isMembershipActive } = require('./lib/membership')
-const { MEMBERSHIPS_COLLECTION } = require('./lib/orders')
 const { assertDeductCoinInput } = require('./lib/validation')
 const {
   COIN_TX_COLLECTION,
   deductCoin,
-  getWallet,
 } = require('./lib/wallet')
 
 const app = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV })
@@ -55,30 +55,8 @@ function getCallerUid() {
   }
 }
 
-/** 读取会员记录（不存在返回 null） */
-async function readMembership(userId) {
-  const { data } = await db
-    .collection(MEMBERSHIPS_COLLECTION)
-    .where({ userId })
-    .limit(1)
-    .get()
-  return Array.isArray(data) && data.length > 0 ? data[0] : null
-}
-
 async function handleGetAccount(uid) {
-  const now = Date.now()
-  const [wallet, membership] = await Promise.all([
-    getWallet(db, uid),
-    readMembership(uid),
-  ])
-  return {
-    coin: wallet ? wallet.balance : 0,
-    membership: {
-      isActive: isMembershipActive(membership?.expireAt, now),
-      level: membership?.level || membership?.planId || null,
-      expireAt: membership?.expireAt || null,
-    },
-  }
+  return getAccountSnapshot(db, uid)
 }
 
 async function handleDeductCoin(uid, event) {
@@ -118,6 +96,8 @@ exports.main = async (event) => {
     switch (action) {
       case 'deductCoinForUser':
         return await handleDeductCoinForUser(db, event)
+      case 'getAccountForUser':
+        return await handleGetAccountForUser(db, event)
       case 'adminAdjustCoin':
         return await handleAdminAdjustCoin(db, event)
       case 'getAccount':
@@ -147,4 +127,5 @@ exports._private = {
   assertUserId,
   handleAdminAdjustCoin,
   handleDeductCoinForUser,
+  handleGetAccountForUser,
 }
