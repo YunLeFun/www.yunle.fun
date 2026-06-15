@@ -194,7 +194,10 @@ onMounted(async () => {
         </div>
 
         <!-- 会员状态 -->
-        <div class="ylf-surface flex flex-col justify-between rounded-2xl p-6">
+        <div
+          class="flex flex-col justify-between rounded-2xl p-6"
+          :class="coin.isMember.value ? 'ylf-member-soft' : 'ylf-surface'"
+        >
           <div class="space-y-2">
             <p class="text-sm text-muted">
               云乐坊会员
@@ -202,14 +205,14 @@ onMounted(async () => {
             <div class="flex flex-wrap items-center gap-2">
               <span
                 class="flex size-9 items-center justify-center rounded-xl"
-                :class="coin.isMember.value ? 'bg-warning/15 text-warning' : 'bg-elevated text-muted'"
+                :class="coin.isMember.value ? 'ylf-member-mark' : 'bg-elevated text-muted'"
               >
-                <UIcon name="i-lucide-crown" class="size-5" />
+                <UIcon name="i-lucide-cloud" class="size-5" />
               </span>
               <span class="text-lg font-semibold">
                 {{ coin.isMember.value ? '会员有效' : '未开通' }}
               </span>
-              <UBadge v-if="coin.isMember.value" color="warning" variant="subtle">
+              <UBadge v-if="coin.isMember.value" color="primary" variant="subtle">
                 至 {{ formatExpire(coin.membership.value?.expireAt ?? null) }}
               </UBadge>
             </div>

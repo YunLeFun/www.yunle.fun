@@ -105,10 +105,12 @@ function formatExpire(ts: number | null | undefined) {
       <!-- 用户卡片 -->
       <UPageCard class="p-6">
         <div class="flex items-center gap-6">
-          <UAvatar
-            :src="user.avatar || undefined"
+          <MemberAvatar
+            :src="user.avatar"
             :alt="displayName"
             size="3xl"
+            :is-member="isMember"
+            ring-class="ring-(color:--ui-bg-elevated)"
           />
           <div class="flex-1 min-w-0 space-y-1">
             <h2 class="text-xl font-semibold truncate">
@@ -127,14 +129,7 @@ function formatExpire(ts: number | null | undefined) {
                 variant="subtle"
                 size="sm"
               />
-              <UBadge
-                v-if="isMember"
-                label="会员"
-                color="warning"
-                variant="subtle"
-                size="sm"
-                icon="i-lucide-crown"
-              />
+              <MemberBadge v-if="isMember" />
             </div>
           </div>
         </div>
@@ -203,7 +198,11 @@ function formatExpire(ts: number | null | undefined) {
 
           <div class="flex items-center justify-between py-3">
             <div class="flex items-center gap-3">
-              <UIcon name="i-lucide-crown" class="text-lg text-muted" />
+              <UIcon
+                name="i-lucide-cloud"
+                class="text-lg"
+                :class="isMember ? 'text-primary' : 'text-muted'"
+              />
               <span class="text-sm text-muted">会员</span>
             </div>
             <span class="text-sm font-medium">

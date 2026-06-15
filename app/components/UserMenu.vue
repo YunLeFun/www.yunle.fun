@@ -6,14 +6,17 @@ import { useTcbAuthSession } from '~/composables/auth/useAuthSession'
  * 显示用户头像和下拉菜单
  */
 const { user, isAuthenticated, logout, checkAuthStatus } = useTcbAuthSession()
+const { isActive: isMember, refresh: refreshMembership } = useMembership()
 const authChecked = useState('auth_checked', () => false)
 
 onMounted(async () => {
-  if (authChecked.value)
-    return
-
-  authChecked.value = true
-  await checkAuthStatus()
+  if (!authChecked.value) {
+    authChecked.value = true
+    await checkAuthStatus()
+  }
+  // 会员状态用于头像角标；登录态已就绪时拉取一次（后续随用户变化自动刷新）
+  if (user.value)
+    refreshMembership()
 })
 
 const items = computed(() => [
@@ -58,10 +61,11 @@ const items = computed(() => [
         variant="ghost"
         class="gap-2"
       >
-        <UAvatar
-          :src="user.avatar || undefined"
+        <MemberAvatar
+          :src="user.avatar"
           :alt="user.nickname || user.login || 'User'"
           size="xs"
+          :is-member="isMember"
         />
         <span class="hidden md:inline">
           {{ user.nickname || user.login }}
@@ -70,15 +74,20 @@ const items = computed(() => [
 
       <template #account="{ item }">
         <div class="flex items-center gap-3">
-          <UAvatar
-            :src="user.avatar || undefined"
+          <MemberAvatar
+            :src="user.avatar"
             :alt="user.nickname || user.login || 'User'"
             size="md"
+            :is-member="isMember"
+            ring-class="ring-(color:--ui-bg-elevated)"
           />
           <div class="flex-1 min-w-0">
-            <p class="font-medium truncate">
-              {{ item.label }}
-            </p>
+            <div class="flex items-center gap-2">
+              <p class="font-medium truncate">
+                {{ item.label }}
+              </p>
+              <MemberBadge v-if="isMember" size="xs" />
+            </div>
             <p class="text-sm text-(--ui-text-muted) truncate">
               {{ user.email || user.phone || `@${user.login}` }}
             </p>
