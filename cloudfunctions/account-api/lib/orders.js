@@ -64,6 +64,30 @@ async function markOrderPaid(db, { outTradeNo, transactionId, now }) {
 }
 
 /**
+ * 标记订单权益已发放（写入 grantedAt）。
+ *
+ * 供「已 paid 但未发放」自愈对账识别：status=paid 且无 grantedAt 的订单会被重新发放
+ * （见 wxpay-order/index.js 的 reconcileOrders）。
+ *
+ * 回写失败不应阻断主流程——底层发放（会员 lastOrderId / 云币 refId）本身幂等，
+ * 下次对账重入不会重复发放，因此调用方对本函数的失败只记日志即可。
+ *
+ * @param {object} db
+ * @param {object} input
+ * @param {string} input.outTradeNo
+ * @param {number} input.now
+ * @returns {Promise<{ updated: number }>} updated=1 表示已写入 grantedAt
+ */
+async function markOrderGranted(db, { outTradeNo, now }) {
+  const result = await db
+    .collection(ORDERS_COLLECTION)
+    .where({ outTradeNo })
+    .update({ grantedAt: now, updatedAt: now })
+  const updated = result?.updated ?? result?.modifiedCount ?? 0
+  return { updated }
+}
+
+/**
  * 为用户开通/续费会员。
  *
  * 流程：
@@ -100,6 +124,17 @@ async function activateMembership(db, { userId, planId, cycle, now, outTradeNo }
       .limit(1)
       .get()
     const existing = Array.isArray(data) && data.length > 0 ? data[0] : null
+
+    // 幂等：本订单已开通过（lastOrderId 命中）→ 直接返回，避免补偿/重试重复续期。
+    // 与云币发放的 refId 幂等对齐，使「paid 但未发放」的补发、回调重放都能安全重入。
+    if (existing && outTradeNo && existing.lastOrderId === outTradeNo) {
+      return {
+        planId: existing.planId || planId,
+        cycle: existing.activeCycle || cycle,
+        expireAt: existing.expireAt,
+      }
+    }
+
     const newExpireAt = computeNewExpireAt({
       current: existing?.expireAt,
       cycle,
@@ -156,11 +191,17 @@ async function activateMembership(db, { userId, planId, cycle, now, outTradeNo }
  * @throws orderType 未知或发放失败
  */
 async function grantOrderEntitlement(db, { order, now }) {
+  // 幂等：订单已发放过（grantedAt 命中）→ 跳过。与底层发放幂等（会员 lastOrderId /
+  // 云币 refId）构成双保险，让回调重放、对账补发都能安全重入。
+  if (order.grantedAt)
+    return { alreadyGranted: true }
+
   // 兼容历史订单：无 orderType 视为会员订单
   const orderType = order.orderType || 'membership'
 
+  let result
   if (orderType === 'membership') {
-    return activateMembership(db, {
+    result = await activateMembership(db, {
       userId: order.userId,
       // 兼容 level（新）与 planId（旧）
       planId: order.level || order.planId,
@@ -169,11 +210,10 @@ async function grantOrderEntitlement(db, { order, now }) {
       outTradeNo: order.outTradeNo,
     })
   }
-
-  if (orderType === 'recharge_coin') {
+  else if (orderType === 'recharge_coin') {
     if (!Number.isInteger(order.coinAmount) || order.coinAmount <= 0)
       throw new Error(`grantOrderEntitlement: 订单 ${order.outTradeNo} coinAmount 非法: ${order.coinAmount}`)
-    return creditCoin(db, {
+    result = await creditCoin(db, {
       userId: order.userId,
       appId: order.appId,
       amount: order.coinAmount,
@@ -183,8 +223,20 @@ async function grantOrderEntitlement(db, { order, now }) {
       now,
     })
   }
+  else {
+    throw new Error(`grantOrderEntitlement: 未知 orderType: ${orderType}`)
+  }
 
-  throw new Error(`grantOrderEntitlement: 未知 orderType: ${orderType}`)
+  // 发放成功 → 回写 grantedAt，供自愈对账跳过已发放订单。
+  // 回写失败不抛错：底层发放幂等，下次重入不会重复发放。
+  try {
+    await markOrderGranted(db, { outTradeNo: order.outTradeNo, now })
+  }
+  catch (err) {
+    console.error('[orders] grantedAt 回写失败（权益已发放，不影响）:', order.outTradeNo, err.message)
+  }
+
+  return result
 }
 
 module.exports = {
@@ -192,6 +244,7 @@ module.exports = {
   MEMBERSHIPS_COLLECTION,
   findOrderByOutTradeNo,
   markOrderPaid,
+  markOrderGranted,
   activateMembership,
   grantOrderEntitlement,
 }

@@ -278,6 +278,10 @@ tcb functions deploy --envId yunlefun-8g7ybcxc7345c490
 订单文档新增字段（多租户 + 云币）：`appId`（应用归属，缺省 `yunle`）、`orderType`
 （`membership` | `recharge_coin`）；会员订单带 `level`/`billingCycle`，云币订单带 `packId`/`coinAmount`。
 
+**发放状态字段 `grantedAt`**：订单确认支付（`status: paid`）后，权益发放成功会回写 `grantedAt`（毫秒时间戳）。
+「`status: paid` 但无 `grantedAt`」表示回调在标记已支付之后、发放权益之前中断（漏发场景），
+由 `wxpay-order` 的 `reconcileOrders` 扫描自愈补发；补发依赖底层幂等（会员 `lastOrderId` / 云币 `refId` / 订单 `grantedAt`），重入安全、不会重复发放。
+
 会员状态存储在 `user_memberships` 集合，索引：
 
 | 索引名     | 字段         | 唯一性 |
@@ -308,13 +312,19 @@ tcb functions deploy --envId yunlefun-8g7ybcxc7345c490
 云币钱包跨应用共享余额，一个用户一条 `user_wallet`；每笔变更写一条 `coin_transactions` 流水。
 上线前需在 CloudBase 控制台**新建这两个集合并配置索引**：
 
-| 集合                | 索引名          | 字段                           | 唯一性 |
-| ------------------- | --------------- | ------------------------------ | ------ |
-| `user_wallet`       | `idx_user`      | `userId` ASC                   | 唯一   |
-| `coin_transactions` | `idx_user_time` | `userId` ASC, `createdAt` DESC | 非唯一 |
-| `coin_transactions` | `idx_app_time`  | `appId` ASC, `createdAt` DESC  | 非唯一 |
+| 集合                | 索引名          | 字段                                  | 唯一性                            |
+| ------------------- | --------------- | ------------------------------------- | --------------------------------- |
+| `user_wallet`       | `idx_user`      | `userId` ASC                          | 唯一                              |
+| `coin_transactions` | `idx_user_time` | `userId` ASC, `createdAt` DESC        | 非唯一                            |
+| `coin_transactions` | `idx_app_time`  | `appId` ASC, `createdAt` DESC         | 非唯一                            |
+| `coin_transactions` | `idx_ref_uniq`  | `userId` ASC, `type` ASC, `refId` ASC | 唯一（部分索引：仅 `refId` 非空） |
 
 > ⚠️ `user_wallet.idx_user` 必须**唯一**，否则余额的乐观锁（`version` 比对）在并发下可能产生多条钱包记录。
+>
+> ⚠️ `coin_transactions.idx_ref_uniq` 建议设为**部分唯一索引**（partial，仅 `refId` 非空时唯一）：
+> 应用层 `findTxByRef` 先查后写的幂等，在并发同 `refId`（如同一 `bizId` 并发扣费）下存在 TOCTOU 窗口，
+> 唯一索引把幂等下沉到数据库兜底。**务必用部分索引**，否则大量 `refId` 为空的流水（无幂等键的消费/赠送）会互撞唯一约束导致写入失败。
+> 若控制台暂不支持部分索引，可维持现状（应用层幂等 + 充值链路上游 `markOrderPaid` 串行化），但需知悉该并发边界。
 
 ```text
 // user_wallet（一个用户一条）

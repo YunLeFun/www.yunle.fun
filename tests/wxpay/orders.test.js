@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest'
 import {
   activateMembership,
   findOrderByOutTradeNo,
+  grantOrderEntitlement,
+  markOrderGranted,
   markOrderPaid,
   MEMBERSHIPS_COLLECTION,
   ORDERS_COLLECTION,
@@ -225,5 +227,145 @@ describe('activateMembership — 并发安全（CAS 重试）', () => {
       now: NOW,
       outTradeNo: 'YLFX',
     })).rejects.toThrow(/并发重试/)
+  })
+})
+
+describe('activateMembership — 订单幂等（lastOrderId）', () => {
+  it('同一订单重复开通：lastOrderId 命中则不重复累加时长', async () => {
+    const existingExpire = NOW + 20 * DAY_MS
+    const db = makeFakeDb({
+      [MEMBERSHIPS_COLLECTION]: [{
+        _id: 'm1',
+        userId: 'u1',
+        planId: 'basic',
+        activeCycle: 'month',
+        expireAt: existingExpire,
+        lastOrderId: 'YLF-SAME',
+      }],
+    })
+    const r = await activateMembership(db, {
+      userId: 'u1',
+      planId: 'basic',
+      cycle: 'month',
+      now: NOW,
+      outTradeNo: 'YLF-SAME', // 与已记录的 lastOrderId 相同 → 视为已开通，不累加
+    })
+    expect(r.expireAt).toBe(existingExpire)
+    expect(db._store[MEMBERSHIPS_COLLECTION][0].expireAt).toBe(existingExpire)
+  })
+
+  it('不同订单仍正常累加（lastOrderId 不同）', async () => {
+    const existingExpire = NOW + 20 * DAY_MS
+    const db = makeFakeDb({
+      [MEMBERSHIPS_COLLECTION]: [{
+        _id: 'm1',
+        userId: 'u1',
+        planId: 'basic',
+        activeCycle: 'month',
+        expireAt: existingExpire,
+        lastOrderId: 'YLF-OLD',
+      }],
+    })
+    const r = await activateMembership(db, {
+      userId: 'u1',
+      planId: 'basic',
+      cycle: 'month',
+      now: NOW,
+      outTradeNo: 'YLF-NEW',
+    })
+    expect(r.expireAt).toBe(existingExpire + 31 * DAY_MS)
+  })
+})
+
+describe('grantOrderEntitlement — 幂等与 grantedAt 回写', () => {
+  it('order.grantedAt 已存在：跳过发放', async () => {
+    const db = makeFakeDb({ [MEMBERSHIPS_COLLECTION]: [] })
+    const r = await grantOrderEntitlement(db, {
+      order: {
+        outTradeNo: 'YLF1',
+        userId: 'u1',
+        orderType: 'membership',
+        level: 'basic',
+        billingCycle: 'month',
+        grantedAt: NOW - 1,
+      },
+      now: NOW,
+    })
+    expect(r).toEqual({ alreadyGranted: true })
+    expect(db._store[MEMBERSHIPS_COLLECTION]).toHaveLength(0)
+  })
+
+  it('会员订单发放成功后回写 grantedAt 到订单', async () => {
+    const db = makeFakeDb({
+      [ORDERS_COLLECTION]: [{
+        _id: 'o1',
+        outTradeNo: 'YLF2',
+        userId: 'u1',
+        orderType: 'membership',
+        level: 'basic',
+        billingCycle: 'month',
+        status: 'paid',
+      }],
+      [MEMBERSHIPS_COLLECTION]: [],
+    })
+    await grantOrderEntitlement(db, { order: db._store[ORDERS_COLLECTION][0], now: NOW })
+    expect(db._store[MEMBERSHIPS_COLLECTION]).toHaveLength(1)
+    expect(db._store[ORDERS_COLLECTION][0].grantedAt).toBe(NOW)
+  })
+
+  it('对账重入（订单已带 grantedAt）不重复续期', async () => {
+    const db = makeFakeDb({
+      [ORDERS_COLLECTION]: [{
+        _id: 'o1',
+        outTradeNo: 'YLF3',
+        userId: 'u1',
+        orderType: 'membership',
+        level: 'basic',
+        billingCycle: 'month',
+        status: 'paid',
+      }],
+      [MEMBERSHIPS_COLLECTION]: [],
+    })
+    await grantOrderEntitlement(db, { order: db._store[ORDERS_COLLECTION][0], now: NOW })
+    const expireAfter1 = db._store[MEMBERSHIPS_COLLECTION][0].expireAt
+    const r2 = await grantOrderEntitlement(db, { order: db._store[ORDERS_COLLECTION][0], now: NOW + 5 * DAY_MS })
+    expect(r2).toEqual({ alreadyGranted: true })
+    expect(db._store[MEMBERSHIPS_COLLECTION][0].expireAt).toBe(expireAfter1)
+  })
+
+  it('grantedAt 回写丢失时，底层 lastOrderId 幂等仍防重复续期', async () => {
+    const db = makeFakeDb({
+      [MEMBERSHIPS_COLLECTION]: [{
+        _id: 'm1',
+        userId: 'u1',
+        planId: 'basic',
+        activeCycle: 'month',
+        expireAt: NOW + 31 * DAY_MS,
+        lastOrderId: 'YLF4',
+      }],
+    })
+    const r = await grantOrderEntitlement(db, {
+      order: {
+        outTradeNo: 'YLF4', // 与 lastOrderId 相同；注意无 grantedAt（模拟回写丢失 / 对账重入）
+        userId: 'u1',
+        orderType: 'membership',
+        level: 'basic',
+        billingCycle: 'month',
+      },
+      now: NOW + 10 * DAY_MS,
+    })
+    expect(r.expireAt).toBe(NOW + 31 * DAY_MS)
+    expect(db._store[MEMBERSHIPS_COLLECTION][0].expireAt).toBe(NOW + 31 * DAY_MS)
+  })
+})
+
+describe('markOrderGranted', () => {
+  it('写入 grantedAt 并返回 updated=1', async () => {
+    const db = makeFakeDb({
+      [ORDERS_COLLECTION]: [{ _id: 'o1', outTradeNo: 'X', status: 'paid' }],
+    })
+    const { updated } = await markOrderGranted(db, { outTradeNo: 'X', now: NOW })
+    expect(updated).toBe(1)
+    expect(db._store[ORDERS_COLLECTION][0].grantedAt).toBe(NOW)
   })
 })

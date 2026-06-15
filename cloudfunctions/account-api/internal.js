@@ -1,5 +1,7 @@
 'use strict'
 
+const { Buffer } = require('node:buffer')
+const crypto = require('node:crypto')
 const process = require('node:process')
 
 const { getAccountSnapshot } = require('./account')
@@ -13,10 +15,24 @@ function getExpectedInternalToken(env = process.env) {
   return env.ACCOUNT_API_INTERNAL_TOKEN || ''
 }
 
+/**
+ * 常量时间比较两个字符串，避免内部 token 校验的 timing 侧信道。
+ * 长度不同直接判负（crypto.timingSafeEqual 要求两侧等长）。
+ */
+function timingSafeEqualStr(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string')
+    return false
+  const ba = Buffer.from(a)
+  const bb = Buffer.from(b)
+  if (ba.length !== bb.length)
+    return false
+  return crypto.timingSafeEqual(ba, bb)
+}
+
 function assertInternalServiceToken(serviceToken, expectedToken = getExpectedInternalToken()) {
   if (!expectedToken)
     throw new Error('内部服务鉴权未配置')
-  if (typeof serviceToken !== 'string' || serviceToken !== expectedToken)
+  if (!timingSafeEqualStr(serviceToken, expectedToken))
     throw new Error('内部服务鉴权失败')
 }
 

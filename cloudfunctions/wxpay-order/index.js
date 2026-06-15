@@ -200,17 +200,10 @@ async function handleCreateOrder(event) {
   const { payType, wxOpenid, amount, description, orderFields } = resolveOrderPlan(event)
   const cfg = loadConfig()
   const outTradeNo = generateOutTradeNo()
-
   const orderParams = buildOrderParams({ cfg, amount, outTradeNo, description })
 
-  const wxResult = await callPrepay({
-    cfg,
-    payType,
-    orderParams,
-    payerOpenid: wxOpenid,
-    clientIp: event.clientIp,
-  })
-
+  // 先落 pending 订单，再向微信下单：即使后续 prepay 失败，也只是留下一条可对账关闭的废单，
+  // 绝不会出现"用户已付款但本地无订单"（回调会因查无订单而漏发权益、造成资损）。
   const now = Date.now()
   await db.collection(ORDERS_COLLECTION).add({
     userId: uid,
@@ -219,12 +212,37 @@ async function handleCreateOrder(event) {
     payType,
     status: 'pending',
     outTradeNo,
-    codeUrl: wxResult.code_url || '',
-    h5Url: wxResult.h5_url || '',
-    prepayId: wxResult.prepay_id || '',
     createdAt: now,
     updatedAt: now,
   })
+
+  let wxResult
+  try {
+    wxResult = await callPrepay({
+      cfg,
+      payType,
+      orderParams,
+      payerOpenid: wxOpenid,
+      clientIp: event.clientIp,
+    })
+  }
+  catch (err) {
+    // 下单失败：把刚落库的 pending 订单标记为 failed，避免悬挂占用对账配额
+    await db.collection(ORDERS_COLLECTION)
+      .where({ outTradeNo, status: 'pending' })
+      .update({ status: 'failed', updatedAt: Date.now() })
+    throw err
+  }
+
+  // 回写微信下单返回的支付参数
+  await db.collection(ORDERS_COLLECTION)
+    .where({ outTradeNo })
+    .update({
+      codeUrl: wxResult.code_url || '',
+      h5Url: wxResult.h5_url || '',
+      prepayId: wxResult.prepay_id || '',
+      updatedAt: Date.now(),
+    })
 
   return buildPayResult({ payType, cfg, wxResult, outTradeNo })
 }
@@ -251,14 +269,7 @@ async function handleCreateTestOrder(event) {
     description: event.description || `云乐坊测试支付 ${(amount / 100).toFixed(2)} 元`,
   })
 
-  const wxResult = await callPrepay({
-    cfg,
-    payType,
-    orderParams,
-    payerOpenid: event.wxOpenid,
-    clientIp: event.clientIp,
-  })
-
+  // 同 handleCreateOrder：先落库后 prepay，避免"已付款无订单"
   const now = Date.now()
   await db.collection(ORDERS_COLLECTION).add({
     userId: uid,
@@ -268,12 +279,35 @@ async function handleCreateTestOrder(event) {
     payType,
     status: 'pending',
     outTradeNo,
-    codeUrl: wxResult.code_url || '',
-    h5Url: wxResult.h5_url || '',
-    prepayId: wxResult.prepay_id || '',
     createdAt: now,
     updatedAt: now,
   })
+
+  let wxResult
+  try {
+    wxResult = await callPrepay({
+      cfg,
+      payType,
+      orderParams,
+      payerOpenid: event.wxOpenid,
+      clientIp: event.clientIp,
+    })
+  }
+  catch (err) {
+    await db.collection(ORDERS_COLLECTION)
+      .where({ outTradeNo, status: 'pending' })
+      .update({ status: 'failed', updatedAt: Date.now() })
+    throw err
+  }
+
+  await db.collection(ORDERS_COLLECTION)
+    .where({ outTradeNo })
+    .update({
+      codeUrl: wxResult.code_url || '',
+      h5Url: wxResult.h5_url || '',
+      prepayId: wxResult.prepay_id || '',
+      updatedAt: Date.now(),
+    })
 
   return buildPayResult({ payType, cfg, wxResult, outTradeNo })
 }
@@ -385,6 +419,9 @@ async function handleReconcile() {
   if (!uid)
     throw new Error('请先登录')
 
+  const cfg = loadConfig()
+
+  // 1. pending 订单：向微信核对，命中成功则标 paid 并发放权益
   const { data } = await db
     .collection(ORDERS_COLLECTION)
     .where({ userId: uid, status: 'pending' })
@@ -392,10 +429,6 @@ async function handleReconcile() {
     .limit(RECONCILE_MAX_ORDERS)
     .get()
   const pending = Array.isArray(data) ? data : []
-  if (pending.length === 0)
-    return { reconciled: 0, paid: 0 }
-
-  const cfg = loadConfig()
   let paid = 0
   for (const order of pending) {
     try {
@@ -408,7 +441,29 @@ async function handleReconcile() {
       console.warn('[wxpay-order] 对账单笔失败:', order.outTradeNo, err.message)
     }
   }
-  return { reconciled: pending.length, paid }
+
+  // 2. 自愈：已 paid 但权益未发放的订单（回调在 markPaid 之后、grant 之前中断，或 grant 抛错）。
+  //    这类订单 status 已是 paid，settlePendingOrder 不会再处理它们，必须单独补发。
+  //    grantOrderEntitlement 自带幂等（会员 lastOrderId / 云币 refId / 订单 grantedAt），重入安全。
+  const { data: paidData } = await db
+    .collection(ORDERS_COLLECTION)
+    .where({ userId: uid, status: 'paid' })
+    .orderBy('createdAt', 'desc')
+    .limit(RECONCILE_MAX_ORDERS)
+    .get()
+  const ungranted = (Array.isArray(paidData) ? paidData : []).filter(o => !o.grantedAt)
+  let regranted = 0
+  for (const order of ungranted) {
+    try {
+      await grantOrderEntitlement(db, { order, now: Date.now() })
+      regranted++
+    }
+    catch (err) {
+      console.error('[wxpay-order] 自愈补发失败（需人工介入）:', order.outTradeNo, err.message)
+    }
+  }
+
+  return { reconciled: pending.length, paid, regranted }
 }
 
 exports.main = async (event) => {
