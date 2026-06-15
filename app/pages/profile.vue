@@ -15,6 +15,7 @@ useSeoMeta({
 
 const { user, isAuthenticated, loading } = useTcbAuth()
 const { getMyApps } = useApps()
+const { isActive: isMember, state: membershipState, refresh: refreshMembership } = useMembership()
 const router = useRouter()
 
 watch(isAuthenticated, (value) => {
@@ -53,6 +54,8 @@ const myApps = ref<AppRecord[]>([])
 const appsLoading = ref(true)
 
 onMounted(async () => {
+  // profile 挂载时 user 通常已登录，useMembership 的 watch（immediate:false）不会自动触发，需手动刷新
+  refreshMembership()
   try {
     myApps.value = await getMyApps()
   }
@@ -66,6 +69,12 @@ onMounted(async () => {
 
 function formatAppDate(ts: number) {
   return new Date(ts).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
+}
+
+function formatExpire(ts: number | null | undefined) {
+  if (!ts)
+    return ''
+  return new Date(ts).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })
 }
 </script>
 
@@ -111,12 +120,22 @@ function formatAppDate(ts: number) {
             >
               @{{ user.login }}
             </p>
-            <UBadge
-              :label="user.role === 'ADMIN' ? '管理员' : '普通用户'"
-              :color="user.role === 'ADMIN' ? 'error' : 'neutral'"
-              variant="subtle"
-              size="sm"
-            />
+            <div class="flex items-center gap-2 flex-wrap">
+              <UBadge
+                :label="user.role === 'ADMIN' ? '管理员' : '普通用户'"
+                :color="user.role === 'ADMIN' ? 'error' : 'neutral'"
+                variant="subtle"
+                size="sm"
+              />
+              <UBadge
+                v-if="isMember"
+                label="会员"
+                color="warning"
+                variant="subtle"
+                size="sm"
+                icon="i-lucide-crown"
+              />
+            </div>
           </div>
         </div>
       </UPageCard>
@@ -179,6 +198,28 @@ function formatAppDate(ts: number) {
             </div>
             <span class="text-sm font-medium">
               {{ joinDate || '未知' }}
+            </span>
+          </div>
+
+          <div class="flex items-center justify-between py-3">
+            <div class="flex items-center gap-3">
+              <UIcon name="i-lucide-crown" class="text-lg text-muted" />
+              <span class="text-sm text-muted">会员</span>
+            </div>
+            <span class="text-sm font-medium">
+              <template v-if="isMember">
+                有效至 {{ formatExpire(membershipState?.expireAt) }}
+              </template>
+              <UButton
+                v-else
+                to="/wallet"
+                label="去开通"
+                color="primary"
+                variant="link"
+                size="xs"
+                trailing-icon="i-lucide-arrow-right"
+                class="p-0"
+              />
             </span>
           </div>
 
