@@ -47,3 +47,23 @@ Locally preview production build:
 ```bash
 pnpm preview
 ```
+
+## 部署
+
+项目有**两条相互独立**的发布线：
+
+### 前端（EdgeOne Pages）
+
+前端由腾讯 [EdgeOne Pages](https://edgeone.ai/) 托管，**已接入 Git 自动部署**：推送到 `main` 分支即自动触发构建（`nuxt generate`）并发布，无需手动操作。
+
+> ⚠️ GitHub Actions 不负责网站部署——`ci.yml` 仅跑 lint / typecheck / test，`release.yml` 仅在打 `v*` tag 时生成 Release changelog。
+
+### 云函数（CloudBase）
+
+支付 / 账户相关云函数（`wxpay-order`、`wxpay-notify`、`account-api`、`iap-order`、`appstore-notify`）部署在腾讯云 CloudBase，**不随前端自动发布**，改动后需单独部署：
+
+```bash
+tcb functions deploy <function-name> --envId yunlefun-8g7ybcxc7345c490
+```
+
+环境变量配置、数据库索引、平台证书轮换等详见 [`cloudfunctions/README.md`](./cloudfunctions/README.md)。
