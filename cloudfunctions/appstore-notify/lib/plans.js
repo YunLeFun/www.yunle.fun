@@ -10,7 +10,7 @@
 
 /** 会员套餐价格表（单位：分），key 即会员等级 level */
 const PLAN_PRICES = Object.freeze({
-  basic: Object.freeze({ month: 990, year: 9990 }),
+  basic: Object.freeze({ month: 1000, year: 10000 }),
 })
 
 /** 会员套餐价格表别名（语义更清晰，等价于 PLAN_PRICES） */

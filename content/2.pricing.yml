@@ -9,8 +9,8 @@ plans:
   - title: 云乐坊会员
     planId: basic
     price:
-      month: ¥9.9
-      year: ¥99.9
+      month: ¥10
+      year: ¥100
     button:
       label: 立即开始
       color: neutral
