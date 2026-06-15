@@ -102,4 +102,15 @@ describe('assertDeductCoinInput', () => {
   it('bizId 非字符串抛错', () => {
     expect(() => assertDeductCoinInput({ appId: 'a', amount: 5, bizId: 123 })).toThrow(/bizId/)
   })
+
+  it('bizId 缺失 / 空白抛错（必填幂等键）', () => {
+    expect(() => assertDeductCoinInput({ appId: 'a', amount: 5 })).toThrow(/bizId 必填/)
+    expect(() => assertDeductCoinInput({ appId: 'a', amount: 5, bizId: '' })).toThrow(/bizId 必填/)
+    expect(() => assertDeductCoinInput({ appId: 'a', amount: 5, bizId: '   ' })).toThrow(/bizId 必填/)
+  })
+
+  it('bizId 两端空白被 trim', () => {
+    expect(assertDeductCoinInput({ appId: 'a', amount: 5, bizId: ' x:1 ' }))
+      .toEqual({ appId: 'a', amount: 5, bizId: 'x:1' })
+  })
 })

@@ -115,9 +115,13 @@ function assertRechargeCoinInput(input) {
 }
 
 /**
- * 校验云币扣费入参（account-api deductCoin）
+ * 校验云币扣费入参（account-api deductCoin）。
+ *
+ * bizId 为业务幂等键，**必填**（建议 `<appId>:<业务对象>`）：它是 coin_transactions 去重
+ * 与 (userId, type, refId) 唯一索引的依据；缺失会留下空 refId 流水、破坏幂等兜底。
+ *
  * @param {object} input
- * @returns {{ appId: string, amount: number, bizId?: string }}
+ * @returns {{ appId: string, amount: number, bizId: string }}
  */
 function assertDeductCoinInput(input) {
   if (!input || typeof input !== 'object')
@@ -126,9 +130,9 @@ function assertDeductCoinInput(input) {
   const n = Math.round(Number(amount))
   if (!Number.isInteger(n) || n <= 0)
     throw new Error('扣费数量必须为正整数')
-  if (bizId !== undefined && typeof bizId !== 'string')
-    throw new Error('bizId 必须为字符串')
-  return { appId: assertAppId(appId), amount: n, bizId }
+  if (typeof bizId !== 'string' || !bizId.trim())
+    throw new Error('bizId 必填（业务幂等键，建议 <appId>:<业务对象>）')
+  return { appId: assertAppId(appId), amount: n, bizId: bizId.trim() }
 }
 
 /**

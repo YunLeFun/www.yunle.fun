@@ -317,14 +317,14 @@ tcb functions deploy --envId yunlefun-8g7ybcxc7345c490
 | `user_wallet`       | `idx_user`      | `userId` ASC                          | 唯一                              |
 | `coin_transactions` | `idx_user_time` | `userId` ASC, `createdAt` DESC        | 非唯一                            |
 | `coin_transactions` | `idx_app_time`  | `appId` ASC, `createdAt` DESC         | 非唯一                            |
-| `coin_transactions` | `idx_ref_uniq`  | `userId` ASC, `type` ASC, `refId` ASC | 唯一（部分索引：仅 `refId` 非空） |
+| `coin_transactions` | `idx_ref_uniq`  | `userId` ASC, `type` ASC, `refId` ASC | 唯一 |
 
 > ⚠️ `user_wallet.idx_user` 必须**唯一**，否则余额的乐观锁（`version` 比对）在并发下可能产生多条钱包记录。
 >
-> ⚠️ `coin_transactions.idx_ref_uniq` 建议设为**部分唯一索引**（partial，仅 `refId` 非空时唯一）：
-> 应用层 `findTxByRef` 先查后写的幂等，在并发同 `refId`（如同一 `bizId` 并发扣费）下存在 TOCTOU 窗口，
-> 唯一索引把幂等下沉到数据库兜底。**务必用部分索引**，否则大量 `refId` 为空的流水（无幂等键的消费/赠送）会互撞唯一约束导致写入失败。
-> 若控制台暂不支持部分索引，可维持现状（应用层幂等 + 充值链路上游 `markOrderPaid` 串行化），但需知悉该并发边界。
+> ✅ `coin_transactions.idx_ref_uniq`（2026-06 已建，**唯一**）把云币幂等下沉到数据库兜底：
+> 应用层 `findTxByRef` 先查后写在并发同 `refId`（如同一 `bizId` 并发扣费）下有 TOCTOU 窗口，唯一索引堵住它。
+> 该索引要求 `refId` 非空——故 `deductCoin` 的 `bizId` 已改为**必填**（`lib/validation.js`），杜绝空 `refId` 互撞约束；
+> 充值（`refId=outTradeNo`）、调账（`refId` 必填）本就非空，不受影响。
 
 ```text
 // user_wallet（一个用户一条）
