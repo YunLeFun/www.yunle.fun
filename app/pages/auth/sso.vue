@@ -87,8 +87,18 @@ function postInvalidRequest(targetOrigin: string, nonce: string): void {
     })
     return
   }
+  // 扩展排查信息：指明具体哪个参数非法（最常见是子站来源未加入白名单），便于接入时定位
+  const problems: string[] = []
+  if (!targetOrigin)
+    problems.push('targetOrigin 缺失或格式非法')
+  else if (!isAllowedTarget(targetOrigin))
+    problems.push(`来源 ${targetOrigin} 不在 SSO 白名单（请在 NUXT_PUBLIC_SSO_ALLOWED_TARGET_ORIGINS 中添加）`)
+  if (!nonce)
+    problems.push('nonce 缺失')
+  const detail = problems.join('；') || '未知原因'
   status.value = 'error'
-  message.value = 'SSO 请求参数无效。'
+  message.value = `SSO 请求参数无效：${detail}`
+  console.warn('[sso] 拒绝无效 SSO 请求：', { targetOrigin, nonce, detail })
 }
 
 function currentSsoPath(): string {
