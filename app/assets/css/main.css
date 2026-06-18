@@ -114,6 +114,21 @@ body {
   cursor: pointer;
 }
 
+/* 触控优化：给「点击即触发」的控件砍掉双击放大手势，保留双指缩放。
+   故意不含裸 a[href]——内容/图片链接仍需双击放大的可访问性价值。 */
+:where(
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  [role='tab'],
+  [role='menuitem'],
+  [role='switch'],
+  input[type='range'],
+  input[type='checkbox'],
+  input[type='radio']
+) {
+  touch-action: manipulation;
+}
+
 :where(
   a[href]:not([data-slot='base']),
   button:not([data-slot='base']):not(:disabled),

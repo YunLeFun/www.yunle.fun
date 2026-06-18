@@ -438,7 +438,7 @@ onUnmounted(() => {
           >
             <canvas
               ref="canvasRef"
-              class="absolute inset-0 w-full h-full"
+              class="absolute inset-0 w-full h-full touch-none"
               @mousedown="onPointerDown"
               @touchstart.prevent="onPointerDown"
             />

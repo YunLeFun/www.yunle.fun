@@ -256,6 +256,21 @@ function openResetPassword() {
   confirmNewPassword.value = ''
   resetData.value = null
 }
+
+// 表单区高度平滑过渡：切换登录方式 / 展开验证码时，卡片尺寸渐变而非硬跳
+const formAreaRef = ref<HTMLElement>()
+const { height: formAreaHeight } = useElementSize(formAreaRef)
+const morphing = ref(false)
+let morphTimer: ReturnType<typeof setTimeout> | undefined
+watch([loginMode, phoneCodeSent, emailCodeSent], () => {
+  // 过渡期间裁剪溢出（长高时避免内容压住下方控件）；结束后恢复，避免裁掉输入框聚焦描边
+  morphing.value = true
+  clearTimeout(morphTimer)
+  morphTimer = setTimeout(() => {
+    morphing.value = false
+  }, 300)
+})
+onUnmounted(() => clearTimeout(morphTimer))
 </script>
 
 <template>
@@ -315,235 +330,243 @@ function openResetPassword() {
       </button>
     </div>
 
-    <!-- 手机号登录 -->
-    <div v-if="loginMode === 'phone'" class="space-y-4">
-      <UFormField label="手机号">
-        <div class="flex gap-2">
-          <USelect
-            v-model="phoneAreaCode"
-            :items="phoneAreaCodes"
-            value-key="value"
+    <!-- 表单区：切换登录方式 / 展开验证码时平滑过渡高度，避免卡片尺寸硬跳 -->
+    <div
+      class="ylf-auth-morph"
+      :class="{ 'ylf-auth-morph--active': morphing }"
+      :style="formAreaHeight ? { height: `${formAreaHeight}px` } : undefined"
+    >
+      <div ref="formAreaRef">
+        <!-- 手机号登录 -->
+        <div v-if="loginMode === 'phone'" class="space-y-4">
+          <UFormField label="手机号">
+            <div class="flex gap-2">
+              <USelect
+                v-model="phoneAreaCode"
+                :items="phoneAreaCodes"
+                value-key="value"
+                size="lg"
+                class="w-24 shrink-0"
+                :disabled="loading"
+              />
+              <UInput
+                v-model.trim="phone"
+                type="tel"
+                inputmode="numeric"
+                autocomplete="tel"
+                maxlength="11"
+                placeholder="请输入手机号"
+                size="lg"
+                icon="i-lucide-smartphone"
+                :disabled="loading"
+                class="flex-1"
+                @keyup.enter="phoneCodeSent ? handleVerifyPhoneOtp() : handleSendPhoneOtp()"
+              />
+            </div>
+            <template #hint>
+              <span v-if="phoneInvalid" class="text-xs text-error">请输入正确的手机号</span>
+              <span v-else class="text-xs text-dimmed">当前仅支持中国大陆手机号</span>
+            </template>
+          </UFormField>
+
+          <!-- 验证码输入 -->
+          <div v-if="phoneCodeSent" class="space-y-4">
+            <UFormField label="验证码">
+              <div class="flex gap-2">
+                <UInput
+                  v-model="phoneOtpCode"
+                  inputmode="numeric"
+                  autocomplete="one-time-code"
+                  placeholder="输入 6 位验证码"
+                  size="lg"
+                  icon="i-lucide-shield-check"
+                  maxlength="6"
+                  :disabled="loading"
+                  class="flex-1"
+                  @keyup.enter="handleVerifyPhoneOtp()"
+                />
+                <UButton
+                  :label="phoneCountdownActive ? `${phoneCountdown}s` : '重新发送'"
+                  color="neutral"
+                  variant="outline"
+                  size="lg"
+                  class="ylf-auth-button-secondary"
+                  :disabled="phoneCountdownActive || loading"
+                  @click="handleSendPhoneOtp"
+                />
+              </div>
+            </UFormField>
+
+            <UButton
+              label="登录"
+              color="primary"
+              size="lg"
+              block
+              class="ylf-auth-button-primary"
+              :loading="loading"
+              :disabled="!RE_OTP.test(phoneOtpCode)"
+              @click="handleVerifyPhoneOtp"
+            />
+          </div>
+
+          <!-- 发送验证码按钮 -->
+          <UButton
+            v-else
+            label="获取验证码"
+            color="primary"
             size="lg"
-            class="w-24 shrink-0"
-            :disabled="loading"
-          />
-          <UInput
-            v-model.trim="phone"
-            type="tel"
-            inputmode="numeric"
-            autocomplete="tel"
-            maxlength="11"
-            placeholder="请输入手机号"
-            size="lg"
-            icon="i-lucide-smartphone"
-            :disabled="loading"
-            class="flex-1"
-            @keyup.enter="phoneCodeSent ? handleVerifyPhoneOtp() : handleSendPhoneOtp()"
+            block
+            class="ylf-auth-button-primary"
+            :loading="loading"
+            :disabled="!phoneValid"
+            @click="handleSendPhoneOtp"
           />
         </div>
-        <template #hint>
-          <span v-if="phoneInvalid" class="text-xs text-error">请输入正确的手机号</span>
-          <span v-else class="text-xs text-dimmed">当前仅支持中国大陆手机号</span>
-        </template>
-      </UFormField>
 
-      <!-- 验证码输入 -->
-      <div v-if="phoneCodeSent" class="space-y-4">
-        <UFormField label="验证码">
-          <div class="flex gap-2">
+        <!-- 邮箱登录 -->
+        <div v-else-if="loginMode === 'email'" class="space-y-4">
+          <UFormField label="邮箱">
             <UInput
-              v-model="phoneOtpCode"
-              inputmode="numeric"
-              autocomplete="one-time-code"
-              placeholder="输入 6 位验证码"
+              v-model.trim="email"
+              type="email"
+              autocomplete="email"
+              placeholder="请输入您的邮箱"
               size="lg"
-              icon="i-lucide-shield-check"
-              maxlength="6"
+              icon="i-lucide-mail"
               :disabled="loading"
-              class="flex-1"
-              @keyup.enter="handleVerifyPhoneOtp()"
+              class="w-full"
+              @keyup.enter="emailCodeSent ? handleVerifyEmailOtp() : handleSendEmailOtp()"
             />
+            <template v-if="emailInvalid" #hint>
+              <span class="text-xs text-error">请输入正确的邮箱地址</span>
+            </template>
+          </UFormField>
+
+          <!-- 验证码输入 -->
+          <div v-if="emailCodeSent" class="space-y-4">
+            <UFormField label="验证码">
+              <div class="flex gap-2">
+                <UInput
+                  v-model="emailOtpCode"
+                  inputmode="numeric"
+                  autocomplete="one-time-code"
+                  placeholder="输入 6 位验证码"
+                  size="lg"
+                  icon="i-lucide-shield-check"
+                  maxlength="6"
+                  :disabled="loading"
+                  class="flex-1"
+                  @keyup.enter="handleVerifyEmailOtp()"
+                />
+                <UButton
+                  :label="emailCountdownActive ? `${emailCountdown}s` : '重新发送'"
+                  color="neutral"
+                  variant="outline"
+                  size="lg"
+                  class="ylf-auth-button-secondary"
+                  :disabled="emailCountdownActive || loading"
+                  @click="handleSendEmailOtp"
+                />
+              </div>
+            </UFormField>
+
             <UButton
-              :label="phoneCountdownActive ? `${phoneCountdown}s` : '重新发送'"
-              color="neutral"
-              variant="outline"
+              label="登录"
+              color="primary"
               size="lg"
-              class="ylf-auth-button-secondary"
-              :disabled="phoneCountdownActive || loading"
-              @click="handleSendPhoneOtp"
+              block
+              class="ylf-auth-button-primary"
+              :loading="loading"
+              :disabled="!RE_OTP.test(emailOtpCode)"
+              @click="handleVerifyEmailOtp"
             />
           </div>
-        </UFormField>
 
-        <UButton
-          label="登录"
-          color="primary"
-          size="lg"
-          block
-          class="ylf-auth-button-primary"
-          :loading="loading"
-          :disabled="!RE_OTP.test(phoneOtpCode)"
-          @click="handleVerifyPhoneOtp"
-        />
-      </div>
+          <!-- 发送验证码按钮 -->
+          <UButton
+            v-else
+            label="获取验证码"
+            color="primary"
+            size="lg"
+            block
+            class="ylf-auth-button-primary"
+            :loading="loading"
+            :disabled="!emailValid"
+            @click="handleSendEmailOtp"
+          />
 
-      <!-- 发送验证码按钮 -->
-      <UButton
-        v-else
-        label="获取验证码"
-        color="primary"
-        size="lg"
-        block
-        class="ylf-auth-button-primary"
-        :loading="loading"
-        :disabled="!phoneValid"
-        @click="handleSendPhoneOtp"
-      />
-    </div>
+          <p class="text-xs text-muted text-center">
+            邮箱仅支持已绑定的用户登录，不支持邮箱注册
+          </p>
+        </div>
 
-    <!-- 邮箱登录 -->
-    <div v-else-if="loginMode === 'email'" class="space-y-4">
-      <UFormField label="邮箱">
-        <UInput
-          v-model.trim="email"
-          type="email"
-          autocomplete="email"
-          placeholder="请输入您的邮箱"
-          size="lg"
-          icon="i-lucide-mail"
-          :disabled="loading"
-          class="w-full"
-          @keyup.enter="emailCodeSent ? handleVerifyEmailOtp() : handleSendEmailOtp()"
-        />
-        <template v-if="emailInvalid" #hint>
-          <span class="text-xs text-error">请输入正确的邮箱地址</span>
-        </template>
-      </UFormField>
-
-      <!-- 验证码输入 -->
-      <div v-if="emailCodeSent" class="space-y-4">
-        <UFormField label="验证码">
-          <div class="flex gap-2">
+        <!-- 密码登录 -->
+        <form v-else class="space-y-4" @submit.prevent="handlePasswordLogin">
+          <UFormField label="用户名、邮箱或手机号">
             <UInput
-              v-model="emailOtpCode"
-              inputmode="numeric"
-              autocomplete="one-time-code"
-              placeholder="输入 6 位验证码"
+              v-model.trim="passwordAccount"
+              placeholder="请输入用户名、邮箱或手机号"
               size="lg"
-              icon="i-lucide-shield-check"
-              maxlength="6"
+              icon="i-lucide-user"
+              autocomplete="username"
               :disabled="loading"
-              class="flex-1"
-              @keyup.enter="handleVerifyEmailOtp()"
+              class="w-full"
             />
-            <UButton
-              :label="emailCountdownActive ? `${emailCountdown}s` : '重新发送'"
-              color="neutral"
-              variant="outline"
+          </UFormField>
+
+          <UFormField label="密码">
+            <UInput
+              v-model="password"
+              :type="showPassword ? 'text' : 'password'"
+              placeholder="请输入密码"
               size="lg"
-              class="ylf-auth-button-secondary"
-              :disabled="emailCountdownActive || loading"
-              @click="handleSendEmailOtp"
-            />
-          </div>
-        </UFormField>
+              icon="i-lucide-key-round"
+              autocomplete="current-password"
+              :disabled="loading"
+              class="w-full"
+            >
+              <template #trailing>
+                <UButton
+                  :icon="showPassword ? 'i-lucide-eye-off' : 'i-lucide-eye'"
+                  color="neutral"
+                  variant="ghost"
+                  size="xs"
+                  type="button"
+                  :padded="false"
+                  @click="showPassword = !showPassword"
+                />
+              </template>
+            </UInput>
+          </UFormField>
 
-        <UButton
-          label="登录"
-          color="primary"
-          size="lg"
-          block
-          class="ylf-auth-button-primary"
-          :loading="loading"
-          :disabled="!RE_OTP.test(emailOtpCode)"
-          @click="handleVerifyEmailOtp"
-        />
-      </div>
-
-      <!-- 发送验证码按钮 -->
-      <UButton
-        v-else
-        label="获取验证码"
-        color="primary"
-        size="lg"
-        block
-        class="ylf-auth-button-primary"
-        :loading="loading"
-        :disabled="!emailValid"
-        @click="handleSendEmailOtp"
-      />
-
-      <p class="text-xs text-muted text-center">
-        邮箱仅支持已绑定的用户登录，不支持邮箱注册
-      </p>
-    </div>
-
-    <!-- 密码登录 -->
-    <form v-else class="space-y-4" @submit.prevent="handlePasswordLogin">
-      <UFormField label="用户名、邮箱或手机号">
-        <UInput
-          v-model.trim="passwordAccount"
-          placeholder="请输入用户名、邮箱或手机号"
-          size="lg"
-          icon="i-lucide-user"
-          autocomplete="username"
-          :disabled="loading"
-          class="w-full"
-        />
-      </UFormField>
-
-      <UFormField label="密码">
-        <UInput
-          v-model="password"
-          :type="showPassword ? 'text' : 'password'"
-          placeholder="请输入密码"
-          size="lg"
-          icon="i-lucide-key-round"
-          autocomplete="current-password"
-          :disabled="loading"
-          class="w-full"
-          :ui="{ trailing: 'pr-10' }"
-        >
-          <template #trailing>
+          <div class="flex justify-end">
             <UButton
-              :icon="showPassword ? 'i-lucide-eye-off' : 'i-lucide-eye'"
-              color="neutral"
-              variant="ghost"
+              label="忘记密码？"
+              color="primary"
+              variant="link"
               size="xs"
               type="button"
-              :padded="false"
-              @click="showPassword = !showPassword"
+              @click="openResetPassword"
             />
-          </template>
-        </UInput>
-      </UFormField>
+          </div>
 
-      <div class="flex justify-end">
-        <UButton
-          label="忘记密码？"
-          color="primary"
-          variant="link"
-          size="xs"
-          type="button"
-          @click="openResetPassword"
-        />
+          <UButton
+            label="登录"
+            type="submit"
+            color="primary"
+            size="lg"
+            block
+            class="ylf-auth-button-primary"
+            :loading="loading"
+            :disabled="!passwordFormValid"
+          />
+
+          <p class="text-xs text-muted text-center">
+            密码登录需先在账号安全设置中设置密码
+          </p>
+        </form>
       </div>
-
-      <UButton
-        label="登录"
-        type="submit"
-        color="primary"
-        size="lg"
-        block
-        class="ylf-auth-button-primary"
-        :loading="loading"
-        :disabled="!passwordFormValid"
-      />
-
-      <p class="text-xs text-muted text-center">
-        密码登录需先在账号安全设置中设置密码
-      </p>
-    </form>
+    </div>
 
     <!-- 第三方登录（仅当有可用方式时展示，避免出现孤零零的「或」分割线） -->
     <template v-if="providers.length">
@@ -829,5 +852,21 @@ function openResetPassword() {
   box-shadow:
     inset 0 0 0 1px color-mix(in srgb, var(--ui-primary) 52%, var(--ui-border-muted)),
     0 0 0 3px var(--ylf-ring);
+}
+
+/* 表单区高度平滑过渡：避免切换登录方式 / 展开验证码时卡片尺寸硬跳 */
+.ylf-auth-morph {
+  transition: height 240ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 仅过渡进行中裁剪溢出；静止时不裁剪，避免裁掉输入框聚焦描边 */
+.ylf-auth-morph--active {
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ylf-auth-morph {
+    transition: none;
+  }
 }
 </style>
