@@ -295,8 +295,64 @@ async function deductCoin(db, { userId, appId, amount, bizId, meta }) {
 7. CloudBase 控制台建 `user_wallet` / `coin_transactions` 集合与索引、安全规则
    （用户只读自己的，写入仅云函数）。
 
+## 11. 签到 / 投币 / 首充礼包（2026-06 新增，已落地）
+
+在底座之上叠加三类「云币增长 / 消耗」玩法。三者都复用既有账本与幂等机制，**仅 `lib/orders.js`
+一处改动同步库**（首充礼包），其余为 `account-api` 本地新增。
+
+### 11.1 每日签到（signIn / getSignInStatus）
+
+- 规则：免费用户每日 **1** 云币，会员每日 **2** 云币；按**东八区**自然日切日。
+- 入账：`creditCoin(type:'gift', refId:'signin:<uid>:<东八区日>')`，同日重复签到命中
+  `idx_ref_uniq` 幂等、不重复发。
+- 代码：`account-api/signin.js`、`account-api/datetime.js`（`cstDateKey`）。
+- ⚠️ 仅登录态可签（匿名 uid 在 index.js 入口已拦截）。
+
+### 11.2 投币打赏（tip / getAppSupport / getTipLeaderboard）
+
+- 规则（B 站式）：每次 **1** 云币，**每应用每日上限 2 次**；投出的币转为应用「热度」，
+  **不进开发者钱包、不可提现**；首投成为该应用「支持者」。
+- 扣减：`deductCoin(type:'consume', bizId:'tip:<uid>:<appId>:<日>:<slot>')`。**slot（1..上限）
+  即当日第几次**——封顶与幂等合一：取首个未占用 slot，用尽即达上限；同 slot 重放由 `bizId` 去重。
+- 计数：扣减成功后增 `app_tip_stats`（CAS）、`app_supporters`（唯一去重支持者）；二者为派生缓存，
+  以流水为真相源可重算。
+- 校验：目标应用须存在且公开；**禁止给自己应用投币**（`app.ownerId === uid`）。
+- 代码：`account-api/tips.js`。
+
+### 11.3 首充礼包（评估后暂缓）
+
+首充赠币（首次充值送 100 云币）是常见的转化杠杆，但**本期不做**，原因：
+
+- 云币的消耗场景（应用按次扣费）尚未真正落地、投币也才上线——给一个还没什么用处的
+  货币做首充折扣为时过早；转化杠杆应在「币有真实需求」之后再上。
+- 它会引入跨渠道复杂度：iOS IAP 有自动退款→追回链路（只追回已购币、不追回赠币）
+  会留「退款仍保留赠币」的薅羊毛口子，且 Apple 抽成 30%。
+
+> 当云币有真实消耗需求后，可作为一次性增长实验重新引入：在 `grantOrderEntitlement` 的
+> `recharge_coin` 分支挂一笔 `creditCoin(type:'gift', refId:'firstcharge:<uid>')`
+> （refId 全局唯一 = 一生一次幂等，无需查询「是不是首充」），并按需限定渠道。
+
+### 11.4 account-api 新增 action
+
+| action              | 鉴权 | 入参     | 返回                                                            |
+| ------------------- | ---- | -------- | --------------------------------------------------------------- |
+| `signIn`            | 登录 | —        | `{ balance, reward, alreadySigned, dateKey }`                   |
+| `getSignInStatus`   | 登录 | —        | `{ signedToday, reward, dateKey, isMember }`                    |
+| `tip`               | 登录 | `appId`  | `{ balance, tipped, slot, remainingToday, isNewSupporter }`     |
+| `getAppSupport`     | 公开 | `appId`  | `{ totalCoins, supporterCount, tipCount, tippedByMe, myCoins }` |
+| `getTipLeaderboard` | 公开 | `limit?` | `{ items: [{ appId, totalCoins, supporterCount, tipCount }] }`  |
+
+### 11.5 上线 checklist（建表 + 部署）
+
+1. 新建集合与索引：`app_tip_stats`（`idx_app` 唯一）、`app_supporters`（`idx_app_user` 唯一）。
+2. 安全规则：两者均 **ADMINONLY**（仅云函数读写；前端经 account-api 间接访问）。
+3. `pnpm test` 全绿。
+4. `tcb functions deploy account-api`（本期无同步库改动，仅此一个云函数）。
+5. 前端 push main 自动部署（EdgeOne）。
+
 ---
 
-> 已定稿：① 定价 100 云币 = 10 元（1 云币 = 10 分，线性）；② 会员赠币**不做**。
-> 仍待定（不阻塞首期编码）：③ 是否需要老会员折算云币；④ 退款策略（已消费云币不退）是否符合预期。
-> `coin_transactions.type` 仍保留 `gift` 枚举，仅供日后迁移/活动补发使用，首期无功能写入。
+> 已定稿：① 定价 100 云币 = 10 元（1 云币 = 10 分，线性）；② 充值「等额赠币」**不做**——
+> 会员权益本期以「每日签到差异（免费 1 / 会员 2）」体现（见 §11）。
+> ③ `coin_transactions.type` 的 `gift` 现已用于**每日签到**，`consume` 复用于**投币**。
+> 仍待定（不阻塞）：老会员折算云币；退款策略（已消费云币不退）。

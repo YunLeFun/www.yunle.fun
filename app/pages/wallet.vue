@@ -231,6 +231,19 @@ onMounted(async () => {
         </div>
       </div>
 
+      <!-- 每日签到 -->
+      <div class="ylf-surface flex flex-wrap items-center justify-between gap-3 rounded-2xl p-5">
+        <div class="space-y-1">
+          <p class="font-semibold">
+            每日签到
+          </p>
+          <p class="text-sm text-muted">
+            {{ coin.isMember.value ? '会员每日可领 2 云币' : '每日 1 云币，开通会员每日 2 云币' }}
+          </p>
+        </div>
+        <SignInButton />
+      </div>
+
       <!-- 充值 -->
       <section class="space-y-4">
         <div class="flex items-center justify-between gap-2">
@@ -409,6 +422,9 @@ onMounted(async () => {
           </UButton>
         </div>
       </section>
+
+      <!-- 应用支持榜 -->
+      <AppTipLeaderboard :limit="10" />
     </template>
 
     <!-- 充值弹窗 -->

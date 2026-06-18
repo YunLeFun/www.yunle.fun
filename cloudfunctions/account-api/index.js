@@ -4,6 +4,11 @@
  * 路由 action：
  *   - getAccount        一次拿到账户全貌（云币余额 + 会员状态），需登录
  *   - deductCoin        按次扣云币（需登录，幂等键 bizId）
+ *   - signIn            每日签到领云币（需登录，免费 1 / 会员 2，按东八区切日幂等）
+ *   - getSignInStatus   读今日签到态（需登录）
+ *   - tip               投币打赏应用（需登录，1 币/次，每应用每日上限 2 次）
+ *   - getAppSupport     读某应用支持详情（公开；登录时附带「我是否支持过」）
+ *   - getTipLeaderboard 应用支持榜（公开）
  *   - deductCoinForUser 内部服务按指定 userId 扣云币（需 ACCOUNT_API_INTERNAL_TOKEN）
  *   - getAccountForUser 内部服务按指定 userId 读账户全貌（需 ACCOUNT_API_INTERNAL_TOKEN）
  *   - adminAdjustCoin   管理员人工调账（增/减，需 ACCOUNT_API_INTERNAL_TOKEN）
@@ -31,6 +36,8 @@ const {
   COIN_TX_COLLECTION,
   deductCoin,
 } = require('./lib/wallet')
+const { getSignInStatus, signIn } = require('./signin')
+const { getAppSupport, getTipLeaderboard, tip } = require('./tips')
 
 const app = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV })
 const db = app.database()
@@ -100,18 +107,36 @@ exports.main = async (event) => {
         return await handleGetAccountForUser(db, event)
       case 'adminAdjustCoin':
         return await handleAdminAdjustCoin(db, event)
+      // 公开只读：应用支持榜 / 单应用支持详情（支持详情用可选 uid 标记 tippedByMe）
+      case 'getTipLeaderboard':
+        return await getTipLeaderboard(db, { limit: event.limit })
+      case 'getAppSupport':
+        return await getAppSupport(db, { userId: getCallerUid(), appId: event.appId })
       case 'getAccount':
       case 'deductCoin':
-      case 'listTransactions': {
+      case 'listTransactions':
+      case 'signIn':
+      case 'getSignInStatus':
+      case 'tip': {
         const uid = getCallerUid()
         if (!uid)
           throw new Error('请先登录')
-        if (action === 'getAccount')
-          return await handleGetAccount(uid)
-        if (action === 'deductCoin')
-          return await handleDeductCoin(uid, event)
-        return await handleListTransactions(uid, event)
+        switch (action) {
+          case 'getAccount':
+            return await handleGetAccount(uid)
+          case 'deductCoin':
+            return await handleDeductCoin(uid, event)
+          case 'listTransactions':
+            return await handleListTransactions(uid, event)
+          case 'signIn':
+            return await signIn(db, { userId: uid, now: Date.now() })
+          case 'getSignInStatus':
+            return await getSignInStatus(db, { userId: uid, now: Date.now() })
+          case 'tip':
+            return await tip(db, { userId: uid, appId: event.appId, now: Date.now() })
+        }
       }
+      // eslint-disable-next-line no-fallthrough
       default:
         throw new Error(`未知 action: ${action}`)
     }

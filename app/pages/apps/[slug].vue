@@ -157,6 +157,21 @@ async function handleDelete() {
         </div>
       </div>
 
+      <!-- 投币支持 -->
+      <UPageCard class="ylf-surface p-5">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="space-y-1">
+            <p class="font-semibold">
+              支持这个应用
+            </p>
+            <p class="text-sm text-muted">
+              投币只花云币、不花真金，为你喜欢的应用打 call
+            </p>
+          </div>
+          <AppTipButton :app="appData" />
+        </div>
+      </UPageCard>
+
       <!-- 描述 -->
       <UPageCard v-if="appData.description" class="ylf-surface p-5">
         <p class="text-sm leading-relaxed">

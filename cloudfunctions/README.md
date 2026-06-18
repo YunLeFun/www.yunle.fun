@@ -256,7 +256,14 @@ tcb login
 # 部署单个云函数
 tcb functions deploy wxpay-order --envId yunlefun-8g7ybcxc7345c490
 tcb functions deploy wxpay-notify --envId yunlefun-8g7ybcxc7345c490
+tcb functions deploy account-api --envId yunlefun-8g7ybcxc7345c490
 ```
+
+> ⚠️ 改动了 `lib/`（同步源 `wxpay-order/lib/`）后，**所有共享 lib 的云函数都要重新部署**：
+> `wxpay-order` / `wxpay-notify` / `account-api` / `iap-order` / `appstore-notify`——
+> 只部署其中一个会导致各函数 `lib/` 版本不一致。先 `pnpm sync:wxpay-lib && pnpm test`，再逐个部署。
+>
+> （签到 / 投币功能是 `account-api` 本地代码、未改 `lib/`，只需部署 `account-api`。）
 
 或在项目根目录执行：
 
@@ -312,12 +319,12 @@ tcb functions deploy --envId yunlefun-8g7ybcxc7345c490
 云币钱包跨应用共享余额，一个用户一条 `user_wallet`；每笔变更写一条 `coin_transactions` 流水。
 上线前需在 CloudBase 控制台**新建这两个集合并配置索引**：
 
-| 集合                | 索引名          | 字段                                  | 唯一性                            |
-| ------------------- | --------------- | ------------------------------------- | --------------------------------- |
-| `user_wallet`       | `idx_user`      | `userId` ASC                          | 唯一                              |
-| `coin_transactions` | `idx_user_time` | `userId` ASC, `createdAt` DESC        | 非唯一                            |
-| `coin_transactions` | `idx_app_time`  | `appId` ASC, `createdAt` DESC         | 非唯一                            |
-| `coin_transactions` | `idx_ref_uniq`  | `userId` ASC, `type` ASC, `refId` ASC | 唯一 |
+| 集合                | 索引名          | 字段                                  | 唯一性 |
+| ------------------- | --------------- | ------------------------------------- | ------ |
+| `user_wallet`       | `idx_user`      | `userId` ASC                          | 唯一   |
+| `coin_transactions` | `idx_user_time` | `userId` ASC, `createdAt` DESC        | 非唯一 |
+| `coin_transactions` | `idx_app_time`  | `appId` ASC, `createdAt` DESC         | 非唯一 |
+| `coin_transactions` | `idx_ref_uniq`  | `userId` ASC, `type` ASC, `refId` ASC | 唯一   |
 
 > ⚠️ `user_wallet.idx_user` 必须**唯一**，否则余额的乐观锁（`version` 比对）在并发下可能产生多条钱包记录。
 >
@@ -342,6 +349,34 @@ tcb functions deploy --envId yunlefun-8g7ybcxc7345c490
 ```
 
 安全规则：用户只读自己的钱包与流水（`auth.uid == doc.userId`），写入仅由云函数完成。
+
+### 投币 / 支持榜：`app_tip_stats` + `app_supporters`（需新建）
+
+投币打赏把用户云币转为应用「热度」（**不进开发者钱包、不可提现**）。两张去规范化计数表服务
+排行榜与「支持者」标识，以 `coin_transactions`（`type=consume`、`refId` 前缀 `tip:`）为最终真相源，
+计数漂移可由流水重算。上线前在控制台**新建这两个集合并配置索引**：
+
+| 集合             | 索引名         | 字段                      | 唯一性 |
+| ---------------- | -------------- | ------------------------- | ------ |
+| `app_tip_stats`  | `idx_app`      | `appId` ASC               | 唯一   |
+| `app_supporters` | `idx_app_user` | `appId` ASC, `userId` ASC | 唯一   |
+
+> ⚠️ 两个唯一索引都关键：`app_tip_stats.idx_app` 保证热度计数的乐观锁（`version`）不产生多条；
+> `app_supporters.idx_app_user` 既为「支持者人数」去重，也是「我是否支持过」的查询依据。
+>
+> 投币每日上限（每应用 2 次/天）由 `refId = tip:<uid>:<appId>:<东八区日>:<slot>` 的 slot 占位实现，
+> 复用 `coin_transactions.idx_ref_uniq` 幂等，无需额外计数表。
+
+```text
+// app_tip_stats（一个应用一条）
+{ appId, totalCoins, tipCount, supporterCount, version, createdAt, updatedAt }
+
+// app_supporters（一个用户对一个应用一条）
+{ appId, userId, totalCoins, tipCount, firstTipAt, lastTipAt }
+```
+
+安全规则：两者均 **ADMINONLY**（仅云函数读写）——支持榜与「我是否支持过」都经 `account-api`
+读取，前端不直读这两个集合，无需放开客户端读权限。
 
 ## 共享代码：lib/
 
