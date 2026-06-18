@@ -11,8 +11,9 @@ export default defineNuxtConfig({
     // '@nuxtjs/i18n', // 暂时禁用国际化，未来重新启用
   ],
 
-  // 关闭 SSR，作为纯静态站点托管
-  ssr: false,
+  // Hybrid 渲染：默认 SSR。公开内容页（首页/文档/博客/定价/更新日志/开发者）走预渲染拿 SEO 与首屏；
+  // 账号 / 交互 / OAuth / 数据驱动页靠 CloudBase 客户端登录态，走 client-only。两类策略都在 routeRules 声明。
+  ssr: true,
 
   devtools: {
     enabled: process.env.NODE_ENV === 'development',
@@ -68,6 +69,28 @@ export default defineNuxtConfig({
 
   routeRules: {
     '/docs': { redirect: '/docs/getting-started' },
+
+    // ── 渲染策略（hybrid）──
+    // 公开内容页：构建期预渲染（静态 HTML），SEO + 首屏最佳；内容来自仓库 Markdown / 配置，全员同一份
+    '/': { prerender: true },
+    '/pricing': { prerender: true },
+    '/blog': { prerender: true },
+    '/blog/**': { prerender: true },
+    '/docs/**': { prerender: true },
+    '/changelog': { prerender: true },
+    '/developer': { prerender: true },
+    // 账号 / 交互 / OAuth / 数据驱动页：纯客户端渲染。
+    // CloudBase 登录态只在客户端（localStorage），SSR 只会渲染未登录骨架并闪烁；这些页也无 SEO 需求。
+    '/profile': { ssr: false },
+    '/wallet': { ssr: false },
+    '/settings': { ssr: false },
+    '/login': { ssr: false },
+    '/signup': { ssr: false },
+    '/link': { ssr: false },
+    '/auth/**': { ssr: false },
+    '/apps/**': { ssr: false },
+    '/test/**': { ssr: false },
+
     '/_nuxt/**': {
       headers: {
         'cache-control': 'public, max-age=31536000, immutable',
@@ -107,7 +130,15 @@ export default defineNuxtConfig({
 
   compatibilityDate: 'latest',
 
-  nitro: {},
+  nitro: {
+    prerender: {
+      // 从导航出发顺着内链爬，把可达的公开内容页（含 /blog/* /docs/* 等动态 slug）一并预渲染
+      crawlLinks: true,
+      routes: ['/', '/pricing', '/blog', '/changelog', '/developer', '/docs/getting-started'],
+      // 账号/交互页是 client-only，爬到也不应让其失败阻断整次预渲染
+      failOnError: false,
+    },
+  },
 
   vite: {
     server: {
