@@ -36,3 +36,16 @@ export function hasOAuthProvider(providerIds: readonly (string | null | undefine
   const targetProviderId = normalizeOAuthProviderId(providerId)
   return providerIds.some(id => normalizeOAuthProviderId(id) === targetProviderId)
 }
+
+/**
+ * 当前线上实际可用的第三方登录方式白名单。
+ *
+ * 微信网站应用登录（wx_open）需微信开放平台审核 + ICP 备案，未就绪前先从
+ * 登录页与账号安全设置中隐藏，避免用户点击后报错伤害信任；待 CloudBase
+ * 配置完成后，把 WECHAT_PROVIDER_ID 加进此列表即可一处开启、多处同步显示。
+ */
+export const ENABLED_OAUTH_PROVIDERS: readonly string[] = [GITHUB_PROVIDER_ID]
+
+export function isOAuthProviderEnabled(providerId: string | null | undefined) {
+  return ENABLED_OAUTH_PROVIDERS.includes(normalizeOAuthProviderId(providerId))
+}

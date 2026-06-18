@@ -26,6 +26,17 @@ export default defineNuxtConfig({
         { rel: 'preconnect', href: 'https://tcb-api.tencentcloudapi.com', crossorigin: '' },
         // gateway 域名按需调用，dns-prefetch 解析即可
         { rel: 'dns-prefetch', href: `https://${process.env.NUXT_PUBLIC_CLOUDBASE_ENV_ID || 'yunlefun-8g7ybcxc7345c490'}.api.tcloudbasegateway.com` },
+        // 梦幻晴空品牌字体（站酷小薇 ZCOOL XiaoWei + Baloo 2），走国内镜像 loli.net；
+        // 镜像 CSS 已按 unicode-range 切片，浏览器只下载页面实际用到的字形分片；
+        // 用 preload→onload 切回 stylesheet，避免字体 CSS 往返阻塞首屏渲染（display=swap 期间用系统字体兜底）。
+        { rel: 'preconnect', href: 'https://fonts.loli.net' },
+        { rel: 'preconnect', href: 'https://gstatic.loli.net', crossorigin: '' },
+        {
+          rel: 'preload',
+          as: 'style',
+          href: 'https://fonts.loli.net/css2?family=Baloo+2:wght@500;600;700&family=ZCOOL+XiaoWei&display=swap',
+          onload: 'this.onload=null;this.rel=\'stylesheet\'',
+        },
       ],
     },
   },

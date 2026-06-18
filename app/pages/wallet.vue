@@ -176,7 +176,7 @@ onMounted(async () => {
       <!-- 余额 + 会员状态 -->
       <div class="grid gap-4 sm:grid-cols-2">
         <!-- 余额：渐变主卡 -->
-        <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-500 via-violet-500 to-pink-500 p-6 text-white shadow-lg shadow-primary/20">
+        <div class="ylf-brand-bg relative overflow-hidden rounded-2xl p-6 text-white shadow-lg shadow-primary/20">
           <UIcon
             name="i-lucide-coins"
             class="pointer-events-none absolute -right-4 -bottom-4 size-32 opacity-15"

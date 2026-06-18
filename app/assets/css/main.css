@@ -37,6 +37,27 @@
   --ylf-surface-muted: #f1f5f9;
   --ylf-surface-hover: #f8fafc;
   --ylf-ring: color-mix(in srgb, var(--ui-primary) 36%, transparent);
+
+  /* 多巴胺调色板 —— 缤纷、明快的强调色，用于彩色图标贴片、卡片点缀与背景光晕 */
+  --ylf-dopa-pink: #ec4899;
+  --ylf-dopa-rose: #fb7185;
+  --ylf-dopa-orange: #f97316;
+  --ylf-dopa-amber: #f59e0b;
+  --ylf-dopa-lime: #65a30d;
+  --ylf-dopa-green: #10b981;
+  --ylf-dopa-cyan: #0891b2;
+  --ylf-dopa-blue: #2563eb;
+  --ylf-dopa-violet: #7c3aed;
+
+  /* 品牌主渐变 —— 晴空蓝（呼应「云」的身份）+ 更缤纷的彩虹渐变（多彩点缀） */
+  --ylf-gradient-brand: linear-gradient(115deg, #2563eb, #0ea5e9 55%, #0891b2);
+  --ylf-gradient-rainbow: linear-gradient(110deg, #06b6d4, #3b82f6 22%, #8b5cf6 46%, #ec4899 70%, #f59e0b);
+  /* 暖阳渐变 —— 用于「乐趣」等温暖点睛字 */
+  --ylf-gradient-sunset: linear-gradient(115deg, #fbbf24, #fb7185);
+
+  /* 梦幻晴空品牌字体（含系统回退，镜像加载失败也不破版） */
+  --ylf-font-dreamy: 'ZCOOL XiaoWei', 'PingFang SC', 'Songti SC', ui-serif, serif;
+  --ylf-font-round: 'Baloo 2', 'PingFang SC', ui-sans-serif, system-ui, sans-serif;
 }
 
 .dark {
@@ -57,6 +78,21 @@
   --ylf-surface-muted: #111827;
   --ylf-surface-hover: #1e293b;
   --ylf-ring: color-mix(in srgb, var(--ui-primary) 45%, transparent);
+
+  /* 暗色下提亮的多巴胺色，保证在深色面板上依旧鲜活 */
+  --ylf-dopa-pink: #f472b6;
+  --ylf-dopa-rose: #fb7185;
+  --ylf-dopa-orange: #fb923c;
+  --ylf-dopa-amber: #fbbf24;
+  --ylf-dopa-lime: #a3e635;
+  --ylf-dopa-green: #34d399;
+  --ylf-dopa-cyan: #22d3ee;
+  --ylf-dopa-blue: #60a5fa;
+  --ylf-dopa-violet: #a78bfa;
+
+  --ylf-gradient-brand: linear-gradient(115deg, #3b82f6, #22d3ee 55%, #06b6d4);
+  --ylf-gradient-rainbow: linear-gradient(110deg, #22d3ee, #60a5fa 22%, #a78bfa 46%, #f472b6 70%, #fbbf24);
+  --ylf-gradient-sunset: linear-gradient(115deg, #fcd34d, #fda4af);
 }
 
 html {
@@ -228,10 +264,155 @@ body {
  * Playful accents — gradient text, eyebrow chip, colorful icon tiles
  * ------------------------------------------------------------------ */
 .ylf-gradient-text {
-  background: linear-gradient(110deg, #2563eb, #7c3aed 45%, #db2777);
+  background-image: var(--ylf-gradient-brand);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+}
+
+/* 彩虹文字变体 —— 更缤纷的多巴胺感 */
+.ylf-gradient-text--rainbow {
+  background-image: var(--ylf-gradient-rainbow);
+}
+
+/* 暖阳文字变体 —— 温暖点睛（如「乐趣」） */
+.ylf-gradient-text--sun {
+  background-image: var(--ylf-gradient-sunset);
+}
+
+/* 彩色图标贴片 —— 通过 --tile 注入任意强调色（搭配多巴胺调色板） */
+.ylf-dopa-tile {
+  background: color-mix(in srgb, var(--tile, var(--ui-primary)) 16%, var(--ylf-surface));
+  color: var(--tile, var(--ui-primary));
+  border: 1px solid color-mix(in srgb, var(--tile, var(--ui-primary)) 30%, transparent);
+}
+
+/* 品牌渐变实心贴片（白色前景，用于 logo / 重点图标） */
+.ylf-gradient-tile {
+  background: var(--ylf-gradient-brand);
+  color: #fff;
+  box-shadow: 0 12px 28px -12px color-mix(in srgb, #0b82c4 62%, transparent);
+}
+
+/* 细彩虹条 —— 卡片顶部点缀 */
+.ylf-rainbow-bar {
+  background: var(--ylf-gradient-rainbow);
+}
+
+/* ------------------------------------------------------------------ *
+ * 梦幻晴空（天气之子）—— 圆润字体、玻璃质感与漂浮动画
+ * ------------------------------------------------------------------ */
+.ylf-dreamy-display {
+  font-family: var(--ylf-font-dreamy);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
+/* 品牌渐变实心按钮（晴空蓝）—— 跨页复用的主 CTA */
+.ylf-brand-btn[data-slot='base'] {
+  background: var(--ylf-gradient-brand);
+  color: #fff;
+  border: none;
+  box-shadow: 0 10px 22px -12px color-mix(in srgb, #0b82c4 70%, transparent);
+  transition:
+    filter 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.ylf-brand-btn[data-slot='base']:hover:not(:disabled) {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+}
+
+/* 玻璃按钮（白字）—— 叠在晴空 hero 上的次级 CTA */
+.ylf-glass-btn[data-slot='base'] {
+  background: color-mix(in srgb, #fff 22%, transparent);
+  color: #fff;
+  border: 1px solid color-mix(in srgb, #fff 45%, transparent);
+  backdrop-filter: blur(8px) saturate(140%);
+  -webkit-backdrop-filter: blur(8px) saturate(140%);
+  transition:
+    background-color 160ms ease,
+    transform 160ms ease;
+}
+
+.ylf-glass-btn[data-slot='base']:hover:not(:disabled) {
+  background: color-mix(in srgb, #fff 34%, transparent);
+  transform: translateY(-1px);
+}
+
+/* 浅色玻璃药丸 / 卡片 —— 叠在晴空背景上 */
+.ylf-glass {
+  background: color-mix(in srgb, #fff 20%, transparent);
+  backdrop-filter: blur(10px) saturate(150%);
+  -webkit-backdrop-filter: blur(10px) saturate(150%);
+  border: 1px solid color-mix(in srgb, #fff 45%, transparent);
+}
+
+/* 晴空白卡 —— 通用内容卡片（圆角 + navy 轻投影），明暗自适应 */
+.ylf-card {
+  background: var(--ylf-surface);
+  border: 1px solid var(--ui-border-muted);
+  border-radius: 1.5rem;
+  box-shadow: 0 16px 40px -30px color-mix(in srgb, #0b82c4 50%, transparent);
+}
+
+/* hero 白字文字阴影 —— 叠在晴空上的标题/正文提升可读性 */
+.ylf-hero-shadow {
+  text-shadow: 0 1px 10px rgba(0, 40, 90, 0.35);
+}
+
+/* 品牌渐变实底 —— 大面积晴空蓝背景（如钱包余额卡） */
+.ylf-brand-bg {
+  background: var(--ylf-gradient-brand);
+}
+
+/* SkyScene 用：阳光丁达尔光束 + 飞鸟漂浮 */
+.ylf-ray {
+  animation: ylf-ray 8s ease-in-out infinite;
+}
+
+.ylf-bird {
+  animation: ylf-bob 6s ease-in-out infinite;
+}
+
+@keyframes ylf-drift {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(60px);
+  }
+}
+
+@keyframes ylf-drift-slow {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-44px);
+  }
+}
+
+@keyframes ylf-bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(var(--rot, 0deg));
+  }
+  50% {
+    transform: translateY(-10px) rotate(var(--rot, 0deg));
+  }
+}
+
+@keyframes ylf-ray {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.7;
+  }
 }
 
 .ylf-eyebrow {
@@ -254,7 +435,7 @@ body {
   border-color: transparent !important;
   background:
     linear-gradient(var(--ylf-surface), var(--ylf-surface)) padding-box,
-    linear-gradient(110deg, #2563eb, #7c3aed 45%, #db2777) border-box !important;
+    var(--ylf-gradient-brand) border-box !important;
   border-width: 1.5px !important;
   border-style: solid !important;
   transition:
@@ -270,7 +451,7 @@ body {
 .dark .ylf-gradient-border {
   background:
     linear-gradient(var(--ylf-surface-muted), var(--ylf-surface-muted)) padding-box,
-    linear-gradient(110deg, #60a5fa, #a78bfa 45%, #f9a8d4) border-box !important;
+    var(--ylf-gradient-brand) border-box !important;
 }
 
 /* Soft multi-color wash behind the closing CTA */
@@ -294,13 +475,13 @@ body {
  * ------------------------------------------------------------------ */
 .ylf-member-mark {
   color: #fff;
-  background: linear-gradient(110deg, #2563eb, #7c3aed 45%, #db2777);
-  box-shadow: 0 4px 14px -6px color-mix(in srgb, #7c3aed 60%, transparent);
+  background: var(--ylf-gradient-brand);
+  box-shadow: 0 4px 14px -6px color-mix(in srgb, #0b82c4 60%, transparent);
 }
 
 .dark .ylf-member-mark {
-  background: linear-gradient(110deg, #3b82f6, #8b5cf6 45%, #ec4899);
-  box-shadow: 0 4px 14px -6px color-mix(in srgb, #8b5cf6 55%, transparent);
+  background: var(--ylf-gradient-brand);
+  box-shadow: 0 4px 14px -6px color-mix(in srgb, #0891b2 55%, transparent);
 }
 
 /* Soft member wash — for highlighting an active-member surface */

@@ -1,6 +1,6 @@
 export const homePage = {
-  title: '探索 [有趣]{class="ylf-gradient-text"} 的云端应用（Deving...）',
-  description: '发现和分享更多的云端应用，让世界更加有趣多彩。',
+  title: '云之彼端，[乐趣]{class="ylf-gradient-text ylf-gradient-text--sun"}无限',
+  description: '发现、收藏、分享有趣的云端应用 —— 让平凡的一天，多一点意思。',
   headline: '🎈 云端应用创意社区',
   seo: {
     title: '云乐坊',

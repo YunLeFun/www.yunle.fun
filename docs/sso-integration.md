@@ -1,6 +1,7 @@
 # 跨站 SSO 接入指南：一套账号，多站快捷登录
 
-> 面向：想和云乐坊共享同一套账号体系、做到「在一处登录、各站点免登」的子应用。
+> 面向：想和云乐坊共享同一套账号体系、做到「在一处登录、各站点免登」的子应用（**Web 子站**）。
+> 桌面 / 本地应用（Tauri、Electron、原生）不适用本指南——它靠浏览器 `postMessage`，桌面跑不通，也不该让桌面持有 `refresh_token`。请改看 [桌面应用接入使用文档](./desktop-sso-integration.md)（设计依据见 [本地应用登录设计](./desktop-sso.md)）。
 > 关联：[子应用接入指南：支付 / 会员 / 云币](./sub-app-integration.md)。
 > 实现：npm 包 [`@yunlefun/sso`](https://github.com/YunLeFun/ylf/tree/main/packages/sso)（消费端 + 协议层）；主站桥接页 `app/pages/auth/sso.vue`。
 

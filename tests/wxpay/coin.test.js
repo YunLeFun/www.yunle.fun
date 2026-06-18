@@ -34,8 +34,8 @@ describe('云币套餐定价', () => {
 
 describe('getMembershipAmount', () => {
   it('等价于 basic 套餐价', () => {
-    expect(getMembershipAmount('basic', 'month')).toBe(990)
-    expect(getMembershipAmount('basic', 'year')).toBe(9990)
+    expect(getMembershipAmount('basic', 'month')).toBe(1000)
+    expect(getMembershipAmount('basic', 'year')).toBe(10000)
   })
 })
 

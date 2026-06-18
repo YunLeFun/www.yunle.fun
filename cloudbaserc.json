@@ -47,6 +47,19 @@
       }
     },
     {
+      "name": "desktop-auth",
+      "timeout": 10,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true,
+      "envVariables": {
+        "DESKTOP_AUTH_SIGNING_KEY": "{{env.DESKTOP_AUTH_SIGNING_KEY}}",
+        "DESKTOP_AUTH_SIGNING_KID": "{{env.DESKTOP_AUTH_SIGNING_KID}}",
+        "ACCOUNT_API_INTERNAL_TOKEN": "{{env.ACCOUNT_API_INTERNAL_TOKEN}}",
+        "DESKTOP_AUTH_VERIFICATION_URL": "https://www.yunle.fun/link"
+      }
+    },
+    {
       "name": "iap-order",
       "timeout": 30,
       "runtime": "Nodejs18.15",

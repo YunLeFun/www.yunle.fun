@@ -3,6 +3,7 @@ import {
   getBoundOAuthProviderIds,
   GITHUB_PROVIDER_ID,
   hasOAuthProvider,
+  isOAuthProviderEnabled,
   normalizeOAuthProviderId,
   WECHAT_PROVIDER_ID,
 } from '~/utils/authProviders'
@@ -29,6 +30,10 @@ const isGitHubBound = computed(() =>
 const isWeChatBound = computed(() =>
   hasOAuthProvider(allBoundProviders.value, WECHAT_PROVIDER_ID),
 )
+
+// 仅展示当前线上实际可用的第三方登录绑定入口（与登录页共用同一白名单）
+const isGitHubEnabled = computed(() => isOAuthProviderEnabled(GITHUB_PROVIDER_ID))
+const isWeChatEnabled = computed(() => isOAuthProviderEnabled(WECHAT_PROVIDER_ID))
 
 // 第三方绑定状态查询 loading
 const providersLoading = ref(true)
@@ -150,6 +155,7 @@ onMounted(async () => {
 
         <!-- GitHub -->
         <SettingsSecurityOAuthProvider
+          v-if="isGitHubEnabled"
           provider="github"
           label="GitHub"
           icon="i-simple-icons-github"
@@ -162,6 +168,7 @@ onMounted(async () => {
 
         <!-- 微信 -->
         <SettingsSecurityOAuthProvider
+          v-if="isWeChatEnabled"
           provider="wx_open"
           label="微信"
           icon="i-simple-icons-wechat"

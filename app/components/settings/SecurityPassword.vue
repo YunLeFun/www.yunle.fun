@@ -139,7 +139,6 @@ async function handleChangePassword() {
               autocomplete="current-password"
               :disabled="authLoading"
               class="w-full"
-              :ui="{ trailing: 'pr-10' }"
             >
               <template #trailing>
                 <UButton
@@ -147,8 +146,12 @@ async function handleChangePassword() {
                   color="neutral"
                   variant="ghost"
                   size="xs"
+                  type="button"
                   :padded="false"
-                  :tabindex="-1"
+                  :aria-label="showOldPassword ? '隐藏当前密码' : '显示当前密码'"
+                  :aria-pressed="showOldPassword"
+                  :disabled="authLoading"
+                  @mousedown.prevent
                   @click="showOldPassword = !showOldPassword"
                 />
               </template>
@@ -165,7 +168,6 @@ async function handleChangePassword() {
               autocomplete="new-password"
               :disabled="authLoading"
               class="w-full"
-              :ui="{ trailing: 'pr-10' }"
             >
               <template #trailing>
                 <UButton
@@ -173,8 +175,12 @@ async function handleChangePassword() {
                   color="neutral"
                   variant="ghost"
                   size="xs"
+                  type="button"
                   :padded="false"
-                  :tabindex="-1"
+                  :aria-label="showNewPassword ? '隐藏新密码' : '显示新密码'"
+                  :aria-pressed="showNewPassword"
+                  :disabled="authLoading"
+                  @mousedown.prevent
                   @click="showNewPassword = !showNewPassword"
                 />
               </template>
@@ -194,7 +200,6 @@ async function handleChangePassword() {
               autocomplete="new-password"
               :disabled="authLoading"
               class="w-full"
-              :ui="{ trailing: 'pr-10' }"
             >
               <template #trailing>
                 <UButton
@@ -202,8 +207,12 @@ async function handleChangePassword() {
                   color="neutral"
                   variant="ghost"
                   size="xs"
+                  type="button"
                   :padded="false"
-                  :tabindex="-1"
+                  :aria-label="showConfirmPassword ? '隐藏确认密码' : '显示确认密码'"
+                  :aria-pressed="showConfirmPassword"
+                  :disabled="authLoading"
+                  @mousedown.prevent
                   @click="showConfirmPassword = !showConfirmPassword"
                 />
               </template>
@@ -286,7 +295,6 @@ async function handleChangePassword() {
               autocomplete="new-password"
               :disabled="authLoading"
               class="w-full"
-              :ui="{ trailing: 'pr-10' }"
             >
               <template #trailing>
                 <UButton
@@ -294,8 +302,12 @@ async function handleChangePassword() {
                   color="neutral"
                   variant="ghost"
                   size="xs"
+                  type="button"
                   :padded="false"
-                  :tabindex="-1"
+                  :aria-label="showNewPassword ? '隐藏新密码' : '显示新密码'"
+                  :aria-pressed="showNewPassword"
+                  :disabled="authLoading"
+                  @mousedown.prevent
                   @click="showNewPassword = !showNewPassword"
                 />
               </template>
@@ -315,7 +327,6 @@ async function handleChangePassword() {
               autocomplete="new-password"
               :disabled="authLoading"
               class="w-full"
-              :ui="{ trailing: 'pr-10' }"
             >
               <template #trailing>
                 <UButton
@@ -323,8 +334,12 @@ async function handleChangePassword() {
                   color="neutral"
                   variant="ghost"
                   size="xs"
+                  type="button"
                   :padded="false"
-                  :tabindex="-1"
+                  :aria-label="showConfirmPassword ? '隐藏确认密码' : '显示确认密码'"
+                  :aria-pressed="showConfirmPassword"
+                  :disabled="authLoading"
+                  @mousedown.prevent
                   @click="showConfirmPassword = !showConfirmPassword"
                 />
               </template>

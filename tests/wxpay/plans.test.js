@@ -11,7 +11,7 @@ import {
 // eslint-disable-next-line test/prefer-lowercase-title
 describe('PLAN_PRICES', () => {
   it('包含 basic 套餐', () => {
-    expect(PLAN_PRICES.basic).toMatchObject({ month: 990, year: 9990 })
+    expect(PLAN_PRICES.basic).toMatchObject({ month: 1000, year: 10000 })
   })
 
   it('对象被冻结，避免运行时改动金额', () => {
@@ -23,8 +23,8 @@ describe('PLAN_PRICES', () => {
 
 describe('getPlanAmount', () => {
   it.each([
-    ['basic', 'month', 990],
-    ['basic', 'year', 9990],
+    ['basic', 'month', 1000],
+    ['basic', 'year', 10000],
   ])('%s/%s -> %i 分', (planId, cycle, amount) => {
     expect(getPlanAmount(planId, cycle)).toBe(amount)
   })

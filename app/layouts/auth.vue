@@ -1,14 +1,15 @@
+<script setup lang="ts">
+// 跟随站点明暗模式：浅色=晴朗白日，深色=新海诚式黄昏
+const colorMode = useColorMode()
+const skyTheme = computed(() => (colorMode.value === 'dark' ? 'dark' : 'light'))
+</script>
+
 <template>
   <div class="ylf-auth-shell relative min-h-screen min-h-dvh overflow-x-hidden">
-    <!-- 彩色光晕背景 -->
-    <div
-      class="pointer-events-none absolute inset-0"
-      aria-hidden="true"
-    >
-      <div class="absolute -left-24 top-4 size-80 rounded-full bg-blue-400/30 blur-3xl dark:bg-blue-500/20" />
-      <div class="absolute -right-20 top-20 size-80 rounded-full bg-violet-400/30 blur-3xl dark:bg-violet-500/20" />
-      <div class="absolute -bottom-10 left-1/3 size-72 rounded-full bg-pink-400/25 blur-3xl dark:bg-pink-500/15" />
-    </div>
+    <!-- 梦幻晴空背景（天气之子） -->
+    <SkyScene :theme="skyTheme" class="pointer-events-none" />
+    <!-- 顶部留白处压一层柔和提亮，保证返回按钮在亮空下清晰 -->
+    <div class="pointer-events-none absolute inset-x-0 top-0 z-[1] h-32 bg-gradient-to-b from-white/35 to-transparent dark:from-black/20" aria-hidden="true" />
 
     <div class="absolute left-4 top-[calc(env(safe-area-inset-top)_+_0.75rem)] z-20 sm:left-8 sm:top-8">
       <UButton
@@ -26,11 +27,12 @@
       </UButton>
     </div>
 
-    <div class="relative z-10 grid min-h-screen min-h-dvh place-items-center px-4 pb-[calc(env(safe-area-inset-bottom)_+_1.5rem)] pt-[calc(env(safe-area-inset-top)_+_5rem)] sm:px-6 sm:py-10">
+    <!-- 移动端：晴空铺满顶部，表单做成贴底全宽「上滑卡」；桌面端：居中玻璃卡 -->
+    <div class="relative z-10 flex min-h-screen min-h-dvh flex-col justify-end pt-[calc(env(safe-area-inset-top)_+_5rem)] sm:items-center sm:justify-center sm:px-6 sm:py-10">
       <UPageCard
         variant="soft"
-        class="ylf-surface mx-auto w-full max-w-sm shadow-lg shadow-primary/5 hover:translate-y-0 hover:ring-0 sm:shadow-xl"
-        :ui="{ root: 'transition-none hover:shadow-xl hover:shadow-primary/5' }"
+        class="ylf-auth-card relative w-full overflow-hidden rounded-t-3xl rounded-b-none pb-[env(safe-area-inset-bottom)] sm:mx-auto sm:max-w-sm sm:rounded-b-3xl sm:pb-0"
+        :ui="{ root: 'transition-none' }"
       >
         <slot />
       </UPageCard>
@@ -41,6 +43,25 @@
 <style scoped>
 .ylf-auth-shell {
   isolation: isolate;
+}
+
+/* 磨砂玻璃卡片 —— 让晴空背景隐约透出；圆角由模板按端响应式控制（移动端只圆上方） */
+.ylf-auth-card {
+  background: color-mix(in srgb, var(--ylf-surface) 90%, transparent);
+  border: 1px solid color-mix(in srgb, #fff 55%, transparent);
+  box-shadow:
+    0 1px 0 0 color-mix(in srgb, #fff 70%, transparent) inset,
+    0 30px 64px -28px color-mix(in srgb, #0b82c4 55%, transparent);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+}
+
+.dark .ylf-auth-card {
+  background: color-mix(in srgb, var(--ylf-surface) 80%, transparent);
+  border-color: color-mix(in srgb, #fff 16%, transparent);
+  box-shadow:
+    0 1px 0 0 color-mix(in srgb, #fff 10%, transparent) inset,
+    0 30px 64px -28px color-mix(in srgb, #000 72%, transparent);
 }
 
 .ylf-auth-back {

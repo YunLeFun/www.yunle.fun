@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { TcbOtpData, TcbResetPasswordData } from '~/composables/useTcbAuth'
+import { GITHUB_PROVIDER_ID, isOAuthProviderEnabled, WECHAT_PROVIDER_ID } from '~/utils/authProviders'
 
 const RE_USERNAME = /^[a-z][\w-]{2,19}$/i
 const RE_EMAIL = /^[^\s@]+@[^\s@][^\s.@]*\.[^\s@]+$/
@@ -81,18 +82,22 @@ const newPassword = ref('')
 const confirmNewPassword = ref('')
 const { remaining: resetCountdown, isActive: resetCountdownActive, start: startResetCountdown } = useCountdown()
 
-const providers = [
+const allProviders = [
   {
+    id: GITHUB_PROVIDER_ID,
     label: 'GitHub',
     icon: 'i-simple-icons-github',
     onClick: () => loginWithGitHub(),
   },
   {
+    id: WECHAT_PROVIDER_ID,
     label: '微信登录',
     icon: 'i-simple-icons-wechat',
     onClick: () => loginWithWeChat(),
   },
 ]
+// 仅展示当前线上实际可用的第三方登录（微信等未就绪的先隐藏，见 ENABLED_OAUTH_PROVIDERS）
+const providers = computed(() => allProviders.filter(p => isOAuthProviderEnabled(p.id)))
 
 // 手机号校验（根据区号匹配规则）
 const phoneValid = computed(() => {
@@ -258,14 +263,14 @@ function openResetPassword() {
     <!-- 标题区域 -->
     <div class="text-center space-y-3">
       <div class="flex justify-center">
-        <div class="ylf-icon-tile flex h-14 w-16 items-center justify-center rounded-2xl">
+        <div class="ylf-gradient-tile flex h-14 w-16 items-center justify-center rounded-2xl">
           <YlfLogo
-            class="h-8 w-11"
+            class="h-8 w-11 text-white"
             aria-hidden="true"
           />
         </div>
       </div>
-      <h1 class="text-2xl font-bold tracking-tight">
+      <h1 class="ylf-dreamy-display text-3xl">
         登录 <span class="ylf-gradient-text">云乐坊</span>
       </h1>
       <p class="text-sm text-muted">
@@ -540,31 +545,35 @@ function openResetPassword() {
       </p>
     </form>
 
-    <!-- 分割线 -->
-    <div class="relative">
-      <div class="absolute inset-0 flex items-center">
-        <div class="w-full border-t border-default" />
+    <!-- 第三方登录（仅当有可用方式时展示，避免出现孤零零的「或」分割线） -->
+    <template v-if="providers.length">
+      <!-- 分割线 -->
+      <div class="relative">
+        <div class="absolute inset-0 flex items-center">
+          <div class="w-full border-t border-default" />
+        </div>
+        <div class="relative flex justify-center text-sm">
+          <span class="bg-default px-4 text-muted">
+            或
+          </span>
+        </div>
       </div>
-      <div class="relative flex justify-center text-sm">
-        <span class="bg-default px-4 text-muted">
-          或
-        </span>
-      </div>
-    </div>
 
-    <!-- 第三方登录 -->
-    <div class="space-y-2">
-      <UButton
-        v-for="provider in providers"
-        :key="provider.label"
-        v-bind="provider"
-        color="neutral"
-        variant="subtle"
-        size="lg"
-        block
-        class="ylf-auth-button-secondary"
-      />
-    </div>
+      <div class="space-y-2">
+        <UButton
+          v-for="provider in providers"
+          :key="provider.id"
+          :label="provider.label"
+          :icon="provider.icon"
+          color="neutral"
+          variant="subtle"
+          size="lg"
+          block
+          class="ylf-auth-button-secondary"
+          @click="provider.onClick"
+        />
+      </div>
+    </template>
 
     <!-- 注册链接 -->
     <p class="text-center text-sm text-muted">
@@ -778,8 +787,8 @@ function openResetPassword() {
 }
 
 .ylf-auth-login :deep(.ylf-auth-button-primary[data-slot='base']) {
-  background: linear-gradient(135deg, var(--ui-primary), color-mix(in srgb, var(--ui-primary) 72%, #7c3aed));
-  box-shadow: 0 10px 22px -14px var(--ui-primary);
+  background: var(--ylf-gradient-brand);
+  box-shadow: 0 10px 22px -12px color-mix(in srgb, #7c3aed 70%, transparent);
   color: white;
 }
 
