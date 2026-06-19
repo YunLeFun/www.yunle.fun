@@ -57,8 +57,8 @@
   /* 落日暖色 token（梦幻晴空 / 天气之子方向） */
   --ylf-sun-300: #ffd23f;
   --ylf-coral-400: #ff7a52;
-  /* 会员身份渐变 —— 填充式药丸专用「晴空落日 → 珊瑚」，暖底配深色字 #4a1b0c */
-  --ylf-gradient-member: linear-gradient(135deg, var(--ylf-sun-300) 0%, var(--ylf-coral-400) 100%);
+  /* 会员身份渐变 —— 「晴空落日 → 珊瑚」暖橙融珊瑚红，足够深以承载白字 */
+  --ylf-gradient-member: linear-gradient(135deg, #fb8a2e 0%, #f4516a 52%, #e6315f 100%);
 
   /* 梦幻晴空品牌字体（含系统回退，镜像加载失败也不破版） */
   --ylf-font-dreamy: 'ZCOOL XiaoWei', 'PingFang SC', 'Songti SC', ui-serif, serif;
@@ -98,6 +98,8 @@
   --ylf-gradient-brand: linear-gradient(115deg, #3b82f6, #22d3ee 55%, #06b6d4);
   --ylf-gradient-rainbow: linear-gradient(110deg, #22d3ee, #60a5fa 22%, #a78bfa 46%, #f472b6 70%, #fbbf24);
   --ylf-gradient-sunset: linear-gradient(115deg, #fcd34d, #fda4af);
+  /* 暗色下提亮会员渐变，在深色面板上更发光 */
+  --ylf-gradient-member: linear-gradient(135deg, #fb9a3e 0%, #fb5a78 52%, #f4416a 100%);
 }
 
 html {
@@ -370,6 +372,15 @@ body {
   border: 1px solid color-mix(in srgb, #fff 45%, transparent);
 }
 
+/* 暮蓝深色玻璃 —— 叠在晴空（含右下最浅处）上仍需白字强对比的区块，如个人中心数据条。
+   半透明暮蓝 + 模糊：晴空仍透出来保持轻盈，但白字在任意底色上都清晰。 */
+.ylf-glass-deep {
+  background: color-mix(in srgb, #0a3161 34%, transparent);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  border: 1px solid color-mix(in srgb, #fff 20%, transparent);
+}
+
 /* 晴空白卡 —— 通用内容卡片（圆角 + navy 轻投影），明暗自适应 */
 .ylf-card {
   background: var(--ylf-surface);
@@ -491,31 +502,42 @@ body {
 
 /* ------------------------------------------------------------------ *
  * Membership identity — 「云」 mark on the sunset gradient
- * 会员身份统一用暖阳渐变：从晴空蓝 hero 里跳出来，且与普通玻璃药丸分清主次。
- * 暖底偏亮，故文字/图标用深珊瑚色（coral-900）保证对比度，明暗模式皆可读。
+ * 会员身份统一用落日暖渐变：从晴空蓝 hero 里跳出来，且与普通玻璃药丸分清主次。
+ * 渐变足够深，故文字/图标统一用白字 + 暖色文字阴影，与 hero 通体白字呼应，明暗皆清晰。
  * Shared by <MemberBadge>, <MemberAvatar> and the wallet member tile.
  * ------------------------------------------------------------------ */
 .ylf-member-mark {
-  color: #4a1b0c;
+  color: #fff;
   background: var(--ylf-gradient-member);
-  box-shadow: 0 4px 14px -6px color-mix(in srgb, #ff7a52 55%, transparent);
+  box-shadow:
+    0 4px 14px -6px color-mix(in srgb, #f4516a 60%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.32);
+  text-shadow: 0 1px 1.5px rgba(120, 22, 36, 0.38);
 }
 
 .dark .ylf-member-mark {
-  box-shadow: 0 4px 14px -6px color-mix(in srgb, #ff7a52 45%, transparent);
+  box-shadow:
+    0 4px 16px -6px color-mix(in srgb, #f4516a 55%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
 }
 
-/* 云朵白变体 —— 会员药丸叠在晴空蓝 / 深色 hero 上时更素雅：暖白底 + 落日色字。
-   注意：白底面板（用户菜单、钱包卡）请用上面的 fill 实底版，否则白底白药丸会糊。 */
+/* frost 变体 —— 会员药丸叠在晴空蓝 / 深色 hero 上：同款落日实底 + 一圈白描边，
+   与晴空清晰分离，仍是白字。（实底不透明，浅色晴空底也不糊。） */
 .ylf-member-frost {
-  color: #c2410c;
-  background: color-mix(in srgb, #ffd23f 10%, #ffffff);
-  box-shadow: 0 4px 14px -6px color-mix(in srgb, #ff7a52 45%, transparent);
+  color: #fff;
+  background: var(--ylf-gradient-member);
+  box-shadow:
+    0 4px 14px -6px color-mix(in srgb, #f4516a 55%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.5);
+  text-shadow: 0 1px 2px rgba(120, 22, 36, 0.42);
 }
 
 .dark .ylf-member-frost {
-  color: #c2410c;
-  background: color-mix(in srgb, #ffd23f 12%, #ffffff);
+  box-shadow:
+    0 4px 16px -6px color-mix(in srgb, #f4516a 55%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    0 0 0 1px rgba(255, 255, 255, 0.4);
 }
 
 /* Soft member wash — for highlighting an active-member surface */

@@ -384,17 +384,19 @@ async function save() {
           </p>
         </UFormField>
 
-        <UFormField label="手机号">
-          <p class="text-sm py-2">
-            {{ user?.phone || '未绑定' }}
-          </p>
-        </UFormField>
-
-        <UFormField label="邮箱">
-          <p class="text-sm py-2">
-            {{ user?.email || '未绑定' }}
-          </p>
-        </UFormField>
+        <!-- 登录方式（手机号 / 邮箱 / 密码）统一在「安全设置」管理，此处不再重复展示 -->
+        <NuxtLink
+          to="/settings?tab=security"
+          class="flex items-center justify-between gap-2 rounded-lg bg-elevated/60 px-3 py-2.5 text-sm transition-colors hover:bg-elevated"
+        >
+          <span class="flex min-w-0 items-center gap-2 text-muted">
+            <UIcon name="i-lucide-shield" class="size-4 shrink-0" />
+            <span class="truncate">手机号、邮箱、密码等登录方式</span>
+          </span>
+          <span class="flex shrink-0 items-center gap-1 text-primary">
+            去管理 <UIcon name="i-lucide-arrow-right" class="size-3.5" />
+          </span>
+        </NuxtLink>
       </div>
 
       <!-- 编辑操作按钮 -->

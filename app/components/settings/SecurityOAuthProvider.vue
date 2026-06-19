@@ -16,24 +16,24 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div class="flex items-center justify-between py-4">
-    <div class="flex items-center gap-3">
-      <div class="size-9 flex items-center justify-center rounded-lg bg-elevated">
+  <div class="flex items-center justify-between gap-3 py-4">
+    <div class="flex min-w-0 flex-1 items-center gap-3">
+      <div class="size-9 flex shrink-0 items-center justify-center rounded-lg bg-elevated">
         <UIcon :name="props.icon" class="text-lg" :class="props.iconClass" />
       </div>
-      <div class="space-y-1">
+      <div class="min-w-0 space-y-1">
         <p class="text-sm font-medium">
           {{ props.label }}
         </p>
-        <p v-if="props.providersLoading" class="text-xs text-muted">
+        <p v-if="props.providersLoading" class="truncate text-xs text-muted">
           正在查询绑定状态...
         </p>
-        <p v-else class="text-xs text-muted">
+        <p v-else class="truncate text-xs text-muted">
           {{ props.bound ? `已绑定，可使用 ${props.label} 登录` : `绑定后可使用 ${props.label} 账号登录` }}
         </p>
       </div>
     </div>
-    <div class="flex items-center gap-2">
+    <div class="flex shrink-0 items-center gap-2">
       <UBadge
         v-if="props.providersLoading"
         label="查询中"

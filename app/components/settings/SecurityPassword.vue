@@ -82,16 +82,16 @@ async function handleChangePassword() {
 
 <template>
   <!-- 密码行 -->
-  <div class="flex items-center justify-between py-4">
-    <div class="space-y-1">
+  <div class="flex items-center justify-between gap-3 py-4">
+    <div class="min-w-0 flex-1 space-y-1">
       <p class="text-sm font-medium">
         登录密码
       </p>
-      <p class="text-xs text-muted">
+      <p class="truncate text-xs text-muted">
         {{ hasPassword ? '已设置密码，可使用邮箱/手机号 + 密码登录' : '未设置密码，设置后可使用密码登录' }}
       </p>
     </div>
-    <div class="flex items-center gap-2">
+    <div class="flex shrink-0 items-center gap-2">
       <UBadge
         :label="hasPassword ? '已设置' : '未设置'"
         :color="hasPassword ? 'success' : 'warning'"

@@ -166,7 +166,7 @@ function formatAppDate(ts: number) {
           </div>
 
           <!-- 数据条（点击直达） -->
-          <div class="ylf-glass ylf-hero-shadow mt-6 flex items-stretch rounded-2xl px-2 py-2.5">
+          <div class="ylf-glass-deep ylf-hero-shadow mt-6 flex items-stretch rounded-2xl px-2 py-2.5">
             <component
               :is="s.to ? 'NuxtLink' : 'button'"
               v-for="(s, i) in stats"
@@ -178,7 +178,7 @@ function formatAppDate(ts: number) {
               @click="s.onClick?.()"
             >
               <span class="text-xl font-semibold leading-none tabular-nums">{{ s.value }}</span>
-              <span class="text-xs text-white/85">{{ s.label }}</span>
+              <span class="text-xs text-white/90">{{ s.label }}</span>
             </component>
           </div>
         </div>

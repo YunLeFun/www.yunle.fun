@@ -20,10 +20,10 @@ watch(isAuthenticated, (value) => {
 // Tab 切换
 const route = useRoute()
 const tabs = [
-  { label: '个人资料', value: 'profile', icon: 'i-lucide-user' },
-  { label: '隐私', value: 'privacy', icon: 'i-lucide-eye-off' },
-  { label: '安全设置', value: 'security', icon: 'i-lucide-shield' },
-  { label: '账户管理', value: 'account', icon: 'i-lucide-settings' },
+  { label: '个人资料', short: '资料', value: 'profile', icon: 'i-lucide-user' },
+  { label: '隐私', short: '隐私', value: 'privacy', icon: 'i-lucide-eye-off' },
+  { label: '安全设置', short: '安全', value: 'security', icon: 'i-lucide-shield' },
+  { label: '账户管理', short: '账户', value: 'account', icon: 'i-lucide-settings' },
 ]
 
 const tabParam = (route.query.tab as string) || ''
@@ -32,6 +32,13 @@ const activeTab = ref(initialTab)
 
 watch(activeTab, (val) => {
   router.replace({ query: val === 'profile' ? {} : { tab: val } })
+})
+
+// URL ?tab= → activeTab：支持深链与站内链接（如个人资料里跳「安全设置」）切换
+watch(() => route.query.tab, (tab) => {
+  const next = typeof tab === 'string' && tabs.some(t => t.value === tab) ? tab : 'profile'
+  if (next !== activeTab.value)
+    activeTab.value = next
 })
 </script>
 
@@ -58,19 +65,20 @@ watch(activeTab, (val) => {
         </h1>
       </div>
 
-      <!-- Tab 切换 -->
+      <!-- Tab 切换：移动端图标 + 短标签，桌面端全标签 -->
       <div class="flex gap-1 rounded-lg bg-elevated p-1">
         <button
           v-for="tab in tabs"
           :key="tab.value"
-          class="flex items-center gap-2 flex-1 justify-center py-2 px-3 text-sm font-medium rounded-md transition-all"
+          class="flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-2 text-sm font-medium transition-all sm:gap-2 sm:px-3"
           :class="activeTab === tab.value
             ? 'bg-default text-default shadow-sm'
             : 'text-muted hover:text-default'"
           @click="activeTab = tab.value"
         >
-          <UIcon :name="tab.icon" class="text-base" />
-          {{ tab.label }}
+          <UIcon :name="tab.icon" class="shrink-0 text-base" />
+          <span class="sm:hidden">{{ tab.short }}</span>
+          <span class="hidden sm:inline">{{ tab.label }}</span>
         </button>
       </div>
 

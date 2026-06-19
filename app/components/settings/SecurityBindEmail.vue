@@ -55,16 +55,16 @@ async function handleVerify() {
 
 <template>
   <!-- 邮箱行 -->
-  <div class="flex items-center justify-between py-4">
-    <div class="space-y-1">
+  <div class="flex items-center justify-between gap-3 py-4">
+    <div class="min-w-0 flex-1 space-y-1">
       <p class="text-sm font-medium">
         邮箱
       </p>
-      <p class="text-xs text-muted">
+      <p class="truncate text-xs text-muted">
         {{ user?.email ? `已绑定 ${user.email}` : '未绑定邮箱，绑定后可使用邮箱登录' }}
       </p>
     </div>
-    <div class="flex items-center gap-2">
+    <div class="flex shrink-0 items-center gap-2">
       <UBadge
         :label="user?.email ? '已绑定' : '未绑定'"
         :color="user?.email ? 'success' : 'warning'"

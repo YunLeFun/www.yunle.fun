@@ -123,23 +123,31 @@ onMounted(async () => {
 
 <template>
   <div class="space-y-6">
+    <!-- 登录凭证 -->
     <UPageCard class="p-6">
-      <h3 class="text-lg font-semibold mb-4">
-        安全设置
+      <h3 class="mb-1 text-lg font-semibold">
+        登录凭证
       </h3>
+      <p class="mb-3 text-xs text-muted">
+        用于登录账户的方式，建议至少绑定一种并设置密码
+      </p>
 
       <div class="divide-y divide-default">
+        <!-- 邮箱 -->
+        <SettingsSecurityBindEmail />
+
         <!-- 手机号 -->
-        <div class="flex items-center justify-between py-4">
-          <div class="space-y-1">
+        <div class="flex items-center justify-between gap-3 py-4">
+          <div class="min-w-0 flex-1 space-y-1">
             <p class="text-sm font-medium">
               手机号
             </p>
-            <p class="text-xs text-muted">
+            <p class="truncate text-xs text-muted">
               {{ user?.phone ? `已绑定 ${user.phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')}` : '未绑定手机号' }}
             </p>
           </div>
           <UBadge
+            class="shrink-0"
             :label="user?.phone ? '已绑定' : '未绑定'"
             :color="user?.phone ? 'success' : 'warning'"
             variant="subtle"
@@ -147,12 +155,21 @@ onMounted(async () => {
           />
         </div>
 
-        <!-- 邮箱 -->
-        <SettingsSecurityBindEmail />
-
         <!-- 密码 -->
         <SettingsSecurityPassword />
+      </div>
+    </UPageCard>
 
+    <!-- 第三方账号 -->
+    <UPageCard v-if="isGitHubEnabled || isWeChatEnabled" class="p-6">
+      <h3 class="mb-1 text-lg font-semibold">
+        第三方账号
+      </h3>
+      <p class="mb-3 text-xs text-muted">
+        绑定后可一键登录，无需输入密码
+      </p>
+
+      <div class="divide-y divide-default">
         <!-- GitHub -->
         <SettingsSecurityOAuthProvider
           v-if="isGitHubEnabled"
