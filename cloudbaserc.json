@@ -86,6 +86,13 @@
         "APPSTORE_BUNDLE_ID": "fun.yunle.apps",
         "APPSTORE_APP_APPLE_ID": ""
       }
+    },
+    {
+      "name": "shortlink-resolve",
+      "timeout": 10,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true
     }
   ],
   "ai": {

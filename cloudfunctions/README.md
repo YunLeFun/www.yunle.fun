@@ -6,14 +6,15 @@
 
 ## 云函数列表
 
-| 云函数            | 用途                                                             | 调用方式           | 超时 |
-| ----------------- | ---------------------------------------------------------------- | ------------------ | ---- |
-| `wxpay-order`     | 创建支付订单（会员 / 云币充值）+ 查询订单 + 对账自愈             | SDK `callFunction` | 30s  |
-| `wxpay-notify`    | 接收微信支付异步回调通知                                         | HTTP 访问服务      | 10s  |
-| `account-api`     | 平台账户中心：账户 / 云币 / 签到 / 投币 / 关注·粉丝              | SDK `callFunction` | 10s  |
-| `iap-order`       | Apple 内购（IAP）凭据校验 + 权益发放                             | SDK `callFunction` | 30s  |
-| `appstore-notify` | 接收 App Store Server Notifications V2（退款 / 撤销自动处理）    | HTTP 访问服务      | 30s  |
-| `desktop-auth`    | 桌面 / 本地应用登录授权（设备授权码 + Ed25519 离线 entitlement） | SDK + HTTP 双入口  | 10s  |
+| 云函数              | 用途                                                                                     | 调用方式           | 超时 |
+| ------------------- | ---------------------------------------------------------------------------------------- | ------------------ | ---- |
+| `wxpay-order`       | 创建支付订单（会员 / 云币充值）+ 查询订单 + 对账自愈                                     | SDK `callFunction` | 30s  |
+| `wxpay-notify`      | 接收微信支付异步回调通知                                                                 | HTTP 访问服务      | 10s  |
+| `account-api`       | 平台账户中心：账户 / 云币 / 签到 / 投币 / 关注·粉丝                                      | SDK `callFunction` | 10s  |
+| `iap-order`         | Apple 内购（IAP）凭据校验 + 权益发放                                                     | SDK `callFunction` | 30s  |
+| `appstore-notify`   | 接收 App Store Server Notifications V2（退款 / 撤销自动处理）                            | HTTP 访问服务      | 30s  |
+| `desktop-auth`      | 桌面 / 本地应用登录授权（设备授权码 + Ed25519 离线 entitlement）                         | SDK + HTTP 双入口  | 10s  |
+| `shortlink-resolve` | 短链只读解析：按 `(domain, slug)` 读 `short_links` 返回跳转目标，供 EdgeOne 跳转函数回源 | HTTP 访问服务      | 10s  |
 
 > 云币 + 跨应用会员的整体设计见 [`docs/coin-and-membership.md`](../docs/coin-and-membership.md)。
 > 其中 5 个支付 / 账户函数共享同一份 `lib/`：权威源在 `cloudfunctions/wxpay-order/lib`，`pnpm sync:wxpay-lib` 同步到
@@ -90,11 +91,12 @@
 
 下列函数通过 CloudBase「HTTP 访问服务」对外暴露 HTTPS 端点供外部系统回调；其余函数只经 SDK `callFunction` 调用，无公网入口。
 
-| 函数              | 默认端点                                                                                       | 配置到                                                                       |
-| ----------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| `wxpay-notify`    | `https://<envId>.service.tcloudbase.com/wxpay-notify`                                          | 微信支付商户平台回调地址（即 `WX_NOTIFY_URL`）                               |
-| `appstore-notify` | `https://<envId>.service.tcloudbase.com/appstore-notify`                                       | App Store Connect → App Store Server Notifications（V2，生产与沙盒各配一次） |
-| `desktop-auth`    | `https://api.yunle.fun/desktop-auth`（设备侧 HTTP 入口，详见 [`docs/desktop-sso-integration.md`](../docs/desktop-sso-integration.md)） | 桌面客户端                                                                   |
+| 函数                | 默认端点                                                                                                                               | 配置到                                                                        |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `wxpay-notify`      | `https://<envId>.service.tcloudbase.com/wxpay-notify`                                                                                  | 微信支付商户平台回调地址（即 `WX_NOTIFY_URL`）                                |
+| `appstore-notify`   | `https://<envId>.service.tcloudbase.com/appstore-notify`                                                                               | App Store Connect → App Store Server Notifications（V2，生产与沙盒各配一次）  |
+| `desktop-auth`      | `https://api.yunle.fun/desktop-auth`（设备侧 HTTP 入口，详见 [`docs/desktop-sso-integration.md`](../docs/desktop-sso-integration.md)） | 桌面客户端                                                                    |
+| `shortlink-resolve` | `https://<envId>.service.tcloudbase.com/shortlink-resolve`                                                                             | EdgeOne 短链跳转边缘函数（KV 未命中回源），配为其 `RESOLVE_ENDPOINT` 环境变量 |
 
 > 当前环境 `<envId>` = `yunlefun-8g7ybcxc7345c490`。这些函数的 HTTP 路径绑定在网关的**通配域名 `*`** 上，因此在所有已接入域名都可达：默认域名 `https://<envId>.service.tcloudbase.com`，以及自定义域名 `api.yunle.fun` / `tcb.yunle.fun` / `tcb.api.yunle.fun`（如 `https://api.yunle.fun/desktop-auth`）。
 >
@@ -484,6 +486,35 @@ join `user_profiles`）。通知是异步可拉取的，**不走 WebSocket**。�
 // user_notifications（一条通知）
 { userId（接收者）, type, actorId, read, createdAt, readAt? }
 ```
+
+### 短链：short_links（需新建）
+
+短链跳转规则，由 admin 控制面（`/shortlinks` 页）CRUD 维护，是跳转的**源真相**；`shortlink-resolve`
+按 `(domain, slug)` 读取，EdgeOne 边缘函数缓存到 KV 后 302。上线前在控制台**新建集合并配置索引**：
+
+| 集合          | 索引名            | 字段                     | 唯一性 |
+| ------------- | ----------------- | ------------------------ | ------ |
+| `short_links` | `idx_domain_slug` | `domain` ASC, `slug` ASC | 唯一   |
+| `short_links` | `idx_updatedAt`   | `updatedAt` DESC         | 非唯一 |
+
+> ⚠️ `idx_domain_slug` 必须**唯一**：同一域名下 slug 不可重复（不同域名可同名），也是 `shortlink-resolve`
+> 与 admin upsert 唯一性校验的依据。`idx_updatedAt` 服务后台列表按更新时间倒序分页。
+
+```text
+// short_links（一条短链）
+{
+  domain: "u.yunle.fun",   // 绑定域名（host），与 slug 组成唯一键
+  slug: "abc",              // 路径，对应 https://{domain}/{slug}
+  target: "https://…",      // 跳转目标（http/https 绝对地址）
+  enabled: true,            // 停用后跳转函数返回未找到
+  expireAt: 0,              // 过期时间戳(ms)，缺省/0 = 永不过期
+  clicks: 0,                // 点击数（Phase 3 计数接入前恒为 0）
+  createdBy: "yunyoujun",
+  createdAt, updatedAt
+}
+```
+
+安全规则：**ADMINONLY**（仅 admin 管理端 SDK 与 `shortlink-resolve` 云函数读写），前端不直读。
 
 ## 共享代码：lib/
 
