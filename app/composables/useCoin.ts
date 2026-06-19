@@ -3,6 +3,25 @@ import type { AccountSnapshot, CoinTransaction } from '~/types/payment'
 // 展示工具已收敛到 @yunlefun/types，re-export 保持原引用路径（wallet.vue 等）不变
 export { COIN_TX_TYPE_NAMES, formatCoin } from '@yunlefun/types'
 
+/** 订单摘要（account-api listOrders 的脱敏投影），供钱包「订单历史」展示 */
+export interface OrderSummary {
+  id: string
+  orderType: 'membership' | 'recharge_coin' | (string & {})
+  appId: string
+  /** 金额（分） */
+  amount: number
+  status: 'pending' | 'paid' | 'failed' | 'refunded' | 'closed' | (string & {})
+  payType: string
+  /** 会员单 */
+  level: string | null
+  billingCycle: string | null
+  /** 云币充值单 */
+  coinAmount: number | null
+  packId: string | null
+  createdAt: number
+  paidAt: number | null
+}
+
 /**
  * 平台账户 composable（云币余额 + 会员状态 + 流水）。
  *
@@ -109,6 +128,20 @@ export function useCoin() {
     return res.result as { items: CoinTransaction[], nextSkip: number | null }
   }
 
+  /** 订单历史分页（会员 / 云币充值订单，按时间倒序） */
+  async function listOrders(params: { skip?: number, limit?: number } = {}): Promise<{
+    items: OrderSummary[]
+    nextSkip: number | null
+  }> {
+    if (!app)
+      return { items: [], nextSkip: null }
+    const res = await app.callFunction({
+      name: 'account-api',
+      data: { action: 'listOrders', skip: params.skip ?? 0, limit: params.limit ?? 10 },
+    })
+    return res.result as { items: OrderSummary[], nextSkip: number | null }
+  }
+
   // 用户变化时自动刷新
   watch(
     () => user.value?.id,
@@ -134,5 +167,6 @@ export function useCoin() {
     deduct,
     reconcileOrders,
     listTransactions,
+    listOrders,
   }
 }

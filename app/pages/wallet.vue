@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { OrderSummary } from '~/composables/useCoin'
 import type { CoinPackId, CoinTransaction } from '~/types/payment'
 import { COIN_TX_TYPE_NAMES } from '~/composables/useCoin'
 import { formatPrice } from '~/composables/usePaymentFlow'
@@ -90,6 +91,58 @@ async function loadTransactions(reset = false) {
   }
 }
 
+// 订单历史
+const orders = ref<OrderSummary[]>([])
+const orderLoading = ref(false)
+const orderNextSkip = ref<number | null>(0)
+const orderHasMore = computed(() => orderNextSkip.value !== null)
+
+async function loadOrders(reset = false) {
+  if (orderLoading.value)
+    return
+  if (reset) {
+    orders.value = []
+    orderNextSkip.value = 0
+  }
+  if (orderNextSkip.value === null)
+    return
+  orderLoading.value = true
+  try {
+    const { items, nextSkip } = await coin.listOrders({ skip: orderNextSkip.value, limit: 10 })
+    orders.value.push(...items)
+    orderNextSkip.value = nextSkip
+  }
+  catch (err) {
+    // 后端 listOrders 暂不可用时优雅降级为空，不拖垮整页
+    console.warn('[wallet] listOrders failed:', err)
+    orderNextSkip.value = null
+  }
+  finally {
+    orderLoading.value = false
+  }
+}
+
+const ORDER_STATUS: Record<string, { label: string, color: 'warning' | 'success' | 'neutral' | 'error' }> = {
+  pending: { label: '待支付', color: 'warning' },
+  paid: { label: '已支付', color: 'success' },
+  failed: { label: '已失败', color: 'neutral' },
+  refunded: { label: '已退款', color: 'error' },
+  closed: { label: '已关闭', color: 'neutral' },
+}
+function orderStatusMeta(status: string) {
+  return ORDER_STATUS[status] ?? { label: status, color: 'neutral' as const }
+}
+
+function orderTitle(o: OrderSummary): string {
+  if (o.orderType === 'membership') {
+    const cycle = o.billingCycle === 'month' ? '月付' : o.billingCycle === 'year' ? '年付' : ''
+    return `${o.level ? `${o.level} ` : ''}会员${cycle ? ` · ${cycle}` : ''}`
+  }
+  if (o.orderType === 'recharge_coin')
+    return `云币充值${o.coinAmount ? ` ${o.coinAmount} 云币` : ''}`
+  return '订单'
+}
+
 function handleRecharge(packId: CoinPackId) {
   if (!user.value) {
     navigateTo('/login?redirect=/wallet')
@@ -144,7 +197,7 @@ onMounted(async () => {
     // 先兜底对账：把支付成功却卡在 pending（轮询窗口已关 / 回调漏达）的订单补发，
     // 再刷新余额与流水，避免「付了款余额不变」。
     const { paid } = await coin.reconcileOrders()
-    await Promise.all([coin.refresh(), loadTransactions(true)])
+    await Promise.all([coin.refresh(), loadTransactions(true), loadOrders(true)])
     if (paid > 0)
       useToast().add({ title: '已为你补发到账', description: `${paid} 笔支付已确认入账`, color: 'success' })
   }
@@ -435,6 +488,61 @@ onMounted(async () => {
             size="sm"
             :loading="txLoading"
             @click="loadTransactions()"
+          >
+            加载更多
+          </UButton>
+        </div>
+      </section>
+
+      <!-- 订单历史 -->
+      <section class="space-y-4">
+        <h2 class="text-lg font-semibold">
+          订单历史
+        </h2>
+
+        <div v-if="orders.length === 0 && !orderLoading" class="ylf-empty-state rounded-2xl py-12 text-center text-muted">
+          <UIcon name="i-lucide-scroll-text" class="mx-auto mb-2 size-8 opacity-60" />
+          <p>暂无订单</p>
+        </div>
+
+        <div v-else class="ylf-surface divide-y divide-default overflow-hidden rounded-2xl">
+          <div
+            v-for="order in orders"
+            :key="order.id"
+            class="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-elevated/60"
+          >
+            <div class="flex min-w-0 items-center gap-3">
+              <span
+                class="flex size-9 shrink-0 items-center justify-center rounded-xl"
+                :class="order.orderType === 'membership' ? 'ylf-member-mark' : 'bg-elevated text-dimmed'"
+              >
+                <UIcon :name="order.orderType === 'membership' ? 'i-lucide-crown' : 'i-lucide-coins'" class="size-4" />
+              </span>
+              <div class="min-w-0 space-y-0.5">
+                <div class="flex items-center gap-2">
+                  <span class="truncate font-medium">{{ orderTitle(order) }}</span>
+                  <UBadge :color="orderStatusMeta(order.status).color" variant="subtle" size="sm" class="shrink-0">
+                    {{ orderStatusMeta(order.status).label }}
+                  </UBadge>
+                </div>
+                <div class="text-xs text-muted">
+                  {{ formatDate(order.createdAt) }}
+                </div>
+              </div>
+            </div>
+            <div class="shrink-0 text-right font-semibold tabular-nums">
+              {{ formatPrice(order.amount) }}
+            </div>
+          </div>
+        </div>
+
+        <div v-if="orderHasMore" class="text-center">
+          <UButton
+            variant="outline"
+            color="neutral"
+            size="sm"
+            :loading="orderLoading"
+            @click="loadOrders()"
           >
             加载更多
           </UButton>

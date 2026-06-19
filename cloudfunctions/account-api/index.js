@@ -24,6 +24,7 @@
  *   - getAccountForUser 内部服务按指定 userId 读账户全貌（需 ACCOUNT_API_INTERNAL_TOKEN）
  *   - adminAdjustCoin   管理员人工调账（增/减，需 ACCOUNT_API_INTERNAL_TOKEN）
  *   - listTransactions  云币流水分页（需登录）
+ *   - listOrders        我的订单历史分页（需登录，会员 / 云币充值订单）
  *
  * 主入口只做"参数解析 + 鉴权 + 路由"，纯逻辑委托给 lib/（与 wxpay-order 共享同一份 lib）。
  *
@@ -50,6 +51,7 @@ const {
   deductCoin,
 } = require('./lib/wallet')
 const { getUnreadCount, listNotifications, markRead } = require('./notifications')
+const { listUserOrders } = require('./orders-query')
 const { getProfile, upsertMyProfile } = require('./profiles')
 const { getSignInStatus, signIn } = require('./signin')
 const { getAppSupport, getTipLeaderboard, tip } = require('./tips')
@@ -145,6 +147,7 @@ async function dispatch(event) {
     case 'getAccount':
     case 'deductCoin':
     case 'listTransactions':
+    case 'listOrders':
     case 'signIn':
     case 'getSignInStatus':
     case 'tip':
@@ -165,6 +168,8 @@ async function dispatch(event) {
           return await handleDeductCoin(uid, event)
         case 'listTransactions':
           return await handleListTransactions(uid, event)
+        case 'listOrders':
+          return await listUserOrders(db, { userId: uid, skip: event.skip, limit: event.limit })
         case 'signIn':
           return await signIn(db, { userId: uid, now: Date.now() })
         case 'getSignInStatus':
