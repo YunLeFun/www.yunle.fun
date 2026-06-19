@@ -21,6 +21,7 @@ watch(isAuthenticated, (value) => {
 const route = useRoute()
 const tabs = [
   { label: '个人资料', value: 'profile', icon: 'i-lucide-user' },
+  { label: '隐私', value: 'privacy', icon: 'i-lucide-eye-off' },
   { label: '安全设置', value: 'security', icon: 'i-lucide-shield' },
   { label: '账户管理', value: 'account', icon: 'i-lucide-settings' },
 ]
@@ -75,6 +76,7 @@ watch(activeTab, (val) => {
 
       <!-- Tab 内容 -->
       <SettingsProfileTab v-if="activeTab === 'profile'" />
+      <SettingsPrivacyTab v-else-if="activeTab === 'privacy'" />
       <SettingsSecurityTab v-else-if="activeTab === 'security'" />
       <SettingsAccountTab v-else-if="activeTab === 'account'" />
     </div>

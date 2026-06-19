@@ -10,7 +10,8 @@ const COLLECTION = 'apps'
 export function useApps() {
   const { app } = useCloudbase()
   const { user } = useTcbAuth()
-  const db = app.database()
+  // SSR 安全：useCloudbase 在服务端返回空 app，此处惰性可空（各方法仅在客户端调用，app 必存在）
+  const db = app?.database()
 
   /**
    * 获取当前用户的所有应用

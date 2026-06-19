@@ -55,6 +55,9 @@ export default defineNuxtConfig({
   },
 
   runtimeConfig: {
+    // CloudBase account-api 的 HTTP 访问服务地址（server 端 SSR 代理 getProfile 用；
+    // 未配置则 /u 主页退化为客户端渲染，不影响功能仅影响 SEO）
+    accountApiHttpUrl: process.env.NUXT_ACCOUNT_API_HTTP_URL || '',
     public: {
       siteUrl: process.env.NUXT_PUBLIC_SITE_URL || 'http://localhost:5173',
       apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || 'http://localhost:3000',
@@ -89,6 +92,9 @@ export default defineNuxtConfig({
     '/link': { ssr: false },
     '/auth/**': { ssr: false },
     '/apps/**': { ssr: false },
+    // 公开用户主页：SSR（SEO / 分享 OG），数据经 server route 代理 getProfile；关系 / 应用等客户端补
+    '/u/**': { ssr: true },
+    '/feed': { ssr: false },
     '/test/**': { ssr: false },
 
     '/_nuxt/**': {

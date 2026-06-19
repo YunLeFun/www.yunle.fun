@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { CSSProperties } from 'vue'
+
 /**
  * 梦幻晴空背景 —— 天气之子 / 云之彼端 风格。
  *
@@ -35,6 +37,12 @@ const props = withDefaults(defineProps<{
   clouds: 'full',
 })
 
+const hydrationVersion = ref(0)
+
+onMounted(() => {
+  hydrationVersion.value = 1
+})
+
 const dusk = computed(() => props.theme === 'dark')
 
 const sky = computed(() => dusk.value
@@ -69,7 +77,7 @@ const birds = [
 ]
 
 /** 单个云朵由若干叠加的柔和圆形拼出 */
-function circ(s: number, l: number, b: number) {
+function circ(s: number, l: number, b: number): CSSProperties {
   return {
     position: 'absolute',
     width: `${s}%`,
@@ -84,6 +92,7 @@ function circ(s: number, l: number, b: number) {
 
 <template>
   <div
+    :key="hydrationVersion"
     class="ylf-skyscene"
     :style="{ position: 'absolute', inset: 0, overflow: 'hidden', background: sky }"
     aria-hidden="true"

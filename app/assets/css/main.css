@@ -52,8 +52,13 @@
   /* 品牌主渐变 —— 晴空蓝（呼应「云」的身份）+ 更缤纷的彩虹渐变（多彩点缀） */
   --ylf-gradient-brand: linear-gradient(115deg, #2563eb, #0ea5e9 55%, #0891b2);
   --ylf-gradient-rainbow: linear-gradient(110deg, #06b6d4, #3b82f6 22%, #8b5cf6 46%, #ec4899 70%, #f59e0b);
-  /* 暖阳渐变 —— 用于「乐趣」等温暖点睛字 */
+  /* 暖阳渐变 —— 渐变作「乐趣」等点睛字色，需在浅底可读，故偏深 */
   --ylf-gradient-sunset: linear-gradient(115deg, #fbbf24, #fb7185);
+  /* 落日暖色 token（梦幻晴空 / 天气之子方向） */
+  --ylf-sun-300: #ffd23f;
+  --ylf-coral-400: #ff7a52;
+  /* 会员身份渐变 —— 填充式药丸专用「晴空落日 → 珊瑚」，暖底配深色字 #4a1b0c */
+  --ylf-gradient-member: linear-gradient(135deg, var(--ylf-sun-300) 0%, var(--ylf-coral-400) 100%);
 
   /* 梦幻晴空品牌字体（含系统回退，镜像加载失败也不破版） */
   --ylf-font-dreamy: 'ZCOOL XiaoWei', 'PingFang SC', 'Songti SC', ui-serif, serif;
@@ -485,18 +490,32 @@ body {
 }
 
 /* ------------------------------------------------------------------ *
- * Membership identity — 「云」 mark on the brand gradient
+ * Membership identity — 「云」 mark on the sunset gradient
+ * 会员身份统一用暖阳渐变：从晴空蓝 hero 里跳出来，且与普通玻璃药丸分清主次。
+ * 暖底偏亮，故文字/图标用深珊瑚色（coral-900）保证对比度，明暗模式皆可读。
  * Shared by <MemberBadge>, <MemberAvatar> and the wallet member tile.
  * ------------------------------------------------------------------ */
 .ylf-member-mark {
-  color: #fff;
-  background: var(--ylf-gradient-brand);
-  box-shadow: 0 4px 14px -6px color-mix(in srgb, #0b82c4 60%, transparent);
+  color: #4a1b0c;
+  background: var(--ylf-gradient-member);
+  box-shadow: 0 4px 14px -6px color-mix(in srgb, #ff7a52 55%, transparent);
 }
 
 .dark .ylf-member-mark {
-  background: var(--ylf-gradient-brand);
-  box-shadow: 0 4px 14px -6px color-mix(in srgb, #0891b2 55%, transparent);
+  box-shadow: 0 4px 14px -6px color-mix(in srgb, #ff7a52 45%, transparent);
+}
+
+/* 云朵白变体 —— 会员药丸叠在晴空蓝 / 深色 hero 上时更素雅：暖白底 + 落日色字。
+   注意：白底面板（用户菜单、钱包卡）请用上面的 fill 实底版，否则白底白药丸会糊。 */
+.ylf-member-frost {
+  color: #c2410c;
+  background: color-mix(in srgb, #ffd23f 10%, #ffffff);
+  box-shadow: 0 4px 14px -6px color-mix(in srgb, #ff7a52 45%, transparent);
+}
+
+.dark .ylf-member-frost {
+  color: #c2410c;
+  background: color-mix(in srgb, #ffd23f 12%, #ffffff);
 }
 
 /* Soft member wash — for highlighting an active-member surface */

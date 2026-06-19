@@ -1,18 +1,24 @@
-# 云函数 - 微信支付
+# CloudBase 云函数
 
-本目录包含微信支付相关的 CloudBase 云函数。
+本目录包含 [www.yunle.fun](https://www.yunle.fun) 的全部 CloudBase 云函数：微信支付、Apple 内购、平台账户中心（云币 + 跨应用会员）、桌面应用登录授权。
+
+> 📖 云函数的概念、类型与调用方式见官方文档：[CloudBase 云函数介绍](https://docs.cloudbase.net/cloud-function/introduce)。
 
 ## 云函数列表
 
-| 云函数         | 用途                                      | 超时时间 |
-| -------------- | ----------------------------------------- | -------- |
-| `wxpay-order`  | 创建支付订单（会员 / 云币充值）+ 查询订单 | 30s      |
-| `wxpay-notify` | 接收微信支付异步回调通知                  | 10s      |
-| `account-api`  | 平台账户中心：查账户 / 扣云币 / 云币流水  | 10s      |
+| 云函数            | 用途                                                             | 调用方式           | 超时 |
+| ----------------- | ---------------------------------------------------------------- | ------------------ | ---- |
+| `wxpay-order`     | 创建支付订单（会员 / 云币充值）+ 查询订单 + 对账自愈             | SDK `callFunction` | 30s  |
+| `wxpay-notify`    | 接收微信支付异步回调通知                                         | HTTP 访问服务      | 10s  |
+| `account-api`     | 平台账户中心：账户 / 云币 / 签到 / 投币 / 关注·粉丝              | SDK `callFunction` | 10s  |
+| `iap-order`       | Apple 内购（IAP）凭据校验 + 权益发放                             | SDK `callFunction` | 30s  |
+| `appstore-notify` | 接收 App Store Server Notifications V2（退款 / 撤销自动处理）    | HTTP 访问服务      | 30s  |
+| `desktop-auth`    | 桌面 / 本地应用登录授权（设备授权码 + Ed25519 离线 entitlement） | SDK + HTTP 双入口  | 10s  |
 
 > 云币 + 跨应用会员的整体设计见 [`docs/coin-and-membership.md`](../docs/coin-and-membership.md)。
-> 三个云函数共享同一份 `lib/`：权威源在 `wxpay-order/lib`，`pnpm sync:wxpay-lib` 同步到
-> `wxpay-notify/lib` 与 `account-api/lib`，`account-api` 无需任何 `WX_*` 环境变量。
+> 其中 5 个支付 / 账户函数共享同一份 `lib/`：权威源在 `cloudfunctions/wxpay-order/lib`，`pnpm sync:wxpay-lib` 同步到
+> `wxpay-notify` / `account-api` / `iap-order` / `appstore-notify`；`account-api` 无需任何 `WX_*` 环境变量。
+> `desktop-auth` 有独立 `lib/`，不在同步范围内。
 
 ## 环境变量配置
 
@@ -47,6 +53,52 @@
 | 变量名                       | 说明                                                                                                                                       | 获取方式                         |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------- |
 | `ACCOUNT_API_INTERNAL_TOKEN` | 内部服务调用 `deductCoinForUser` / `adminAdjustCoin`（管理员人工调账）时校验用的共享密钥；调用方（其它云函数、admin 后台）需配置同一个值。 | 使用随机长字符串，勿暴露给前端。 |
+
+### iap-order 环境变量
+
+| 变量名                  | 说明                                        | 获取方式                                                      |
+| ----------------------- | ------------------------------------------- | ------------------------------------------------------------- |
+| `APPSTORE_ISSUER_ID`    | App Store Connect API 的 Issuer ID          | App Store Connect → 用户与访问 → 集成 → App Store Connect API |
+| `APPSTORE_KEY_ID`       | 上述 API 密钥的 Key ID                      | 同上，创建密钥后显示                                          |
+| `APPSTORE_PRIVATE_KEY`  | `.p8` 私钥内容（PEM，含 `BEGIN/END` 行）    | 创建密钥时下载的 `AuthKey_xxx.p8` 完整内容                    |
+| `APPSTORE_BUNDLE_ID`    | App 的 Bundle ID，默认 `fun.yunle.apps`     | Xcode 项目 / App Store Connect                                |
+| `APPSTORE_APP_APPLE_ID` | App 的 Apple ID（纯数字），生产通知验签需要 | App Store Connect → App 信息 → 通用信息 → Apple ID            |
+
+> `iap-order` 与 `appstore-notify` 共用同一组 `APPSTORE_*`，两个函数都要配齐。本地开发可用 `APPSTORE_PRIVATE_KEY_FILE` 指向 `.p8` 文件路径（见 `.env.example`），云端则直接填 `APPSTORE_PRIVATE_KEY` 内容。
+
+### appstore-notify 环境变量
+
+环境变量与 `iap-order` 完全相同（`APPSTORE_*` 全套）。另需在 App Store Connect 配置 **App Store Server Notifications V2** 回调地址，见下方「HTTP 访问服务端点」。
+
+### desktop-auth 环境变量
+
+| 变量名                             | 必填 | 说明                                                                                                                            |
+| ---------------------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `DESKTOP_AUTH_SIGNING_KEY`         | 是   | Ed25519 entitlement 签发私钥。支持 JWK JSON / PEM，或二者的 base64（base64 无引号换行，注入 `cloudbaserc` 的 `{{env}}` 更安全） |
+| `ACCOUNT_API_INTERNAL_TOKEN`       | 是   | 转调 `account-api`（查余额 / 扣云币）的内部服务令牌，**须与 `account-api` 配同一值**                                            |
+| `DESKTOP_AUTH_SIGNING_KID`         | 否   | 签发公钥 `kid`；缺省取 JWK 内嵌 `kid`，再兜底 `desktop-default`                                                                 |
+| `DESKTOP_AUTH_VERIFICATION_URL`    | 否   | 设备授权页地址，默认 `https://www.yunle.fun/link`                                                                               |
+| `DESKTOP_AUTH_PUBLIC_KEYS`         | 否   | 退役公钥集 JSON（`kid → jwk`），轮换期内仍能验签旧 entitlement                                                                  |
+| `DESKTOP_AUTH_ENTITLEMENT_TTL_SEC` | 否   | entitlement 有效期（秒），默认见 `lib/validation.js`                                                                            |
+| `DESKTOP_AUTH_REFRESH_TTL_SEC`     | 否   | refreshToken 有效期（秒），默认见 `lib/validation.js`                                                                           |
+
+> 设计与接入详见 [`docs/desktop-sso.md`](../docs/desktop-sso.md) 与 [`docs/desktop-sso-integration.md`](../docs/desktop-sso-integration.md)。
+
+---
+
+## HTTP 访问服务端点
+
+下列函数通过 CloudBase「HTTP 访问服务」对外暴露 HTTPS 端点供外部系统回调；其余函数只经 SDK `callFunction` 调用，无公网入口。
+
+| 函数              | 默认端点                                                                                       | 配置到                                                                       |
+| ----------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `wxpay-notify`    | `https://<envId>.service.tcloudbase.com/wxpay-notify`                                          | 微信支付商户平台回调地址（即 `WX_NOTIFY_URL`）                               |
+| `appstore-notify` | `https://<envId>.service.tcloudbase.com/appstore-notify`                                       | App Store Connect → App Store Server Notifications（V2，生产与沙盒各配一次） |
+| `desktop-auth`    | `https://api.yunle.fun/desktop-auth`（设备侧 HTTP 入口，详见 [`docs/desktop-sso-integration.md`](../docs/desktop-sso-integration.md)） | 桌面客户端                                                                   |
+
+> 当前环境 `<envId>` = `yunlefun-8g7ybcxc7345c490`。这些函数的 HTTP 路径绑定在网关的**通配域名 `*`** 上，因此在所有已接入域名都可达：默认域名 `https://<envId>.service.tcloudbase.com`，以及自定义域名 `api.yunle.fun` / `tcb.yunle.fun` / `tcb.api.yunle.fun`（如 `https://api.yunle.fun/desktop-auth`）。
+>
+> **云托管与云函数共存于同一域名**：同一张网关路由表上，`api.yunle.fun/`（根路径）指向**云托管**服务 `api`，而 `/desktop-auth`、`/wxpay-notify`、`/appstore-notify` 指向**云函数**——按 **path 最长前缀优先**分流（精确路径优先于根路径 `/`），互不冲突。所以"`api.yunle.fun` 在控制台显示为云托管域名"并不代表函数没接入，函数路由在「云函数 → HTTP 访问服务」入口单独管理。绑定详情见 [CloudBase 控制台](https://tcb.cloud.tencent.com/dev?envId=yunlefun-8g7ybcxc7345c490#/scf)。
 
 ---
 
@@ -253,22 +305,25 @@ npm i -g @cloudbase/cli
 # 登录
 tcb login
 
-# 部署单个云函数
-tcb functions deploy wxpay-order --envId yunlefun-8g7ybcxc7345c490
-tcb functions deploy wxpay-notify --envId yunlefun-8g7ybcxc7345c490
-tcb functions deploy account-api --envId yunlefun-8g7ybcxc7345c490
+# 部署单个云函数（-e 可省略，CLI 会读 cloudbaserc.json 的 envId）
+tcb fn deploy account-api -e yunlefun-8g7ybcxc7345c490
+tcb fn deploy wxpay-order -e yunlefun-8g7ybcxc7345c490
+tcb fn deploy wxpay-notify -e yunlefun-8g7ybcxc7345c490
+tcb fn deploy iap-order -e yunlefun-8g7ybcxc7345c490
+tcb fn deploy appstore-notify -e yunlefun-8g7ybcxc7345c490
+tcb fn deploy desktop-auth -e yunlefun-8g7ybcxc7345c490
 ```
 
 > ⚠️ 改动了 `lib/`（同步源 `wxpay-order/lib/`）后，**所有共享 lib 的云函数都要重新部署**：
 > `wxpay-order` / `wxpay-notify` / `account-api` / `iap-order` / `appstore-notify`——
 > 只部署其中一个会导致各函数 `lib/` 版本不一致。先 `pnpm sync:wxpay-lib && pnpm test`，再逐个部署。
 >
-> （签到 / 投币功能是 `account-api` 本地代码、未改 `lib/`，只需部署 `account-api`。）
+> （`desktop-auth` 有独立 `lib/`，不在此列；签到 / 投币 / 关注·粉丝功能是 `account-api` 本地代码、未改 `lib/`，只需部署 `account-api`。）
 
 或在项目根目录执行：
 
 ```bash
-tcb functions deploy --envId yunlefun-8g7ybcxc7345c490
+tcb fn deploy --all -e yunlefun-8g7ybcxc7345c490
 ```
 
 ## 数据库
@@ -378,15 +433,67 @@ tcb functions deploy --envId yunlefun-8g7ybcxc7345c490
 安全规则：两者均 **ADMINONLY**（仅云函数读写）——支持榜与「我是否支持过」都经 `account-api`
 读取，前端不直读这两个集合，无需放开客户端读权限。
 
+### 关注 / 粉丝：`user_profiles` + `user_follows`（需新建）
+
+用户身份源是 CloudBase 内置 Auth，资料（昵称/头像/用户名）存在 `user_metadata`，前端 SDK 只能取
+**自己**。关注 / 粉丝要展示「对方是谁」，故落一张去规范化公开资料表 `user_profiles`（uid → 资料 + 计数），
+关注关系明细存 `user_follows`（最终真相源，计数漂移可由明细重算）。上线前在控制台**新建这两个集合并配置索引**：
+
+| 集合            | 索引名                   | 字段                                | 唯一性       |
+| --------------- | ------------------------ | ----------------------------------- | ------------ |
+| `user_profiles` | （主键 `_id` = uid）     | `_id`                               | 唯一（天然） |
+| `user_profiles` | `idx_login`              | `login` ASC                         | 非唯一       |
+| `user_follows`  | `idx_follower_following` | `followerId` ASC, `followingId` ASC | 唯一         |
+| `user_follows`  | `idx_following_time`     | `followingId` ASC, `createdAt` DESC | 非唯一       |
+| `user_follows`  | `idx_follower_time`      | `followerId` ASC, `createdAt` DESC  | 非唯一       |
+
+> ⚠️ `user_follows.idx_follower_following` 必须**唯一**：关注的应用层「先查后写」（`findFollow`）在并发同
+> (follower, following) 下有 TOCTOU 窗口，唯一索引堵住它，保证「关注幂等、计数不重复」（与 `coin_transactions.idx_ref_uniq` 同理）。
+>
+> `user_profiles.login` **不设唯一**：用户名唯一性已由 CloudBase Auth `username` 保证，`login` 只是其快照；
+> 设唯一会因多个未设用户名的 `login: null` 互撞。`idx_login` 仅为 `/u/[login]` 主页查询加速。
+>
+> `idx_following_time` / `idx_follower_time` 服务 P2「粉丝 / 关注列表」分页（按时间倒序），P0+P1 暂未用到，可后建。
+> 计数 `followersCount` / `followingCount` 挂在 `user_profiles` 上（CAS `version` 维护），以 `user_follows` 为真相源可重算。
+
+```text
+// user_profiles（一个用户一条，_id = uid）
+{ _id, login, nickname, avatar, description, followersCount, followingCount, version, createdAt, updatedAt }
+
+// user_follows（一条关注关系）
+{ followerId, followingId, createdAt }
+```
+
+安全规则：两者均 **ADMINONLY**（仅云函数读写）。关注 / 取关、资料同步、关系与资料读取都经 `account-api`，
+前端不直读这两个集合（公开主页的资料与关系也走云函数返回），无需放开客户端读权限。
+
+### 通知：`user_notifications`（需新建）
+
+关注等事件给被关注者写一条通知（MVP `type:'follow'`），前端进站拉未读数、按需翻列表（actor 资料读时
+join `user_profiles`）。通知是异步可拉取的，**不走 WebSocket**。上线前在控制台**新建集合并配置索引**：
+
+| 集合                 | 索引名            | 字段                           | 唯一性 |
+| -------------------- | ----------------- | ------------------------------ | ------ |
+| `user_notifications` | `idx_user_time`   | `userId` ASC, `createdAt` DESC | 非唯一 |
+| `user_notifications` | `idx_user_unread` | `userId` ASC, `read` ASC       | 非唯一 |
+
+> `idx_user_time` 服务通知列表分页；`idx_user_unread` 服务未读数统计。**ADMINONLY**（仅 `account-api` 读写）。
+> 关注首次成立时写入（重复关注不重复发），写入失败不阻断关注主流程。
+
+```text
+// user_notifications（一条通知）
+{ userId（接收者）, type, actorId, read, createdAt, readAt? }
+```
+
 ## 共享代码：lib/
 
-两个云函数下都有一份 `lib/`，包含签名、加解密、校验、订单状态机等纯函数。
-**权威源在 `functions/wxpay-order/lib/`**，`wxpay-notify/lib/` 由 `pnpm sync:wxpay-lib` 自动同步，禁止直接修改。
+5 个支付 / 账户云函数下都有一份 `lib/`，包含签名、加解密、校验、订单状态机等纯函数。
+**权威源在 `cloudfunctions/wxpay-order/lib/`**，`wxpay-notify` / `account-api` / `iap-order` / `appstore-notify` 的 `lib/` 由 `pnpm sync:wxpay-lib` 自动同步，禁止直接修改。
 
 修改流程：
 
 ```bash
-# 1. 仅修改 functions/wxpay-order/lib/ 下的文件
+# 1. 仅修改 cloudfunctions/wxpay-order/lib/ 下的文件
 # 2. 同步到 wxpay-notify
 pnpm sync:wxpay-lib
 

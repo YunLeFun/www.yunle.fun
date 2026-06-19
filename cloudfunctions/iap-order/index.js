@@ -16,7 +16,7 @@
  *   - APPSTORE_BUNDLE_ID    默认 fun.yunle.apps
  *   - APPSTORE_APP_APPLE_ID App Store 的 app Apple ID（可选，生产通知验签需要）
  *
- * lib/ 由 `pnpm sync:wxpay-lib` 从 functions/wxpay-order/lib 同步，禁止直接修改本目录的 lib。
+ * lib/ 由 `pnpm sync:wxpay-lib` 从 cloudfunctions/wxpay-order/lib 同步，禁止直接修改本目录的 lib。
  */
 
 'use strict'

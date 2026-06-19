@@ -7,16 +7,20 @@
  * 若需换成「云」字徽章，只改此处即可全站生效。
  */
 type MarkSize = 'xs' | 'sm' | 'md'
+type MarkVariant = 'fill' | 'frost'
 
 const props = withDefaults(defineProps<{
   /** 尺寸 */
   size?: MarkSize
+  /** 配色：fill 落日实底（默认，白底面板上用）/ frost 云朵白（叠在晴空 / 深色 hero 上更素雅） */
+  variant?: MarkVariant
   /** 到期时间戳（ms），传入则附带「至 …」 */
   expireAt?: number | null
   /** 文案，默认「会员」；传空串则只显示到期信息 */
   label?: string
 }>(), {
   size: 'sm',
+  variant: 'fill',
   expireAt: null,
   label: '会员',
 })
@@ -35,8 +39,8 @@ function formatExpire(ts: number) {
 
 <template>
   <span
-    class="ylf-member-mark inline-flex items-center rounded-full font-semibold leading-none"
-    :class="cls.wrap"
+    class="inline-flex items-center rounded-full font-semibold leading-none"
+    :class="[props.variant === 'frost' ? 'ylf-member-frost' : 'ylf-member-mark', cls.wrap]"
   >
     <UIcon name="i-lucide-cloud" :class="cls.icon" />
     <span v-if="label">{{ label }}</span>

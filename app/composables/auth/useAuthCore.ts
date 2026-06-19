@@ -11,6 +11,7 @@ export function useTcbAuthCore() {
   const { auth } = useCloudbase()
   const router = useRouter()
   const toast = useToast()
+  const { upsertMyProfile } = useUserProfile()
 
   const user = useState<User | null>('auth_user', () => null)
   const loading = ref(false)
@@ -57,6 +58,15 @@ export function useTcbAuthCore() {
       }
 
       user.value = mapCloudbaseUser(rawUser)
+      // 同步公开资料到 user_profiles（供关注 / 粉丝等社交展示），fire-and-forget，不阻塞登录态
+      if (user.value) {
+        upsertMyProfile({
+          login: user.value.login,
+          nickname: user.value.nickname,
+          avatar: user.value.avatar,
+          description: user.value.description,
+        }).catch(() => {})
+      }
       return user.value
     }
     catch (err: unknown) {

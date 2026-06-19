@@ -14,6 +14,7 @@ const PUBLIC_AUTH_ROUTE_PREFIXES = [
   '/changelog',
   '/apps',
   '/developer',
+  '/u',
 ]
 
 export function isPublicAuthRoute(path: string) {

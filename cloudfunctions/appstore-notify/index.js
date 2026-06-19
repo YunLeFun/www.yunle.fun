@@ -14,7 +14,7 @@
  * 环境变量同 iap-order（APPSTORE_ISSUER_ID / APPSTORE_KEY_ID / APPSTORE_PRIVATE_KEY /
  * APPSTORE_BUNDLE_ID / APPSTORE_APP_APPLE_ID）。
  *
- * lib/ 由 `pnpm sync:wxpay-lib` 从 functions/wxpay-order/lib 同步，禁止直接修改本目录的 lib。
+ * lib/ 由 `pnpm sync:wxpay-lib` 从 cloudfunctions/wxpay-order/lib 同步，禁止直接修改本目录的 lib。
  */
 
 'use strict'

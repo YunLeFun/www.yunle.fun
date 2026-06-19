@@ -198,7 +198,15 @@ async function handleDelete() {
               <UIcon name="i-lucide-user" class="text-lg text-muted" />
               <span class="text-sm text-muted">所有者</span>
             </div>
-            <span class="text-sm font-medium">@{{ appData.ownerLogin }}</span>
+            <div class="flex items-center gap-2">
+              <NuxtLink
+                :to="`/u/${appData.ownerLogin}`"
+                class="text-sm font-medium text-primary hover:underline"
+              >
+                @{{ appData.ownerLogin }}
+              </NuxtLink>
+              <FollowButton v-if="!isOwner" :target-id="appData.ownerId" size="xs" />
+            </div>
           </div>
 
           <div v-if="appData.githubRepo" class="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">

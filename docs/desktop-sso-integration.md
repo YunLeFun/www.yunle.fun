@@ -47,7 +47,7 @@
 **① 申请设备码 → ② 打开浏览器 → ③ 轮询**（前端 TS，跑在 webview 里）：
 
 ```ts
-const BASE = 'https://account.yunle.fun' // 平台给的 desktop-auth 基址
+const BASE = 'https://api.yunle.fun' // 平台给的 desktop-auth 基址（设备侧接口都在 ${BASE}/desktop-auth）
 const APP_ID = 'skykeeper'
 
 async function da(action: string, body: Record<string, unknown> = {}) {

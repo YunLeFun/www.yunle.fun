@@ -89,7 +89,9 @@ export function makeCallbackEvent({
  *   db.collection(name).add(doc)
  *   db.collection(name).where(query).limit(n).get()
  *   db.collection(name).where(query).update(updates)
+ *   db.collection(name).where(query).remove()
  *   db.collection(name).doc(id).update(updates)
+ *   db.collection(name).doc(id).remove()
  *
  * 支持 where 等值匹配的简单条件（无 operator）。
  */
@@ -102,8 +104,15 @@ export function makeFakeDb(initial = {}) {
     return `${name}_${Object.keys(store[name] || {}).length}_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`
   }
 
+  function matchValue(docVal, cond) {
+    // 支持 command.in：{ __op: 'in', values: [...] }
+    if (cond && typeof cond === 'object' && cond.__op === 'in')
+      return Array.isArray(cond.values) && cond.values.includes(docVal)
+    return docVal === cond
+  }
+
   function matches(doc, where) {
-    return Object.entries(where).every(([k, v]) => doc[k] === v)
+    return Object.entries(where).every(([k, v]) => matchValue(doc[k], v))
   }
 
   function collection(name) {
@@ -111,6 +120,8 @@ export function makeFakeDb(initial = {}) {
       store[name] = []
     let whereClause = null
     let limitClause = Infinity
+    let skipClause = 0
+    let orderByClause = null
 
     const chain = {
       where(query) {
@@ -121,10 +132,25 @@ export function makeFakeDb(initial = {}) {
         limitClause = n
         return chain
       },
+      skip(n) {
+        skipClause = n
+        return chain
+      },
+      orderBy(field, direction) {
+        orderByClause = { field, direction }
+        return chain
+      },
       async get() {
         let data = store[name]
         if (whereClause)
           data = data.filter(d => matches(d, whereClause))
+        if (orderByClause) {
+          const { field, direction } = orderByClause
+          const sign = direction === 'desc' ? -1 : 1
+          data = data.slice().sort((a, b) => (a[field] === b[field] ? 0 : (a[field] > b[field] ? 1 : -1) * sign))
+        }
+        if (skipClause > 0)
+          data = data.slice(skipClause)
         if (Number.isFinite(limitClause))
           data = data.slice(0, limitClause)
         return { data: data.map(d => ({ ...d })) }
@@ -145,6 +171,11 @@ export function makeFakeDb(initial = {}) {
         }
         return { updated: count, modifiedCount: count }
       },
+      async remove() {
+        const before = store[name].length
+        store[name] = store[name].filter(doc => (whereClause ? !matches(doc, whereClause) : false))
+        return { deleted: before - store[name].length }
+      },
       doc(id) {
         return {
           async get() {
@@ -158,6 +189,11 @@ export function makeFakeDb(initial = {}) {
             Object.assign(doc, updates)
             return { updated: 1 }
           },
+          async remove() {
+            const before = store[name].length
+            store[name] = store[name].filter(d => d._id !== id)
+            return { deleted: before - store[name].length }
+          },
         }
       },
     }
@@ -166,6 +202,9 @@ export function makeFakeDb(initial = {}) {
 
   return {
     _store: store,
+    command: {
+      in: values => ({ __op: 'in', values }),
+    },
     collection,
   }
 }

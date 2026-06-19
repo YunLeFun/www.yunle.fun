@@ -45,6 +45,7 @@ const items = computed(() => [
     <template #right>
       <UColorModeButton />
       <ClientOnly>
+        <NotificationBell />
         <DeferredUserMenu />
       </ClientOnly>
     </template>

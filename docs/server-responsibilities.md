@@ -27,6 +27,7 @@
 | 功能                    | 形态                            | 收益                                                                                   |
 | ----------------------- | ------------------------------- | -------------------------------------------------------------------------------------- |
 | GitHub API 代理         | `server/api/github/**`          | 当前 `useGitHubRepos` 浏览器直连 GitHub，匿名限流 60 req/h；server 侧可加 token + 缓存 |
+| 公开用户主页 SSR        | `server/api/profile` + `/u`     | SEO / 分享 OG；经 account-api HTTP 访问代理 getProfile（已实现 2026-06）               |
 | OG 分享图生成           | `server/routes/og/**`           | 动态生成博客 / 应用分享图                                                              |
 | sitemap / RSS / robots  | server route 或 generate 期产出 | SEO；纯静态也可在 generate 时生成                                                      |
 | 轻量无状态接口          | `server/api/**`                 | 联系表单、健康检查、webhook 接收等，不碰 CloudBase 凭据                                |
@@ -47,6 +48,11 @@
   `cloudfunctions/`（2026-06），即使以后改用 EdgeOne 仓库直连构建也不会被误识别。
 - 启用 Nuxt server routes 后，部署产物从纯静态 `dist/` 变为 Nitro 输出，
   EdgeOne Pages 需按 Nuxt 框架预设部署（构建命令 `pnpm build`），不再是 `pnpm generate`。
+- **公开用户主页 `/u/[login]` 已启用 SSR**（2026-06，为 SEO / 分享 OG）：资料经 `server/api/profile`
+  代理 `account-api` 的 **HTTP 访问服务**（公开 action `getProfile`，无登录态、不下发任何 CloudBase 密钥）。
+  生效三步：① EdgeOne 构建命令切 `pnpm build`（Nitro；首页等 `prerender` 页仍构建期静态，性能不受影响）；
+  ② 控制台给 `account-api` 绑定 HTTP 访问路径；③ 填环境变量 `NUXT_ACCOUNT_API_HTTP_URL`。
+  未配置时 `/u` 自动退化为客户端渲染（功能正常，仅无 SSR SEO），不阻断现有静态部署。
 - OAuth 回调（`/auth/callback`）是纯客户端逻辑（CloudBase Web SDK），与 server 能力无关，
   不要迁到 server 端。
 - 跨站 SSO 桥接页（`/auth/sso`）同样是纯客户端逻辑：读本站 localStorage 的 session 后

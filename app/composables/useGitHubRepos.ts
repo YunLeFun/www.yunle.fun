@@ -98,7 +98,8 @@ export function useGitHubRepos(options: UseGitHubReposOptions = {}) {
       })
 
       return {
-        data: response,
+        // $fetch 对绝对外部 URL 实际返回 T；server route 存在时 TS 会套用内部 route 重载（TypedInternalResponse），故断言回 T
+        data: response as T,
         success: true,
       }
     }
