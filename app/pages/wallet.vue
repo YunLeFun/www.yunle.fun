@@ -129,6 +129,16 @@ function formatExpire(ts: number | null): string {
   return new Date(ts).toLocaleDateString('zh-CN')
 }
 
+/** 会员剩余天数（向上取整）；非会员返回 null */
+const memberDaysLeft = computed(() => {
+  const expireAt = coin.membership.value?.expireAt
+  if (!coin.isMember.value || !expireAt)
+    return null
+  return Math.max(0, Math.ceil((expireAt - Date.now()) / (24 * 60 * 60 * 1000)))
+})
+/** 会员即将到期（7 天内）—— 触发主动续费提醒 */
+const memberExpiringSoon = computed(() => memberDaysLeft.value != null && memberDaysLeft.value <= 7)
+
 onMounted(async () => {
   if (user.value) {
     // 先兜底对账：把支付成功却卡在 pending（轮询窗口已关 / 回调漏达）的订单补发，
@@ -212,18 +222,26 @@ onMounted(async () => {
               <span class="text-lg font-semibold">
                 {{ coin.isMember.value ? '会员有效' : '未开通' }}
               </span>
-              <UBadge v-if="coin.isMember.value" color="primary" variant="subtle">
-                至 {{ formatExpire(coin.membership.value?.expireAt ?? null) }}
+              <UBadge
+                v-if="coin.isMember.value"
+                :color="memberExpiringSoon ? 'warning' : 'primary'"
+                variant="subtle"
+                :icon="memberExpiringSoon ? 'i-lucide-clock-alert' : undefined"
+              >
+                {{ memberExpiringSoon ? `${memberDaysLeft} 天后到期` : `至 ${formatExpire(coin.membership.value?.expireAt ?? null)}` }}
               </UBadge>
             </div>
+            <p v-if="memberExpiringSoon" class="text-xs text-warning">
+              会员即将到期，续费以免权益中断
+            </p>
           </div>
           <div class="pt-4">
             <UButton
               to="/pricing"
               size="sm"
-              :variant="coin.isMember.value ? 'outline' : 'solid'"
-              :color="coin.isMember.value ? 'neutral' : 'primary'"
-              :trailing-icon="coin.isMember.value ? undefined : 'i-lucide-arrow-right'"
+              :variant="coin.isMember.value && !memberExpiringSoon ? 'outline' : 'solid'"
+              :color="coin.isMember.value && !memberExpiringSoon ? 'neutral' : 'primary'"
+              :trailing-icon="coin.isMember.value && !memberExpiringSoon ? undefined : 'i-lucide-arrow-right'"
             >
               {{ coin.isMember.value ? '续费会员' : '开通会员' }}
             </UButton>

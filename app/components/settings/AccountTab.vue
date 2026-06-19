@@ -10,6 +10,16 @@ const joinDate = computed(() =>
   user.value?.createdAt ? new Date(user.value.createdAt).toLocaleDateString('zh-CN') : '未知',
 )
 
+/** 会员剩余天数；非会员返回 null */
+const memberDaysLeft = computed(() => {
+  const ms = membershipState.value?.remainingMs
+  if (!isMember.value || ms == null)
+    return null
+  return Math.max(0, Math.ceil(ms / (24 * 60 * 60 * 1000)))
+})
+/** 会员即将到期（7 天内） */
+const memberExpiringSoon = computed(() => memberDaysLeft.value != null && memberDaysLeft.value <= 7)
+
 onMounted(() => {
   // useMembership 的 watch 为 immediate:false，挂载时手动拉一次
   refreshMembership()
@@ -44,12 +54,22 @@ async function handleLogout() {
         <!-- 会员状态：取代易与「会员」混淆的「账户角色：普通用户」 -->
         <div class="flex items-center justify-between gap-3 py-3">
           <span class="shrink-0 text-sm text-muted">会员状态</span>
-          <MemberBadge
-            v-if="isMember"
-            size="sm"
-            variant="fill"
-            :expire-at="membershipState?.expireAt ?? null"
-          />
+          <div v-if="isMember" class="flex flex-wrap items-center justify-end gap-2">
+            <MemberBadge
+              size="sm"
+              variant="fill"
+              :expire-at="membershipState?.expireAt ?? null"
+            />
+            <UButton
+              v-if="memberExpiringSoon"
+              to="/pricing"
+              :label="`${memberDaysLeft} 天后到期 · 续费`"
+              icon="i-lucide-clock-alert"
+              color="warning"
+              variant="subtle"
+              size="xs"
+            />
+          </div>
           <div v-else class="flex items-center gap-2">
             <span class="text-sm text-muted">未开通</span>
             <UButton
