@@ -199,6 +199,9 @@ onMounted(async () => {
       </div>
     </UPageCard>
 
+    <!-- 登录设备（已授权桌面 / 本地应用） -->
+    <SettingsSecurityDevices />
+
     <!-- 解绑确认弹窗 -->
     <UModal v-model:open="showUnbindConfirm">
       <template #content>
