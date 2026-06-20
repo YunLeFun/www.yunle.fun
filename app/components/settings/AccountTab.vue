@@ -1,9 +1,41 @@
 <script setup lang="ts">
 const { user, logout } = useTcbAuth()
 const { isActive: isMember, state: membershipState, refresh: refreshMembership } = useMembership()
+const { app } = useCloudbase()
 const toast = useToast()
 
 const showLogoutConfirm = ref(false)
+
+// 账号注销（软注销）：强确认，需输入关键词「注销」
+const showDeleteConfirm = ref(false)
+const deleteConfirmText = ref('')
+const deleting = ref(false)
+const DELETE_KEYWORD = '注销'
+const canDelete = computed(() => deleteConfirmText.value.trim() === DELETE_KEYWORD)
+
+function openDeleteConfirm() {
+  deleteConfirmText.value = ''
+  showDeleteConfirm.value = true
+}
+
+async function handleDeleteAccount() {
+  if (!canDelete.value || !app)
+    return
+  deleting.value = true
+  try {
+    await app.callFunction({ name: 'account-api', data: { action: 'requestAccountDeletion' } })
+    showDeleteConfirm.value = false
+    toast.add({ title: '账号已注销', description: '资料已清除，即将退出登录', icon: 'i-lucide-check', color: 'success' })
+    await logout()
+    await navigateTo('/')
+  }
+  catch (err) {
+    toast.add({ title: '注销失败', description: err instanceof Error ? err.message : '请稍后重试', color: 'error' })
+  }
+  finally {
+    deleting.value = false
+  }
+}
 const isAdmin = computed(() => user.value?.role === 'ADMIN')
 
 const joinDate = computed(() =>
@@ -119,24 +151,46 @@ async function handleLogout() {
         危险操作
       </h3>
 
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div class="space-y-1">
-          <p class="text-sm font-medium">
-            退出登录
-          </p>
-          <p class="text-xs text-muted">
-            退出当前设备的登录状态
-          </p>
+      <div class="divide-y divide-default">
+        <div class="flex flex-col gap-3 pb-4 sm:flex-row sm:items-center sm:justify-between">
+          <div class="space-y-1">
+            <p class="text-sm font-medium">
+              退出登录
+            </p>
+            <p class="text-xs text-muted">
+              退出当前设备的登录状态
+            </p>
+          </div>
+          <UButton
+            label="退出登录"
+            color="error"
+            variant="outline"
+            size="sm"
+            icon="i-lucide-log-out"
+            class="self-start sm:self-auto"
+            @click="showLogoutConfirm = true"
+          />
         </div>
-        <UButton
-          label="退出登录"
-          color="error"
-          variant="outline"
-          size="sm"
-          icon="i-lucide-log-out"
-          class="self-start sm:self-auto"
-          @click="showLogoutConfirm = true"
-        />
+
+        <div class="flex flex-col gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <div class="space-y-1">
+            <p class="text-sm font-medium">
+              注销账号
+            </p>
+            <p class="text-xs text-muted">
+              清除你的资料、关注与通知并退出；订单等记录依法保留
+            </p>
+          </div>
+          <UButton
+            label="注销账号"
+            color="error"
+            variant="soft"
+            size="sm"
+            icon="i-lucide-user-x"
+            class="self-start sm:self-auto"
+            @click="openDeleteConfirm"
+          />
+        </div>
       </div>
     </UPageCard>
 
@@ -168,6 +222,63 @@ async function handleLogout() {
               label="确认退出"
               color="error"
               @click="handleLogout"
+            />
+          </div>
+        </div>
+      </template>
+    </UModal>
+
+    <!-- 注销账号确认弹窗（强确认：输入「注销」二字） -->
+    <UModal v-model:open="showDeleteConfirm">
+      <template #content>
+        <div class="space-y-4 p-6">
+          <div class="flex items-center gap-3">
+            <div class="rounded-full bg-error-50 p-2 dark:bg-error-950">
+              <UIcon name="i-lucide-user-x" class="text-xl text-error" />
+            </div>
+            <div class="min-w-0">
+              <h3 class="font-semibold">
+                确认注销账号
+              </h3>
+              <p class="text-sm text-muted">
+                此操作不可撤销
+              </p>
+            </div>
+          </div>
+
+          <div class="space-y-2 rounded-lg bg-elevated/60 p-3 text-xs text-muted">
+            <p>注销后将立即：</p>
+            <ul class="list-disc space-y-0.5 pl-4">
+              <li>清除昵称、头像、简介，释放用户名</li>
+              <li>解除你的全部关注与粉丝关系</li>
+              <li>删除你收到的站内通知并退出登录</li>
+            </ul>
+            <p>为满足对账与合规，<strong>订单与交易记录将依法保留</strong>。</p>
+          </div>
+
+          <UFormField label="请输入「注销」以确认">
+            <UInput
+              v-model="deleteConfirmText"
+              placeholder="注销"
+              autocomplete="off"
+              :disabled="deleting"
+            />
+          </UFormField>
+
+          <div class="flex justify-end gap-3">
+            <UButton
+              label="取消"
+              color="neutral"
+              variant="outline"
+              :disabled="deleting"
+              @click="showDeleteConfirm = false"
+            />
+            <UButton
+              label="确认注销"
+              color="error"
+              :loading="deleting"
+              :disabled="!canDelete"
+              @click="handleDeleteAccount"
             />
           </div>
         </div>

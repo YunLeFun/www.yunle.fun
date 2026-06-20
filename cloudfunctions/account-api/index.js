@@ -25,6 +25,7 @@
  *   - adminAdjustCoin   管理员人工调账（增/减，需 ACCOUNT_API_INTERNAL_TOKEN）
  *   - listTransactions  云币流水分页（需登录）
  *   - listOrders        我的订单历史分页（需登录，会员 / 云币充值订单）
+ *   - requestAccountDeletion 软注销：脱敏资料 / 解除关注 / 删通知 + 标记 deletedAt（需登录，保留财务记录）
  *
  * 主入口只做"参数解析 + 鉴权 + 路由"，纯逻辑委托给 lib/（与 wxpay-order 共享同一份 lib）。
  *
@@ -36,6 +37,7 @@
 const cloudbase = require('@cloudbase/node-sdk')
 
 const { getAccountSnapshot } = require('./account')
+const { requestAccountDeletion } = require('./account-deletion')
 const { getFollowingFeed } = require('./feed')
 const { followUser, getRelation, listFollowers, listFollowing, unfollowUser } = require('./follows')
 const {
@@ -148,6 +150,7 @@ async function dispatch(event) {
     case 'deductCoin':
     case 'listTransactions':
     case 'listOrders':
+    case 'requestAccountDeletion':
     case 'signIn':
     case 'getSignInStatus':
     case 'tip':
@@ -170,6 +173,8 @@ async function dispatch(event) {
           return await handleListTransactions(uid, event)
         case 'listOrders':
           return await listUserOrders(db, { userId: uid, skip: event.skip, limit: event.limit })
+        case 'requestAccountDeletion':
+          return await requestAccountDeletion(db, { userId: uid, now: Date.now() })
         case 'signIn':
           return await signIn(db, { userId: uid, now: Date.now() })
         case 'getSignInStatus':
