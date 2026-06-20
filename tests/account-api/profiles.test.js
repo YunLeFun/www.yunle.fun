@@ -44,6 +44,28 @@ describe('upsertMyProfile', () => {
     const db = makeFakeDb()
     await expect(upsertMyProfile(db, { userId: 'u1', profile: { login: '1bad' }, now: NOW })).rejects.toThrow(/用户名/)
   })
+
+  it('裸手机号昵称（auth 默认值）不落库：创建时昵称为空', async () => {
+    const db = makeFakeDb()
+    const res = await upsertMyProfile(db, { userId: 'u1', profile: { nickname: '15906608053' }, now: NOW })
+    expect(res.nickname).toBe('')
+    expect(db._store[USER_PROFILES_COLLECTION][0].nickname).toBe('')
+  })
+
+  it('裸手机号昵称不覆盖已设置的真实昵称', async () => {
+    const db = makeFakeDb()
+    await upsertMyProfile(db, { userId: 'u1', profile: { nickname: '小明' }, now: NOW })
+    // 模拟用户从没改 auth 昵称、再次登录把手机号同步上来
+    const res = await upsertMyProfile(db, { userId: 'u1', profile: { nickname: '15906608053' }, now: NOW + 1 })
+    expect(res.nickname).toBe('小明')
+  })
+
+  it('真实昵称即使全是数字也照常落库（仅拒绝合法手机号段）', async () => {
+    const db = makeFakeDb()
+    // 12345678901：1 后为 2，非手机号段，不应被拒
+    const res = await upsertMyProfile(db, { userId: 'u1', profile: { nickname: '12345678901' }, now: NOW })
+    expect(res.nickname).toBe('12345678901')
+  })
 })
 
 describe('getProfile', () => {

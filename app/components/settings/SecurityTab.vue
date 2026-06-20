@@ -7,6 +7,7 @@ import {
   normalizeOAuthProviderId,
   WECHAT_PROVIDER_ID,
 } from '~/utils/authProviders'
+import { maskPhone } from '~/utils/mask'
 
 const {
   user,
@@ -143,7 +144,7 @@ onMounted(async () => {
               手机号
             </p>
             <p class="truncate text-xs text-muted">
-              {{ user?.phone ? `已绑定 ${user.phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')}` : '未绑定手机号' }}
+              {{ user?.phone ? `已绑定 ${maskPhone(user.phone)}` : '未绑定手机号' }}
             </p>
           </div>
           <UBadge

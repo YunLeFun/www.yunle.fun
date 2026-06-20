@@ -24,6 +24,17 @@ const NICKNAME_MAX = 40
 const DESCRIPTION_MAX = 200
 const AVATAR_MAX = 512
 
+/**
+ * 中国大陆手机号：11 位、1[3-9] 开头。
+ * 手机 OTP 用户在 CloudBase 的 auth 默认昵称（user_metadata.nickName）就是完整手机号，
+ * 前端登录时会把它同步上来。user_profiles 是「展示给他人」的公开基建，绝不能落手机号 PII，
+ * 故识别出这种「裸手机号昵称」后按未提供处理（见 pickProfileFields）。
+ */
+const RE_PHONE_LIKE = /^1[3-9]\d{9}$/
+function isPhoneLikeNickname(s) {
+  return typeof s === 'string' && RE_PHONE_LIKE.test(s.trim())
+}
+
 /** 校验并归一 userId（非空字符串） */
 function assertUserId(userId) {
   if (typeof userId !== 'string' || !userId.trim())
@@ -56,8 +67,10 @@ function pickProfileFields(input) {
       throw new Error('用户名格式不正确：3-20 个字符，以字母开头，仅限字母、数字、下划线和连字符')
     out.login = login || null
   }
+  // 昵称：把「裸手机号昵称」（auth 默认值）视为未提供——既不写入 PII，
+  // 也不会覆盖用户后来在设置里改过的真实昵称（真实昵称经 auth.updateUser 同步上来，不是手机号）。
   const nickname = clampStr(input.nickname, NICKNAME_MAX)
-  if (nickname !== undefined)
+  if (nickname !== undefined && !isPhoneLikeNickname(nickname))
     out.nickname = nickname
   const avatar = clampStr(input.avatar, AVATAR_MAX)
   if (avatar !== undefined)

@@ -7,6 +7,7 @@
  */
 import type { AppRecord } from '~/types/app'
 import type { FollowRelation, UserProfile } from '~/types/social'
+import { displayUserName } from '~/utils/mask'
 
 definePageMeta({ layout: 'default' })
 
@@ -34,7 +35,7 @@ const appsLoading = ref(true)
 const followersCount = ref(ssrProfile.value?.followersCount ?? 0)
 
 const isSelf = computed(() => !!user.value && !!profile.value && user.value.id === profile.value.userId)
-const displayName = computed(() => profile.value?.nickname || profile.value?.login || '云乐坊用户')
+const displayName = computed(() => displayUserName(profile.value?.nickname, profile.value?.login || '云乐坊用户'))
 
 useSeoMeta({
   title: computed(() => (profile.value ? `${displayName.value} - YunLeFun` : '用户 - YunLeFun')),

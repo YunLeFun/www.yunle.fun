@@ -6,6 +6,7 @@
  * 首次打开才加载；切换 userId/type 时重置。
  */
 import type { FollowListItem } from '~/types/social'
+import { displayUserName } from '~/utils/mask'
 
 const props = defineProps<{
   userId: string
@@ -84,9 +85,9 @@ watch(() => [props.userId, props.type], () => {
               class="flex min-w-0 flex-1 items-center gap-3"
               @click="open = false"
             >
-              <MemberAvatar :src="item.avatar" :alt="item.nickname" size="md" />
+              <MemberAvatar :src="item.avatar" :alt="displayUserName(item.nickname)" size="md" />
               <div class="min-w-0">
-                <span class="block truncate text-sm font-medium text-highlighted">{{ item.nickname || '云乐坊用户' }}</span>
+                <span class="block truncate text-sm font-medium text-highlighted">{{ displayUserName(item.nickname) }}</span>
                 <span v-if="item.login" class="block truncate text-xs text-muted">@{{ item.login }}</span>
               </div>
             </NuxtLink>

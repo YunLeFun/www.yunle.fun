@@ -3,6 +3,7 @@
  * 通知列表弹窗（懒加载分页）。打开即拉列表并标记全部已读、清红点。
  */
 import type { NotificationItem } from '~/types/social'
+import { displayUserName } from '~/utils/mask'
 
 const open = defineModel<boolean>('open', { default: false })
 const { list, markRead, unread } = useNotifications()
@@ -66,10 +67,10 @@ function fmt(ts: number) {
             :class="item.read ? '' : 'bg-primary/5'"
             @click="open = false"
           >
-            <MemberAvatar :src="item.actor.avatar" :alt="item.actor.nickname" size="md" />
+            <MemberAvatar :src="item.actor.avatar" :alt="displayUserName(item.actor.nickname)" size="md" />
             <div class="min-w-0 flex-1">
               <p class="text-sm text-highlighted">
-                <span class="font-medium">{{ item.actor.nickname || '云乐坊用户' }}</span>
+                <span class="font-medium">{{ displayUserName(item.actor.nickname) }}</span>
                 <span class="text-muted"> 关注了你</span>
               </p>
               <span class="text-xs text-muted">{{ fmt(item.createdAt) }}</span>

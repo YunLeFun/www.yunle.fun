@@ -6,6 +6,7 @@
  * 未登录由全局 auth.global 中间件引导登录。
  */
 import type { FeedItem } from '~/types/social'
+import { displayUserName } from '~/utils/mask'
 
 definePageMeta({ layout: 'default' })
 
@@ -71,8 +72,8 @@ function formatTime(ts: number) {
             :to="item.owner.login ? `/u/${item.owner.login}` : `/u/${item.owner.userId}`"
             class="mb-3 flex items-center gap-2.5"
           >
-            <MemberAvatar :src="item.owner.avatar" :alt="item.owner.nickname" size="sm" />
-            <span class="text-sm font-medium text-highlighted">{{ item.owner.nickname || '云乐坊用户' }}</span>
+            <MemberAvatar :src="item.owner.avatar" :alt="displayUserName(item.owner.nickname)" size="sm" />
+            <span class="text-sm font-medium text-highlighted">{{ displayUserName(item.owner.nickname) }}</span>
             <span class="text-xs text-muted">发布了应用 · {{ formatTime(item.updatedAt) }}</span>
           </NuxtLink>
 
