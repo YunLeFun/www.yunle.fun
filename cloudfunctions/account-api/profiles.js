@@ -70,6 +70,9 @@ function pickProfileFields(input) {
     out.hideFollowers = input.hideFollowers
   if (typeof input.hideFollowing === 'boolean')
     out.hideFollowing = input.hideFollowing
+  // 通知偏好（布尔白名单）：是否接收「被关注」通知
+  if (typeof input.notifyOnFollow === 'boolean')
+    out.notifyOnFollow = input.notifyOnFollow
   return out
 }
 
@@ -85,6 +88,8 @@ function toPublicProfile(doc, userId) {
     followingCount: doc?.followingCount || 0,
     hideFollowers: !!doc?.hideFollowers,
     hideFollowing: !!doc?.hideFollowing,
+    // 通知偏好：缺省视为开启（仅显式 false 才关闭）
+    notifyOnFollow: doc?.notifyOnFollow !== false,
   }
 }
 

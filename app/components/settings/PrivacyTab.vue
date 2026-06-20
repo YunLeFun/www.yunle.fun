@@ -9,8 +9,12 @@ const toast = useToast()
 
 const hideFollowers = ref(false)
 const hideFollowing = ref(false)
+const notifyOnFollow = ref(true)
 const loading = ref(true)
 const saving = ref(false)
+
+const SWITCHES = { hideFollowers, hideFollowing, notifyOnFollow }
+type SwitchField = keyof typeof SWITCHES
 
 onMounted(async () => {
   if (!user.value) {
@@ -21,11 +25,12 @@ onMounted(async () => {
   if (p) {
     hideFollowers.value = p.hideFollowers
     hideFollowing.value = p.hideFollowing
+    notifyOnFollow.value = p.notifyOnFollow !== false
   }
   loading.value = false
 })
 
-async function save(field: 'hideFollowers' | 'hideFollowing', value: boolean) {
+async function save(field: SwitchField, value: boolean) {
   saving.value = true
   try {
     await upsertMyProfile({ [field]: value })
@@ -33,10 +38,7 @@ async function save(field: 'hideFollowers' | 'hideFollowing', value: boolean) {
   }
   catch {
     // 失败回滚开关状态
-    if (field === 'hideFollowers')
-      hideFollowers.value = !value
-    else
-      hideFollowing.value = !value
+    SWITCHES[field].value = !value
     toast.add({ title: '保存失败，请重试', color: 'error' })
   }
   finally {
@@ -89,6 +91,38 @@ async function save(field: 'hideFollowers' | 'hideFollowing', value: boolean) {
             class="shrink-0"
             :disabled="saving"
             @update:model-value="save('hideFollowing', $event)"
+          />
+        </div>
+      </div>
+    </UPageCard>
+
+    <!-- 通知偏好 -->
+    <UPageCard class="p-6">
+      <h3 class="mb-1 text-lg font-semibold">
+        通知
+      </h3>
+      <p class="mb-4 text-sm text-muted">
+        控制你在站内收到的提醒。
+      </p>
+
+      <div v-if="loading" class="flex justify-center py-6">
+        <UIcon name="i-lucide-loader-2" class="animate-spin text-xl text-muted" />
+      </div>
+      <div v-else class="divide-y divide-default">
+        <div class="flex items-center justify-between gap-4 py-4">
+          <div class="min-w-0">
+            <p class="text-sm font-medium">
+              新增粉丝通知
+            </p>
+            <p class="text-xs text-muted">
+              有人关注你时收到站内通知
+            </p>
+          </div>
+          <USwitch
+            v-model="notifyOnFollow"
+            class="shrink-0"
+            :disabled="saving"
+            @update:model-value="save('notifyOnFollow', $event)"
           />
         </div>
       </div>

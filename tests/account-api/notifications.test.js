@@ -71,4 +71,22 @@ describe('关注通知', () => {
     await createFollowNotification(db, { userId: 'u1', actorId: 'u1', now: NOW })
     expect(db._store[USER_NOTIFICATIONS_COLLECTION] || []).toHaveLength(0)
   })
+
+  it('接收者关闭「新增粉丝通知」则跳过（但关注关系仍建立）', async () => {
+    const db = makeFakeDb({
+      [USER_PROFILES_COLLECTION]: [
+        { _id: 'u1', login: 'alice', nickname: 'Alice', followersCount: 0, followingCount: 0, notifyOnFollow: false, version: 1 },
+        { _id: 'u2', login: 'bob', nickname: 'Bob', followersCount: 0, followingCount: 0, version: 1 },
+      ],
+    })
+    const res = await followUser(db, { followerId: 'u2', followingId: 'u1', now: NOW })
+    expect(res).toMatchObject({ following: true })
+    expect(db._store[USER_NOTIFICATIONS_COLLECTION] || []).toHaveLength(0)
+  })
+
+  it('缺省（未设置 notifyOnFollow）仍发通知', async () => {
+    const db = seed() // seed 的 u1 未设 notifyOnFollow
+    await followUser(db, { followerId: 'u2', followingId: 'u1', now: NOW })
+    expect((await getUnreadCount(db, { userId: 'u1' })).unread).toBe(1)
+  })
 })

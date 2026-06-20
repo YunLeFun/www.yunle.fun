@@ -8,7 +8,7 @@
 
 'use strict'
 
-const { assertUserId, fetchProfilesByIds } = require('./profiles')
+const { assertUserId, fetchProfilesByIds, readProfileDoc } = require('./profiles')
 
 const USER_NOTIFICATIONS_COLLECTION = 'user_notifications'
 /** 未读数上限（超出按此值显示 99+，避免全表扫描） */
@@ -25,6 +25,10 @@ const UNREAD_CAP = 99
  */
 async function createFollowNotification(db, { userId, actorId, now = Date.now() }) {
   if (!userId || !actorId || userId === actorId)
+    return
+  // 接收者关闭了「被关注」通知则跳过（缺省视为开启）
+  const target = await readProfileDoc(db, userId)
+  if (target && target.notifyOnFollow === false)
     return
   await db.collection(USER_NOTIFICATIONS_COLLECTION).add({
     userId,

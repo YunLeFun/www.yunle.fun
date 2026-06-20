@@ -21,7 +21,7 @@ watch(isAuthenticated, (value) => {
 const route = useRoute()
 const tabs = [
   { label: '个人资料', short: '资料', value: 'profile', icon: 'i-lucide-user' },
-  { label: '隐私', short: '隐私', value: 'privacy', icon: 'i-lucide-eye-off' },
+  { label: '隐私与通知', short: '隐私', value: 'privacy', icon: 'i-lucide-eye-off' },
   { label: '安全设置', short: '安全', value: 'security', icon: 'i-lucide-shield' },
   { label: '账户管理', short: '账户', value: 'account', icon: 'i-lucide-settings' },
 ]

@@ -18,6 +18,8 @@ export interface UserProfile {
   hideFollowers: boolean
   /** 隐藏关注列表（仅本人可见） */
   hideFollowing: boolean
+  /** 是否接收「被关注」通知（缺省视为开启） */
+  notifyOnFollow: boolean
 }
 
 /** 本人可同步的资料字段（白名单，不含计数） */
@@ -28,6 +30,7 @@ export interface MyProfileInput {
   description?: string
   hideFollowers?: boolean
   hideFollowing?: boolean
+  notifyOnFollow?: boolean
 }
 
 /** viewer 与某用户的关注关系 */
