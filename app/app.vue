@@ -28,6 +28,43 @@ useSeoMeta({
 
 const { navigation, links } = useNavigation()
 provide('navigation', navigation)
+
+// 方案 B：登录态就绪后自动领取每日签到云币（替代手动签到），到账时以 toast 呈现。
+// 服务端 signIn 幂等（按东八区自然日只入账一次），autoClaim 再按 uid 去重，重复触发安全。
+const { user } = useTcbAuth()
+const { autoClaim } = useSignIn()
+const toast = useToast()
+
+async function claimDailyReward() {
+  const res = await autoClaim()
+  if (!res || res.alreadySigned)
+    return
+  toast.add({
+    title: `每日 +${res.reward} 云币已到账`,
+    description: `已连续签到 ${res.currentStreak} 天`,
+    icon: 'i-lucide-coins',
+    color: 'success',
+  })
+  // 满一个周期：额外庆祝里程碑大奖
+  if (res.milestone) {
+    toast.add({
+      title: `🎉 连续 ${res.milestone.streak} 天达成！`,
+      description: `里程碑奖励 +${res.milestone.bonus} 云币`,
+      icon: 'i-lucide-gift',
+      color: 'success',
+    })
+  }
+}
+
+// 已登录直接领；登录态在中间件恢复后由 watch 接住（首次访问 / 刚登录）
+onMounted(() => {
+  if (user.value)
+    claimDailyReward()
+})
+watch(() => user.value?.id, (id) => {
+  if (id)
+    claimDailyReward()
+})
 </script>
 
 <template>

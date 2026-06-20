@@ -13,6 +13,16 @@ export interface SignInStatus {
   /** 东八区日期 key（YYYY-MM-DD） */
   dateKey: string
   isMember: boolean
+  /** 当前连续签到天数 */
+  currentStreak: number
+  /** 历史最长连续天数 */
+  longestStreak: number
+  /** 本周期内进度（1..weekLen；0=尚未开始 / 已断签） */
+  weekProgress: number
+  /** 一个周期的天数（周循环日历格子数） */
+  weekLen: number
+  /** 满一个周期的里程碑额外奖励云币 */
+  milestoneReward: number
 }
 
 export interface SignInResult {
@@ -20,6 +30,14 @@ export interface SignInResult {
   reward: number
   alreadySigned: boolean
   dateKey: string
+  isMember: boolean
+  currentStreak: number
+  longestStreak: number
+  weekProgress: number
+  weekLen: number
+  milestoneReward: number
+  /** 本次真正发放里程碑时非空，供前端庆祝 */
+  milestone: { streak: number, bonus: number } | null
 }
 
 export function useSignIn() {
@@ -30,9 +48,16 @@ export function useSignIn() {
   const status = useState<SignInStatus | null>('signin_status', () => null)
   const loading = ref(false)
   const submitting = ref(false)
+  /** 自动领取去重：记录已尝试自动领取的 uid（每个用户每次会话仅一次） */
+  const autoClaimedFor = useState<string | null>('signin_auto_claimed_uid', () => null)
 
   const signedToday = computed(() => !!status.value?.signedToday)
   const reward = computed(() => status.value?.reward ?? 1)
+  const currentStreak = computed(() => status.value?.currentStreak ?? 0)
+  const longestStreak = computed(() => status.value?.longestStreak ?? 0)
+  const weekProgress = computed(() => status.value?.weekProgress ?? 0)
+  const weekLen = computed(() => status.value?.weekLen ?? 7)
+  const milestoneReward = computed(() => status.value?.milestoneReward ?? 10)
 
   /** 拉取今日签到态（只读） */
   async function fetchStatus(): Promise<SignInStatus | null> {
@@ -73,7 +98,12 @@ export function useSignIn() {
         signedToday: true,
         reward: result.reward,
         dateKey: result.dateKey,
-        isMember: status.value?.isMember ?? false,
+        isMember: result.isMember,
+        currentStreak: result.currentStreak,
+        longestStreak: result.longestStreak,
+        weekProgress: result.weekProgress,
+        weekLen: result.weekLen,
+        milestoneReward: result.milestoneReward,
       }
       await coin.refresh()
       return result
@@ -83,13 +113,47 @@ export function useSignIn() {
     }
   }
 
+  /**
+   * 登录后自动领取今日签到（方案 B：去手动签到）。
+   *
+   * - 仅客户端、需真实登录态（匿名 uid 由 account-api 入口拦截，不会落到这里）
+   * - 每个用户每次会话仅尝试一次（uid 维度去重），避免 onMounted 与 watch / 路由切换重复触发
+   * - 复用幂等的 signIn —— 同一东八区自然日只入账一次，重复调用安全
+   *
+   * @returns 实际入账结果；已尝试过 / 未登录 / 失败时返回 null（由调用方决定是否 toast）
+   */
+  async function autoClaim(): Promise<SignInResult | null> {
+    if (!import.meta.client)
+      return null
+    const uid = user.value?.id
+    if (!uid || !app)
+      return null
+    if (autoClaimedFor.value === uid)
+      return null
+    autoClaimedFor.value = uid // 先占位，避免并发重复领取
+    try {
+      return await signIn()
+    }
+    catch (err) {
+      autoClaimedFor.value = null // 失败放行，登录态再次变化时可重试（手动按钮亦可兜底）
+      console.warn('[useSignIn] autoClaim failed:', err)
+      return null
+    }
+  }
+
   return {
     status: readonly(status),
     signedToday,
     reward,
+    currentStreak,
+    longestStreak,
+    weekProgress,
+    weekLen,
+    milestoneReward,
     loading: readonly(loading),
     submitting: readonly(submitting),
     fetchStatus,
     signIn,
+    autoClaim,
   }
 }

@@ -302,18 +302,8 @@ onMounted(async () => {
         </div>
       </div>
 
-      <!-- 每日签到 -->
-      <div class="ylf-surface flex flex-wrap items-center justify-between gap-3 rounded-2xl p-5">
-        <div class="space-y-1">
-          <p class="font-semibold">
-            每日签到
-          </p>
-          <p class="text-sm text-muted">
-            {{ coin.isMember.value ? '会员每日可领 2 云币' : '每日 1 云币，开通会员每日 2 云币' }}
-          </p>
-        </div>
-        <SignInButton />
-      </div>
+      <!-- 每日登录奖励：连续签到日历（登录后自动领取，日历为状态展示 + 手动兜底） -->
+      <SignInCalendar />
 
       <!-- 充值 -->
       <section class="space-y-4">
