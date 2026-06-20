@@ -67,21 +67,27 @@
 
 .dark {
   color-scheme: dark;
-  --ui-bg: var(--ui-color-neutral-950);
-  --ui-bg-muted: var(--ui-color-neutral-900);
-  --ui-bg-elevated: #111827;
-  --ui-bg-accented: #1f2937;
+  /* 暮夜 twilight —— 暗色统一为深靛海军蓝，呼应黄昏夜空（hero 渐变不变）。
+     neutral 暗色档一并下移，让 UModal / 下拉 / Badge 等默认深色面板同样是海军蓝，
+     避免「我的卡是海军蓝、弹窗还是冷灰」。主色保持晴空蓝 #60a5fa。 */
+  --ui-color-neutral-950: #0b1022;
+  --ui-color-neutral-900: #0f1630;
+  --ui-color-neutral-800: #1b2440;
+  --ui-bg: #0b1022;
+  --ui-bg-muted: #0f1630;
+  --ui-bg-elevated: #141c33;
+  --ui-bg-accented: #1f2a47;
   --ui-text: #e5e7eb;
   --ui-text-muted: #cbd5e1;
   --ui-text-dimmed: #94a3b8;
   --ui-text-toned: #d1d5db;
-  --ui-text-highlighted: #f8fafc;
-  --ui-border: #334155;
-  --ui-border-muted: #1e293b;
-  --ui-border-accented: #475569;
-  --ylf-surface: #0f172a;
-  --ylf-surface-muted: #111827;
-  --ylf-surface-hover: #1e293b;
+  --ui-text-highlighted: #f2f6ff;
+  --ui-border: #2a3658;
+  --ui-border-muted: #1a2440;
+  --ui-border-accented: #3c4c74;
+  --ylf-surface: #121a30;
+  --ylf-surface-muted: #0f1630;
+  --ylf-surface-hover: #1b2543;
   --ylf-ring: color-mix(in srgb, var(--ui-primary) 45%, transparent);
 
   /* 暗色下提亮的多巴胺色，保证在深色面板上依旧鲜活 */
