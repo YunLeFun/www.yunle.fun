@@ -22,7 +22,7 @@ catalog:
   '@nuxtjs/i18n': ^10.4.0
   '@types/qrcode': ^1.5.6
   '@vueuse/nuxt': ^14.3.0
-  '@yunlefun/sso': ^0.1.0
+  '@yunlefun/sso': ^0.3.0
   '@yunlefun/types': ^0.2.1
   baseline-browser-mapping: ^2.10.33
   better-sqlite3: ^12.10.0

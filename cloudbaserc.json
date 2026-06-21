@@ -60,6 +60,18 @@
       }
     },
     {
+      "name": "sso-ticket",
+      "timeout": 10,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true,
+      "envVariables": {
+        "SSO_TICKET_PRIVATE_KEY_ID": "{{env.SSO_TICKET_PRIVATE_KEY_ID}}",
+        "SSO_TICKET_PRIVATE_KEY": "{{env.SSO_TICKET_PRIVATE_KEY}}",
+        "SSO_TICKET_REFRESH_SEC": "{{env.SSO_TICKET_REFRESH_SEC}}"
+      }
+    },
+    {
       "name": "iap-order",
       "timeout": 30,
       "runtime": "Nodejs18.15",
