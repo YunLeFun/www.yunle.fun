@@ -55,7 +55,7 @@ const {
 const { getUnreadCount, listNotifications, markRead } = require('./notifications')
 const { listUserOrders } = require('./orders-query')
 const { getProfile, upsertMyProfile } = require('./profiles')
-const { getSignInStatus, signIn } = require('./signin')
+const { getSignInHistory, getSignInStatus, signIn } = require('./signin')
 const { getAppSupport, getTipLeaderboard, tip } = require('./tips')
 
 const app = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV })
@@ -153,6 +153,7 @@ async function dispatch(event) {
     case 'requestAccountDeletion':
     case 'signIn':
     case 'getSignInStatus':
+    case 'getSignInHistory':
     case 'tip':
     case 'followUser':
     case 'unfollowUser':
@@ -179,6 +180,8 @@ async function dispatch(event) {
           return await signIn(db, { userId: uid, now: Date.now() })
         case 'getSignInStatus':
           return await getSignInStatus(db, { userId: uid, now: Date.now() })
+        case 'getSignInHistory':
+          return await getSignInHistory(db, { userId: uid, now: Date.now() })
         case 'tip':
           return await tip(db, { userId: uid, appId: event.appId, now: Date.now() })
         case 'followUser':

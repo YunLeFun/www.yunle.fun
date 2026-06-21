@@ -40,6 +40,17 @@ export interface SignInResult {
   milestone: { streak: number, bonus: number } | null
 }
 
+/** 签到历史中的一天（供热力图日历） */
+export interface SignInDay {
+  /** 东八区日期 key（YYYY-MM-DD） */
+  dateKey: string
+  /** 当天签到领取的云币（1 免费 / 2 会员） */
+  coins: number
+  isMember: boolean
+  /** 当天是否达成 7 天里程碑 */
+  milestone: boolean
+}
+
 export function useSignIn() {
   const { app } = useCloudbase()
   const { user } = useTcbAuth()
@@ -50,6 +61,9 @@ export function useSignIn() {
   const submitting = ref(false)
   /** 自动领取去重：记录已尝试自动领取的 uid（每个用户每次会话仅一次） */
   const autoClaimedFor = useState<string | null>('signin_auto_claimed_uid', () => null)
+  /** 签到历史（近一年），供热力图日历 */
+  const history = useState<SignInDay[]>('signin_history', () => [])
+  const historyLoading = ref(false)
 
   const signedToday = computed(() => !!status.value?.signedToday)
   const reward = computed(() => status.value?.reward ?? 1)
@@ -80,6 +94,30 @@ export function useSignIn() {
     }
     finally {
       loading.value = false
+    }
+  }
+
+  /** 拉取签到历史（近一年，只读），供热力图日历 */
+  async function fetchHistory(): Promise<SignInDay[]> {
+    if (!user.value || !app) {
+      history.value = []
+      return []
+    }
+    historyLoading.value = true
+    try {
+      const res = await app.callFunction({
+        name: 'account-api',
+        data: { action: 'getSignInHistory' },
+      })
+      history.value = (res.result as { days?: SignInDay[] }).days ?? []
+      return history.value
+    }
+    catch (err) {
+      console.warn('[useSignIn] fetchHistory failed:', err)
+      return []
+    }
+    finally {
+      historyLoading.value = false
     }
   }
 
@@ -150,9 +188,12 @@ export function useSignIn() {
     weekProgress,
     weekLen,
     milestoneReward,
+    history: readonly(history),
+    historyLoading: readonly(historyLoading),
     loading: readonly(loading),
     submitting: readonly(submitting),
     fetchStatus,
+    fetchHistory,
     signIn,
     autoClaim,
   }

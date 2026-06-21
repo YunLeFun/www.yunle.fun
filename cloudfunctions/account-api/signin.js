@@ -21,7 +21,7 @@
 const { readMembership } = require('./account')
 const { cstDateKey } = require('./datetime')
 const { isMembershipActive } = require('./lib/membership')
-const { creditCoin, findTxByRef, getBalance } = require('./lib/wallet')
+const { COIN_TX_COLLECTION, creditCoin, findTxByRef, getBalance } = require('./lib/wallet')
 
 /** 签到流水归属应用（平台级） */
 const SIGNIN_APP_ID = 'yunle'
@@ -40,6 +40,10 @@ const SIGNIN_STATS_COLLECTION = 'user_signin_stats'
 const SIGNIN_STATS_MAX_RETRY = 5
 /** 一天的毫秒数（用于「昨天」判断） */
 const DAY_MS = 86_400_000
+/** 签到历史回看窗口（天）：约 53 周，供前端热力图日历 */
+const SIGNIN_HISTORY_DAYS = 371
+/** 拉历史的流水条数上限（每日 ≤2 笔：日常+里程碑，留足余量） */
+const SIGNIN_HISTORY_TX_LIMIT = 800
 
 /** 构造签到幂等 refId（日常币） */
 function signinRefId(userId, dateKey) {
@@ -295,6 +299,53 @@ async function signIn(db, { userId, now }) {
   }
 }
 
+/**
+ * 读取签到历史（近 SIGNIN_HISTORY_DAYS 天），按东八区自然日聚合，供前端热力图日历。
+ *
+ * 真值仍是 coin_transactions 流水（type='gift' 且 meta.signin / meta.signinMilestone），
+ * 只读、可重算自愈。注意：gift 流水里还混有管理员调账等非签到记录，必须按 meta 过滤。
+ *
+ * @param {object} db
+ * @param {object} input
+ * @param {string} input.userId
+ * @param {number} input.now
+ * @param {number} [input.windowDays]
+ * @returns {Promise<{ days: Array<{dateKey:string, coins:number, isMember:boolean, milestone:boolean}>, totalDays:number, windowDays:number }>} 按东八区日聚合的签到历史（升序）
+ */
+async function getSignInHistory(db, { userId, now, windowDays = SIGNIN_HISTORY_DAYS }) {
+  if (!userId)
+    throw new Error('getSignInHistory: 缺少 userId')
+  const since = now - windowDays * DAY_MS
+  const { data } = await db
+    .collection(COIN_TX_COLLECTION)
+    .where({ userId, type: 'gift' })
+    .orderBy('createdAt', 'desc')
+    .limit(SIGNIN_HISTORY_TX_LIMIT)
+    .get()
+  const rows = Array.isArray(data) ? data : []
+
+  const byDate = new Map()
+  for (const tx of rows) {
+    if (typeof tx.createdAt !== 'number' || tx.createdAt < since)
+      continue
+    const meta = tx.meta || {}
+    if (!meta.signin && !meta.signinMilestone)
+      continue
+    const dateKey = meta.dateKey || cstDateKey(tx.createdAt)
+    const cur = byDate.get(dateKey) || { dateKey, coins: 0, isMember: false, milestone: false }
+    if (meta.signin) {
+      cur.coins = Math.abs(tx.amount) || cur.coins
+      cur.isMember = !!meta.isMember
+    }
+    if (meta.signinMilestone)
+      cur.milestone = true
+    byDate.set(dateKey, cur)
+  }
+
+  const days = [...byDate.values()].sort((a, b) => (a.dateKey < b.dateKey ? -1 : a.dateKey > b.dateKey ? 1 : 0))
+  return { days, totalDays: days.length, windowDays }
+}
+
 module.exports = {
   SIGNIN_APP_ID,
   SIGNIN_REWARD_FREE,
@@ -309,5 +360,6 @@ module.exports = {
   isMilestoneDay,
   readSignInStats,
   getSignInStatus,
+  getSignInHistory,
   signIn,
 }

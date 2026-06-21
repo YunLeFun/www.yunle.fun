@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { cstDateKey } from '../../cloudfunctions/account-api/datetime.js'
 import { MEMBERSHIPS_COLLECTION } from '../../cloudfunctions/account-api/lib/orders.js'
 import { COIN_TX_COLLECTION, WALLET_COLLECTION } from '../../cloudfunctions/account-api/lib/wallet.js'
-import { getSignInStatus, signIn } from '../../cloudfunctions/account-api/signin.js'
+import { getSignInHistory, getSignInStatus, signIn } from '../../cloudfunctions/account-api/signin.js'
 import { makeFakeDb } from '../_fixtures/wxpay.mjs'
 
 const NOW = 1_700_000_000_000 // 对应东八区 2023-11-15
@@ -175,5 +175,51 @@ describe('连续签到 streak + 7 天里程碑', () => {
     expect(res.milestone).toMatchObject({ streak: 7, bonus: 20 })
     // 7 天 ×2 = 14 + 里程碑 20 = 34
     expect(res.balance).toBe(34)
+  })
+})
+
+describe('getSignInHistory 签到热力图历史', () => {
+  it('按日聚合，排除非签到 gift、窗口外与他人流水', async () => {
+    const db = makeFakeDb({
+      [COIN_TX_COLLECTION]: [
+        { userId: 'u1', type: 'gift', amount: 1, createdAt: NOW, meta: { signin: true, dateKey: '2023-11-15', isMember: false } },
+        { userId: 'u1', type: 'gift', amount: 2, createdAt: NOW - DAY, meta: { signin: true, dateKey: '2023-11-14', isMember: true } },
+        { userId: 'u1', type: 'gift', amount: 999, createdAt: NOW, meta: { adminAdjust: true } },
+        { userId: 'u1', type: 'gift', amount: 1, createdAt: NOW - 400 * DAY, meta: { signin: true, dateKey: '2022-10-11' } },
+        { userId: 'u2', type: 'gift', amount: 1, createdAt: NOW, meta: { signin: true, dateKey: '2023-11-15' } },
+      ],
+    })
+    const res = await getSignInHistory(db, { userId: 'u1', now: NOW })
+    expect(res.days).toEqual([
+      { dateKey: '2023-11-14', coins: 2, isMember: true, milestone: false },
+      { dateKey: '2023-11-15', coins: 1, isMember: false, milestone: false },
+    ])
+    expect(res.totalDays).toBe(2)
+  })
+
+  it('同日里程碑与日常合并：milestone=true，coins 取日常额', async () => {
+    const db = makeFakeDb({
+      [COIN_TX_COLLECTION]: [
+        { userId: 'u1', type: 'gift', amount: 2, createdAt: NOW, meta: { signin: true, dateKey: '2023-11-15', isMember: true } },
+        { userId: 'u1', type: 'gift', amount: 20, createdAt: NOW, meta: { signinMilestone: true, dateKey: '2023-11-15', streak: 7, isMember: true } },
+      ],
+    })
+    const res = await getSignInHistory(db, { userId: 'u1', now: NOW })
+    expect(res.days).toEqual([{ dateKey: '2023-11-15', coins: 2, isMember: true, milestone: true }])
+  })
+
+  it('与 signIn 联动：读回最近签到天', async () => {
+    const db = makeFakeDb({})
+    await signIn(db, { userId: 'u1', now: NOW })
+    await signIn(db, { userId: 'u1', now: NOW + DAY })
+    const res = await getSignInHistory(db, { userId: 'u1', now: NOW + DAY })
+    expect(res.days.map(d => d.dateKey)).toEqual([cstDateKey(NOW), cstDateKey(NOW + DAY)])
+    expect(res.days.every(d => d.coins === 1 && !d.milestone)).toBe(true)
+  })
+
+  it('无签到流水返回空', async () => {
+    const db = makeFakeDb({})
+    const res = await getSignInHistory(db, { userId: 'u1', now: NOW })
+    expect(res).toMatchObject({ days: [], totalDays: 0 })
   })
 })
