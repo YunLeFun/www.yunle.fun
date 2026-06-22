@@ -174,12 +174,7 @@ async function handleSubmit() {
 
           <!-- GitHub 仓库 -->
           <UFormField label="GitHub 仓库" hint="可选">
-            <UInput
-              v-model="form.githubRepo"
-              placeholder="owner/repo"
-              icon="i-simple-icons-github"
-              class="w-full font-mono"
-            />
+            <GitHubRepoInput v-model="form.githubRepo" />
           </UFormField>
 
           <!-- 网页链接 -->

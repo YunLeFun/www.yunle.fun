@@ -24,15 +24,15 @@
 
 ## 适合放 Nuxt server（EdgeOne）的功能（按需启用）
 
-| 功能                    | 形态                            | 收益                                                                                   |
-| ----------------------- | ------------------------------- | -------------------------------------------------------------------------------------- |
-| GitHub API 代理         | `server/api/github/**`          | 当前 `useGitHubRepos` 浏览器直连 GitHub，匿名限流 60 req/h；server 侧可加 token + 缓存 |
-| 公开用户主页 SSR        | `server/api/profile` + `/u`     | SEO / 分享 OG；经 account-api HTTP 访问代理 getProfile（已实现 2026-06）               |
-| OG 分享图生成           | `server/routes/og/**`           | 动态生成博客 / 应用分享图                                                              |
-| sitemap / RSS / robots  | server route 或 generate 期产出 | SEO；纯静态也可在 generate 时生成                                                      |
-| 轻量无状态接口          | `server/api/**`                 | 联系表单、健康检查、webhook 接收等，不碰 CloudBase 凭据                                |
-| 安全 header / 重定向    | Nitro routeRules / middleware   | 已用 routeRules 配置缓存 header，同处维护                                              |
-| （远期）文档 / 博客 SSR | Nuxt SSR / ISR                  | 当前 `ssr: false`；如要做再整体评估，不必为上面几项开启 SSR                            |
+| 功能                    | 形态                            | 收益                                                                                                                                                                                    |
+| ----------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GitHub API 代理         | `server/api/github/**`          | 当前 `GitHubRepoInput` 仅用匿名 API 校验公开仓库是否存在（限流 60 req/h/IP）；若需展示 stars / 最近提交或校验私有仓库，再在 server 侧用 GitHub App token + 缓存，勿回退到代理用户 token |
+| 公开用户主页 SSR        | `server/api/profile` + `/u`     | SEO / 分享 OG；经 account-api HTTP 访问代理 getProfile（已实现 2026-06）                                                                                                                |
+| OG 分享图生成           | `server/routes/og/**`           | 动态生成博客 / 应用分享图                                                                                                                                                               |
+| sitemap / RSS / robots  | server route 或 generate 期产出 | SEO；纯静态也可在 generate 时生成                                                                                                                                                       |
+| 轻量无状态接口          | `server/api/**`                 | 联系表单、健康检查、webhook 接收等，不碰 CloudBase 凭据                                                                                                                                 |
+| 安全 header / 重定向    | Nitro routeRules / middleware   | 已用 routeRules 配置缓存 header，同处维护                                                                                                                                               |
+| （远期）文档 / 博客 SSR | Nuxt SSR / ISR                  | 当前 `ssr: false`；如要做再整体评估，不必为上面几项开启 SSR                                                                                                                             |
 
 ## 判定规则（新功能往哪放）
 

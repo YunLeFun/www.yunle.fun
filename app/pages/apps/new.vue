@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { RepoSelectorOption } from '~/types/github'
 import { isOfficialUser } from '~/config'
+import { GITHUB_PROVIDER_ID, normalizeOAuthProviderId } from '~/utils/authProviders'
 
 const RE_SLUG_INVALID = /[^a-z0-9\u4E00-\u9FFF-]/g
 const RE_SLUG_MULTI_DASH = /-+/g
@@ -40,9 +40,13 @@ const form = reactive({
   isPublic: true,
 })
 
-// 从绑定的 GitHub 身份中提取 login
+// 从绑定的 GitHub 身份中提取 login（优先按 provider id 精确匹配，避免多身份时错配）
 const githubLogin = computed(() => {
-  const ghIdentity = user.value?.identities?.find(i => user.value?.providers?.includes('github') && i.name)
+  const identities = user.value?.identities
+  if (!identities?.length || !user.value?.providers?.includes(GITHUB_PROVIDER_ID))
+    return ''
+  const ghIdentity = identities.find(i => normalizeOAuthProviderId(i.id) === GITHUB_PROVIDER_ID)
+    ?? identities.find(i => i.name)
   return ghIdentity?.name || ''
 })
 
@@ -73,14 +77,9 @@ function onSlugInput() {
   slugError.value = ''
 }
 
-/**
- * 处理GitHub仓库选择
- */
-function handleRepoSelect(repo: RepoSelectorOption | null) {
-  if (repo) {
-    form.githubRepo = repo.value
-    autoRepo.value = false
-  }
+// 用户手动编辑仓库后，停止根据 slug 自动填充
+function onRepoInput() {
+  autoRepo.value = false
 }
 
 const SLUG_REGEX = /^[a-z][a-z0-9-]{1,49}$/
@@ -186,11 +185,11 @@ async function handleSubmit() {
           </UFormField>
 
           <!-- GitHub 仓库 -->
-          <UFormField label="GitHub 仓库" hint="可选，关联到 GitHub 仓库便于管理">
-            <GitHubRepoSelector
+          <UFormField label="GitHub 仓库" hint="可选，应用的源码仓库">
+            <GitHubRepoInput
               v-model="form.githubRepo"
-              placeholder="选择或输入 GitHub 仓库..."
-              @select="handleRepoSelect"
+              placeholder="owner/repo"
+              @update:model-value="onRepoInput"
             />
           </UFormField>
 

@@ -33,7 +33,6 @@ export interface TcbRawUser {
     id: string
     name: string
     picture: string
-    accessToken?: string
   }> | null
   created_at: string
   updated_at: string
@@ -44,7 +43,6 @@ export interface UserIdentity {
   id: string
   name: string
   picture: string
-  accessToken?: string
 }
 
 export type UserGender = 'MALE' | 'FEMALE' | ''
@@ -99,6 +97,8 @@ export function mapCloudbaseUser(cbUser: TcbRawUser): User | null {
     role: cbUser.role?.[0] || 'USER',
     hasPassword: passwordStatus === 'SET',
     providers: cbUser.app_metadata?.providers || [],
+    // 仅保留展示所需字段；CloudBase 不会持久回传第三方 OAuth access token，
+    // 故不要在此依赖 token 判断“是否绑定”——绑定状态以 providers / getUserIdentities() 为准。
     identities: (cbUser.identities || []).map(i => ({ id: i.id, name: i.name, picture: i.picture })),
     createdAt: cbUser.created_at || '',
     updatedAt: cbUser.updated_at || '',
