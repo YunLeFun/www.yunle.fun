@@ -18,8 +18,6 @@ useSeoMeta({
   title: '页面未找到',
   description: '抱歉，您访问的页面不存在。',
 })
-
-const { navigation, links } = useNavigation()
 </script>
 
 <template>
@@ -45,11 +43,6 @@ const { navigation, links } = useNavigation()
     </UMain>
 
     <AppFooter />
-
-    <DeferredContentSearch
-      :navigation="navigation"
-      :links="links"
-    />
 
     <UToaster />
   </div>

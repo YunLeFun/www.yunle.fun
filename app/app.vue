@@ -26,9 +26,6 @@ useSeoMeta({
   twitterCard: 'summary_large_image',
 })
 
-const { navigation, links } = useNavigation()
-provide('navigation', navigation)
-
 // 方案 B：登录态就绪后自动领取每日签到云币（替代手动签到），到账时以 toast 呈现。
 // 服务端 signIn 幂等（按东八区自然日只入账一次），autoClaim 再按 uid 去重，重复触发安全。
 const { user } = useTcbAuth()
@@ -74,10 +71,5 @@ watch(() => user.value?.id, (id) => {
     <NuxtLayout>
       <NuxtPage />
     </NuxtLayout>
-
-    <DeferredContentSearch
-      :navigation="navigation"
-      :links="links"
-    />
   </UApp>
 </template>

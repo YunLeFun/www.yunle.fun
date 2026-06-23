@@ -189,7 +189,8 @@ function openList(type: 'following' | 'followers') {
             class="group flex items-center gap-3 rounded-2xl p-3 transition-colors hover:bg-elevated/60"
           >
             <div class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-elevated">
-              <img v-if="item.icon" :src="item.icon" :alt="item.name" class="size-6 rounded">
+              <img v-if="item.icon || item.logo" :src="item.icon || item.logo" :alt="item.name" class="size-6 rounded">
+              <span v-else-if="item.emoji" class="text-xl leading-none">{{ item.emoji }}</span>
               <UIcon v-else name="i-lucide-box" class="text-base text-muted" />
             </div>
             <div class="min-w-0 flex-1">

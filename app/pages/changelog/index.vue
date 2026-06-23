@@ -1,8 +1,8 @@
 <script setup lang="ts">
-const route = useRoute()
+import changelogMeta from '~~/content/4.changelog.yml'
 
-const { data: page } = await useAsyncData('changelog', () => queryCollection('changelog').first())
-const { data: versions } = await useAsyncData(route.path, () => queryCollection('versions').order('date', 'DESC').all())
+const page = ref(changelogMeta)
+const { data: versions } = await useAsyncData('changelog-versions', () => getChangelogVersions())
 
 const title = page.value?.seo?.title || page.value?.title
 const description = page.value?.seo?.description || page.value?.description
@@ -13,8 +13,6 @@ useSeoMeta({
   description,
   ogDescription: description,
 })
-
-// defineOgImageComponent('Saas') // Disabled: SSR is required for OG images
 </script>
 
 <template>
@@ -33,10 +31,17 @@ useSeoMeta({
         <UChangelogVersion
           v-for="(version, index) in versions"
           :key="index"
-          v-bind="version"
+          :title="version.title"
+          :description="version.description"
+          :date="version.date"
+          :image="version.image"
         >
           <template #body>
-            <ContentRenderer :value="version.body" />
+            <MDCRenderer
+              v-if="version.body"
+              :body="version.body"
+              :data="version"
+            />
           </template>
         </UChangelogVersion>
       </UChangelogVersions>

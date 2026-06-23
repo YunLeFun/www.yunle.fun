@@ -1,8 +1,8 @@
 <script setup lang="ts">
-const route = useRoute()
+import blogMeta from '~~/content/3.blog.yml'
 
-const { data: page } = await useAsyncData('blog', () => queryCollection('blog').first())
-const { data: posts } = await useAsyncData(route.path, () => queryCollection('posts').all())
+const page = ref(blogMeta)
+const { data: posts } = await useAsyncData('blog-posts', () => getBlogPosts())
 
 const title = page.value?.seo?.title || page.value?.title
 const description = page.value?.seo?.description || page.value?.description
@@ -13,8 +13,6 @@ useSeoMeta({
   description,
   ogDescription: description,
 })
-
-// defineOgImageComponent('Saas') // Disabled: SSR is required for OG images
 </script>
 
 <template>
@@ -37,7 +35,7 @@ useSeoMeta({
           :title="post.title"
           :description="post.description"
           :image="post.image"
-          :date="new Date(post.date).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })"
+          :date="new Date(post.date ?? Date.now()).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })"
           :authors="post.authors"
           :badge="post.badge"
           :orientation="index === 0 ? 'horizontal' : 'vertical'"

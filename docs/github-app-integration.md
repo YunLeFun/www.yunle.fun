@@ -24,7 +24,7 @@ GitHub App 的 **private key 能为所有 installation 签发 token**，属敏�
 1. GitHub →（组织或个人）**Settings → Developer settings → GitHub Apps → New GitHub App**
 2. **GitHub App name**：全局唯一，如 `YunLeFun Apps`（记下生成的 **slug**，用于安装 URL）
 3. **Homepage URL**：`https://www.yunle.fun`
-4. **Callback URL**：`https://api.yunle.fun/github-api/callback`
+4. **Callback URL**：`https://api.yunle.fun/github-api`（对应网关精确路径；本函数把任意 GET 当回调处理）
    - 勾选 **Request user authorization (OAuth) during installation**（安装即授权，回调一次拿到 `installation_id` + `code`）
 5. **Webhook**：先取消勾选 **Active**（Phase 4 再开 `…/github-api/webhook`）
 6. **Permissions → Repository → Metadata: Read-only**（仅此一项；足够列举 + 校验 + 读名称/可见性/语言/stars）
@@ -109,12 +109,45 @@ GitHub App 的 **private key 能为所有 installation 签发 token**，属敏�
 
 ## 阶段与状态
 
-| 阶段 | 内容                                                                                    | 状态            |
-| ---- | --------------------------------------------------------------------------------------- | --------------- |
-| 0    | 你在 GitHub 建 App + 填 env                                                             | ⏳ 进行中（你） |
-| 1    | `github-api`：JWT→token、`checkRepo`/`listRepos`/`getConnection` + 集合/索引 + 安装回调 | 待 Phase 0      |
-| 2    | `getInstallUrl` + 回调落库 + 客户端弹窗连接                                             | —               |
-| 3    | `useGitHubApp` + 仓库选择器，接入 new/edit                                              | —               |
-| 4    | webhook 同步 + token 缓存 + 限流 + 文档收尾                                             | —               |
+| 阶段 | 内容                                                                                                     | 状态                                            |
+| ---- | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| 0    | 你在 GitHub 建 App + 填 env                                                                              | ✅ App 已建（App ID 1018931），待填 env         |
+| 1    | `github-api`：JWT→token、`checkRepo`/`listRepos`/`getConnection`/`getInstallUrl`/`disconnect` + 安装回调 | ✅ 代码完成（crypto 单测 7 passed），待部署联调 |
+| 2    | 回调落库（已含于 Phase 1）+ 客户端弹窗连接                                                               | 部分（后端就绪，客户端待做）                    |
+| 3    | `useGitHubApp` + 仓库选择器，接入 new/edit                                                               | —                                               |
+| 4    | webhook 同步 + 组织安装下按 user-token 收窄列举 + 限流 + 文档收尾                                        | —                                               |
 
 > 公开仓库现状（`GitHubRepoInput` 匿名校验）在全程保持可用，本方案不阻断、不替换它。
+
+---
+
+## 部署与联调
+
+已落地文件：`cloudfunctions/github-api/{index.js, lib/app-auth.js, lib/store.js, package.json}` + 单测 `tests/github-api/app-auth.test.js`（RS256 JWT 与 state HMAC 已验证）。仓库读取统一走短期 installation token，**不持久化任何用户 token**；user token 仅在安装回调时用于校验安装归属。
+
+### 已在 prod 完成（2026-06-22，经 CloudBase MCP）
+
+- ✅ `cloudbaserc.json` 注册 `github-api`（env 用 `{{env.X}}` 占位，无明文）。
+- ✅ 部署函数 `github-api`（Event，Nodejs18.15，已装依赖），冒烟通过：无登录调用返回 `请先登录`，证明加载 / 派发 / 鉴权闸正常。
+- ✅ 预置**非敏感** env：`GITHUB_APP_ID=1018931`、`GITHUB_APP_CLIENT_ID=Iv23ctmn8JrMzMf3Bb4k`。
+- ✅ 建集合 `github_installations` + 索引 `idx_installation`。
+- ✅ 网关 HTTP 路径 `/github-api`（公开，`auth=false`，同 desktop-auth 模型）→ 回调地址 **`https://api.yunle.fun/github-api`**（传播需 30s–3min）。
+- ✅ 函数安全规则 `{"*":{"invoke":"auth != null"}}`（同 account-api/desktop-auth）：登录用户可调 SDK action；匿名回调走网关 HTTP 入口，不受此规则限制。
+
+### 待你完成（这几步我做不了 / 需你本人）
+
+1. **在 CloudBase 控制台给 `github-api` 函数补 4 个 env**（敏感，我不能代填）：
+   - `GITHUB_APP_SLUG`（App 的 URL slug）
+   - `GITHUB_APP_PRIVATE_KEY`（`.pem` 的 base64：`base64 -i your-key.pem`）
+   - `GITHUB_APP_CLIENT_SECRET`
+   - `GITHUB_APP_STATE_SECRET`（任意随机串，如 `openssl rand -hex 32`）
+2. **GitHub App 设置里把 Callback URL 改成 `https://api.yunle.fun/github-api`**（即网关那条精确路径，去掉之前的 `/callback`）；确认已勾 “Request user authorization (OAuth) during installation”。
+3. **跑一遍安装授权**（需你登录自己的 GitHub 点授权）。
+
+### 联调顺序
+
+1. 登录态客户端 `callFunction({ name: 'github-api', data: { action: 'getInstallUrl' } })` → 打开返回的 url 安装 App；
+2. 安装后 GitHub 重定向到 `https://api.yunle.fun/github-api`（带 `code` + `installation_id` + `state`），函数校验 state + 安装归属并落库 `github_installations`；
+3. 再调 `getConnection`（应 `connected:true`）、`listRepos`、`checkRepo`（私有仓库应 `exists:true, private:true`）。
+
+> 实现说明：Phase 1 列举用 installation token + `GET /installation/repositories`，对**个人安装**即用户自己选授的仓库，简单且无需存 user token；**组织安装**下它列出 App 被授予的全部仓库，按登录用户可见性收窄（user-token `GET /user/installations/{id}/repositories`）留到 Phase 4。

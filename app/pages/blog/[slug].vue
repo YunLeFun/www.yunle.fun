@@ -1,16 +1,11 @@
 <script setup lang="ts">
 const route = useRoute()
+const slug = computed(() => route.params.slug as string)
 
-const { data: post } = await useAsyncData(route.path, () => queryCollection('posts').path(route.path).first())
+const { data: post } = await useAsyncData(route.path, () => getBlogPost(slug.value))
 if (!post.value) {
   throw createError({ statusCode: 404, statusMessage: 'Post not found', fatal: true })
 }
-
-const { data: surround } = await useAsyncData(`${route.path}-surround`, () => {
-  return queryCollectionItemSurroundings('posts', route.path, {
-    fields: ['description'],
-  })
-})
 
 const title = post.value.seo?.title || post.value.title
 const description = post.value.seo?.description || post.value.description
@@ -21,18 +16,6 @@ useSeoMeta({
   description,
   ogDescription: description,
 })
-
-// OG Image disabled: SSR is required
-// if (post.value.image?.src) {
-//   defineOgImage({
-//     url: post.value.image.src,
-//   })
-// }
-// else {
-//   defineOgImageComponent('Saas', {
-//     headline: 'Blog',
-//   })
-// }
 </script>
 
 <template>
@@ -43,11 +26,12 @@ useSeoMeta({
     >
       <template #headline>
         <UBadge
+          v-if="post.badge"
           v-bind="post.badge"
           variant="subtle"
         />
         <span class="text-muted">&middot;</span>
-        <time class="text-muted">{{ new Date(post.date).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' }) }}</time>
+        <time class="text-muted">{{ new Date(post.date ?? Date.now()).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' }) }}</time>
       </template>
 
       <div class="mt-4 flex flex-wrap gap-3 items-center">
@@ -61,6 +45,7 @@ useSeoMeta({
           size="sm"
         >
           <UAvatar
+            v-if="author.avatar"
             v-bind="author.avatar"
             alt="Author avatar"
             size="2xs"
@@ -73,22 +58,12 @@ useSeoMeta({
 
     <UPage>
       <UPageBody>
-        <ContentRenderer
-          v-if="post"
-          :value="post"
+        <MDCRenderer
+          v-if="post.body"
+          :body="post.body"
+          :data="post"
         />
-
-        <USeparator v-if="surround?.length" />
-
-        <UContentSurround :surround="surround" />
       </UPageBody>
-
-      <template
-        v-if="post?.body?.toc?.links?.length"
-        #right
-      >
-        <UContentToc :links="post.body.toc.links" />
-      </template>
     </UPage>
   </UContainer>
 </template>

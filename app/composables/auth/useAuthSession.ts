@@ -8,6 +8,8 @@ export function useTcbAuthSession() {
     loading: readonly(core.loading),
     error: readonly(core.error),
     isAuthenticated: core.isAuthenticated,
+    authReady: readonly(core.authReady),
+    authStatus: core.authStatus,
     checkAuthStatus: core.checkAuthStatus,
     logout: core.logout,
   }

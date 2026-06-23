@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { BillingCycle, PlanId } from '~/types/payment'
+import pricingPage from '~~/content/2.pricing.yml'
 
-const { data: page } = await useAsyncData('pricing', () => queryCollection('pricing').first())
+const page = ref(pricingPage)
 
 interface PricingFaqItem {
   label: string

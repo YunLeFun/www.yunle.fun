@@ -5,15 +5,13 @@ import { useTcbAuthSession } from '~/composables/auth/useAuthSession'
  * 用户菜单组件
  * 显示用户头像和下拉菜单
  */
-const { user, isAuthenticated, logout, checkAuthStatus } = useTcbAuthSession()
+const { user, authStatus, authReady, logout, checkAuthStatus } = useTcbAuthSession()
 const { isActive: isMember, refresh: refreshMembership } = useMembership()
-const authChecked = useState('auth_checked', () => false)
 
 onMounted(async () => {
-  if (!authChecked.value) {
-    authChecked.value = true
+  // 公开路由下中间件不校验，这里兜底恢复登录态；authReady 已完成则跳过
+  if (!authReady.value)
     await checkAuthStatus()
-  }
   // 会员状态用于头像角标；登录态已就绪时拉取一次（后续随用户变化自动刷新）
   if (user.value)
     refreshMembership()
@@ -51,7 +49,7 @@ const items = computed(() => [
 </script>
 
 <template>
-  <div v-if="isAuthenticated && user">
+  <div v-if="user">
     <UDropdownMenu
       :items="items"
       :content="{ align: 'end' }"
@@ -96,6 +94,8 @@ const items = computed(() => [
       </template>
     </UDropdownMenu>
   </div>
+
+  <UserMenuSkeleton v-else-if="authStatus === 'pending'" />
 
   <AuthActionButtons v-else />
 </template>

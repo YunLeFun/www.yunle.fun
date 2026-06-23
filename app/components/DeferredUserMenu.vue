@@ -28,7 +28,7 @@ watch(
     <LazyUserMenu />
 
     <template #fallback>
-      <AuthActionButtons />
+      <UserMenuSkeleton />
     </template>
   </Suspense>
 

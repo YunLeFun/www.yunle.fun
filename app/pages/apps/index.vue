@@ -5,9 +5,11 @@ import { isOfficialUser } from '~/config'
 definePageMeta({ layout: 'default' })
 useSeoMeta({ title: '我的应用 - YunLeFun', description: '管理您发布的应用' })
 
-const { user, isAuthenticated, loading: authLoading } = useTcbAuth()
+const { user, loading: authLoading } = useTcbAuth()
 const { getMyApps } = useApps()
-const router = useRouter()
+
+// 登录守卫：会话就绪后仍未登录才跳登录（双层会话 cookie 恢复窗口内不误跳）
+useRequireAuth('/apps')
 
 // 开发者平台未上线，仅官方账号可自助发布应用
 const canCreate = computed(() => isOfficialUser(user.value))
@@ -15,13 +17,8 @@ const canCreate = computed(() => isOfficialUser(user.value))
 const apps = ref<AppRecord[]>([])
 const loading = ref(true)
 
-watch(isAuthenticated, (value) => {
-  if (!value && !authLoading.value) {
-    router.push('/login?redirect=/apps')
-  }
-}, { immediate: true })
-
-onMounted(async () => {
+// 会话就绪后再拉「我的应用」（公开路由不经中间件恢复登录态，需自行等待）
+onUserSession(async () => {
   try {
     apps.value = await getMyApps()
   }
@@ -109,11 +106,12 @@ function formatDate(ts: number) {
             <!-- 图标 -->
             <div class="ylf-icon-tile flex h-10 w-10 shrink-0 items-center justify-center rounded-md">
               <img
-                v-if="item.icon"
-                :src="item.icon"
+                v-if="item.icon || item.logo"
+                :src="item.icon || item.logo"
                 :alt="item.name"
                 class="h-8 w-8 rounded"
               >
+              <span v-else-if="item.emoji" class="text-2xl leading-none">{{ item.emoji }}</span>
               <UIcon v-else name="i-lucide-box" class="text-xl text-muted" />
             </div>
 

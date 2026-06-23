@@ -12,11 +12,11 @@
 
 现有 Web SSO 的机制（见 [sso-integration.md §2](./sso-integration.md)）有三个前提，桌面端**一个都不满足**：
 
-| Web SSO 依赖 | 桌面端为什么不成立 |
-| --- | --- |
+| Web SSO 依赖                            | 桌面端为什么不成立                                                                                                                        |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | 子站有一个在白名单内的 **HTTPS origin** | Tauri webview 跑在 `tauri://localhost` / `http://tauri.localhost`，不是 `*.yunle.fun`，进不了白名单；强行放行等于给一个不可信 origin 开门 |
-| 浏览器窗口间 **`postMessage`** 通道 | 桌面应用与主站浏览器是两个进程，没有共享的 window 关系，`postMessage` 无从谈起 |
-| 子站可以安全持有 **`refresh_token`** | 桌面端把长效 `refresh_token` 落在用户磁盘上**永不过期、无法吊销、可被提取**——等于把账号钥匙焊死在每台机器上 |
+| 浏览器窗口间 **`postMessage`** 通道     | 桌面应用与主站浏览器是两个进程，没有共享的 window 关系，`postMessage` 无从谈起                                                            |
+| 子站可以安全持有 **`refresh_token`**    | 桌面端把长效 `refresh_token` 落在用户磁盘上**永不过期、无法吊销、可被提取**——等于把账号钥匙焊死在每台机器上                               |
 
 > [sso-integration.md §5](./sso-integration.md) 的红线已经写明：**给不可信方做登录，应改用「授权码 + 后端换 token」之类的标准 OAuth 流程，而不是本 SSO 桥**。桌面应用正是这种「不可信客户端」，所以本文走标准的设备授权码流程，而非复用 Web 桥。
 
@@ -37,12 +37,12 @@
 
 三个角色，外加一个完全复用的账户中心：
 
-| 角色 | 位置 | 职责 |
-| --- | --- | --- |
-| **桌面客户端** | Skykeeper（Tauri，Rust 后端 + Vue webview） | 发起设备授权、轮询取 entitlement、本地存储与**离线验签**、在线刷新、调权益接口 |
-| **授权页（Verification）** | 主站 `www.yunle.fun/link`（新增页面） | 在**已登录的浏览器**里展示授权请求，用户确认后把设备码绑定到当前 `uid` |
-| **桌面授权云函数** | 新增 `cloudfunctions/desktop-auth` | 设备码下发/审批/轮询/刷新/吊销；**Ed25519 签发 entitlement**；验签后转调 account-api |
-| **账户中心（复用）** | 既有 `cloudfunctions/account-api` | `getAccountForUser` / `deductCoinForUser`（内部服务接口，凭 `serviceToken`，[internal.js](../cloudfunctions/account-api/internal.js)） |
+| 角色                       | 位置                                        | 职责                                                                                                                                   |
+| -------------------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| **桌面客户端**             | Skykeeper（Tauri，Rust 后端 + Vue webview） | 发起设备授权、轮询取 entitlement、本地存储与**离线验签**、在线刷新、调权益接口                                                         |
+| **授权页（Verification）** | 主站 `www.yunle.fun/link`（新增页面）       | 在**已登录的浏览器**里展示授权请求，用户确认后把设备码绑定到当前 `uid`                                                                 |
+| **桌面授权云函数**         | 新增 `cloudfunctions/desktop-auth`          | 设备码下发/审批/轮询/刷新/吊销；**Ed25519 签发 entitlement**；验签后转调 account-api                                                   |
+| **账户中心（复用）**       | 既有 `cloudfunctions/account-api`           | `getAccountForUser` / `deductCoinForUser`（内部服务接口，凭 `serviceToken`，[internal.js](../cloudfunctions/account-api/internal.js)） |
 
 ```
    桌面应用 (Tauri)                www.yunle.fun (浏览器·已登录)         CloudBase
@@ -109,19 +109,19 @@ entitlement 是桌面端拿到的**唯一长期凭证**，替代「主站 sessio
 **结构**（`base64url(header).base64url(payload).base64url(sig)`，`sig = Ed25519(privKey, header.payload)`）：
 
 ```jsonc
-// header
-{ "alg": "EdDSA", "typ": "YLF-ENT", "kid": "desktop-2026" }   // kid 支持密钥轮换
-// payload
 {
-  "iss": "yunle.fun",
-  "sub": "<uid>",                 // 账号 uid（始终为已登录用户）
-  "aud": "skykeeper",             // appId，限定本 entitlement 只对该应用有效
-  "did": "<deviceId>",            // 设备绑定：换台机器即失配（防刷新迁移）
-  "scope": ["membership", "coin"],
-  "mbr": { "active": true, "level": "basic", "expireAt": 1789999999000 },  // 会员快照，仅供离线 UI 门控
-  "iat": 1781000000,
-  "exp": 1781604800,             // = iat + 离线宽限期（如 7d）
-  "jti": "<随机串>"               // 便于审计 / 黑名单
+  "header": { "alg": "EdDSA", "typ": "YLF-ENT", "kid": "desktop-2026" }, // kid 支持密钥轮换
+  "payload": {
+    "iss": "yunle.fun",
+    "sub": "<uid>", // 账号 uid（始终为已登录用户）
+    "aud": "skykeeper", // appId，限定本 entitlement 只对该应用有效
+    "did": "<deviceId>", // 设备绑定：换台机器即失配（防刷新迁移）
+    "scope": ["membership", "coin"],
+    "mbr": { "active": true, "level": "basic", "expireAt": 1789999999000 }, // 会员快照，仅供离线 UI 门控
+    "iat": 1781000000,
+    "exp": 1781604800, // = iat + 离线宽限期（如 7d）
+    "jti": "<随机串>" // 便于审计 / 黑名单
+  }
 }
 ```
 
@@ -169,24 +169,24 @@ entitlement 是桌面端拿到的**唯一长期凭证**，替代「主站 sessio
 
 **设备侧接口（走 HTTP 访问服务，凭证即鉴权）：**
 
-| action | 入参 | 返回 | 凭证 |
-| --- | --- | --- | --- |
-| `startDeviceAuth` | `appId`, `deviceId`, `deviceName?`, `scope?` | `{ deviceCode, userCode, verificationUri, verificationUriComplete, interval, expiresIn }` | 无（公开） |
-| `pollDeviceToken` | `deviceCode`, `deviceId` | `{ status }`；`approved` 时附 `{ entitlement, deviceRefreshToken, account }` | `deviceCode` |
-| `refreshEntitlement` | `deviceRefreshToken`, `deviceId` | `{ entitlement, deviceRefreshToken, account }` | `deviceRefreshToken` |
-| `getAccount` | `entitlement` | `{ coin, membership }` | `entitlement` |
-| `deductCoin` | `entitlement`, `amount`, `bizId`, `meta?` | `{ balance, deduped }` 或抛「余额不足」 | `entitlement`（+ `scope` 含 `coin`） |
-| `getPublicKeys` | — | `{ keys: JWK[] }`（JWKS，供客户端取验签公钥，支持轮换） | 无（公开） |
+| action               | 入参                                         | 返回                                                                                      | 凭证                                 |
+| -------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------ |
+| `startDeviceAuth`    | `appId`, `deviceId`, `deviceName?`, `scope?` | `{ deviceCode, userCode, verificationUri, verificationUriComplete, interval, expiresIn }` | 无（公开）                           |
+| `pollDeviceToken`    | `deviceCode`, `deviceId`                     | `{ status }`；`approved` 时附 `{ entitlement, deviceRefreshToken, account }`              | `deviceCode`                         |
+| `refreshEntitlement` | `deviceRefreshToken`, `deviceId`             | `{ entitlement, deviceRefreshToken, account }`                                            | `deviceRefreshToken`                 |
+| `getAccount`         | `entitlement`                                | `{ coin, membership }`                                                                    | `entitlement`                        |
+| `deductCoin`         | `entitlement`, `amount`, `bizId`, `meta?`    | `{ balance, deduped }` 或抛「余额不足」                                                   | `entitlement`（+ `scope` 含 `coin`） |
+| `getPublicKeys`      | —                                            | `{ keys: JWK[] }`（JWKS，供客户端取验签公钥，支持轮换）                                   | 无（公开）                           |
 
 **授权页接口（走 JS SDK callFunction，携带登录态）：**
 
-| action | 入参 | 返回 | 鉴权 |
-| --- | --- | --- | --- |
-| `describeDevice` | `userCode` | `{ appId, deviceName, scope, expireAt }` | 登录态（展示用） |
-| `approveDevice` | `userCode` | `{ ok: true }` | 登录态 → `uid` |
-| `denyDevice` | `userCode` | `{ ok: true }` | 登录态 |
-| `listDevices` | — | `{ devices: [...] }`（个人中心展示已授权设备） | 登录态 |
-| `revokeDevice` | `appId`, `deviceId` | `{ revoked: boolean }` | 登录态 |
+| action           | 入参                | 返回                                           | 鉴权             |
+| ---------------- | ------------------- | ---------------------------------------------- | ---------------- |
+| `describeDevice` | `userCode`          | `{ appId, deviceName, scope, expireAt }`       | 登录态（展示用） |
+| `approveDevice`  | `userCode`          | `{ ok: true }`                                 | 登录态 → `uid`   |
+| `denyDevice`     | `userCode`          | `{ ok: true }`                                 | 登录态           |
+| `listDevices`    | —                   | `{ devices: [...] }`（个人中心展示已授权设备） | 登录态           |
+| `revokeDevice`   | `appId`, `deviceId` | `{ revoked: boolean }`                         | 登录态           |
 
 **`desktop-auth` 如何复用 `account-api`：** `getAccount` / `deductCoin` 统一在 `desktop-auth` 内验签拿到 `uid` 后，用 `app.callFunction({ name:'account-api', data:{ action:'getAccountForUser' | 'deductCoinForUser', serviceToken: process.env.ACCOUNT_API_INTERNAL_TOKEN, userId: uid, ... } })` 转调（同 env 函数间调用）。账户中心保持单一事实来源。
 
@@ -195,32 +195,31 @@ entitlement 是桌面端拿到的**唯一长期凭证**，替代「主站 sessio
 ## 8. 数据模型（新增集合）
 
 ```jsonc
-// desktop_device_codes —— 设备授权码（短生命周期）
 {
-  "deviceCodeHash": "sha256(deviceCode)",   // 唯一索引；只存哈希
-  "userCode": "WXYZ1234",                    // 唯一索引（去格式化后）
-  "appId": "skykeeper",
-  "deviceId": "<安装级随机 id>",
-  "deviceName": "MacBook Pro / Win11-PC",
-  "scope": ["membership", "coin"],
-  "status": "pending|approved|denied|consumed|expired",
-  "uid": "<approve 后写入>",
-  "interval": 5,
-  "createdAt": 1781000000000,
-  "expireAt": 1781000600000,                 // TTL，建议配 TTL 索引自动清理
-  "lastPolledAt": 1781000005000
-}
-
-// desktop_devices —— 已授权设备（长期）
-{
-  "uid": "<account uid>",
-  "appId": "skykeeper",
-  "deviceId": "<安装级随机 id>",             // (uid, appId, deviceId) 唯一
-  "deviceName": "MacBook Pro",
-  "refreshTokenHash": "sha256(deviceRefreshToken)",
-  "createdAt": 1781000000000,
-  "lastSeenAt": 1781600000000,
-  "revokedAt": null
+  "desktop_device_codes": {
+    "deviceCodeHash": "sha256(deviceCode)", // 唯一索引；只存哈希
+    "userCode": "WXYZ1234", // 唯一索引（去格式化后）
+    "appId": "skykeeper",
+    "deviceId": "<安装级随机 id>",
+    "deviceName": "MacBook Pro / Win11-PC",
+    "scope": ["membership", "coin"],
+    "status": "pending|approved|denied|consumed|expired",
+    "uid": "<approve 后写入>",
+    "interval": 5,
+    "createdAt": 1781000000000,
+    "expireAt": 1781000600000, // TTL，建议配 TTL 索引自动清理
+    "lastPolledAt": 1781000005000
+  },
+  "desktop_devices": {
+    "uid": "<account uid>",
+    "appId": "skykeeper",
+    "deviceId": "<安装级随机 id>", // (uid, appId, deviceId) 唯一
+    "deviceName": "MacBook Pro",
+    "refreshTokenHash": "sha256(deviceRefreshToken)",
+    "createdAt": 1781000000000,
+    "lastSeenAt": 1781600000000,
+    "revokedAt": null
+  }
 }
 ```
 
@@ -245,15 +244,15 @@ entitlement 是桌面端拿到的**唯一长期凭证**，替代「主站 sessio
 
 两套并存，按客户端类型选用，**共享同一账户中心与 `uid`**：
 
-| 维度 | Web 跨站 SSO（既有） | 桌面 / 本地应用（本文） |
-| --- | --- | --- |
-| 客户端 | 第一方 `*.yunle.fun` 浏览器子站 | 桌面 / 本地应用（不可信客户端） |
-| 登录载体 | 隐藏 iframe / 弹窗 + `postMessage` | 系统浏览器 + 设备授权码 + 轮询 |
-| 下发凭证 | 主站 session（含 `refresh_token`） | 应用级 Ed25519 **entitlement**（不含 session） |
-| 信任根 | origin 白名单 | 设备授权码 + 设备绑定 + 非对称签名 |
-| 离线 | 不涉及 | **核心能力**：内置公钥离线验签 + 宽限期 |
-| 吊销 | 不做 SLO，自然过期 | 设备级吊销 + 黑名单（在线即时，离线到期） |
-| 账户接口 | 子站直连 `account-api`（登录态） | `desktop-auth` 验签后转调 `account-api`（serviceToken） |
+| 维度     | Web 跨站 SSO（既有）               | 桌面 / 本地应用（本文）                                 |
+| -------- | ---------------------------------- | ------------------------------------------------------- |
+| 客户端   | 第一方 `*.yunle.fun` 浏览器子站    | 桌面 / 本地应用（不可信客户端）                         |
+| 登录载体 | 隐藏 iframe / 弹窗 + `postMessage` | 系统浏览器 + 设备授权码 + 轮询                          |
+| 下发凭证 | 主站 session（含 `refresh_token`） | 应用级 Ed25519 **entitlement**（不含 session）          |
+| 信任根   | origin 白名单                      | 设备授权码 + 设备绑定 + 非对称签名                      |
+| 离线     | 不涉及                             | **核心能力**：内置公钥离线验签 + 宽限期                 |
+| 吊销     | 不做 SLO，自然过期                 | 设备级吊销 + 黑名单（在线即时，离线到期）               |
+| 账户接口 | 子站直连 `account-api`（登录态）   | `desktop-auth` 验签后转调 `account-api`（serviceToken） |
 
 ---
 
@@ -262,19 +261,23 @@ entitlement 是桌面端拿到的**唯一长期凭证**，替代「主站 sessio
 > 建议按阶段推进，每阶段独立可验收。**Phase 1 是最小可用闭环。**
 
 **Phase 0 — 密钥与配置**
+
 - 生成 Ed25519 签发密钥对；私钥 `DESKTOP_AUTH_SIGNING_KEY` 配进 `desktop-auth` 环境变量，公钥（带 `kid`）记录待内置进客户端。
 - `cloudbaserc.json` 新增 `desktop-auth` 函数项（`envVariables`：`DESKTOP_AUTH_SIGNING_KEY`、`DESKTOP_AUTH_SIGNING_KID`、`ACCOUNT_API_INTERNAL_TOKEN`）。
 
 **Phase 1 — 登录闭环（最小可用）**
+
 - `desktop-auth`：`startDeviceAuth` / `approveDevice` / `pollDeviceToken` / `refreshEntitlement` + Ed25519 签发 + `desktop_device_codes` / `desktop_devices`。
 - 主站新增 `app/pages/link.vue` 授权页（复用现有登录态 / `/login` 回流）。
 - 绑定 HTTP 访问服务路径，跑通「桌面起码 → 浏览器授权 → 桌面拿到 entitlement」。
 
 **Phase 2 — 权益接入**
+
 - `desktop-auth`：`getAccount` / `deductCoin` 转调 account-api 内部接口。
 - 个人中心「已登录设备」管理页（列表 / 吊销）。
 
 **Phase 3 — 打磨**
+
 - 限流、黑名单、审计日志；客户端 SDK 化（见接入文档，可沉淀为 `@yunlefun/sso/desktop`）。
 
 **部署**：与既有云函数一致——前端 EdgeOne Pages 自动、`desktop-auth` 云函数 **手动 `tcb` 部署**（见 [deployment-pipeline](../README.md)）。

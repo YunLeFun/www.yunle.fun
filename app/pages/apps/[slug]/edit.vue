@@ -4,8 +4,8 @@ import type { AppRecord } from '~/types/app'
 definePageMeta({ layout: 'default' })
 
 const route = useRoute()
-const { user, isAuthenticated, loading: authLoading } = useTcbAuth()
-const { getAppBySlug, updateApp, isSlugTaken } = useApps()
+const { user, loading: authLoading } = useTcbAuth()
+const { getMyAppBySlug, updateApp, isSlugTaken } = useApps()
 const toast = useToast()
 const router = useRouter()
 
@@ -25,15 +25,12 @@ const form = reactive({
   isPublic: true,
 })
 
-watch(isAuthenticated, (value) => {
-  if (!value && !authLoading.value) {
-    router.push('/login')
-  }
-}, { immediate: true })
+// 登录守卫：会话就绪后仍未登录才跳登录（双层会话 cookie 恢复窗口内不误跳）
+useRequireAuth()
 
 onMounted(async () => {
   try {
-    const data = await getAppBySlug(slug.value)
+    const data = await getMyAppBySlug(slug.value)
     if (!data) {
       toast.add({ title: '应用不存在', color: 'error' })
       router.push('/apps')
@@ -174,7 +171,7 @@ async function handleSubmit() {
 
           <!-- GitHub 仓库 -->
           <UFormField label="GitHub 仓库" hint="可选">
-            <GitHubRepoInput v-model="form.githubRepo" />
+            <GitHubRepoField v-model="form.githubRepo" />
           </UFormField>
 
           <!-- 网页链接 -->

@@ -4,23 +4,57 @@
  */
 import type { TcbRawUser, User } from './types'
 import { getErrorMessage, mapCloudbaseUser } from './types'
+import { useServerSession } from './useServerSession'
 
 const RE_USERNAME = /^[a-z][\w-]{2,19}$/i
 
 export function useTcbAuthCore() {
   const { auth } = useCloudbase()
+  const nuxtApp = useNuxtApp()
+  const config = useRuntimeConfig()
   const router = useRouter()
   const toast = useToast()
   const { upsertMyProfile } = useUserProfile()
+  // 双层会话编排（开关 cookieSession 开启时生效，见 docs/cookie-session-migration.md）
+  const cookieSession = config.public.cookieSession as boolean
+  const { setServerSession, bootstrapFromCookie, clearServerSession } = useServerSession()
 
   const user = useState<User | null>('auth_user', () => null)
   const loading = ref(false)
   const error = ref<string | null>(null)
   const isAuthenticated = computed(() => !!user.value)
+  // 首次会话校验是否完成（跨组件共享）。用于区分「校验中」与「确实未登录」，
+  // 让头像区在恢复登录态期间显示骨架占位，而非闪一下「登录 / 注册」按钮。
+  const authReady = useState<boolean>('auth_ready', () => false)
+  const authStatus = computed<'pending' | 'authenticated' | 'guest'>(() =>
+    !authReady.value ? 'pending' : user.value ? 'authenticated' : 'guest',
+  )
 
   const clearAuth = () => {
     user.value = null
     error.value = null
+  }
+
+  /**
+   * 异步补充密码设置状态。JS SDK getUser() 不返回密码状态，需查 HTTP API
+   * /auth/v1/user/me。该字段仅「设置 - 安全」用得到，故与登录态恢复解耦，
+   * 不阻塞头像 / 昵称等展示。仅当仍是同一登录用户时才回填，避免登出后被「复活」。
+   */
+  const enrichPasswordStatus = async (userId: string) => {
+    const { data: sessionData } = await auth.getSession()
+    const accessToken = sessionData?.session?.access_token
+    if (!accessToken)
+      return
+    const envId = config.public.cloudbaseEnvId as string
+    const res = await fetch(`https://${envId}.api.tcloudbasegateway.com/auth/v1/user/me`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    if (!res.ok)
+      return
+    const profile = await res.json()
+    // API 返回 password: "SET" | "UNSET" 等
+    if (typeof profile.password === 'string' && user.value?.id === userId)
+      user.value = { ...user.value, hasPassword: profile.password === 'SET' }
   }
 
   const fetchUser = async () => {
@@ -34,38 +68,22 @@ export function useTcbAuthCore() {
       }
       const rawUser = data.user as unknown as TcbRawUser
 
-      // JS SDK getUser() 不返回密码状态，需通过 HTTP API /auth/v1/user/me 补充
-      try {
-        const { data: sessionData } = await auth.getSession()
-        const accessToken = sessionData?.session?.access_token
-        if (accessToken) {
-          const config = useRuntimeConfig()
-          const envId = config.public.cloudbaseEnvId as string
-          const res = await fetch(`https://${envId}.api.tcloudbasegateway.com/auth/v1/user/me`, {
-            headers: { Authorization: `Bearer ${accessToken}` },
-          })
-          if (res.ok) {
-            const profile = await res.json()
-            // API 返回 password: "SET" | "UNSET" 等
-            if (typeof profile.password === 'string') {
-              ;(rawUser as Record<string, unknown>)._passwordStatus = profile.password
-            }
-          }
-        }
-      }
-      catch (e) {
-        console.warn('[auth] 获取密码状态失败:', e)
-      }
-
+      // 立即就绪：头像 / 昵称等展示字段无需等待网络，先填充登录态
       user.value = mapCloudbaseUser(rawUser)
-      // 同步公开资料到 user_profiles（供关注 / 粉丝等社交展示），fire-and-forget，不阻塞登录态
+
       if (user.value) {
+        // 同步公开资料到 user_profiles（供关注 / 粉丝等社交展示），fire-and-forget
         upsertMyProfile({
           login: user.value.login,
           nickname: user.value.nickname,
           avatar: user.value.avatar,
           description: user.value.description,
         }).catch(() => {})
+        // 密码状态异步补充，不阻塞登录态恢复
+        enrichPasswordStatus(user.value.id).catch(e => console.warn('[auth] 获取密码状态失败:', e))
+        // 双层会话：登录成功后种 / 续 httpOnly cookie（fire-and-forget）
+        if (cookieSession)
+          setServerSession().catch(() => {})
       }
       return user.value
     }
@@ -77,18 +95,39 @@ export function useTcbAuthCore() {
     }
     finally {
       loading.value = false
+      authReady.value = true
     }
   }
 
   const checkAuthStatus = async () => {
-    try {
-      const { data } = await auth.getSession()
-      if (data?.session) {
-        await fetchUser()
+    // 折叠并发的重复校验：首屏中间件与 UserMenu 可能同时触发，复用同一次请求
+    const inflight = nuxtApp._authCheckPromise as Promise<void> | undefined
+    if (inflight)
+      return inflight
+    const run = (async () => {
+      try {
+        let { data } = await auth.getSession()
+        // 双层会话：无 SDK 会话时先用 httpOnly cookie 换票恢复（端点不可用则静默回退）
+        if (!data?.session && cookieSession) {
+          await bootstrapFromCookie()
+          data = (await auth.getSession()).data
+        }
+        if (data?.session)
+          await fetchUser()
       }
+      catch {
+        // CloudBase 未登录
+      }
+      finally {
+        authReady.value = true
+      }
+    })()
+    nuxtApp._authCheckPromise = run
+    try {
+      await run
     }
-    catch {
-      // CloudBase 未登录
+    finally {
+      nuxtApp._authCheckPromise = null
     }
   }
 
@@ -96,6 +135,9 @@ export function useTcbAuthCore() {
     try {
       loading.value = true
       await auth.signOut()
+      // 双层会话：清 httpOnly cookie（CloudBase signOut 已清内存/会话存储 token）
+      if (cookieSession)
+        await clearServerSession()
       clearAuth()
       toast.add({ title: '已退出登录', description: '期待您的再次光临', color: 'neutral' })
       await router.push('/login')
@@ -148,6 +190,8 @@ export function useTcbAuthCore() {
     loading,
     error,
     isAuthenticated,
+    authReady,
+    authStatus,
     clearAuth,
     fetchUser,
     checkAuthStatus,

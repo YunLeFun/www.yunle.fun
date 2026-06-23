@@ -6,15 +6,16 @@
 
 ## 云函数列表
 
-| 云函数              | 用途                                                                                     | 调用方式           | 超时 |
-| ------------------- | ---------------------------------------------------------------------------------------- | ------------------ | ---- |
-| `wxpay-order`       | 创建支付订单（会员 / 云币充值）+ 查询订单 + 对账自愈                                     | SDK `callFunction` | 30s  |
-| `wxpay-notify`      | 接收微信支付异步回调通知                                                                 | HTTP 访问服务      | 10s  |
-| `account-api`       | 平台账户中心：账户 / 云币 / 签到 / 投币 / 关注·粉丝                                      | SDK `callFunction` | 10s  |
-| `iap-order`         | Apple 内购（IAP）凭据校验 + 权益发放                                                     | SDK `callFunction` | 30s  |
-| `appstore-notify`   | 接收 App Store Server Notifications V2（退款 / 撤销自动处理）                            | HTTP 访问服务      | 30s  |
-| `desktop-auth`      | 桌面 / 本地应用登录授权（设备授权码 + Ed25519 离线 entitlement）                         | SDK + HTTP 双入口  | 10s  |
-| `shortlink-resolve` | 短链只读解析：按 `(domain, slug)` 读 `short_links` 返回跳转目标，供 EdgeOne 跳转函数回源 | HTTP 访问服务      | 10s  |
+| 云函数              | 用途                                                                                        | 调用方式              | 超时 |
+| ------------------- | ------------------------------------------------------------------------------------------- | --------------------- | ---- |
+| `wxpay-order`       | 创建支付订单（会员 / 云币充值）+ 查询订单 + 对账自愈                                        | SDK `callFunction`    | 30s  |
+| `wxpay-notify`      | 接收微信支付异步回调通知                                                                    | HTTP 访问服务         | 10s  |
+| `account-api`       | 平台账户中心：账户 / 云币 / 签到 / 投币 / 关注·粉丝                                         | SDK `callFunction`    | 10s  |
+| `iap-order`         | Apple 内购（IAP）凭据校验 + 权益发放                                                        | SDK `callFunction`    | 30s  |
+| `appstore-notify`   | 接收 App Store Server Notifications V2（退款 / 撤销自动处理）                               | HTTP 访问服务         | 30s  |
+| `desktop-auth`      | 桌面 / 本地应用登录授权（设备授权码 + Ed25519 离线 entitlement）                            | SDK + HTTP 双入口     | 10s  |
+| `shortlink-resolve` | 短链只读解析：按 `(domain, slug)` 读 `short_links` 返回跳转目标，供 EdgeOne 跳转函数回源    | HTTP 访问服务         | 10s  |
+| `shortlink-stat`    | 短链点击统计：接收 EdgeOne 跳转函数上报，分片 CAS 累加到 `shortlink_stats`；admin 经 SDK 读 | HTTP（写）+ SDK（读） | 10s  |
 
 > 云币 + 跨应用会员的整体设计见 [`docs/coin-and-membership.md`](../docs/coin-and-membership.md)。
 > 其中 5 个支付 / 账户函数共享同一份 `lib/`：权威源在 `cloudfunctions/wxpay-order/lib`，`pnpm sync:wxpay-lib` 同步到

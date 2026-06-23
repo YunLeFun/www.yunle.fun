@@ -1,26 +1,38 @@
 /**
- * 云函数 sso-ticket —— 为「已登录的调用者」签发一次性自定义登录票据（CloudBase createTicket）。
+ * 云函数 sso-ticket —— 签发一次性自定义登录票据（CloudBase createTicket）。
  *
- * 用途：跨站 SSO 的 Web 桥接页（www.yunle.fun `/auth/sso`）在确认主站已登录后调用本函数，
- * 把返回的 ticket 经 postMessage 下发给子站；子站用 `signInWithCustomTicket(ticket)` 换取
- * **自己独立、可同源续期的会话**（独立 refresh_token、免疫第三方存储分区），不再复用主站会话。
+ * 两条路径：
+ *  1) 既有「调用者上下文」路径（SDK callFunction，无 action）：只凭调用者自身登录态、签发其
+ *     自己 uid 的票据，不接受外部传入 uid。跨站 SSO 桥接页（/auth/sso）走这条，行为不变。
+ *  2) 新增「内部服务」路径（HTTP，action='mintForUser'）：Nuxt 服务端验过自己的 httpOnly cookie、
+ *     拿到可信 uid 后，凭 serviceToken（= SSO_TICKET_INTERNAL_TOKEN）请求为该 uid 铸票，用于双层
+ *     会话的 cookie→内存登录（见 docs/cookie-session-migration.md）。私钥始终只在本函数 env。
  *
- * 鉴权：只凭调用者自身的登录态、签发其自己 uid 的票据（不接受外部传入 uid）；匿名/未登录拒发。
+ * 客户端用 `signInWithCustomTicket(() => ticket)` 换取自己独立、可同源续期的会话。
  *
  * 配置（CloudBase 控制台 → 登录授权 → 自定义登录 → 下载私钥后注入函数 env）：
- *   - SSO_TICKET_PRIVATE_KEY_ID   私钥 ID（private_key_id）
- *   - SSO_TICKET_PRIVATE_KEY      私钥 PEM（private_key）；env 注入建议用 `\n` 转义或 base64
- *   - SSO_TICKET_REFRESH_SEC      可选，票据派生会话的可续期时长（秒），默认 30 天
- * 未配置私钥时返回 { ok:false, reason:'not_configured' }，桥接页据此回退到转发 session（向后兼容）。
+ *   - SSO_TICKET_PRIVATE_KEY_ID    私钥 ID（private_key_id）
+ *   - SSO_TICKET_PRIVATE_KEY       私钥 PEM（private_key）；env 注入建议用 `\n` 转义或 base64
+ *   - SSO_TICKET_REFRESH_SEC       可选，票据派生会话的可续期时长（秒），默认 30 天
+ *   - SSO_TICKET_INTERNAL_TOKEN    内部服务 token（mintForUser 路径校验），需与 Nuxt 端
+ *                                  NUXT_SSO_TICKET_INTERNAL_TOKEN 一致；未配置则该路径一律拒绝
+ * 未配置私钥时返回 { ok:false, reason:'not_configured' }，桥接页据此回退（向后兼容）。
  */
 
 'use strict'
 
-const { Buffer } = require('node:buffer')
+const process = require('node:process')
 const cloudbase = require('@cloudbase/node-sdk')
+const { isAnonUid, isValidTicketUid, normalizePrivateKey, tokensMatch } = require('./mint')
 
 const ENV = cloudbase.SYMBOL_CURRENT_ENV
 const DEFAULT_REFRESH_SEC = 60 * 60 * 24 * 30 // 30 天可续期
+
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+}
 
 // 读调用者身份用的 app（绑定函数调用上下文）。
 const contextApp = cloudbase.init({ env: ENV })
@@ -46,49 +58,18 @@ function getSignAuth() {
   return cachedSignAuth
 }
 
-// PEM 含换行，经 JSON/shell 注入易被破坏：兼容「\n 转义」与「base64」两种安全注入形态。
-function normalizePrivateKey(raw) {
-  const s = typeof raw === 'string' ? raw.trim() : ''
-  if (!s)
-    return ''
-  if (s.includes('-----BEGIN'))
-    return s.replace(/\\n/g, '\n')
-  try {
-    const decoded = Buffer.from(s, 'base64').toString('utf8')
-    if (decoded.includes('-----BEGIN'))
-      return decoded
-  }
-  catch {}
-  return s.replace(/\\n/g, '\n')
-}
-
-function isAnonUid(uid) {
-  return !uid || /^anonymous/i.test(uid)
-}
-
 function refreshSec() {
   const n = Number(process.env.SSO_TICKET_REFRESH_SEC)
   return Number.isFinite(n) && n > 0 ? n : DEFAULT_REFRESH_SEC
 }
 
-exports.main = async function main() {
-  let uid = ''
-  try {
-    uid = contextApp.auth().getUserInfo()?.uid || ''
-  }
-  catch {
-    uid = ''
-  }
-  if (isAnonUid(uid))
-    return { ok: false, reason: 'not_authenticated' }
-
+// 共享铸票逻辑：uid 已确认可信。
+function mintTicket(uid) {
   const signAuth = getSignAuth()
   if (!signAuth)
     return { ok: false, reason: 'not_configured' }
-
   try {
-    // createTicket 的 refresh/expire 单位是**毫秒**：refresh=访问令牌刷新间隔，
-    // expire=会话可续期的绝对截止时间。给子站一份长期可续期的独立会话。
+    // refresh/expire 单位是毫秒：refresh=访问令牌刷新间隔，expire=会话可续期的绝对截止时间。
     const ticket = signAuth.createTicket(uid, {
       refresh: 60 * 60 * 1000,
       expire: Date.now() + refreshSec() * 1000,
@@ -100,3 +81,54 @@ exports.main = async function main() {
     return { ok: false, reason: 'error' }
   }
 }
+
+// 路径 1：调用者上下文 —— 只签发调用者自己的 uid。
+function mintForCaller() {
+  let uid = ''
+  try {
+    uid = contextApp.auth().getUserInfo()?.uid || ''
+  }
+  catch {
+    uid = ''
+  }
+  if (isAnonUid(uid))
+    return { ok: false, reason: 'not_authenticated' }
+  return mintTicket(uid)
+}
+
+// 路径 2：内部服务 —— Nuxt 验过 cookie，凭 serviceToken + 显式 uid 铸票。
+function mintForUser(payload) {
+  if (!tokensMatch(payload && payload.serviceToken, process.env.SSO_TICKET_INTERNAL_TOKEN))
+    return { ok: false, reason: 'forbidden' }
+  if (!isValidTicketUid(payload && payload.uid))
+    return { ok: false, reason: 'invalid_uid' }
+  return mintTicket(payload.uid)
+}
+
+function httpJson(statusCode, obj) {
+  return { statusCode, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }, body: JSON.stringify(obj) }
+}
+
+exports.main = async function main(event) {
+  const isHttp = !!(event && event.httpMethod)
+  if (isHttp && event.httpMethod === 'OPTIONS')
+    return { statusCode: 204, headers: CORS_HEADERS, body: '' }
+
+  let payload = event || {}
+  if (isHttp) {
+    try {
+      payload = event.body ? JSON.parse(event.body) : {}
+    }
+    catch {
+      return httpJson(400, { ok: false, reason: 'bad_json' })
+    }
+  }
+
+  const result = payload && payload.action === 'mintForUser'
+    ? mintForUser(payload)
+    : mintForCaller()
+
+  return isHttp ? httpJson(result.ok ? 200 : 401, result) : result
+}
+
+exports._private = { mintForUser, mintForCaller, mintTicket }

@@ -1,7 +1,7 @@
-import type { ParsedContent } from '@nuxt/content'
 import type { Avatar, Badge, Link } from '#ui/types'
 
-export interface BlogPost extends ParsedContent {
+export interface BlogPost {
+  path?: string
   title: string
   description: string
   date: string

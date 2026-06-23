@@ -1,20 +1,10 @@
 <script setup lang="ts">
-definePageMeta({
-  layout: 'docs',
-})
-
 const route = useRoute()
 
-const { data: page } = await useAsyncData(route.path, () => queryCollection('docs').path(route.path).first())
+const { data: page } = await useAsyncData(route.path, () => getDocPage(route.path))
 if (!page.value) {
   throw createError({ statusCode: 404, statusMessage: 'Page not found', fatal: true })
 }
-
-const { data: surround } = await useAsyncData(`${route.path}-surround`, () => {
-  return queryCollectionItemSurroundings('docs', route.path, {
-    fields: ['description'],
-  })
-})
 
 const title = page.value.seo?.title || page.value.title
 const description = page.value.seo?.description || page.value.description
@@ -25,33 +15,22 @@ useSeoMeta({
   description,
   ogDescription: description,
 })
-
-// defineOgImageComponent('Saas') // Disabled: SSR is required for OG images
 </script>
 
 <template>
-  <UPage v-if="page">
+  <UContainer v-if="page" class="py-10">
     <UPageHeader
       :title="page.title"
       :description="page.description"
+      class="mb-8"
     />
 
     <UPageBody>
-      <ContentRenderer
+      <MDCRenderer
         v-if="page.body"
-        :value="page"
+        :body="page.body"
+        :data="page"
       />
-
-      <USeparator v-if="surround?.length" />
-
-      <UContentSurround :surround="surround" />
     </UPageBody>
-
-    <template
-      v-if="page?.body?.toc?.links?.length"
-      #right
-    >
-      <UContentToc :links="page.body.toc.links" />
-    </template>
-  </UPage>
+  </UContainer>
 </template>

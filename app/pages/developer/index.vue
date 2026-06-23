@@ -1,5 +1,7 @@
 <script setup lang="ts">
-const { data: page } = await useAsyncData('developer', () => queryCollection('developer').first())
+import developerPage from '~~/content/5.developer.yml'
+
+const page = ref(developerPage)
 
 const title = page.value?.seo?.title || page.value?.title
 const description = page.value?.seo?.description || page.value?.description
@@ -56,7 +58,7 @@ const featureIconColors = [
     </UContainer>
 
     <UPageSection
-      v-for="(section, index) in page.sections"
+      v-for="(section, index) in (page.sections as any[])"
       :key="index"
       :title="section.title"
       :description="section.description"
@@ -86,7 +88,7 @@ const featureIconColors = [
 
       <UPageGrid>
         <UPageCard
-          v-for="(item, index) in page.features.items"
+          v-for="(item, index) in (page.features.items as any[])"
           :key="index"
           v-bind="item"
           spotlight

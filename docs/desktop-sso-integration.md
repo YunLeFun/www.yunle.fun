@@ -12,11 +12,11 @@
 
 桌面接入**不要求**与主站同 CloudBase env、也不需要把子站 origin 加白名单（那是 Web SSO 的前提）。你需要向平台管理员申请到三样东西：
 
-| 你会拿到 | 用途 |
-| --- | --- |
-| **`appId`** | 你的应用稳定标识（小写字母/数字/`-`/`_`，≤32 位，如 `skykeeper`）。云币流水 / 会员归属按它分应用对账 |
-| **`desktop-auth` 接入域名** | 设备侧接口的 HTTPS 基址（CloudBase HTTP 访问服务，形如 `https://<env>.../desktop-auth`，或自定义域名） |
-| **entitlement 验签公钥（含 `kid`）** | Ed25519 公钥，**内置进你的客户端**，用于离线验真 entitlement |
+| 你会拿到                             | 用途                                                                                                   |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| **`appId`**                          | 你的应用稳定标识（小写字母/数字/`-`/`_`，≤32 位，如 `skykeeper`）。云币流水 / 会员归属按它分应用对账   |
+| **`desktop-auth` 接入域名**          | 设备侧接口的 HTTPS 基址（CloudBase HTTP 访问服务，形如 `https://<env>.../desktop-auth`，或自定义域名） |
+| **entitlement 验签公钥（含 `kid`）** | Ed25519 公钥，**内置进你的客户端**，用于离线验真 entitlement                                           |
 
 > 私钥只在服务端，永远不下发。你只拿公钥。
 
@@ -56,7 +56,8 @@ async function da(action: string, body: Record<string, unknown> = {}) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ action, ...body }),
   })
-  if (!res.ok) throw new Error(`desktop-auth ${action} HTTP ${res.status}`)
+  if (!res.ok)
+    throw new Error(`desktop-auth ${action} HTTP ${res.status}`)
   return res.json()
 }
 
@@ -83,7 +84,10 @@ async function loginWithYunLeFun(deviceId: string) {
       await saveEntitlement(poll.entitlement, poll.deviceRefreshToken) // → 第二步
       return { ok: true, account: poll.account }
     }
-    if (poll.status === 'slow_down') { interval += 5000; continue }
+    if (poll.status === 'slow_down') {
+      interval += 5000
+      continue
+    }
     if (poll.status === 'denied' || poll.status === 'expired')
       return { ok: false, reason: poll.status }
     // pending → 继续
@@ -138,16 +142,20 @@ async function isProUnlocked(entitlement: string, publicKeyRaw: Uint8Array): Pro
   try {
     const [h, p, s] = entitlement.split('.')
     const key = await crypto.subtle.importKey('raw', publicKeyRaw, { name: 'Ed25519' }, false, ['verify'])
-    const ok = await crypto.subtle.verify('Ed25519', key,
-      b64urlToBytes(s), new TextEncoder().encode(`${h}.${p}`))
-    if (!ok) return false
+    const ok = await crypto.subtle.verify('Ed25519', key, b64urlToBytes(s), new TextEncoder().encode(`${h}.${p}`))
+    if (!ok)
+      return false
     const claim = decodePayload(entitlement)
     const now = Date.now() / 1000
-    if (claim.exp <= now) return false                 // 超出离线宽限期
-    if (claim.aud !== APP_ID) return false             // 不是发给本应用的
-    if (claim.did !== currentDeviceId()) return false  // 不是本机的
+    if (claim.exp <= now)
+      return false // 超出离线宽限期
+    if (claim.aud !== APP_ID)
+      return false // 不是发给本应用的
+    if (claim.did !== currentDeviceId())
+      return false // 不是本机的
     return claim.mbr?.active === true && (claim.mbr.expireAt ?? 0) > Date.now()
-  } catch { return false }
+  }
+  catch { return false }
 }
 ```
 
@@ -180,12 +188,14 @@ else
 ```ts
 async function refresh(deviceId: string) {
   const token = await loadDeviceRefreshToken()
-  if (!token) return // 没登录过，跳过
+  if (!token)
+    return // 没登录过，跳过
   try {
     const r = await da('refreshEntitlement', { deviceRefreshToken: token, deviceId })
     await saveEntitlement(r.entitlement, r.deviceRefreshToken) // refreshToken 会滚动轮换，存新的
     return r.account
-  } catch (e) {
+  }
+  catch (e) {
     // 刷新失败：可能是被吊销 / 网络问题。
     // 别立刻登出！沿用本地 entitlement 到它自然过期（离线宽限）。仅在明确收到「已吊销」时清除。
   }
@@ -213,7 +223,8 @@ async function exportHD(taskId: string) {
     try {
       // ⚠️ 必带 bizId（幂等键），同一 bizId 只扣一次，防重试/双击重复扣
       await da('deductCoin', { entitlement: ent, amount: 50, bizId: `export:${taskId}`, meta: { feature: 'hd-export' } })
-    } catch (e) {
+    }
+    catch (e) {
       // message 含「余额不足」→ 引导充值
       await openUrl('https://www.yunle.fun/wallet')
       return
@@ -264,16 +275,16 @@ await openUrl('https://www.yunle.fun/wallet')
 
 ## 9. 排错
 
-| 现象 | 可能原因 | 处理 |
-| --- | --- | --- |
-| `startDeviceAuth` 4xx | `appId` 未登记 / 基址写错 | 找平台管理员确认 `appId` 与 `desktop-auth` 域名 |
-| 轮询一直 `pending` | 用户还没在浏览器点授权 / 浏览器没打开 | 在 UI 显式给「重新打开授权页」按钮，重试 `openUrl(verificationUriComplete)` |
-| 轮询返回 `slow_down` | 轮询太快 | 按返回退避，加大 `interval`（已在示例中处理） |
-| `approved` 后离线验签失败 | 公钥/`kid` 不匹配 / `aud`/`did` 不符 | 核对内置公钥与 `kid`；确认 `appId`、`deviceId` 与申请时一致 |
-| 刷新报 `revoked` | 设备被用户/管理员移除 | 清本地凭证，回到未登录，引导重新走设备授权 |
-| 断网后 Pro 失效 | 超出离线宽限期 | 联网后 `refresh` 即恢复；可适当延长宽限期（找平台调） |
-| `deductCoin` 抛「余额不足」 | 云币不够 | 捕获后 `openUrl('https://www.yunle.fun/wallet')` 引导充值 |
-| 换台机器后无法刷新 | entitlement 的 `deviceId` 与本机不符（设备绑定） | 在新机重新走一次设备授权 |
+| 现象                        | 可能原因                                         | 处理                                                                        |
+| --------------------------- | ------------------------------------------------ | --------------------------------------------------------------------------- |
+| `startDeviceAuth` 4xx       | `appId` 未登记 / 基址写错                        | 找平台管理员确认 `appId` 与 `desktop-auth` 域名                             |
+| 轮询一直 `pending`          | 用户还没在浏览器点授权 / 浏览器没打开            | 在 UI 显式给「重新打开授权页」按钮，重试 `openUrl(verificationUriComplete)` |
+| 轮询返回 `slow_down`        | 轮询太快                                         | 按返回退避，加大 `interval`（已在示例中处理）                               |
+| `approved` 后离线验签失败   | 公钥/`kid` 不匹配 / `aud`/`did` 不符             | 核对内置公钥与 `kid`；确认 `appId`、`deviceId` 与申请时一致                 |
+| 刷新报 `revoked`            | 设备被用户/管理员移除                            | 清本地凭证，回到未登录，引导重新走设备授权                                  |
+| 断网后 Pro 失效             | 超出离线宽限期                                   | 联网后 `refresh` 即恢复；可适当延长宽限期（找平台调）                       |
+| `deductCoin` 抛「余额不足」 | 云币不够                                         | 捕获后 `openUrl('https://www.yunle.fun/wallet')` 引导充值                   |
+| 换台机器后无法刷新          | entitlement 的 `deviceId` 与本机不符（设备绑定） | 在新机重新走一次设备授权                                                    |
 
 ---
 

@@ -60,12 +60,32 @@ export function useApps() {
   }
 
   /**
-   * 根据 slug 获取应用详情
+   * 根据 slug 获取公开应用详情（公开详情页 / 榜单用）
+   *
+   * 安全规则读分支为 `doc.isPublic == true || auth.uid == doc.ownerId`，
+   * 查询条件必须带上能命中某一分支的字段：公开读须显式 `isPublic: true`，
+   * 否则按 slug 单字段查询无法满足规则 → DATABASE_PERMISSION_DENIED。
+   * owner 读自己的（含私有）应用走 getMyAppBySlug。
    */
   async function getAppBySlug(slug: string): Promise<AppRecord | null> {
     const { data } = await db
       .collection(COLLECTION)
-      .where({ slug })
+      .where({ slug, isPublic: true })
+      .limit(1)
+      .get()
+    return (data as AppRecord[])[0] || null
+  }
+
+  /**
+   * 获取当前用户自己的应用（按 slug，含私有），用于编辑等 owner 场景。
+   * 带 ownerId 命中归属读分支，可读到自己未公开的应用。
+   */
+  async function getMyAppBySlug(slug: string): Promise<AppRecord | null> {
+    if (!user.value)
+      return null
+    const { data } = await db
+      .collection(COLLECTION)
+      .where({ slug, ownerId: user.value.id })
       .limit(1)
       .get()
     return (data as AppRecord[])[0] || null
@@ -128,12 +148,17 @@ export function useApps() {
   }
 
   /**
-   * 检查 slug 是否已被占用
+   * 检查 slug 是否已被当前用户占用。
+   *
+   * 受行级安全规则限制，客户端只能在归属分支内按 slug 查询（须带 ownerId）；
+   * 跨用户的全局唯一性应由 `apps` 集合上的 slug 唯一索引在服务端兜底（待补）。
    */
   async function isSlugTaken(slug: string): Promise<boolean> {
+    if (!user.value)
+      return false
     const { data } = await db
       .collection(COLLECTION)
-      .where({ slug })
+      .where({ slug, ownerId: user.value.id })
       .limit(1)
       .get()
     return (data as AppRecord[]).length > 0
@@ -145,6 +170,7 @@ export function useApps() {
     getUserApps,
     getAppById,
     getAppBySlug,
+    getMyAppBySlug,
     createApp,
     updateApp,
     deleteApp,

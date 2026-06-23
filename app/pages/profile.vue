@@ -78,8 +78,9 @@ const entries = computed(() => {
   return list
 })
 
-onMounted(async () => {
-  // profile 挂载时 user 通常已登录，会员/账户 composable 的 watch（immediate:false）不会自动触发，需手动刷新
+// 会话就绪后再拉数据：双层会话的 cookie→ticket 恢复窗口内 user 尚未就绪，直接发会 403。
+// 会员/账户 composable 的 watch（immediate:false）在「挂载时已登录」场景不触发，故这里手动刷新。
+onUserSession(async () => {
   refreshMembership()
   refreshAccount()
   try {
@@ -270,7 +271,8 @@ function formatAppDate(ts: number) {
             class="group flex items-center gap-3 rounded-2xl p-3 transition-colors hover:bg-elevated/60"
           >
             <div class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-elevated">
-              <img v-if="item.icon" :src="item.icon" :alt="item.name" class="size-6 rounded">
+              <img v-if="item.icon || item.logo" :src="item.icon || item.logo" :alt="item.name" class="size-6 rounded">
+              <span v-else-if="item.emoji" class="text-xl leading-none">{{ item.emoji }}</span>
               <UIcon v-else name="i-lucide-box" class="text-base text-muted" />
             </div>
             <div class="min-w-0 flex-1">

@@ -113,11 +113,12 @@ async function handleDelete() {
       <div class="flex flex-col gap-5 sm:flex-row sm:items-start">
         <div class="ylf-icon-tile flex h-16 w-16 shrink-0 items-center justify-center rounded-lg">
           <img
-            v-if="appData.icon"
-            :src="appData.icon"
+            v-if="appData.icon || appData.logo"
+            :src="appData.icon || appData.logo"
             :alt="appData.name"
             class="h-12 w-12 rounded-md"
           >
+          <span v-else-if="appData.emoji" class="text-4xl leading-none">{{ appData.emoji }}</span>
           <UIcon v-else name="i-lucide-box" class="text-3xl text-muted" />
         </div>
         <div class="flex-1 min-w-0">

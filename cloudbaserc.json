@@ -105,6 +105,28 @@
       "runtime": "Nodejs18.15",
       "handler": "index.main",
       "installDependency": true
+    },
+    {
+      "name": "shortlink-stat",
+      "timeout": 10,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true
+    },
+    {
+      "name": "github-api",
+      "timeout": 10,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true,
+      "envVariables": {
+        "GITHUB_APP_ID": "{{env.GITHUB_APP_ID}}",
+        "GITHUB_APP_SLUG": "{{env.GITHUB_APP_SLUG}}",
+        "GITHUB_APP_PRIVATE_KEY": "{{env.GITHUB_APP_PRIVATE_KEY}}",
+        "GITHUB_APP_CLIENT_ID": "{{env.GITHUB_APP_CLIENT_ID}}",
+        "GITHUB_APP_CLIENT_SECRET": "{{env.GITHUB_APP_CLIENT_SECRET}}",
+        "GITHUB_APP_STATE_SECRET": "{{env.GITHUB_APP_STATE_SECRET}}"
+      }
     }
   ],
   "ai": {

@@ -9,24 +9,20 @@ const RE_SLUG_EDGE_DASH = /^-|-$/g
 definePageMeta({ layout: 'default' })
 useSeoMeta({ title: '创建应用 - YunLeFun', description: '创建一个新应用' })
 
-const { user, isAuthenticated, loading: authLoading } = useTcbAuth()
+const { user, loading: authLoading } = useTcbAuth()
 const { createApp, isSlugTaken } = useApps()
 const toast = useToast()
 const router = useRouter()
 
-watch([isAuthenticated, authLoading], ([authed, loading]) => {
-  if (loading)
-    return
-  if (!authed) {
-    router.push('/login?redirect=/apps/new')
-    return
-  }
-  // 开发者平台未上线，仅官方账号可自助发布应用
+// 登录守卫：会话就绪后仍未登录才跳登录（双层会话 cookie 恢复窗口内不误跳）
+useRequireAuth('/apps/new')
+// 已登录后：开发者平台未上线，仅官方账号可自助发布应用
+onUserSession(() => {
   if (!isOfficialUser(user.value)) {
     toast.add({ title: '开发者发布功能即将开放，敬请期待', color: 'info' })
     router.push('/apps')
   }
-}, { immediate: true })
+})
 
 const saving = ref(false)
 const slugError = ref('')
@@ -186,7 +182,7 @@ async function handleSubmit() {
 
           <!-- GitHub 仓库 -->
           <UFormField label="GitHub 仓库" hint="可选，应用的源码仓库">
-            <GitHubRepoInput
+            <GitHubRepoField
               v-model="form.githubRepo"
               placeholder="owner/repo"
               @update:model-value="onRepoInput"

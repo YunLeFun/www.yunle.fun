@@ -54,7 +54,9 @@ pnpm preview
 
 ### 前端（EdgeOne Pages）
 
-前端由腾讯 [EdgeOne Pages](https://edgeone.ai/) 托管，**已接入 Git 自动部署**：推送到 `main` 分支即自动触发构建（`nuxt generate`）并发布，无需手动操作。
+前端由腾讯 [EdgeOne Pages](https://edgeone.ai/) 托管，**已接入 Git 自动部署**：推送到 `main` 分支即自动触发构建并发布，无需手动操作。
+
+> 🔁 **仓库构建已切到 `nuxt build`（Nitro SSR，preset `node-server`，`ssr:true` hybrid）**，但**线上 EdgeOne 目前仍按静态托管、无服务端运行时**（实测 `POST /api/session/*` 返回 404）。要让 httpOnly cookie 会话 / SSR 首屏真正生效，还需在 EdgeOne 启用 Nuxt SSR serving（`@edgeone/nuxt-pages` 适配或原生识别，托管 `.output/server`）并配 `NUXT_SESSION_PASSWORD` 等 env。详见 [docs/cookie-session-migration.md](docs/cookie-session-migration.md)。
 
 > ⚠️ GitHub Actions 不负责网站部署——`ci.yml` 仅跑 lint / typecheck / test，`release.yml` 仅在打 `v*` tag 时生成 Release changelog。
 

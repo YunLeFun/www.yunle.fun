@@ -1,13 +1,18 @@
+import type { Plugin } from 'vite'
 import process from 'node:process'
+import yaml from '@rollup/plugin-yaml'
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   modules: [
     '@nuxt/eslint',
-    '@nuxt/content',
+    // Markdown 渲染（替代 @nuxt/content，见 docs/nuxt-content-removal.md）
+    '@nuxtjs/mdc',
     '@nuxt/ui',
     '@nuxt/image',
     '@vueuse/nuxt',
+    // 双层会话迁移：用 nuxt-auth-utils 封 sealed httpOnly cookie 作持久会话（见 docs/cookie-session-migration.md）
+    'nuxt-auth-utils',
     // '@nuxtjs/i18n', // 暂时禁用国际化，未来重新启用
   ],
 
@@ -58,6 +63,17 @@ export default defineNuxtConfig({
     // CloudBase account-api 的 HTTP 访问服务地址（server 端 SSR 代理 getProfile 用；
     // 未配置则 /u 主页退化为客户端渲染，不影响功能仅影响 SEO）
     accountApiHttpUrl: process.env.NUXT_ACCOUNT_API_HTTP_URL || '',
+    // nuxt-auth-utils sealed httpOnly cookie 会话（见 docs/cookie-session-migration.md · Phase 5）。
+    // password 由 NUXT_SESSION_PASSWORD env 注入（≥32 字符）；以下显式收口 cookie flags。
+    session: {
+      name: 'ylf_session',
+      maxAge: 60 * 60 * 24 * 30, // 30 天持久会话（cookie 过期即需重新登录）
+      cookie: {
+        // httpOnly / secure(prod) / path='/' 为 nuxt-auth-utils 默认；
+        // SameSite=Lax 缓解 CSRF，且兼容 OAuth 跳回（Strict 会丢首跳 cookie）。
+        sameSite: 'lax',
+      },
+    },
     public: {
       siteUrl: process.env.NUXT_PUBLIC_SITE_URL || 'http://localhost:5173',
       apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || 'http://localhost:3000',
@@ -65,6 +81,12 @@ export default defineNuxtConfig({
       cloudbaseEnvId: process.env.NUXT_PUBLIC_CLOUDBASE_ENV_ID || 'yunlefun-8g7ybcxc7345c490',
       cloudbaseRegion: process.env.NUXT_PUBLIC_CLOUDBASE_REGION || 'ap-shanghai',
       cloudbaseAccessKey: process.env.NUXT_PUBLIC_CLOUDBASE_ACCESS_KEY || '',
+      // 双层会话总开关：true 时启用 cookie→ticket 启动恢复（httpOnly cookie 作 SSR 可读会话真值）。
+      // 默认 false = 现状。prod 待铸票端点就绪后在 EdgeOne env 置 true。
+      cookieSession: process.env.NUXT_PUBLIC_COOKIE_SESSION === 'true',
+      // 内存化 token opt-in（需 cookieSession=true）：token 只存内存、不落 localStorage（XSS at-rest 硬化）。
+      // 默认 false——启用前需先做「会话就绪前不发鉴权请求」门控，否则启动竞态会 403。见 docs/cookie-session-migration.md。
+      cookieSessionMemory: process.env.NUXT_PUBLIC_COOKIE_SESSION_MEMORY === 'true',
       ssoAllowedTargetOrigins: process.env.NUXT_PUBLIC_SSO_ALLOWED_TARGET_ORIGINS || 'https://*.yunle.fun,https://*.yunyoujun.cn,https://*.elpsy.cn',
       enableH5Pay: process.env.NUXT_PUBLIC_ENABLE_H5_PAY === 'true',
     },
@@ -72,6 +94,10 @@ export default defineNuxtConfig({
 
   routeRules: {
     '/docs': { redirect: '/docs/getting-started' },
+    // 开发者文档已迁至 docs.yunle.fun（见 docs/nuxt-content-removal.md）
+    '/docs/developer': { redirect: 'https://docs.yunle.fun' },
+    '/docs/developer/cloudbase-codebuddy': { redirect: 'https://docs.yunle.fun/guide/cloudbase-codebuddy' },
+    '/docs/getting-started/writing-guide': { redirect: 'https://docs.yunle.fun/guide/configuration' },
 
     // ── 渲染策略（hybrid）──
     // 公开内容页：构建期预渲染（静态 HTML），SEO + 首屏最佳；内容来自仓库 Markdown / 配置，全员同一份
@@ -140,13 +166,16 @@ export default defineNuxtConfig({
     prerender: {
       // 从导航出发顺着内链爬，把可达的公开内容页（含 /blog/* /docs/* 等动态 slug）一并预渲染
       crawlLinks: true,
-      routes: ['/', '/pricing', '/blog', '/changelog', '/developer', '/docs/getting-started'],
+      routes: ['/', '/pricing', '/blog', '/changelog', '/developer', '/docs/getting-started', '/docs/getting-started/usage', '/docs/privacy-policy', '/docs/terms-of-service', '/docs/contact', '/docs/sitemap'],
       // 账号/交互页是 client-only，爬到也不应让其失败阻断整次预渲染
       failOnError: false,
     },
   },
 
   vite: {
+    // 落地页数据（content/*.yml）直接 import，无需 @nuxt/content（见 docs/nuxt-content-removal.md）
+    // cast：@rollup/plugin-yaml 与 vite 内置 rollup 版本不同，类型不兼容（运行时无碍）
+    plugins: [yaml() as unknown as Plugin],
     server: {
       allowedHosts: true,
     },

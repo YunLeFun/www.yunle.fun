@@ -22,6 +22,12 @@ export interface AppRecord {
   backupUrl?: string
   /** 应用图标 URL */
   icon?: string
+  /** 应用 Logo（图片资源路径，部分应用使用） */
+  logo?: string
+  /** 应用 Emoji 图标（无图片图标时回退展示） */
+  emoji?: string
+  /** 应用主题色 */
+  themeColor?: string
   /** 是否公开 */
   isPublic: boolean
   /** 创建时间 */
