@@ -11,6 +11,54 @@
 import type { H3Event } from 'h3'
 import { createError, getHeader, getRequestHost, getRequestIP } from 'h3'
 
+const PRODUCTION_HOSTS = ['www.yunle.fun']
+
+function addHeaderHosts(hosts: Set<string>, value: string | undefined): void {
+  if (!value)
+    return
+  for (const rawHost of value.split(',')) {
+    const host = rawHost.trim().toLowerCase()
+    if (host)
+      hosts.add(host)
+  }
+}
+
+function addForwardedHosts(hosts: Set<string>, value: string | undefined): void {
+  if (!value)
+    return
+  for (const entry of value.split(',')) {
+    const match = entry.match(/(?:^|;)\s*host="?([^";,]+)"?/i)
+    if (match?.[1])
+      hosts.add(match[1].trim().toLowerCase())
+  }
+}
+
+function addUrlHost(hosts: Set<string>, value: string | undefined): void {
+  if (!value)
+    return
+  try {
+    hosts.add(new URL(value).host.toLowerCase())
+  }
+  catch {
+    // Ignore malformed optional config; Origin parsing above still enforces validity.
+  }
+}
+
+function getSameOriginHostCandidates(event: H3Event): Set<string> {
+  const hosts = new Set<string>()
+  addHeaderHosts(hosts, getRequestHost(event, { xForwardedHost: true }))
+  addHeaderHosts(hosts, getHeader(event, 'host'))
+  addHeaderHosts(hosts, getHeader(event, 'x-forwarded-host'))
+  addHeaderHosts(hosts, getHeader(event, 'x-original-host'))
+  addHeaderHosts(hosts, getHeader(event, 'x-host'))
+  addHeaderHosts(hosts, getHeader(event, 'x-real-host'))
+  addForwardedHosts(hosts, getHeader(event, 'forwarded'))
+  addUrlHost(hosts, useRuntimeConfig(event).public.siteUrl)
+  for (const host of PRODUCTION_HOSTS)
+    hosts.add(host)
+  return hosts
+}
+
 /**
  * 同源校验：浏览器对非 GET 请求（含同源 POST）必带 Origin；缺失或与请求 host 不符一律 403。
  * 配合 cookie SameSite=Lax，挡住跨站伪造请求带着 cookie 调用本站会话端点。
@@ -26,8 +74,8 @@ export function assertSameOrigin(event: H3Event): void {
   catch {
     throw createError({ statusCode: 403, statusMessage: 'forbidden: bad Origin' })
   }
-  const host = getRequestHost(event, { xForwardedHost: true })
-  if (originHost !== host)
+  const hosts = getSameOriginHostCandidates(event)
+  if (!hosts.has(originHost.toLowerCase()))
     throw createError({ statusCode: 403, statusMessage: 'forbidden: cross-origin' })
 }
 
