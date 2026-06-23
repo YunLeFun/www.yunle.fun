@@ -106,12 +106,16 @@ export function useTcbAuthCore() {
       return inflight
     const run = (async () => {
       try {
-        let { data } = await auth.getSession()
-        // 双层会话：无 SDK 会话时先用 httpOnly cookie 换票恢复（端点不可用则静默回退）
-        if (!data?.session && cookieSession) {
-          await bootstrapFromCookie()
-          data = (await auth.getSession()).data
+        let data: Awaited<ReturnType<typeof auth.getSession>>['data'] | undefined
+        // 双层会话：首轮检查优先用 httpOnly cookie 恢复，避免 SDK 在无 localStorage
+        // 时先落入空/匿名会话，导致保护路由误判未登录并跳转登录页。
+        if (cookieSession) {
+          const restored = await bootstrapFromCookie()
+          if (restored)
+            data = (await auth.getSession()).data
         }
+        if (!data?.session)
+          data = (await auth.getSession()).data
         if (data?.session)
           await fetchUser()
       }
