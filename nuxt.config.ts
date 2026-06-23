@@ -100,14 +100,15 @@ export default defineNuxtConfig({
     '/docs/getting-started/writing-guide': { redirect: 'https://docs.yunle.fun/guide/configuration' },
 
     // ── 渲染策略（hybrid）──
-    // 公开内容页：构建期预渲染（静态 HTML），SEO + 首屏最佳；内容来自仓库 Markdown / 配置，全员同一份
-    '/': { prerender: true },
-    '/pricing': { prerender: true },
-    '/blog': { prerender: true },
-    '/blog/**': { prerender: true },
-    '/docs/**': { prerender: true },
-    '/changelog': { prerender: true },
-    '/developer': { prerender: true },
+    // 公开内容页：SSR + SWR 运行时缓存（不在构建期预渲染——EdgeOne 构建机 2GB 堆装不下整 app 的预渲染、会 OOM）。
+    // SSR 输出仍是完整 HTML（SEO / 首屏 OK），SWR 缓存 10 分钟兼顾性能。见 docs/nuxt-content-removal.md。
+    '/': { swr: 600 },
+    '/pricing': { swr: 600 },
+    '/blog': { swr: 600 },
+    '/blog/**': { swr: 600 },
+    '/docs/**': { swr: 600 },
+    '/changelog': { swr: 600 },
+    '/developer': { swr: 600 },
     // 账号 / 交互 / OAuth / 数据驱动页：纯客户端渲染。
     // CloudBase 登录态只在客户端（localStorage），SSR 只会渲染未登录骨架并闪烁；这些页也无 SEO 需求。
     '/profile': { ssr: false },
@@ -162,16 +163,9 @@ export default defineNuxtConfig({
 
   compatibilityDate: 'latest',
 
-  nitro: {
-    prerender: {
-      // 显式列出要预渲染的内容页；关闭 crawlLinks 避免爬整站（含重的账号/应用页）导致预渲染 OOM。
-      // 未列出的路由（账号/应用页本就 ssr:false）由 SSR 运行时按需渲染，不影响功能。
-      crawlLinks: false,
-      routes: ['/', '/pricing', '/blog', '/blog/yunle-fun', '/changelog', '/developer', '/docs/getting-started', '/docs/getting-started/usage', '/docs/privacy-policy', '/docs/terms-of-service', '/docs/contact', '/docs/sitemap'],
-      // 账号/交互页是 client-only，爬到也不应让其失败阻断整次预渲染
-      failOnError: false,
-    },
-  },
+  // 不在构建期预渲染：EdgeOne 构建机 2GB 堆装不下整 app 的预渲染（会 OOM）。
+  // 公开内容页改 SSR + SWR 运行时缓存（见 routeRules）；账号/应用页本就 ssr:false。
+  nitro: {},
 
   vite: {
     // 落地页数据（content/*.yml）直接 import，无需 @nuxt/content（见 docs/nuxt-content-removal.md）
