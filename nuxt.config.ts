@@ -164,9 +164,10 @@ export default defineNuxtConfig({
 
   nitro: {
     prerender: {
-      // 从导航出发顺着内链爬，把可达的公开内容页（含 /blog/* /docs/* 等动态 slug）一并预渲染
-      crawlLinks: true,
-      routes: ['/', '/pricing', '/blog', '/changelog', '/developer', '/docs/getting-started', '/docs/getting-started/usage', '/docs/privacy-policy', '/docs/terms-of-service', '/docs/contact', '/docs/sitemap'],
+      // 显式列出要预渲染的内容页；关闭 crawlLinks 避免爬整站（含重的账号/应用页）导致预渲染 OOM。
+      // 未列出的路由（账号/应用页本就 ssr:false）由 SSR 运行时按需渲染，不影响功能。
+      crawlLinks: false,
+      routes: ['/', '/pricing', '/blog', '/blog/yunle-fun', '/changelog', '/developer', '/docs/getting-started', '/docs/getting-started/usage', '/docs/privacy-policy', '/docs/terms-of-service', '/docs/contact', '/docs/sitemap'],
       // 账号/交互页是 client-only，爬到也不应让其失败阻断整次预渲染
       failOnError: false,
     },
