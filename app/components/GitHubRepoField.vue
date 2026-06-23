@@ -34,7 +34,6 @@ interface RepoItem {
 const manual = ref(false) // 已连接时也允许切回手动输入
 const connecting = ref(false)
 const reposLoading = ref(false)
-const reposLoaded = ref(false)
 const repos = ref<GitHubAppRepo[]>([])
 const selected = ref<RepoItem | undefined>(undefined)
 
@@ -48,18 +47,20 @@ const repoItems = computed<RepoItem[]>(() =>
   })),
 )
 
-onMounted(() => {
-  refreshConnection()
+onMounted(async () => {
+  await refreshConnection()
+  if (isConnected.value)
+    loadRepos() // 已连接则预拉一次，打开下拉即有数据
 })
 
-async function ensureRepos() {
-  if (reposLoaded.value || reposLoading.value)
+// 每次都重新拉取（不做一次性缓存），避免在 GitHub 改了授权范围后列表陈旧
+async function loadRepos() {
+  if (reposLoading.value)
     return
   reposLoading.value = true
   try {
     const { repos: list } = await listRepos()
     repos.value = list
-    reposLoaded.value = true
   }
   catch (err: any) {
     toast.add({ title: '获取仓库失败', description: err?.message, color: 'error' })
@@ -80,8 +81,7 @@ async function onConnect() {
     connecting.value = true
     await connect()
     manual.value = false
-    reposLoaded.value = false
-    await ensureRepos()
+    await loadRepos()
     toast.add({ title: '已连接 GitHub', color: 'success' })
   }
   catch (err: any) {
@@ -97,7 +97,6 @@ async function onDisconnect() {
   try {
     await disconnect()
     repos.value = []
-    reposLoaded.value = false
     toast.add({ title: '已断开 GitHub 连接', color: 'success' })
   }
   catch (err: any) {
@@ -119,7 +118,7 @@ async function onDisconnect() {
         :search-input="{ placeholder: '搜索仓库...' }"
         label-key="label"
         class="w-full"
-        @update:open="(open: boolean) => { if (open) ensureRepos() }"
+        @update:open="(open: boolean) => { if (open) loadRepos() }"
         @update:model-value="onPick"
       >
         <template #default>
