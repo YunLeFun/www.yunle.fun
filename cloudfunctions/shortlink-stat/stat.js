@@ -8,15 +8,15 @@
  *     把热门短链的并发写打散,避免单文档写锁成为瓶颈;读时跨分片求和。
  *   - 容忍偶发丢失：CAS 冲突最多重试 MAX_RETRY 次,仍失败就放弃这一次计数（统计场景可接受）。
  *
- * 文档 _id = `SHA-256(domain:slug)_<shard>`,确定性 id 避免并发首写产生重复分片文档
- * （重复分片会导致读侧求和永久翻倍）。domain/slug 同时作为字段存,供读侧 where 查询求和。
+ * 分片文档按 (domain,slug,shard) 字段查/写（auto _id），读侧按 (domain,slug) 跨分片 where 求和。
+ * 并发首写可能给同一分片留下重复文档，但每个都是真实点击的计数，求和仍准确（仅文档数略增）。
+ * 不用 doc(_id).get()：真实 CloudBase 对不存在的 _id 返回 { data: [] }（非 null），会被误判成
+ * “已存在”导致 CAS 永不命中、从不计数；统一走 where().get()（CloudBase 与 fakeDb 都返回数组）。
  *
  * 纯函数,db 由调用方注入（index.js 注真实 CloudBase db,测试注 fakeDb）。
  */
 
 'use strict'
-
-const crypto = require('node:crypto')
 
 const STATS_COLLECTION = 'shortlink_stats'
 const SHARD_COUNT = 10
@@ -24,11 +24,6 @@ const MAX_RETRY = 3
 
 function normalize(v) {
   return String(v || '').trim().toLowerCase()
-}
-
-function shardId(domain, slug, shard) {
-  const hash = crypto.createHash('sha256').update(`${domain}:${slug}`).digest('hex')
-  return `${hash}_${shard}`
 }
 
 /**
@@ -44,28 +39,29 @@ async function recordClick(db, payload = {}) {
     return { ok: false, reason: 'missing host/slug' }
 
   const shard = Math.floor(Math.random() * SHARD_COUNT)
-  const _id = shardId(domain, slug, shard)
   const coll = () => db.collection(STATS_COLLECTION)
 
   for (let attempt = 0; attempt < MAX_RETRY; attempt++) {
-    const { data } = await coll().doc(_id).get()
+    // 按字段查分片文档；where().get() 返回数组（真实 CloudBase 与 fakeDb 一致）
+    const { data } = await coll().where({ domain, slug, shard }).limit(1).get()
+    const existing = Array.isArray(data) ? data[0] : data
 
-    // 分片首写：创建文档
-    if (!data) {
+    // 分片首写：创建文档（auto _id）
+    if (!existing) {
       try {
-        await coll().add({ _id, domain, slug, shard, count: 1, version: 1, createdAt: ts, updatedAt: ts })
+        await coll().add({ domain, slug, shard, count: 1, version: 1, createdAt: ts, updatedAt: ts })
         return { ok: true, created: true }
       }
       catch {
-        continue // 并发首写撞了 _id,下一轮走 update 分支
+        continue // 并发首写撞了,下一轮走 update 分支
       }
     }
 
     // 已存在：version 乐观锁累加
-    const version = data.version || 0
+    const version = existing.version || 0
     const res = await coll()
-      .where({ _id, version })
-      .update({ count: (data.count || 0) + 1, version: version + 1, updatedAt: ts })
+      .where({ _id: existing._id, version })
+      .update({ count: (existing.count || 0) + 1, version: version + 1, updatedAt: ts })
     if ((res.updated || res.modifiedCount || 0) > 0)
       return { ok: true }
     // version 被并发改动 → 重试
