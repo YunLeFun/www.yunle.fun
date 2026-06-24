@@ -54,6 +54,7 @@ async function resolve({ host, slug }) {
     target: rec.target || '',
     enabled: rec.enabled !== false,
     expireAt: typeof rec.expireAt === 'number' ? rec.expireAt : 0,
+    redirectType: rec.redirectType === 301 ? 301 : 302, // 仅 301 永久，缺省/非法 → 302
   }
 }
 
