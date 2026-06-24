@@ -68,11 +68,25 @@ function getInstallUrl(uid, event = {}) {
   return { url: `https://github.com/apps/${slug}/installations/new?state=${encodeURIComponent(state)}` }
 }
 
+// 换取 installation token；遇 404（App 已卸载 / installation 失效）→ 删陈旧映射并提示重连（懒自愈）
+async function tokenOrHeal(uid, inst) {
+  try {
+    return await getInstallationToken(inst.installationId)
+  }
+  catch (err) {
+    if (err && err.status === 404) {
+      await deleteInstallation(db, uid)
+      throw new Error('GitHub 连接已失效（App 可能已被卸载），请重新连接')
+    }
+    throw err
+  }
+}
+
 async function listRepos(uid, { query, page } = {}) {
   const inst = await getInstallation(db, uid)
   if (!inst)
     throw new Error('尚未连接 GitHub')
-  const token = await getInstallationToken(inst.installationId)
+  const token = await tokenOrHeal(uid, inst)
   const p = Math.max(Number(page) || 1, 1)
   const res = await githubFetch(`/installation/repositories?per_page=100&page=${p}`, { token, tokenType: 'token' })
   if (!res.ok)
@@ -92,7 +106,7 @@ async function checkRepo(uid, { repo } = {}) {
   const inst = await getInstallation(db, uid)
   if (!inst)
     throw new Error('尚未连接 GitHub')
-  const token = await getInstallationToken(inst.installationId)
+  const token = await tokenOrHeal(uid, inst)
   const res = await githubFetch(`/repos/${name}`, { token, tokenType: 'token' })
   if (res.status === 404)
     return { exists: false }

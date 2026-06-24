@@ -140,8 +140,12 @@ async function getInstallationToken(installationId) {
   if (cached && cached.expMs - Date.now() > 5 * 60 * 1000)
     return cached.token
   const res = await githubFetch(`/app/installations/${installationId}/access_tokens`, { token: appJwt(), method: 'POST' })
-  if (!res.ok)
-    throw new Error(`换取 installation token 失败：HTTP ${res.status}`)
+  if (!res.ok) {
+    // 把 status 带出去，让调用方能识别 404（installation 已卸载/失效）做自愈
+    const err = new Error(`换取 installation token 失败：HTTP ${res.status}`)
+    err.status = res.status
+    throw err
+  }
   const data = await res.json()
   _tokenCache.set(key, { token: data.token, expMs: new Date(data.expires_at).getTime() })
   return data.token

@@ -64,6 +64,8 @@ async function loadRepos() {
   }
   catch (err: any) {
     toast.add({ title: '获取仓库失败', description: err?.message, color: 'error' })
+    // 后端可能已自愈清理失效映射 → 同步连接态（失效则回到「连接」入口）
+    await refreshConnection()
   }
   finally {
     reposLoading.value = false
