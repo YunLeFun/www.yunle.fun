@@ -9,8 +9,8 @@ www.yunle.fun 正在做 [httpOnly cookie 会话迁移](./cookie-session-migratio
 但 EdgeOne Pages 托管构建自动套用的 `@edgeone/nuxt-pages` 适配器，其 `onPreBuild` **硬编码**了一条规则：
 
 ```js
-if (await checkModules(ctx, "@nuxt/content")) {
-  console.warn("⚠️ @nuxt/content detected, switching to static deployment.")
+if (await checkModules(ctx, '@nuxt/content')) {
+  console.warn('⚠️ @nuxt/content detected, switching to static deployment.')
   recordOldEdgeOneConfig = useStaticBuild(projectRoot)
 }
 ```
@@ -23,12 +23,12 @@ if (await checkModules(ctx, "@nuxt/content")) {
 
 ## 替代方案（移除后怎么渲染内容）
 
-| 原 `@nuxt/content` 用法 | 替代 |
-|---|---|
-| YAML 落地页（index / pricing / developer / apps / blog 元 / changelog 元），`queryCollection(...).first()` | `app/data/*.ts` 数据模块，直接 `import`；原 zod schema → TS 类型 |
-| Markdown 正文（docs / blog / changelog / 法律页），`<ContentRenderer>` | `@nuxtjs/mdc`（Content 底层就是它）：继续写 `.md`、保留 MDC 组件语法，`parseMarkdown` + `<MDCRenderer>` 渲染，无 SQL |
-| docs 导航 `queryCollectionNavigation` | 构建期按 `content/` 文件结构 + `.navigation.yml` 生成的导航数据 |
-| docs 搜索 `queryCollectionSearchSections` | 构建期抽取标题 / 正文索引 + 客户端 `minisearch` 模糊搜索 |
+| 原 `@nuxt/content` 用法                                                                                    | 替代                                                                                                                 |
+| ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| YAML 落地页（index / pricing / developer / apps / blog 元 / changelog 元），`queryCollection(...).first()` | `app/data/*.ts` 数据模块，直接 `import`；原 zod schema → TS 类型                                                     |
+| Markdown 正文（docs / blog / changelog / 法律页），`<ContentRenderer>`                                     | `@nuxtjs/mdc`（Content 底层就是它）：继续写 `.md`、保留 MDC 组件语法，`parseMarkdown` + `<MDCRenderer>` 渲染，无 SQL |
+| docs 导航 `queryCollectionNavigation`                                                                      | 构建期按 `content/` 文件结构 + `.navigation.yml` 生成的导航数据                                                      |
+| docs 搜索 `queryCollectionSearchSections`                                                                  | 构建期抽取标题 / 正文索引 + 客户端 `minisearch` 模糊搜索                                                             |
 
 `.md` 源文件仍放在 `content/`，写作体验基本不变（少了 collection schema 校验与 Studio 可视化编辑）。
 

@@ -15,7 +15,7 @@ interface SimpleStorage {
 
 /**
  * 纯内存 storage：注入给 CloudBase SDK 后，token（credentials_<env>）只存内存、不落 localStorage。
- * 关页/刷新即丢，由 httpOnly cookie→ticket 重建（双层会话）。消除 token 的「at-rest 持久窃取」面。
+ * 关页/刷新即丢，由 httpOnly cookie→setSession 重建（双层会话）。消除 token 的「at-rest 持久窃取」面。
  */
 function createMemoryStorage(): SimpleStorage {
   const m = new Map<string, string>()
@@ -59,7 +59,7 @@ export function useCloudbase() {
 
   // 实测 @cloudbase/js-sdk@3.3.13 的 persistence 只认 'local'（'session'/'none' 都回落 localStorage）。
   // 故 token 移出 JS 不靠 persistence，而靠注入「内存 storage」：cookieSession 开启时 credentials_<env>
-  // 只存内存、不落 localStorage，关页/刷新由 httpOnly cookie→ticket 重建。见 docs/cookie-session-migration.md。
+  // 只存内存、不落 localStorage，关页/刷新由 httpOnly cookie→setSession 重建。见 docs/cookie-session-migration.md。
   const persistence = 'local'
   // 内存化已验证可把 token 移出 localStorage（实测 credentials_<env> 不再落盘、会话由 cookie 重建），
   // 但会引入「启动竞态」：bootstrap 完成前提前触发的鉴权调用会 403。需先做「会话就绪前不发鉴权请求」

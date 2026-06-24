@@ -77,7 +77,8 @@ function buildResponse(statusCode, code, message) {
  * @param {() => number} [input.config.now] 用于测试注入时间
  * @returns {Promise<object>} HTTP 响应对象
  */
-async function handleNotify({ event, db, config }) {
+async function handleNotify(input) {
+  const { event, db, config } = input
   const headers = lowercaseHeaders(event?.headers)
   const body = stringifyBody(event?.body)
   const now = config.now ? config.now() : Date.now()

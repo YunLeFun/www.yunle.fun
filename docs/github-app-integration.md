@@ -109,13 +109,13 @@ GitHub App 的 **private key 能为所有 installation 签发 token**，属敏�
 
 ## 阶段与状态
 
-| 阶段 | 内容                                                                                                     | 状态                                            |
-| ---- | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| 0    | 你在 GitHub 建 App + 填 env                                                                              | ✅ App 已建（App ID 1018931），待填 env         |
-| 1    | `github-api`：JWT→token、`checkRepo`/`listRepos`/`getConnection`/`getInstallUrl`/`disconnect` + 安装回调 | ✅ 代码完成（crypto 单测 7 passed），待部署联调 |
-| 2    | 回调落库（已含于 Phase 1）+ 客户端弹窗连接                                                               | 部分（后端就绪，客户端待做）                    |
-| 3    | `useGitHubApp` + 仓库选择器，接入 new/edit                                                               | —                                               |
-| 4    | webhook 同步 + 组织安装下按 user-token 收窄列举 + 限流 + 文档收尾                                        | —                                               |
+| 阶段 | 内容                                                                                                     | 状态                                                            |
+| ---- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| 0    | 你在 GitHub 建 App + 填 env                                                                              | ✅ App 已建（App ID 1018931）；敏感 env 仍待本人补齐            |
+| 1    | `github-api`：JWT→token、`checkRepo`/`listRepos`/`getConnection`/`getInstallUrl`/`disconnect` + 安装回调 | ✅ 代码完成（crypto 单测覆盖），待敏感 env + 安装授权联调       |
+| 2    | 回调落库（已含于 Phase 1）+ 客户端弹窗连接                                                               | ✅ 代码完成：`useGitHubApp.connect()` 弹窗 + `postMessage` 回流 |
+| 3    | `useGitHubApp` + 仓库选择器，接入 new/edit                                                               | ✅ 代码完成：`GitHubRepoField` 已接入 `apps/new` 与 `apps/edit` |
+| 4    | webhook 同步 + 组织安装下按 user-token 收窄列举 + 限流 + 文档收尾                                        | ⏳ 待做                                                         |
 
 > 公开仓库现状（`GitHubRepoInput` 匿名校验）在全程保持可用，本方案不阻断、不替换它。
 
@@ -123,7 +123,7 @@ GitHub App 的 **private key 能为所有 installation 签发 token**，属敏�
 
 ## 部署与联调
 
-已落地文件：`cloudfunctions/github-api/{index.js, lib/app-auth.js, lib/store.js, package.json}` + 单测 `tests/github-api/app-auth.test.js`（RS256 JWT 与 state HMAC 已验证）。仓库读取统一走短期 installation token，**不持久化任何用户 token**；user token 仅在安装回调时用于校验安装归属。
+已落地文件：`cloudfunctions/github-api/{index.js, lib/app-auth.js, lib/store.js, package.json}`、`app/composables/useGitHubApp.ts`、`app/components/GitHubRepoField.vue`，并已接入 `app/pages/apps/new.vue` 与 `app/pages/apps/[slug]/edit.vue`。单测 `tests/github-api/app-auth.test.js` 覆盖 RS256 JWT 与 state HMAC。仓库读取统一走短期 installation token，**不持久化任何用户 token**；user token 仅在安装回调时用于校验安装归属。
 
 ### 已在 prod 完成（2026-06-22，经 CloudBase MCP）
 

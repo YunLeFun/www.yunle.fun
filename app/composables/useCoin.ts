@@ -70,13 +70,16 @@ export function useCoin() {
   /**
    * 扣减云币（供各子应用按次消费调用）。
    *
-   * @param params 扣费参数：appId 业务应用标识、amount 扣减云币数（正整数）、
-   *   bizId 业务幂等键（同一 bizId 只扣一次）、meta 业务自定义信息
+   * @param params 扣费参数
+   * @param params.appId 业务应用标识
+   * @param params.amount 扣减云币数（正整数）
+   * @param params.bizId 业务幂等键（同一 bizId 只扣一次）
+   * @param params.meta 业务自定义信息
    */
   async function deduct(params: {
     appId: string
     amount: number
-    bizId?: string
+    bizId: string
     meta?: Record<string, unknown>
   }): Promise<{ balance: number, deduped: boolean }> {
     if (!app)

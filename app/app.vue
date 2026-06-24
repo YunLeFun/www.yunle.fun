@@ -28,11 +28,14 @@ useSeoMeta({
 
 // 方案 B：登录态就绪后自动领取每日签到云币（替代手动签到），到账时以 toast 呈现。
 // 服务端 signIn 幂等（按东八区自然日只入账一次），autoClaim 再按 uid 去重，重复触发安全。
-const { user } = useTcbAuth()
-const { autoClaim } = useSignIn()
 const toast = useToast()
+const user = useState<{ id?: string } | null>('auth_user', () => null)
 
-async function claimDailyReward() {
+async function claimDailyReward(userId: string) {
+  const { useSignIn } = await import('~/composables/useSignIn')
+  if (user.value?.id !== userId)
+    return
+  const { autoClaim } = useSignIn()
   const res = await autoClaim()
   if (!res || res.alreadySigned)
     return
@@ -55,12 +58,13 @@ async function claimDailyReward() {
 
 // 已登录直接领；登录态在中间件恢复后由 watch 接住（首次访问 / 刚登录）
 onMounted(() => {
-  if (user.value)
-    claimDailyReward()
+  const id = user.value?.id
+  if (id)
+    void claimDailyReward(id)
 })
 watch(() => user.value?.id, (id) => {
   if (id)
-    claimDailyReward()
+    void claimDailyReward(id)
 })
 </script>
 

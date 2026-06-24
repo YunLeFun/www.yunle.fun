@@ -9,7 +9,6 @@ export default defineNuxtConfig({
     // Markdown 渲染（替代 @nuxt/content，见 docs/nuxt-content-removal.md）
     '@nuxtjs/mdc',
     '@nuxt/ui',
-    '@nuxt/image',
     '@vueuse/nuxt',
     // 双层会话迁移：用 nuxt-auth-utils 封 sealed httpOnly cookie 作持久会话（见 docs/cookie-session-migration.md）
     'nuxt-auth-utils',
@@ -53,6 +52,11 @@ export default defineNuxtConfig({
     classSuffix: '',
     fallback: 'light',
     preference: 'light',
+  },
+
+  // 当前 content/ 公开内容没有代码块；关闭 MDC 的 Shiki 高亮器，避免为普通内容页加载 wasm/语言包。
+  mdc: {
+    highlight: false,
   },
 
   ui: {
@@ -177,6 +181,23 @@ export default defineNuxtConfig({
     // 落地页数据（content/*.yml）直接 import，无需 @nuxt/content（见 docs/nuxt-content-removal.md）
     // cast：@rollup/plugin-yaml 与 vite 内置 rollup 版本不同，类型不兼容（运行时无碍）
     plugins: [yaml() as unknown as Plugin],
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (
+              id.includes('/node_modules/.pnpm/@cloudbase+')
+              || id.includes('/node_modules/@cloudbase/')
+              || id.includes('/app/composables/useCloudbase.ts')
+              || id.includes('/app/composables/useTcbAuth.ts')
+              || id.includes('/app/composables/auth/')
+            ) {
+              return 'cloudbase-auth'
+            }
+          },
+        },
+      },
+    },
     server: {
       allowedHosts: true,
     },

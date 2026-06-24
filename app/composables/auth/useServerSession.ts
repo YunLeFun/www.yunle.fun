@@ -2,12 +2,11 @@
  * 双层会话客户端编排（见 docs/cookie-session-migration.md）。
  *
  * 串起「自有 httpOnly cookie 会话」与「CloudBase SDK 会话」两层：
- * - setServerSession：CloudBase 登录成功后，把 access_token 交给 /api/session/login 种 httpOnly cookie
- * - bootstrapFromCookie：启动时凭 cookie 换 CloudBase 票据并 signInWithCustomTicket 建立会话
+ * - setServerSession：CloudBase 登录成功后，把原始 access/refresh token 封进 httpOnly cookie
+ * - bootstrapFromCookie：启动时凭 cookie 取回原始 token，并用 auth.setSession 恢复同一 CloudBase 会话
  * - clearServerSession：登出清 cookie
  *
- * 全部容错：服务端会话端点不可用（如铸票函数尚未部署）时不抛错，调用方回退到既有登录态。
- * 在 cutover（persistence 切 'session' + 启动接入 bootstrap）前，本 composable 处于待接线状态。
+ * 全部容错：服务端会话端点不可用（如 SSR 运行时未托管）时不抛错，调用方回退到既有登录态。
  */
 export function useServerSession() {
   const { auth } = useCloudbase()

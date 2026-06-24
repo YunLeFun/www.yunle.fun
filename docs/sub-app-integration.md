@@ -154,11 +154,11 @@ const { result: txs } = await app.callFunction({
 
 ### account-api 接口速查
 
-| action             | 入参                                         | 返回                                                  |
-| ------------------ | -------------------------------------------- | ----------------------------------------------------- |
-| `getAccount`       | —                                            | `{ coin, membership: { isActive, level, expireAt } }` |
-| `deductCoin`       | `appId`, `amount`(正整数), `bizId?`, `meta?` | `{ balance, deduped }` 或抛「云币余额不足」           |
-| `listTransactions` | `skip?`, `limit?`(≤100)                      | `{ items, nextSkip }`                                 |
+| action             | 入参                                        | 返回                                                  |
+| ------------------ | ------------------------------------------- | ----------------------------------------------------- |
+| `getAccount`       | —                                           | `{ coin, membership: { isActive, level, expireAt } }` |
+| `deductCoin`       | `appId`, `amount`(正整数), `bizId`, `meta?` | `{ balance, deduped }` 或抛「云币余额不足」           |
+| `listTransactions` | `skip?`, `limit?`(≤100)                     | `{ items, nextSkip }`                                 |
 
 > 所有接口都要求登录态（服务端从 CloudBase Auth 取 `uid`，**前端无法伪造他人 uid**）。
 
@@ -178,7 +178,7 @@ const { result } = await app.callFunction({
 // result.codeUrl → 渲染二维码；再轮询 queryOrder 确认支付，成功后云币自动入账
 ```
 
-充值套餐（与服务端一致，定义在 `app/types/payment.ts` 的 `COIN_PACKS`）：
+充值套餐（与服务端一致，定义在 `app/types/payment.ts` 的 `COIN_PACKS`；也支持传 `coin` 做自定义数量，服务端按 1 云币 = 10 分计价并校验范围）：
 
 | packId      | 云币 | 价格 |
 | ----------- | ---- | ---- |
@@ -194,7 +194,7 @@ const { result } = await app.callFunction({
 - **会员免扣费**：某些按次扣费的功能，会员期内免费——**判断放在你的应用**：扣费前先看
   `coin.isMember.value`，是会员就跳过 `deductCoin`。平台 `deductCoin` 不感知「谁该免费」，保持解耦。
 
-> 已上线规则：资产层正交 + 会员免扣费。**会员赠币暂未做**。
+> 已上线规则：资产层正交 + 会员免扣费。**会员赠币已决定不做**；会员差异权益通过「每日签到免费 1 / 会员 2」与各应用自定义免扣费体现。
 
 ## 6. 关键约束 & 最佳实践
 

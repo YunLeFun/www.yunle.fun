@@ -1,7 +1,7 @@
 # 云币 + 跨应用会员 — 共享支付/账户中心设计
 
-> 状态：设计稿（待 review 后进入编码）
-> 关联代码：`cloudfunctions/wxpay-order`、`cloudfunctions/wxpay-notify`、`app/types/payment.ts`
+> 状态：核心账户/支付能力已编码落地并有单测覆盖；生产侧仍需确认 CloudBase 集合、索引、安全规则和云函数部署。
+> 关联代码：`cloudfunctions/account-api`、`cloudfunctions/wxpay-order`、`cloudfunctions/wxpay-notify`、`cloudfunctions/iap-order`、`cloudfunctions/appstore-notify`、`app/composables/useCoin.ts`、`app/composables/useCoinRecharge.ts`、`app/pages/wallet.vue`、`app/types/payment.ts`
 
 ## 1. 背景与目标
 
@@ -198,8 +198,8 @@ await callAccount('deductCoin', { appId: 'xxx', amount: 50, bizId })
 某些按次扣费的功能，会员期内直接免费（不扣云币）。
 
 - 实现：扣费决策放在**子应用**，而非平台。子应用调 `deductCoin` 前先看 `membership.isActive`
-  与本地「该功能是否会员免费」规则；若免费则跳过扣费、记一条 `type:'consume', amount:0,
-meta:{ waived:true }` 的零额流水（便于统计会员省了多少）。
+  与本地「该功能是否会员免费」规则；若免费则跳过扣费。需要统计会员节省金额时，在子应用自己的业务日志记录
+  `waived:true`；平台 `deductCoin` 只接受正整数扣费，不写 0 额流水。
 - 平台 `deductCoin` 不感知「哪个功能对会员免费」，保持解耦。
 
 > 这样的分工：**平台只回答「是不是会员」**，免扣费/折扣的具体业务规则留在各应用，
@@ -282,18 +282,15 @@ async function deductCoin(db, { userId, appId, amount, bizId, meta }) {
 | `coin_transactions`（新） | `idx_user_time`      | `userId`, `createdAt`↓ | 否   |
 | `coin_transactions`（新） | `idx_app_time`       | `appId`, `createdAt`↓  | 否   |
 
-## 10. 落地步骤（编码阶段 TODO）
+## 10. 落地状态（代码侧）
 
-1. `lib/plans.js` → 拆为 `COIN_PACKS` + `MEMBERSHIP_PRICES`，提供 `getCoinPack(packId)` /
-   `getMembershipAmount(level, cycle)`；同步前端 `app/types/payment.ts`。
-2. `lib/wallet.js`（新，纯函数 + 依赖注入）：`creditCoin` / `deductCoin` / `getWallet`，
-   含 CAS 重试与幂等，配 vitest 单测（沿用 mock db 风格）。
-3. `wxpay-order/index.js`：`createOrder` 按 `orderType` 分支；`queryOrder` 兜底入账分支。
-4. `wxpay-notify/lib/notify-handler.js`：回调成功后按 `orderType` 入账云币 / 开通会员。
-5. 新增 `account-api` 云函数：`getAccount` / `deductCoin` / `listTransactions`。
-6. `pnpm sync:wxpay-lib` 把新 `lib/` 同步到 notify；`pnpm test` 全绿；更新 `cloudfunctions/README.md`。
-7. CloudBase 控制台建 `user_wallet` / `coin_transactions` 集合与索引、安全规则
-   （用户只读自己的，写入仅云函数）。
+1. [x] `lib/plans.js` 已拆为 `COIN_PACKS` + `MEMBERSHIP_PRICES`，并支持预设充值包与自定义云币数量；前端常量从 `@yunlefun/types` re-export。
+2. [x] `lib/wallet.js` 已实现 `creditCoin` / `deductCoin` / `clawbackCoin` / `getWallet`，含 CAS 重试与 refId/bizId 幂等；`bizId` 在入参校验层已设为必填。
+3. [x] `wxpay-order/index.js` 已按 `orderType` 分支下单；`queryOrder` / `reconcileOrders` 可兜底补发会员或云币。
+4. [x] `wxpay-notify` / `iap-order` / `appstore-notify` 已复用同一套发放逻辑，按 `orderType` 入账云币、开通会员或退款追回。
+5. [x] `account-api` 已提供 `getAccount` / `deductCoin` / `listTransactions` / `listOrders`，并扩展签到、投币、关注、通知、资料等账户中心能力。
+6. [x] 前端已接入钱包页、云币充值弹窗、订单/流水展示、每日签到热力图、投币与账户 composable。
+7. [ ] 生产运维仍需逐项确认：`user_wallet`、`coin_transactions`、`app_tip_stats`、`app_supporters` 等集合/索引/安全规则已在 CloudBase 环境生效；相关云函数均已重新部署。
 
 ## 11. 签到 / 投币 / 首充礼包（2026-06 新增，已落地）
 

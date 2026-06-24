@@ -15,6 +15,7 @@ export default antfu(
 )
   .append(nuxt())
   .overrideRules({
+    'jsdoc/require-returns-description': 'off',
     'pnpm/yaml-no-unused-catalog-item': 'off',
     'vue/v-on-event-hyphenation': 'off',
   })

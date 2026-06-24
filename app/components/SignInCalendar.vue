@@ -37,6 +37,14 @@ watch(signedToday, (v, old) => {
     fetchHistory()
 })
 
+interface SignInHeatmapCell {
+  idx: number
+  future: boolean
+  level: number
+  milestone: boolean
+  title: string
+}
+
 const DAY = 86_400_000
 const CST_OFFSET = 8 * 60 * 60 * 1000
 const WEEKS = 53
@@ -52,7 +60,7 @@ const grid = computed(() => {
   const todayIdx = Math.floor((Date.now() + CST_OFFSET) / DAY)
   const todayDow = new Date(todayIdx * DAY).getUTCDay()
   const firstSun = todayIdx - todayDow - (WEEKS - 1) * 7
-  const weeks: { idx: number, future: boolean, level: number, milestone: boolean, title: string }[][] = []
+  const weeks: SignInHeatmapCell[][] = []
   const monthRow = Array.from({ length: WEEKS }).fill('') as string[]
   let prevMonth = -1
   for (let c = 0; c < WEEKS; c++) {
@@ -85,15 +93,15 @@ const progressPct = computed(() => {
   return `${Math.min(100, Math.round((weekProgress.value / len) * 100))}%`
 })
 
-function cellClass(cell: { future: boolean, level: number, milestone: boolean }) {
+function cellClass(cell: Pick<SignInHeatmapCell, 'future' | 'level' | 'milestone'>) {
   if (cell.future)
-    return 'bg-transparent'
+    return 'sign-in-heatmap__cell--future'
   if (cell.milestone)
-    return 'bg-amber-400 dark:bg-amber-500'
-  return ['bg-elevated', 'bg-primary/40', 'bg-primary'][cell.level] || 'bg-elevated'
+    return 'sign-in-heatmap__cell--milestone'
+  return ['sign-in-heatmap__cell--empty', 'sign-in-heatmap__cell--level-1', 'sign-in-heatmap__cell--level-2'][cell.level] || 'sign-in-heatmap__cell--empty'
 }
 
-const scroller = ref<HTMLElement | null>(null)
+const scroller = useTemplateRef<HTMLElement>('scroller')
 function scrollToToday() {
   nextTick(() => {
     if (scroller.value)
@@ -141,26 +149,30 @@ watch(() => history.value.length, scrollToToday)
       role="img"
       :aria-label="`近一年签到热力图，累计签到 ${history.length} 天`"
     >
-      <div class="inline-flex min-w-max flex-col gap-1">
-        <!-- 月份标签（绝对定位避免撑开列宽） -->
-        <div class="h-3 flex gap-[3px] pl-[18px]">
-          <div v-for="(label, ci) in grid.monthRow" :key="ci" class="relative w-2.5 shrink-0">
-            <span v-if="label" class="absolute left-0 top-0 whitespace-nowrap text-[10px] leading-none text-dimmed">{{ label }}</span>
+      <div class="sign-in-heatmap__inner">
+        <div class="sign-in-heatmap__months">
+          <div class="sign-in-heatmap__weekday-spacer" />
+          <div class="sign-in-heatmap__month-grid">
+            <div v-for="(label, ci) in grid.monthRow" :key="ci" class="sign-in-heatmap__month">
+              <span v-if="label" class="absolute left-0 top-0 whitespace-nowrap text-[10px] leading-none text-dimmed">{{ label }}</span>
+            </div>
           </div>
         </div>
-        <!-- 星期标签 + 周列 -->
-        <div class="flex gap-[3px]">
-          <div class="w-[15px] flex flex-col gap-[3px] text-[9px] leading-none text-dimmed">
-            <span v-for="(w, i) in WEEKDAY_LABELS" :key="i" class="h-2.5 flex items-center">{{ w }}</span>
+
+        <div class="sign-in-heatmap__body">
+          <div class="sign-in-heatmap__weekday-labels">
+            <span v-for="(w, i) in WEEKDAY_LABELS" :key="i" class="sign-in-heatmap__weekday-label">{{ w }}</span>
           </div>
-          <div v-for="(col, ci) in grid.weeks" :key="ci" class="flex flex-col gap-[3px]">
-            <div
-              v-for="cell in col"
-              :key="cell.idx"
-              class="size-2.5 rounded-[2px]"
-              :class="cellClass(cell)"
-              :title="cell.title"
-            />
+          <div class="sign-in-heatmap__weeks">
+            <div v-for="(col, ci) in grid.weeks" :key="ci" class="sign-in-heatmap__week">
+              <div
+                v-for="cell in col"
+                :key="cell.idx"
+                class="sign-in-heatmap__cell"
+                :class="cellClass(cell)"
+                :title="cell.title"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -170,12 +182,12 @@ watch(() => history.value.length, scrollToToday)
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div class="flex items-center gap-1.5 text-[10px] text-dimmed">
         <span>少</span>
-        <span class="size-2.5 rounded-[2px] bg-elevated" />
-        <span class="size-2.5 rounded-[2px] bg-primary/40" />
-        <span class="size-2.5 rounded-[2px] bg-primary" />
+        <span class="sign-in-heatmap__legend-cell sign-in-heatmap__cell--empty" />
+        <span class="sign-in-heatmap__legend-cell sign-in-heatmap__cell--level-1" />
+        <span class="sign-in-heatmap__legend-cell sign-in-heatmap__cell--level-2" />
         <span>多</span>
         <span class="mx-0.5 opacity-50">·</span>
-        <span class="size-2.5 rounded-[2px] bg-amber-400 dark:bg-amber-500" />
+        <span class="sign-in-heatmap__legend-cell sign-in-heatmap__cell--milestone" />
         <span>里程碑</span>
       </div>
       <SignInButton />
@@ -186,3 +198,103 @@ watch(() => history.value.length, scrollToToday)
     </p>
   </div>
 </template>
+
+<style scoped>
+.sign-in-heatmap__inner {
+  --sign-in-heatmap-cell: max(10px, calc((100% - 174px) / 53));
+  --sign-in-heatmap-gap: 3px;
+  --sign-in-heatmap-weekday: 15px;
+
+  width: 100%;
+  min-width: 704px;
+}
+
+.sign-in-heatmap__months,
+.sign-in-heatmap__body {
+  display: grid;
+  grid-template-columns: var(--sign-in-heatmap-weekday) minmax(0, 1fr);
+  column-gap: var(--sign-in-heatmap-gap);
+}
+
+.sign-in-heatmap__months {
+  margin-bottom: 0.25rem;
+}
+
+.sign-in-heatmap__month-grid,
+.sign-in-heatmap__weeks {
+  display: grid;
+  grid-template-columns: repeat(53, var(--sign-in-heatmap-cell));
+  column-gap: var(--sign-in-heatmap-gap);
+}
+
+.sign-in-heatmap__month {
+  position: relative;
+  height: 0.75rem;
+  min-width: 0;
+}
+
+.sign-in-heatmap__weekday-labels,
+.sign-in-heatmap__week {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sign-in-heatmap-gap);
+}
+
+.sign-in-heatmap__weekday-label {
+  display: flex;
+  align-items: center;
+  height: var(--sign-in-heatmap-cell);
+  font-size: 9px;
+  line-height: 1;
+  color: var(--ui-text-dimmed);
+}
+
+.sign-in-heatmap__cell,
+.sign-in-heatmap__legend-cell {
+  border: 1px solid color-mix(in srgb, var(--ui-border) 72%, transparent);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--ui-bg-muted) 84%, var(--ylf-surface));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 52%, transparent);
+}
+
+.sign-in-heatmap__cell {
+  width: var(--sign-in-heatmap-cell);
+  height: var(--sign-in-heatmap-cell);
+}
+
+.sign-in-heatmap__legend-cell {
+  width: 0.625rem;
+  height: 0.625rem;
+  flex: none;
+}
+
+.sign-in-heatmap__cell--future {
+  border-style: dashed;
+  background: color-mix(in srgb, var(--ui-bg-muted) 58%, transparent);
+  opacity: 0.62;
+}
+
+.sign-in-heatmap__cell--level-1 {
+  border-color: color-mix(in srgb, var(--ui-primary) 44%, var(--ui-border));
+  background: color-mix(in srgb, var(--ui-primary) 38%, var(--ylf-surface));
+}
+
+.sign-in-heatmap__cell--level-2 {
+  border-color: color-mix(in srgb, var(--ui-primary) 82%, var(--ui-border));
+  background: var(--ui-primary);
+}
+
+.sign-in-heatmap__cell--milestone {
+  border-color: color-mix(in srgb, #d97706 70%, var(--ui-border));
+  background: #f59e0b;
+}
+
+.dark .sign-in-heatmap__cell,
+.dark .sign-in-heatmap__legend-cell {
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 12%, transparent);
+}
+
+.dark .sign-in-heatmap__cell--milestone {
+  background: #f59e0b;
+}
+</style>

@@ -517,6 +517,17 @@ join `user_profiles`）。通知是异步可拉取的，**不走 WebSocket**。�
 
 安全规则：**ADMINONLY**（仅 admin 管理端 SDK 与 `shortlink-resolve` 云函数读写），前端不直读。
 
+### 短链统计：shortlink_stats（需新建）
+
+`shortlink-stat` 接收 EdgeOne 跳转函数上报，按 `(domain, slug)` 分片累加点击数；admin 控制面经 SDK
+读取时按同一组字段聚合分片。上线前在控制台**新建集合并配置索引**：
+
+| 集合              | 索引名            | 字段                     | 唯一性 |
+| ----------------- | ----------------- | ------------------------ | ------ |
+| `shortlink_stats` | `idx_domain_slug` | `domain` ASC, `slug` ASC | 非唯一 |
+
+安全规则：**ADMINONLY**（仅 `shortlink-stat` 云函数读写），前端不直读。
+
 ## 共享代码：lib/
 
 5 个支付 / 账户云函数下都有一份 `lib/`，包含签名、加解密、校验、订单状态机等纯函数。

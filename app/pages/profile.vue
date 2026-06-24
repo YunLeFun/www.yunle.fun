@@ -78,7 +78,7 @@ const entries = computed(() => {
   return list
 })
 
-// 会话就绪后再拉数据：双层会话的 cookie→ticket 恢复窗口内 user 尚未就绪，直接发会 403。
+// 会话就绪后再拉数据：双层会话的 cookie→setSession 恢复窗口内 user 尚未就绪，直接发会 403。
 // 会员/账户 composable 的 watch（immediate:false）在「挂载时已登录」场景不触发，故这里手动刷新。
 onUserSession(async () => {
   refreshMembership()
