@@ -1,40 +1,42 @@
 shellEmulator: true
 
 trustPolicy: no-downgrade
-trustPolicyIgnoreAfter: 10080
 trustPolicyExclude:
   - chokidar@4.0.3
+# 顶传递依赖到已修补版本（仅 fontless 仍引入 esbuild <0.28.1，GHSA-g7r4-m6w7-qqqr）
+overrides:
+  fontless>esbuild: ^0.28.1
 
 catalog:
-  '@antfu/eslint-config': ^9.0.0
+  '@antfu/eslint-config': ^9.1.0
   '@apple/app-store-server-library': ^3.1.0
-  '@cloudbase/js-sdk': ^3.3.13
+  '@cloudbase/js-sdk': ^3.5.4
   '@cloudbase/node-sdk': latest
-  '@iconify-json/lucide': ^1.2.111
+  '@iconify-json/lucide': ^1.2.114
   '@iconify-json/ri': ^1.2.10
-  '@iconify-json/simple-icons': ^1.2.85
+  '@iconify-json/simple-icons': ^1.2.87
   '@iconify-json/twemoji': ^1.2.5
   '@nuxt/content': ^3.14.0
-  '@nuxt/eslint': ^1.15.2
-  '@nuxt/icon': ^2.2.2
-  '@nuxt/ui': ^4.8.1
+  '@nuxt/eslint': ^1.16.0
+  '@nuxt/icon': ^2.2.4
+  '@nuxt/ui': ^4.9.0
   '@nuxtjs/i18n': ^10.4.0
   '@nuxtjs/mdc': ^0.22.0
   '@rollup/plugin-yaml': ^5.0.0
   '@types/qrcode': ^1.5.6
   '@vueuse/nuxt': ^14.3.0
-  '@yunlefun/sso': ^0.3.0
+  '@yunlefun/sso': ^0.3.1
   '@yunlefun/types': ^0.2.1
-  baseline-browser-mapping: ^2.10.33
+  baseline-browser-mapping: ^2.10.40
   better-sqlite3: ^12.10.0
-  eslint: ^10.4.1
+  eslint: ^10.5.0
   eslint-plugin-format: ^2.0.1
-  nuxt: ^4.4.6
+  nuxt: ^4.4.8
   nuxt-auth-utils: ^0.5.29
   qrcode: ^1.5.4
   typescript: ^5.9.3
-  vitest: ^4.1.8
-  vue-tsc: ^3.3.3
+  vitest: ^4.1.9
+  vue-tsc: ^3.3.5
   zod: ^4.4.3
 
 ignoredBuiltDependencies:
@@ -46,3 +48,4 @@ ignoredBuiltDependencies:
 
 onlyBuiltDependencies:
   - better-sqlite3
+trustPolicyIgnoreAfter: 10080
