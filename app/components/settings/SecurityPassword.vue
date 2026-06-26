@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { TcbResetPasswordData } from '~/composables/useTcbAuth'
+import { maskPhone } from '~/utils/mask'
 
 const {
   user,
@@ -24,6 +25,10 @@ const setPasswordResetData = ref<TcbResetPasswordData | null>(null)
 const { remaining: setPasswordCountdown, isActive: setPasswordCountdownActive, start: startSetPasswordCountdown } = useCountdown()
 
 const hasPassword = computed(() => user.value?.hasPassword)
+// 验证码发送目标：邮箱原样展示，手机号脱敏（避免在弹窗里直接暴露完整号码）
+const otpTarget = computed(() =>
+  user.value?.email || (user.value?.phone ? maskPhone(user.value.phone) : ''),
+)
 const passwordFormValid = computed(() => {
   if (hasPassword.value) {
     return oldPassword.value.length >= 6 && newPassword.value.length >= 6 && newPassword.value === confirmPasswordValue.value
@@ -82,7 +87,7 @@ async function handleChangePassword() {
 
 <template>
   <!-- 密码行 -->
-  <div class="flex items-center justify-between gap-3 py-4">
+  <div class="flex flex-col gap-2 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
     <div class="min-w-0 flex-1 space-y-1">
       <p class="text-sm font-medium">
         登录密码
@@ -122,7 +127,7 @@ async function handleChangePassword() {
               {{ hasPassword ? '修改密码' : '设置密码' }}
             </h3>
             <p class="text-sm text-muted">
-              {{ hasPassword ? '请输入当前密码和新密码' : setPasswordStep === 'otp' ? `将发送验证码至${user?.email || user?.phone || '绑定账号'}` : '请输入验证码并设置新密码' }}
+              {{ hasPassword ? '请输入当前密码和新密码' : setPasswordStep === 'otp' ? `将发送验证码至${otpTarget || '绑定账号'}` : '请输入验证码并设置新密码' }}
             </p>
           </div>
         </div>
@@ -242,7 +247,7 @@ async function handleChangePassword() {
         <!-- 首次设置密码：步骤1 发送验证码 -->
         <div v-else-if="setPasswordStep === 'otp'" class="space-y-4">
           <p class="text-sm text-muted">
-            为了验证您的身份，将向 <strong>{{ user?.email || user?.phone }}</strong> 发送验证码
+            为了验证您的身份，将向 <strong>{{ otpTarget }}</strong> 发送验证码
           </p>
           <div class="flex justify-end gap-3">
             <UButton

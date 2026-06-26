@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useTcbAuthSession } from '~/composables/auth/useAuthSession'
+import { maskPhone } from '~/utils/mask'
 
 /**
  * 用户菜单组件
@@ -87,7 +88,7 @@ const items = computed(() => [
               <MemberBadge v-if="isMember" size="xs" />
             </div>
             <p class="text-sm text-(--ui-text-muted) truncate">
-              {{ user.email || user.phone || `@${user.login}` }}
+              {{ user.email || (user.phone ? maskPhone(user.phone) : '') || `@${user.login}` }}
             </p>
           </div>
         </div>

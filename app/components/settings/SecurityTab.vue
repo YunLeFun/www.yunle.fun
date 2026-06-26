@@ -125,7 +125,7 @@ onMounted(async () => {
 <template>
   <div class="space-y-6">
     <!-- 登录凭证 -->
-    <UPageCard class="p-6">
+    <UPageCard class="p-4 sm:p-6">
       <h3 class="mb-1 text-lg font-semibold">
         登录凭证
       </h3>
@@ -138,7 +138,7 @@ onMounted(async () => {
         <SettingsSecurityBindEmail />
 
         <!-- 手机号 -->
-        <div class="flex items-center justify-between gap-3 py-4">
+        <div class="flex flex-col gap-2 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
           <div class="min-w-0 flex-1 space-y-1">
             <p class="text-sm font-medium">
               手机号
@@ -148,7 +148,7 @@ onMounted(async () => {
             </p>
           </div>
           <UBadge
-            class="shrink-0"
+            class="shrink-0 self-start sm:self-auto"
             :label="user?.phone ? '已绑定' : '未绑定'"
             :color="user?.phone ? 'success' : 'warning'"
             variant="subtle"
@@ -162,7 +162,7 @@ onMounted(async () => {
     </UPageCard>
 
     <!-- 第三方账号 -->
-    <UPageCard v-if="isGitHubEnabled || isWeChatEnabled" class="p-6">
+    <UPageCard v-if="isGitHubEnabled || isWeChatEnabled" class="p-4 sm:p-6">
       <h3 class="mb-1 text-lg font-semibold">
         第三方账号
       </h3>

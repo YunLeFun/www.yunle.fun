@@ -16,7 +16,7 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div class="flex items-center justify-between gap-3 py-4">
+  <div class="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
     <div class="flex min-w-0 flex-1 items-center gap-3">
       <div class="size-9 flex shrink-0 items-center justify-center rounded-lg bg-elevated">
         <UIcon :name="props.icon" class="text-lg" :class="props.iconClass" />
@@ -33,7 +33,7 @@ const emit = defineEmits<{
         </p>
       </div>
     </div>
-    <div class="flex shrink-0 items-center gap-2">
+    <div class="flex shrink-0 items-center gap-2 ps-12 sm:ps-0">
       <UBadge
         v-if="props.providersLoading"
         label="查询中"

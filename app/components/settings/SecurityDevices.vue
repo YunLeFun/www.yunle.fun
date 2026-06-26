@@ -57,7 +57,7 @@ onMounted(refresh)
 </script>
 
 <template>
-  <UPageCard class="p-6">
+  <UPageCard class="p-4 sm:p-6">
     <div class="mb-1 flex items-center justify-between gap-3">
       <h3 class="text-lg font-semibold">
         登录设备

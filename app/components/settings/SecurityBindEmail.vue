@@ -55,7 +55,7 @@ async function handleVerify() {
 
 <template>
   <!-- 邮箱行 -->
-  <div class="flex items-center justify-between gap-3 py-4">
+  <div class="flex flex-col gap-2 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
     <div class="min-w-0 flex-1 space-y-1">
       <p class="text-sm font-medium">
         邮箱
