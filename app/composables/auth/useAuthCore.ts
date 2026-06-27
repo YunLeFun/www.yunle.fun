@@ -29,6 +29,8 @@ export function useTcbAuthCore() {
   const authStatus = computed<'pending' | 'authenticated' | 'guest'>(() =>
     !authReady.value ? 'pending' : user.value ? 'authenticated' : 'guest',
   )
+  // 新手机号用户首次登录时置位，由全局 OnboardingModal 接住弹一次引导（localStorage 按 uid 防重）
+  const needsOnboarding = useState<boolean>('needs_onboarding', () => false)
 
   const clearAuth = () => {
     user.value = null
@@ -72,6 +74,16 @@ export function useTcbAuthCore() {
       user.value = mapCloudbaseUser(rawUser)
 
       if (user.value) {
+        // 手机 OTP 默认昵称＝完整手机号（PII 且不体面）。首次登录检测到裸手机号昵称，
+        // 换成品牌默认名（如「云游者_k7m2」）并写回 CloudBase auth，从源头根治。
+        // 幂等：写回后昵称不再是手机号，下次登录不再触发；写回失败则下次按同一 uid 生成同名，无害。
+        if (looksLikePhone(user.value.nickname)) {
+          const friendly = generateDefaultNickname(user.value.id)
+          user.value = { ...user.value, nickname: friendly }
+          auth.updateUser({ nickname: friendly })
+            .catch(e => console.warn('[auth] 写回默认昵称失败:', e))
+          needsOnboarding.value = true
+        }
         // 同步公开资料到 user_profiles（供关注 / 粉丝等社交展示），fire-and-forget
         upsertMyProfile({
           login: user.value.login,
@@ -196,6 +208,7 @@ export function useTcbAuthCore() {
     isAuthenticated,
     authReady,
     authStatus,
+    needsOnboarding,
     clearAuth,
     fetchUser,
     checkAuthStatus,

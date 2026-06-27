@@ -13,6 +13,8 @@
 
 'use strict'
 
+const { generateDefaultNickname } = require('./displayName')
+
 const USER_PROFILES_COLLECTION = 'user_profiles'
 
 /** 资料计数并发冲突最大重试次数（沿用 tips/wallet 的 CAS 策略） */
@@ -253,6 +255,71 @@ async function fetchProfilesByIds(db, ids) {
   return map
 }
 
+/** 回填默认昵称：单批默认 / 上限规模 */
+const BACKFILL_DEFAULT_LIMIT = 100
+const BACKFILL_MAX_LIMIT = 500
+
+/**
+ * 运维回填（内部 action，需 ACCOUNT_API_INTERNAL_TOKEN）：把存量 user_profiles 中
+ * 「昵称为空 / 裸手机号」的文档批量补成品牌默认名「云游者_xxxx」。
+ *
+ * 解决历史问题：早期登录用户的昵称被 pickProfileFields 当手机号过滤成空，别人看到 fallback
+ * 「云乐坊用户」无辨识度。回填后展示面立即体面，且与前端登录写回 **同一算法、同 uid 同名**，
+ * 不会冲突（用户之后登录前端再写一遍也是同一个名）。
+ *
+ * 安全护栏：
+ *  - **幂等**：只处理昵称为空 / 裸手机号的文档；已设真实昵称的跳过；重复跑安全。
+ *  - **跳过已注销**：deletedAt 存在的软注销用户不回填（资料已脱敏，不应复活展示名）。
+ *  - **dryRun**：只统计命中量、不写库，先摸清规模。
+ *  - **游标分批**：按 _id 升序 + cursor，避免大集合单次超时；运维循环调用至 done。
+ *
+ * @param {object} db
+ * @param {object} [input]
+ * @param {string} [input.cursor] 上一批返回的 nextCursor；首批留空
+ * @param {number} [input.limit]  单批扫描条数（默认 100，上限 500）
+ * @param {boolean} [input.dryRun] 只统计不写库
+ * @param {number} [input.now]
+ * @returns {Promise<{scanned:number, updated:number, skipped:number, nextCursor:string, done:boolean, dryRun:boolean}>}
+ */
+async function backfillDefaultNicknames(db, { cursor = '', limit = BACKFILL_DEFAULT_LIMIT, dryRun = false, now = Date.now() } = {}) {
+  const lim = Math.min(Math.max(Number(limit) || BACKFILL_DEFAULT_LIMIT, 1), BACKFILL_MAX_LIMIT)
+  const col = db.collection(USER_PROFILES_COLLECTION)
+  let query = col.orderBy('_id', 'asc')
+  if (cursor)
+    query = query.where({ _id: db.command.gt(cursor) })
+  const { data } = await query.limit(lim).get()
+  const docs = Array.isArray(data) ? data : []
+
+  let updated = 0
+  let skipped = 0
+  for (const doc of docs) {
+    const nn = doc.nickname
+    const isEmpty = nn === undefined || nn === null || (typeof nn === 'string' && nn.trim() === '')
+    // 已注销用户不复活展示名；仅空 / 裸手机号才回填，真实昵称一律保留
+    const needs = !doc.deletedAt && (isEmpty || isPhoneLikeNickname(nn))
+    if (!needs) {
+      skipped++
+      continue
+    }
+    if (!dryRun) {
+      await col.doc(doc._id).update({
+        nickname: generateDefaultNickname(doc._id),
+        updatedAt: now,
+      })
+    }
+    updated++
+  }
+
+  return {
+    scanned: docs.length,
+    updated,
+    skipped,
+    nextCursor: docs.length ? docs[docs.length - 1]._id : cursor,
+    done: docs.length < lim,
+    dryRun: !!dryRun,
+  }
+}
+
 module.exports = {
   USER_PROFILES_COLLECTION,
   assertUserId,
@@ -263,4 +330,5 @@ module.exports = {
   getProfile,
   bumpFollowCount,
   fetchProfilesByIds,
+  backfillDefaultNicknames,
 }

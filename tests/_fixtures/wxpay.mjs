@@ -108,6 +108,9 @@ export function makeFakeDb(initial = {}) {
     // 支持 command.in：{ __op: 'in', values: [...] }
     if (cond && typeof cond === 'object' && cond.__op === 'in')
       return Array.isArray(cond.values) && cond.values.includes(docVal)
+    // 支持 command.gt：{ __op: 'gt', value }（游标分页用）
+    if (cond && typeof cond === 'object' && cond.__op === 'gt')
+      return docVal > cond.value
     return docVal === cond
   }
 
@@ -204,6 +207,7 @@ export function makeFakeDb(initial = {}) {
     _store: store,
     command: {
       in: values => ({ __op: 'in', values }),
+      gt: value => ({ __op: 'gt', value }),
     },
     collection,
   }

@@ -75,5 +75,8 @@ watch(() => user.value?.id, (id) => {
     <NuxtLayout>
       <NuxtPage />
     </NuxtLayout>
+
+    <!-- 新手机号用户首次登录引导（设置昵称 / 头像），由 needsOnboarding 状态驱动 -->
+    <OnboardingModal />
   </UApp>
 </template>

@@ -23,6 +23,7 @@
  *   - deductCoinForUser 内部服务按指定 userId 扣云币（需 ACCOUNT_API_INTERNAL_TOKEN）
  *   - getAccountForUser 内部服务按指定 userId 读账户全貌（需 ACCOUNT_API_INTERNAL_TOKEN）
  *   - adminAdjustCoin   管理员人工调账（增/减，需 ACCOUNT_API_INTERNAL_TOKEN）
+ *   - backfillDefaultNicknames 运维回填存量空/手机号昵称为「云游者_xxxx」（需 ACCOUNT_API_INTERNAL_TOKEN，幂等/分批/dryRun）
  *   - listTransactions  云币流水分页（需登录）
  *   - listOrders        我的订单历史分页（需登录，会员 / 云币充值订单）
  *   - requestAccountDeletion 软注销：脱敏资料 / 解除关注 / 删通知 + 标记 deletedAt（需登录，保留财务记录）
@@ -54,7 +55,7 @@ const {
 } = require('./lib/wallet')
 const { getUnreadCount, listNotifications, markRead } = require('./notifications')
 const { listUserOrders } = require('./orders-query')
-const { getProfile, upsertMyProfile } = require('./profiles')
+const { backfillDefaultNicknames, getProfile, upsertMyProfile } = require('./profiles')
 const { getSignInHistory, getSignInStatus, signIn } = require('./signin')
 const { getAppSupport, getTipLeaderboard, tip } = require('./tips')
 
@@ -132,6 +133,10 @@ async function dispatch(event) {
       return await handleGetAccountForUser(db, event)
     case 'adminAdjustCoin':
       return await handleAdminAdjustCoin(db, event)
+    case 'backfillDefaultNicknames':
+      // 运维一次性回填存量空 / 手机号昵称为「云游者_xxxx」，复用内部服务令牌鉴权
+      assertInternalServiceToken(event)
+      return await backfillDefaultNicknames(db, { cursor: event.cursor, limit: event.limit, dryRun: event.dryRun, now: Date.now() })
       // 公开只读：应用支持榜 / 单应用支持详情（支持详情用可选 uid 标记 tippedByMe）
     case 'getTipLeaderboard':
       return await getTipLeaderboard(db, { limit: event.limit })
