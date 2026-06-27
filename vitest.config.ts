@@ -1,6 +1,9 @@
-import { defineConfig } from 'vitest/config'
+// 用 @nuxt/test-utils 的 defineVitestConfig 注册 'nuxt' 测试环境（组件测试用），
+// 默认环境仍为 node（云函数 / util 等纯逻辑测试不受影响）；
+// 需要 Nuxt 上下文的测试在文件顶部加 `// @vitest-environment nuxt` 单独选入。
+import { defineVitestConfig } from '@nuxt/test-utils/config'
 
-export default defineConfig({
+export default defineVitestConfig({
   test: {
     include: ['tests/**/*.test.{js,ts,mjs}'],
     environment: 'node',
