@@ -1,30 +1,33 @@
 # CloudBase 云函数
 
-本目录包含 [www.yunle.fun](https://www.yunle.fun) 的全部 CloudBase 云函数：微信支付、Apple 内购、平台账户中心（云币 + 跨应用会员）、桌面应用登录授权。
+本目录包含 [www.yunle.fun](https://www.yunle.fun) 的全部 CloudBase 云函数：微信支付、Apple 内购、平台账户中心（云币 + 跨应用会员）、受控 AI 计费网关、桌面应用登录授权、跨站 SSO 登录票据、GitHub App 仓库连接、短链跳转解析与统计。
 
 > 📖 云函数的概念、类型与调用方式见官方文档：[CloudBase 云函数介绍](https://docs.cloudbase.net/cloud-function/introduce)。
 
 ## 云函数列表
 
-| 云函数              | 用途                                                                                        | 调用方式              | 超时 |
-| ------------------- | ------------------------------------------------------------------------------------------- | --------------------- | ---- |
-| `wxpay-order`       | 创建支付订单（会员 / 云币充值）+ 查询订单 + 对账自愈                                        | SDK `callFunction`    | 30s  |
-| `wxpay-notify`      | 接收微信支付异步回调通知                                                                    | HTTP 访问服务         | 10s  |
-| `account-api`       | 平台账户中心：账户 / 云币 / 签到 / 投币 / 关注·粉丝                                         | SDK `callFunction`    | 10s  |
-| `iap-order`         | Apple 内购（IAP）凭据校验 + 权益发放                                                        | SDK `callFunction`    | 30s  |
-| `appstore-notify`   | 接收 App Store Server Notifications V2（退款 / 撤销自动处理）                               | HTTP 访问服务         | 30s  |
-| `desktop-auth`      | 桌面 / 本地应用登录授权（设备授权码 + Ed25519 离线 entitlement）                            | SDK + HTTP 双入口     | 10s  |
-| `shortlink-resolve` | 短链只读解析：按 `(domain, slug)` 读 `short_links` 返回跳转目标，供 EdgeOne 跳转函数回源    | HTTP 访问服务         | 10s  |
-| `shortlink-stat`    | 短链点击统计：接收 EdgeOne 跳转函数上报，分片 CAS 累加到 `shortlink_stats`；admin 经 SDK 读 | HTTP（写）+ SDK（读） | 10s  |
+| 云函数              | 用途                                                                                                     | 调用方式               | 超时 |
+| ------------------- | -------------------------------------------------------------------------------------------------------- | ---------------------- | ---- |
+| `wxpay-order`       | 创建支付订单（会员 / 云币充值）+ 查询订单 + 对账自愈                                                     | SDK `callFunction`     | 30s  |
+| `wxpay-notify`      | 接收微信支付异步回调通知                                                                                 | HTTP 访问服务          | 10s  |
+| `account-api`       | 平台账户中心：账户 / 云币 / 签到 / 投币 / 关注·粉丝                                                      | SDK `callFunction`     | 10s  |
+| `ai-gateway`        | 通用「登录计费 + 受控 AI 生成」网关：验登录 + 按 `appId` 服务端计价 + 管理员身份调 AI + `bizId` 幂等扣费 | 登录态 `/v1/functions` | 30s  |
+| `iap-order`         | Apple 内购（IAP）凭据校验 + 权益发放                                                                     | SDK `callFunction`     | 30s  |
+| `appstore-notify`   | 接收 App Store Server Notifications V2（退款 / 撤销自动处理）                                            | HTTP 访问服务          | 30s  |
+| `desktop-auth`      | 桌面 / 本地应用登录授权（设备授权码 + Ed25519 离线 entitlement）                                         | SDK + HTTP 双入口      | 10s  |
+| `shortlink-resolve` | 短链只读解析：按 `(domain, slug)` 读 `short_links` 返回跳转目标，供 EdgeOne 跳转函数回源                 | HTTP 访问服务          | 10s  |
+| `shortlink-stat`    | 短链点击统计：接收 EdgeOne 跳转函数上报，分片 CAS 累加到 `shortlink_stats`；admin 经 SDK 读              | HTTP（写）+ SDK（读）  | 10s  |
+| `sso-ticket`        | 签发一次性自定义登录票据（CloudBase `createTicket`）：跨站 SSO 桥接 + 服务端内部代签                     | SDK + HTTP 双入口      | 10s  |
+| `github-api`        | 多用户 GitHub App 仓库连接 / 列举 / 校验（含私有仓库），短期 installation token 不落库                   | SDK + HTTP 双入口      | 10s  |
 
 > 云币 + 跨应用会员的整体设计见 [`docs/coin-and-membership.md`](../docs/coin-and-membership.md)。
 > 其中 5 个支付 / 账户函数共享同一份 `lib/`：权威源在 `cloudfunctions/wxpay-order/lib`，`pnpm sync:wxpay-lib` 同步到
 > `wxpay-notify` / `account-api` / `iap-order` / `appstore-notify`；`account-api` 无需任何 `WX_*` 环境变量。
-> `desktop-auth` 有独立 `lib/`，不在同步范围内。
+> `desktop-auth`、`ai-gateway`、`github-api` 各有独立 `lib/`（不共用 wxpay lib），`sso-ticket` 仅用 `mint.js` 纯函数模块；均不在同步范围内。
 
 ## 环境变量配置
 
-在 [CloudBase 控制台 - 云函数](https://tcb.cloud.tencent.com/dev?envId=yunlefun-8g7ybcxc7345c490#/scf) 中，分别点击两个云函数进入详情页，在「函数配置」中设置环境变量。
+在 [CloudBase 控制台 - 云函数](https://tcb.cloud.tencent.com/dev?envId=yunlefun-8g7ybcxc7345c490#/scf) 中，点击对应云函数进入详情页，在「函数配置」中设置环境变量。（`shortlink-resolve` / `shortlink-stat` 无需环境变量。）
 
 ### wxpay-order 环境变量
 
@@ -56,6 +59,30 @@
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------- |
 | `ACCOUNT_API_INTERNAL_TOKEN` | 内部服务调用 `deductCoinForUser` / `adminAdjustCoin`（管理员人工调账）时校验用的共享密钥；调用方（其它云函数、admin 后台）需配置同一个值。 | 使用随机长字符串，勿暴露给前端。 |
 
+### ai-gateway 环境变量
+
+| 变量名                       | 说明                                                                                                                           | 获取方式                                       |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- |
+| `ACCOUNT_API_INTERNAL_TOKEN` | 内部转调 `account-api`（查余额 `getAccountForUser` / 扣云币 `deductCoinForUser`）的共享密钥，**须与 `account-api` 配同一值**。 | 与 `account-api` / `desktop-auth` 中的值相同。 |
+
+`ai-gateway` 是**通用**「登录计费 + 受控 AI 生成」网关：只收发通用 `messages` / `content`，**不含任何业务语义**（不认识「春联」之类业务概念）——prompt 构造与结果解析留在各接入应用自己手里。计价 / 模型 / AI 凭证全锁在服务端，端用户改不了。
+
+**入口**：接入应用（如 `ai-sfc`）的服务端携带**用户登录态**（access_token）经 `/v1/functions/ai-gateway` 调用。
+
+- action：`chat`
+- 入参：`{ action: 'chat', appId, messages, bizId }`（`messages` 为 OpenAI 风格 `{ role, content }` 数组，`bizId` 为幂等键、必填）
+- 返回：`{ ok: true, content, balance, deduped }`，或 `{ ok: false, code, message }`（`code`：`unauthorized` / `insufficient` / `ai_failed` / `unknown_app` / `bad_request`）
+
+**处理流程**：
+
+1. `app.auth().getUserInfo().uid` 取登录态 uid（匿名 / `anon` 占位身份一律视为未登录，拒绝，避免命中共享占位账户）；
+2. 按 `appId` 查**服务端权威**注册表 `APP_REGISTRY`（端用户无法篡改 `cost` / `model` / `group`）——目前仅 `ai-sfc → { group: 'custom-deepseek-open', model: 'deepseek-v4-flash', cost: 1 }`；新接入一个应用 = 在 `index.js` 加一条 + 重新部署；
+3. 余额预检：凭 `ACCOUNT_API_INTERNAL_TOKEN` 转调 `account-api` 的 `getAccountForUser` 读余额，不够 `cost` 直接拒（省下白生成的模型开销）；
+4. `app.ai()` 以**管理员身份**调 CloudBase AI 生成；
+5. 生成成功后转调 `account-api` 的 `deductCoinForUser` 按 `cost` 扣费（`bizId` 幂等）。**生成失败不扣费**；扣费异常不浪费已生成结果，余额回退本地估算（下次刷新校准）。
+
+> 🔒 **防白嫖（与 CloudBase 网关权限策略配合）**：AI 由本函数以**管理员身份**（`app.ai()` 走函数内置服务凭证）调用，豁免 deny；而网关侧对 `ai` 资源 **deny 注册 / 匿名用户**，端用户的 access_token 无法直打 `/v1/ai/<group>`，只能经此函数计费生成。`account-api` **零改动**——与 `desktop-auth` 同一「内部服务令牌转调」代理模式（`lib/account-proxy.js`），编排与计费纯逻辑在 `lib/relay.js`、入参校验在 `lib/validation.js`，均有单测覆盖（`tests/ai-gateway/relay.test.js`）。云币 + 跨应用会员整体设计见 [`docs/coin-and-membership.md`](../docs/coin-and-membership.md)。
+
 ### iap-order 环境变量
 
 | 变量名                  | 说明                                        | 获取方式                                                      |
@@ -86,6 +113,41 @@
 
 > 设计与接入详见 [`docs/desktop-sso.md`](../docs/desktop-sso.md) 与 [`docs/desktop-sso-integration.md`](../docs/desktop-sso-integration.md)。
 
+### sso-ticket 环境变量
+
+| 变量名                      | 必填 | 说明                                                                                                                                                                  |
+| --------------------------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SSO_TICKET_PRIVATE_KEY_ID` | 是   | 自定义登录私钥 ID（`private_key_id`）。CloudBase 控制台 → 登录授权 → 自定义登录 → 下载私钥获取                                                                        |
+| `SSO_TICKET_PRIVATE_KEY`    | 是   | 自定义登录私钥 PEM（`private_key`）；env 注入建议用 `\n` 转义或 base64。未配置私钥时函数返回 `{ ok:false, reason:'not_configured' }`，桥接页据此回退（向后兼容）      |
+| `SSO_TICKET_INTERNAL_TOKEN` | 否   | 内部服务代签路径（`action='mintForUser'`）的校验令牌，须与调用方（Nuxt 服务端）配同一值；未配置则该路径一律拒绝。「调用者上下文」路径（只签发调用者自身 uid）不需要它 |
+| `SSO_TICKET_REFRESH_SEC`    | 否   | 票据派生会话的可续期时长（秒），默认 30 天                                                                                                                            |
+
+`sso-ticket` 有两条铸票路径，私钥始终只在本函数 env：
+
+- **调用者上下文**（SDK `callFunction`，无 `action`）：只凭调用者自身登录态签发其自己 uid 的票据，不接受外部传入 uid——跨站 SSO 桥接页 `/auth/sso` 走这条。
+- **内部服务**（HTTP，`action='mintForUser'`）：Nuxt 服务端验过自己的 httpOnly cookie、拿到可信 uid 后，凭 `SSO_TICKET_INTERNAL_TOKEN` 为该 uid 铸票（双层会话的 cookie→内存登录）。
+
+> 客户端用 `signInWithCustomTicket(() => ticket)` 换取自己独立、可同源续期的会话。设计详见 [`docs/cookie-session-migration.md`](../docs/cookie-session-migration.md)。
+
+### github-api 环境变量
+
+| 变量名                     | 必填 | 说明                                                                                                                   |
+| -------------------------- | ---- | ---------------------------------------------------------------------------------------------------------------------- |
+| `GITHUB_APP_ID`            | 是   | GitHub App ID，用于以 RS256 签发 App JWT                                                                               |
+| `GITHUB_APP_PRIVATE_KEY`   | 是   | GitHub App 私钥 PEM；支持直接 PEM 或其 base64（PEM 含换行，base64 注入更稳）                                           |
+| `GITHUB_APP_CLIENT_ID`     | 是   | OAuth Client ID；安装回调用 `code` 换 user token 校验安装归属时必需                                                    |
+| `GITHUB_APP_CLIENT_SECRET` | 是   | OAuth Client Secret，同上                                                                                              |
+| `GITHUB_APP_STATE_SECRET`  | 是   | install `state` 的 HMAC 签名密钥（防伪造 / 防重放）；未单独配置则回退复用 `ACCOUNT_API_INTERNAL_TOKEN`，二者至少配一个 |
+| `GITHUB_APP_SLUG`          | 否   | App slug（出现在公开安装 URL，非密）；缺省兜底 `yunlefun`                                                              |
+| `GITHUB_APP_SITE_ORIGIN`   | 否   | 回调页 `postMessage` / 兜底跳转的站点 origin；缺省 `https://www.yunle.fun`                                             |
+
+`github-api` 是多用户 GitHub App 连接后端，密钥（私钥 / client secret）只从 env 读取，不进客户端 / 仓库 / EdgeOne。双入口：
+
+- **SDK actions**（均需登录，前端经 `callFunction({ name: 'github-api', data: { action } })`）：`getConnection` / `getInstallUrl` / `listRepos` / `checkRepo` / `disconnect`。
+- **安装回调**（HTTP GET）：GitHub App 安装后重定向至此（带 `code` + `installation_id` + `state`），函数校验 `state`（HMAC + TTL）与安装归属后 upsert `github_installations`，再 `postMessage` 通知前端弹窗。
+
+> 仓库读取统一走短期 installation token（warm 缓存），不持久化任何用户 token；user token 仅在安装回调时用于校验安装归属。配置与契约详见 [`docs/github-app-integration.md`](../docs/github-app-integration.md)。
+
 ---
 
 ## HTTP 访问服务端点
@@ -98,6 +160,8 @@
 | `appstore-notify`   | `https://<envId>.service.tcloudbase.com/appstore-notify`                                                                               | App Store Connect → App Store Server Notifications（V2，生产与沙盒各配一次）  |
 | `desktop-auth`      | `https://api.yunle.fun/desktop-auth`（设备侧 HTTP 入口，详见 [`docs/desktop-sso-integration.md`](../docs/desktop-sso-integration.md)） | 桌面客户端                                                                    |
 | `shortlink-resolve` | `https://<envId>.service.tcloudbase.com/shortlink-resolve`                                                                             | EdgeOne 短链跳转边缘函数（KV 未命中回源），配为其 `RESOLVE_ENDPOINT` 环境变量 |
+| `sso-ticket`        | `https://api.yunle.fun/sso-ticket`                                                                                                     | Nuxt 服务端内部代签（`mintForUser`）；当前保留给跨站 SSO                      |
+| `github-api`        | `https://api.yunle.fun/github-api`                                                                                                     | GitHub App 设置 → Callback URL（安装回调；函数把任意 GET 当回调处理）         |
 
 > 当前环境 `<envId>` = `yunlefun-8g7ybcxc7345c490`。这些函数的 HTTP 路径绑定在网关的**通配域名 `*`** 上，因此在所有已接入域名都可达：默认域名 `https://<envId>.service.tcloudbase.com`，以及自定义域名 `api.yunle.fun` / `tcb.yunle.fun` / `tcb.api.yunle.fun`（如 `https://api.yunle.fun/desktop-auth`）。
 >
@@ -310,18 +374,23 @@ tcb login
 
 # 部署单个云函数（-e 可省略，CLI 会读 cloudbaserc.json 的 envId）
 tcb fn deploy account-api -e yunlefun-8g7ybcxc7345c490
+tcb fn deploy ai-gateway -e yunlefun-8g7ybcxc7345c490
 tcb fn deploy wxpay-order -e yunlefun-8g7ybcxc7345c490
 tcb fn deploy wxpay-notify -e yunlefun-8g7ybcxc7345c490
 tcb fn deploy iap-order -e yunlefun-8g7ybcxc7345c490
 tcb fn deploy appstore-notify -e yunlefun-8g7ybcxc7345c490
 tcb fn deploy desktop-auth -e yunlefun-8g7ybcxc7345c490
+tcb fn deploy sso-ticket -e yunlefun-8g7ybcxc7345c490
+tcb fn deploy github-api -e yunlefun-8g7ybcxc7345c490
+tcb fn deploy shortlink-resolve -e yunlefun-8g7ybcxc7345c490
+tcb fn deploy shortlink-stat -e yunlefun-8g7ybcxc7345c490
 ```
 
 > ⚠️ 改动了 `lib/`（同步源 `wxpay-order/lib/`）后，**所有共享 lib 的云函数都要重新部署**：
 > `wxpay-order` / `wxpay-notify` / `account-api` / `iap-order` / `appstore-notify`——
 > 只部署其中一个会导致各函数 `lib/` 版本不一致。先 `pnpm sync:wxpay-lib && pnpm test`，再逐个部署。
 >
-> （`desktop-auth` 有独立 `lib/`，不在此列；签到 / 投币 / 关注·粉丝功能是 `account-api` 本地代码、未改 `lib/`，只需部署 `account-api`。）
+> （`desktop-auth`、`ai-gateway`、`github-api` 各有独立 `lib/`，`sso-ticket` 仅用 `mint.js`，均不在此列——改它们自己的代码只需部署该函数本身；签到 / 投币 / 关注·粉丝功能是 `account-api` 本地代码、未改 `lib/`，只需部署 `account-api`。）
 
 或在项目根目录执行：
 
@@ -527,6 +596,25 @@ join `user_profiles`）。通知是异步可拉取的，**不走 WebSocket**。�
 | `shortlink_stats` | `idx_domain_slug` | `domain` ASC, `slug` ASC | 非唯一 |
 
 安全规则：**ADMINONLY**（仅 `shortlink-stat` 云函数读写），前端不直读。
+
+### GitHub 安装映射：github_installations（需新建）
+
+`github-api` 把 CloudBase uid 与用户的 GitHub App installation 一一对应（`_id = uid`，一个用户一条），
+仓库读取时凭 `installationId` 换取短期 installation token，**不持久化任何用户 token**。上线前在控制台**新建集合并配置索引**：
+
+| 集合                   | 索引名               | 字段                 | 唯一性       |
+| ---------------------- | -------------------- | -------------------- | ------------ |
+| `github_installations` | （主键 `_id` = uid） | `_id`                | 唯一（天然） |
+| `github_installations` | `idx_installation`   | `installationId` ASC | 非唯一       |
+
+> `idx_installation` 给 webhook（Phase 4）按 `installationId` 反查用户用（`installation.deleted` 时据此删映射）；当前 SDK actions 都按 `_id`(uid) 直接读写，故非唯一即可。
+
+```text
+// github_installations（一个用户一条，_id = uid）
+{ _id, installationId, githubLogin, accountType, repositorySelection, createdAt, updatedAt }
+```
+
+安全规则：**ADMINONLY**（仅 `github-api` 云函数读写），前端经 SDK `callFunction` 间接访问，不直读。
 
 ## 共享代码：lib/
 
