@@ -47,6 +47,16 @@
       }
     },
     {
+      "name": "ai-gateway",
+      "timeout": 30,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true,
+      "envVariables": {
+        "ACCOUNT_API_INTERNAL_TOKEN": "{{env.ACCOUNT_API_INTERNAL_TOKEN}}"
+      }
+    },
+    {
       "name": "desktop-auth",
       "timeout": 10,
       "runtime": "Nodejs18.15",
