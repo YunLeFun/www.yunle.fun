@@ -1,14 +1,14 @@
 <script setup lang="ts">
 const emit = defineEmits<{
-  reveal: []
+  prepare: []
 }>()
 </script>
 
 <template>
   <div
     class="flex items-center gap-2"
-    @pointerenter="emit('reveal')"
-    @focusin="emit('reveal')"
+    @pointerenter="emit('prepare')"
+    @focusin="emit('prepare')"
   >
     <UButton
       to="/login"
