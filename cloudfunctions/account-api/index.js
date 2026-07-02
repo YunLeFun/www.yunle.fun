@@ -26,6 +26,11 @@
  *   - backfillDefaultNicknames 运维回填存量空/手机号昵称为「云游者_xxxx」（需 ACCOUNT_API_INTERNAL_TOKEN，幂等/分批/dryRun）
  *   - listTransactions  云币流水分页（需登录）
  *   - listOrders        我的订单历史分页（需登录，会员 / 云币充值订单）
+ *   - getStorageQuota   读取全局云空间配额（需登录，懒同步会员权益）
+ *   - reserveStorageUpload 上传前预留云空间容量（需登录）
+ *   - finalizeStorageUpload 上传后确认文件并转入已用容量（需登录）
+ *   - listStorageFiles  我的云空间文件索引（需登录，分页）
+ *   - deleteStorageFile 删除云空间文件并释放容量（需登录）
  *   - requestAccountDeletion 软注销：脱敏资料 / 解除关注 / 删通知 + 标记 deletedAt（需登录，保留财务记录）
  *
  * 主入口只做"参数解析 + 鉴权 + 路由"，纯逻辑委托给 lib/（与 wxpay-order 共享同一份 lib）。
@@ -57,6 +62,14 @@ const { getUnreadCount, listNotifications, markRead } = require('./notifications
 const { listUserOrders } = require('./orders-query')
 const { backfillDefaultNicknames, getProfile, upsertMyProfile } = require('./profiles')
 const { getSignInHistory, getSignInStatus, signIn } = require('./signin')
+const {
+  deleteStorageFile,
+  finalizeStorageUpload,
+  getStorageQuota,
+  listStorageFiles,
+  readCloudbaseFileInfo,
+  reserveStorageUpload,
+} = require('./storage')
 const { getAppSupport, getTipLeaderboard, tip } = require('./tips')
 
 const app = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV })
@@ -155,6 +168,11 @@ async function dispatch(event) {
     case 'deductCoin':
     case 'listTransactions':
     case 'listOrders':
+    case 'getStorageQuota':
+    case 'reserveStorageUpload':
+    case 'finalizeStorageUpload':
+    case 'listStorageFiles':
+    case 'deleteStorageFile':
     case 'requestAccountDeletion':
     case 'signIn':
     case 'getSignInStatus':
@@ -179,6 +197,27 @@ async function dispatch(event) {
           return await handleListTransactions(uid, event)
         case 'listOrders':
           return await listUserOrders(db, { userId: uid, skip: event.skip, limit: event.limit })
+        case 'getStorageQuota':
+          return await getStorageQuota(db, { userId: uid, now: Date.now() })
+        case 'reserveStorageUpload':
+          return await reserveStorageUpload(db, { ...event, userId: uid, now: Date.now() })
+        case 'finalizeStorageUpload':
+          return await finalizeStorageUpload(
+            db,
+            { ...event, userId: uid, now: Date.now() },
+            {
+              readFileInfo: fileId => readCloudbaseFileInfo(app, fileId),
+              deleteFile: fileId => app.deleteFile({ fileList: [fileId] }),
+            },
+          )
+        case 'listStorageFiles':
+          return await listStorageFiles(db, { userId: uid, appId: event.appId, skip: event.skip, limit: event.limit, includeDeleted: event.includeDeleted })
+        case 'deleteStorageFile':
+          return await deleteStorageFile(
+            db,
+            { ...event, userId: uid, now: Date.now() },
+            { deleteFile: fileId => app.deleteFile({ fileList: [fileId] }) },
+          )
         case 'requestAccountDeletion':
           return await requestAccountDeletion(db, { userId: uid, now: Date.now() })
         case 'signIn':

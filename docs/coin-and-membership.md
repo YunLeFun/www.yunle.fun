@@ -2,6 +2,7 @@
 
 > 状态：核心账户/支付能力已编码落地并有单测覆盖；生产侧仍需确认 CloudBase 集合、索引、安全规则和云函数部署。
 > 关联代码：`cloudfunctions/account-api`、`cloudfunctions/wxpay-order`、`cloudfunctions/wxpay-notify`、`cloudfunctions/iap-order`、`cloudfunctions/appstore-notify`、`app/composables/useCoin.ts`、`app/composables/useCoinRecharge.ts`、`app/pages/wallet.vue`、`app/types/payment.ts`
+> 云空间配额中心见 [`docs/storage-quota.md`](./storage-quota.md)。
 
 ## 1. 背景与目标
 
@@ -19,6 +20,11 @@
 
 两者**资产层面正交**：各自独立账本、独立充值入口。会员对云币的影响仅以「权益」形式叠加
 （见 [§5](#5-会员--云币交互规则)）。
+
+云空间配额是会员权益在账号中心的另一个全局派生能力：普通用户 100MB、会员用户 1GB，
+单文件 200MB，所有应用通过 `account-api` 的 storage action 共享同一套
+`user_storage_quotas` / `user_storage_files`。它不改变云币账本，只读取会员状态并懒同步
+`quotaBytes`；详细状态机和接口见 [`storage-quota.md`](./storage-quota.md)。
 
 ### 关键前提（已确认）
 
@@ -168,6 +174,9 @@ const MEMBERSHIP_PRICES = {
 
 - `deductCoin` 必须在服务端鉴权（`uid` 来自 CloudBase Auth），子应用不能伪造他人 uid。
 - `bizId` 用于**幂等**：同一 `bizId` 重复调用只扣一次（见 §6）。
+- 云空间 action（`getStorageQuota` / `reserveStorageUpload` / `finalizeStorageUpload` /
+  `listStorageFiles` / `deleteStorageFile`）也挂在 `account-api`，详见
+  [`storage-quota.md`](./storage-quota.md)。
 
 ### 4.3 各子应用接入（客户端三步）
 

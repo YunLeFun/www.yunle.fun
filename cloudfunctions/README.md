@@ -10,7 +10,7 @@
 | ------------------- | -------------------------------------------------------------------------------------------------------- | ---------------------- | ---- |
 | `wxpay-order`       | 创建支付订单（会员 / 云币充值）+ 查询订单 + 对账自愈                                                     | SDK `callFunction`     | 30s  |
 | `wxpay-notify`      | 接收微信支付异步回调通知                                                                                 | HTTP 访问服务          | 10s  |
-| `account-api`       | 平台账户中心：账户 / 云币 / 签到 / 投币 / 关注·粉丝                                                      | SDK `callFunction`     | 10s  |
+| `account-api`       | 平台账户中心：账户 / 云币 / 云空间配额 / 签到 / 投币 / 关注·粉丝                                         | SDK `callFunction`     | 10s  |
 | `ai-gateway`        | 通用「登录计费 + 受控 AI 生成」网关：验登录 + 按 `appId` 服务端计价 + 管理员身份调 AI + `bizId` 幂等扣费 | 登录态 `/v1/functions` | 30s  |
 | `iap-order`         | Apple 内购（IAP）凭据校验 + 权益发放                                                                     | SDK `callFunction`     | 30s  |
 | `appstore-notify`   | 接收 App Store Server Notifications V2（退款 / 撤销自动处理）                                            | HTTP 访问服务          | 30s  |
@@ -476,6 +476,50 @@ tcb fn deploy --all -e yunlefun-8g7ybcxc7345c490
 ```
 
 安全规则：用户只读自己的钱包与流水（`auth.uid == doc.userId`），写入仅由云函数完成。
+
+### 云空间配额：`user_storage_quotas` + `user_storage_files`（需新建）
+
+云空间配额属于账号体系的全局权益，所有应用共享同一个 `uid` 维度的额度和用量。
+规则：普通用户 100MB，会员用户 1GB，单文件 200MB；超限后禁止新上传，但允许下载 / 删除。
+详细接口见 [`docs/storage-quota.md`](../docs/storage-quota.md)。
+
+上线前需在 CloudBase 控制台**新建这两个集合并配置索引**：
+
+| 集合                  | 索引名                     | 字段                                                      | 唯一性 |
+| --------------------- | -------------------------- | --------------------------------------------------------- | ------ |
+| `user_storage_quotas` | `idx_user`                 | `userId` ASC                                              | 唯一   |
+| `user_storage_files`  | `idx_user_status_time`     | `userId` ASC, `status` ASC, `createdAt` DESC              | 非唯一 |
+| `user_storage_files`  | `idx_user_app_status_time` | `userId` ASC, `appId` ASC, `status` ASC, `createdAt` DESC | 非唯一 |
+| `user_storage_files`  | `idx_user_file_id`         | `userId` ASC, `fileId` ASC                                | 非唯一 |
+| `user_storage_files`  | `idx_user_storage_key`     | `userId` ASC, `storageKey` ASC                            | 唯一   |
+
+```text
+// user_storage_quotas（一个用户一条）
+{
+  userId,
+  baseQuotaBytes, addonQuotaBytes, bonusQuotaBytes, quotaBytes,
+  usedBytes, reservedBytes,
+  membershipActive, membershipLevel, membershipExpireAt,
+  version, createdAt, updatedAt
+}
+
+// user_storage_files（文件索引；不扫描 Storage 目录做配额）
+{
+  reservationId, userId, appId,
+  status: "reserved", // reserved | finalizing | active | deleted | expired
+  fileName, contentType, storageKey, fileId,
+  sizeBytes, reservedSizeBytes,
+  reservationExpiresAt, createdAt, updatedAt
+}
+```
+
+> ⚠️ `user_storage_quotas.idx_user` 必须唯一，否则 `version` 乐观锁无法保证每个用户只有一份配额。
+>
+> 上传必须走 `reserveStorageUpload -> uploadFile(storageKey) -> finalizeStorageUpload`；删除优先走
+> `deleteStorageFile`，不要只删 Storage 对象。会员开通 / 到期通过 `getStorageQuota`、reserve、finalize、delete
+> 入口懒同步 `quotaBytes`，不会因降级删除存量文件。
+
+安全规则：用户只读自己的配额和文件索引（`auth.uid == doc.userId`），写入由 `account-api` 完成。
 
 ### 投币 / 支持榜：`app_tip_stats` + `app_supporters`（需新建）
 
