@@ -1,9 +1,18 @@
 export interface SsoTargetRule {
   exactOrigin?: string
   wildcardHost?: string
+  loopbackHost?: boolean
   protocol?: string
   port?: string
 }
+
+export interface SsoTargetRulesOptions {
+  allowLocal?: boolean
+}
+
+export const LOCAL_SSO_TARGET_RULES: readonly SsoTargetRule[] = [
+  { loopbackHost: true, protocol: 'http:', port: '*' },
+]
 
 function normalizeHost(host: string): string {
   return host.trim().toLowerCase().replace(/\.$/, '')
@@ -14,6 +23,25 @@ function isValidHostSuffix(host: string): boolean {
   return labels.length >= 2 && labels.every(label =>
     /^[a-z0-9-]+$/i.test(label) && !label.startsWith('-') && !label.endsWith('-'),
   )
+}
+
+function isIpv4LoopbackHost(host: string): boolean {
+  const parts = host.split('.')
+  return parts.length === 4
+    && parts[0] === '127'
+    && parts.every((part) => {
+      if (!/^\d+$/.test(part))
+        return false
+      const value = Number(part)
+      return value >= 0 && value <= 255
+    })
+}
+
+function isLoopbackHost(host: string): boolean {
+  const normalizedHost = normalizeHost(host)
+  return normalizedHost === 'localhost'
+    || normalizedHost === '[::1]'
+    || isIpv4LoopbackHost(normalizedHost)
 }
 
 function parseWildcardRule(value: string): SsoTargetRule | null {
@@ -76,9 +104,20 @@ export function readSsoTargetRules(value: unknown): SsoTargetRule[] {
     .filter((rule): rule is SsoTargetRule => !!rule)
 }
 
+export function createSsoTargetRules(value: unknown, options: SsoTargetRulesOptions = {}): SsoTargetRule[] {
+  return [
+    ...readSsoTargetRules(value),
+    ...(options.allowLocal ? LOCAL_SSO_TARGET_RULES : []),
+  ]
+}
+
 function hostMatchesWildcard(host: string, wildcardHost: string): boolean {
   const normalizedHost = normalizeHost(host)
   return normalizedHost !== wildcardHost && normalizedHost.endsWith(`.${wildcardHost}`)
+}
+
+function portMatches(rulePort: string | undefined, port: string): boolean {
+  return rulePort === '*' || (rulePort ?? '') === port
 }
 
 export function isAllowedSsoTargetOrigin(origin: string, rules: readonly SsoTargetRule[]): boolean {
@@ -96,11 +135,13 @@ export function isAllowedSsoTargetOrigin(origin: string, rules: readonly SsoTarg
   return rules.some((rule) => {
     if (rule.exactOrigin)
       return url.origin === rule.exactOrigin
-    if (!rule.wildcardHost)
-      return false
     if (rule.protocol && url.protocol !== rule.protocol)
       return false
-    if ((rule.port ?? '') !== url.port)
+    if (!portMatches(rule.port, url.port))
+      return false
+    if (rule.loopbackHost)
+      return isLoopbackHost(url.hostname)
+    if (!rule.wildcardHost)
       return false
     return hostMatchesWildcard(url.hostname, rule.wildcardHost)
   })

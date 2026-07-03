@@ -10,7 +10,7 @@ import {
   SSO_REDIRECT_HASH_KEY,
   SSO_RESULT_TYPE,
 } from '@yunlefun/sso/protocol'
-import { isAllowedSsoTargetOrigin, readSsoTargetRules } from '~/utils/ssoTargetOrigins'
+import { createSsoTargetRules, isAllowedSsoTargetOrigin } from '~/utils/ssoTargetOrigins'
 
 /**
  * Lightweight SSO bridge for YunLeFun sub-apps.
@@ -28,34 +28,21 @@ useSeoMeta({
   robots: 'noindex,nofollow',
 })
 
-const LOCAL_TARGET_ORIGINS = [
-  'http://localhost:3000',
-  'http://127.0.0.1:3000',
-  'http://localhost:2333',
-  'http://127.0.0.1:2333',
-  'http://localhost:3333',
-  'http://127.0.0.1:3333',
-  'http://localhost:5173',
-  'http://127.0.0.1:5173',
-  'http://localhost:5174',
-  'http://127.0.0.1:5174',
-  'http://localhost:5175',
-  'http://127.0.0.1:5175',
-  'http://localhost:4173',
-  'http://127.0.0.1:4173',
-] as const
-
 const route = useRoute()
 const router = useRouter()
 const { app, auth } = useCloudbase()
 const config = useRuntimeConfig()
-const allowedTargetRules = [
-  ...readSsoTargetRules(config.public.ssoAllowedTargetOrigins),
-  ...readSsoTargetRules(LOCAL_TARGET_ORIGINS.join(',')),
-]
 
-const status = ref<'checking' | 'success' | 'error'>('checking')
-const message = ref('正在同步云乐坊账号...')
+function isEnabled(value: unknown): boolean {
+  return value === true || value === 'true'
+}
+
+const allowedTargetRules = createSsoTargetRules(config.public.ssoAllowedTargetOrigins, {
+  allowLocal: isEnabled(config.public.ssoAllowLocalTargetOrigins),
+})
+
+const status = shallowRef<'checking' | 'success' | 'error'>('checking')
+const message = shallowRef('正在同步云乐坊账号...')
 
 function isAllowedTarget(origin: string): boolean {
   return isAllowedSsoTargetOrigin(origin, allowedTargetRules)
@@ -212,7 +199,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="text-center space-y-6">
+  <div class="mx-auto flex w-full max-w-[21rem] min-w-0 flex-col items-center text-center space-y-6">
     <div class="flex justify-center">
       <UIcon
         v-if="status === 'checking'"
@@ -231,11 +218,11 @@ onMounted(async () => {
       />
     </div>
 
-    <div class="space-y-2">
+    <div class="w-full min-w-0 space-y-2">
       <h1 class="text-2xl font-bold">
         账号同步
       </h1>
-      <p class="text-muted">
+      <p class="mx-auto max-w-full whitespace-normal break-words text-center text-sm leading-6 text-muted [overflow-wrap:anywhere]">
         {{ message }}
       </p>
     </div>

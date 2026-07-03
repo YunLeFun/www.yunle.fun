@@ -174,9 +174,11 @@ NUXT_PUBLIC_SSO_ALLOWED_TARGET_ORIGINS=https://*.yunle.fun,https://*.yunyoujun.c
 **新增一个子站**：把它的 origin 追加进去即可，例如再接一个独立域名 `https://example.com`
 （精确写法）或一整组子域 `https://*.example.com`（通配写法），重新部署主站生效。
 
-**本地联调**：桥接页内置放行了常见本地端口（`localhost` / `127.0.0.1` 的
-`3000 / 2333 / 3333 / 5173 / 5174 / 5175 / 4173`），无需改配置即可在本地跑通两端。
-其它端口在本地调试时临时加进 `NUXT_PUBLIC_SSO_ALLOWED_TARGET_ORIGINS` 即可。
+**本地联调**：桥接页内置放行了 HTTP loopback 任意端口（`localhost`、`127.0.0.0/8`、
+`[::1]`），在 `nuxt dev` 下无需改配置即可跑通两端。生产构建默认不启用这条开发规则；
+如需用线上主站联调本地子应用，需显式设置 `NUXT_PUBLIC_SSO_ALLOW_LOCAL_TARGET_ORIGINS=true`。
+非 loopback 来源（例如局域网 IP、HTTPS 本地证书）仍需临时加进
+`NUXT_PUBLIC_SSO_ALLOWED_TARGET_ORIGINS`。
 
 子应用侧若主站不是默认的 `https://www.yunle.fun`（如本地起的主站），用 `ssoOrigin` 指定：
 
