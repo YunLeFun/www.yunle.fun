@@ -69,6 +69,11 @@ function buildResource({ overrides } = {}) {
   }
 }
 
+function findMembership(db, userId) {
+  const rows = db._store[MEMBERSHIPS_COLLECTION] || []
+  return rows.find(item => item._id === userId) || rows.find(item => item.userId === userId)
+}
+
 let keyPair
 beforeEach(() => {
   keyPair = makeKeyPair()
@@ -353,8 +358,9 @@ describe('handleNotify — 续费场景', () => {
 
     const res = await handleNotify({ event, db, config })
     expect(res.statusCode).toBe(200)
-    expect(db._store[MEMBERSHIPS_COLLECTION][0].expireAt).toBe(existing + 366 * DAY_MS)
-    expect(db._store[MEMBERSHIPS_COLLECTION][0].activeCycle).toBe('year')
+    const membership = findMembership(db, 'user-1')
+    expect(membership.expireAt).toBe(existing + 366 * DAY_MS)
+    expect(membership.activeCycle).toBe('year')
   })
 })
 

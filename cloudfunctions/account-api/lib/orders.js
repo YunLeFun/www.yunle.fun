@@ -35,6 +35,47 @@ async function findOrderByOutTradeNo(db, outTradeNo) {
 }
 
 /**
+ * 读取用户会员记录（优先读 `_id == uid` 的规范文档，兼容历史 `add({ userId })` 文档）。
+ *
+ * @param {object} db
+ * @param {string} userId CloudBase uid
+ * @returns {Promise<object|null>}
+ */
+async function readMembership(db, userId) {
+  if (!userId)
+    return null
+
+  const collection = db.collection(MEMBERSHIPS_COLLECTION)
+  if (typeof collection.doc === 'function') {
+    const byId = await collection.doc(userId).get()
+    const doc = byId?.data
+    if (doc && typeof doc === 'object' && (!doc.userId || doc.userId === userId))
+      return { ...doc, _id: userId, userId: doc.userId || userId }
+  }
+
+  const { data } = await collection
+    .where({ userId })
+    .limit(10)
+    .get()
+  if (!Array.isArray(data) || data.length === 0)
+    return null
+
+  return data.find(item => item?._id === userId) || data[0]
+}
+
+async function createCanonicalMembership(db, userId, payload, existing, now) {
+  const canonical = {
+    ...(existing && typeof existing === 'object' ? existing : {}),
+    ...payload,
+    _id: userId,
+    userId,
+    createdAt: existing?.createdAt || now,
+  }
+  await db.collection(MEMBERSHIPS_COLLECTION).add(canonical)
+  return canonical
+}
+
+/**
  * 原子地将订单从 pending 标记为 paid。
  *
  * 使用 conditional update（where status: pending）保证并发安全：
@@ -118,16 +159,27 @@ async function activateMembership(db, { userId, planId, cycle, now, outTradeNo }
   //   - 不存在：尝试 add；若被并发 insert 撞唯一索引（userId unique），回到循环走 update 分支
   let lastError = null
   for (let attempt = 0; attempt < MEMBERSHIP_MAX_RETRY; attempt++) {
-    const { data } = await db
-      .collection(MEMBERSHIPS_COLLECTION)
-      .where({ userId })
-      .limit(1)
-      .get()
-    const existing = Array.isArray(data) && data.length > 0 ? data[0] : null
+    const existing = await readMembership(db, userId)
 
     // 幂等：本订单已开通过（lastOrderId 命中）→ 直接返回，避免补偿/重试重复续期。
     // 与云币发放的 refId 幂等对齐，使「paid 但未发放」的补发、回调重放都能安全重入。
     if (existing && outTradeNo && existing.lastOrderId === outTradeNo) {
+      if (existing._id !== userId) {
+        try {
+          await createCanonicalMembership(db, userId, {
+            userId,
+            planId: existing.planId || planId,
+            activeCycle: existing.activeCycle || cycle,
+            expireAt: existing.expireAt,
+            lastOrderId: outTradeNo,
+            updatedAt: existing.updatedAt || now,
+          }, existing, now)
+        }
+        catch (err) {
+          lastError = err
+          continue
+        }
+      }
       return {
         planId: existing.planId || planId,
         cycle: existing.activeCycle || cycle,
@@ -150,10 +202,22 @@ async function activateMembership(db, { userId, planId, cycle, now, outTradeNo }
     }
 
     if (existing) {
+      if (existing._id !== userId) {
+        try {
+          await createCanonicalMembership(db, userId, payload, existing, now)
+          return { planId, cycle, expireAt: newExpireAt }
+        }
+        catch (err) {
+          // 规范文档可能刚被并发请求创建，重读后走规范 update 分支
+          lastError = err
+          continue
+        }
+      }
+
       // 乐观锁：仅当 expireAt 仍是刚读到的值时才更新，防止并发覆盖
       const result = await db
         .collection(MEMBERSHIPS_COLLECTION)
-        .where({ userId, expireAt: existing.expireAt })
+        .where({ _id: userId, expireAt: existing.expireAt })
         .update(payload)
       const updated = result?.updated ?? result?.modifiedCount ?? 0
       if (updated > 0)
@@ -165,7 +229,7 @@ async function activateMembership(db, { userId, planId, cycle, now, outTradeNo }
     try {
       await db
         .collection(MEMBERSHIPS_COLLECTION)
-        .add({ ...payload, createdAt: now })
+        .add({ _id: userId, ...payload, createdAt: now })
       return { planId, cycle, expireAt: newExpireAt }
     }
     catch (err) {
@@ -243,6 +307,7 @@ module.exports = {
   ORDERS_COLLECTION,
   MEMBERSHIPS_COLLECTION,
   findOrderByOutTradeNo,
+  readMembership,
   markOrderPaid,
   markOrderGranted,
   activateMembership,

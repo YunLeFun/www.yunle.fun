@@ -160,6 +160,8 @@ export function makeFakeDb(initial = {}) {
       },
       async add(doc) {
         const _id = doc._id ?? nextId(name)
+        if (store[name].some(item => item._id === _id))
+          throw new Error(`duplicate key error collection: ${name} _id: ${_id}`)
         const full = { _id, ...doc }
         store[name].push(full)
         return { id: _id }

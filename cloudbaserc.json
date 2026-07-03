@@ -47,6 +47,13 @@
       }
     },
     {
+      "name": "user-storage-api",
+      "timeout": 10,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true
+    },
+    {
       "name": "ai-gateway",
       "timeout": 30,
       "runtime": "Nodejs18.15",

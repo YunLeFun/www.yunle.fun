@@ -10,24 +10,8 @@
 'use strict'
 
 const { isMembershipActive } = require('./lib/membership')
-const { MEMBERSHIPS_COLLECTION } = require('./lib/orders')
+const { readMembership } = require('./lib/orders')
 const { getWallet } = require('./lib/wallet')
-
-/**
- * 读取用户会员记录（不存在返回 null）
- *
- * @param {object} db
- * @param {string} userId
- * @returns {Promise<object|null>} 会员记录，不存在返回 null
- */
-async function readMembership(db, userId) {
-  const { data } = await db
-    .collection(MEMBERSHIPS_COLLECTION)
-    .where({ userId })
-    .limit(1)
-    .get()
-  return Array.isArray(data) && data.length > 0 ? data[0] : null
-}
 
 /**
  * 账户全貌（余额 + 会员），只读、不产生流水。

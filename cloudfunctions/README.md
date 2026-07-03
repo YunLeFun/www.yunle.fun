@@ -10,7 +10,8 @@
 | ------------------- | -------------------------------------------------------------------------------------------------------- | ---------------------- | ---- |
 | `wxpay-order`       | 创建支付订单（会员 / 云币充值）+ 查询订单 + 对账自愈                                                     | SDK `callFunction`     | 30s  |
 | `wxpay-notify`      | 接收微信支付异步回调通知                                                                                 | HTTP 访问服务          | 10s  |
-| `account-api`       | 平台账户中心：账户 / 云币 / 云空间配额 / 签到 / 投币 / 关注·粉丝                                         | SDK `callFunction`     | 10s  |
+| `account-api`       | 平台账户中心：账户 / 云币 / 签到 / 投币 / 关注·粉丝                                                      | SDK `callFunction`     | 10s  |
+| `user-storage-api`  | 通用用户云空间：共享 quota / 上传预留 / 确认 / 文件索引 / 删除 / app-kind policy                         | SDK `callFunction`     | 10s  |
 | `ai-gateway`        | 通用「登录计费 + 受控 AI 生成」网关：验登录 + 按 `appId` 服务端计价 + 管理员身份调 AI + `bizId` 幂等扣费 | 登录态 `/v1/functions` | 30s  |
 | `iap-order`         | Apple 内购（IAP）凭据校验 + 权益发放                                                                     | SDK `callFunction`     | 30s  |
 | `appstore-notify`   | 接收 App Store Server Notifications V2（退款 / 撤销自动处理）                                            | HTTP 访问服务          | 30s  |
@@ -374,6 +375,7 @@ tcb login
 
 # 部署单个云函数（-e 可省略，CLI 会读 cloudbaserc.json 的 envId）
 tcb fn deploy account-api -e yunlefun-8g7ybcxc7345c490
+tcb fn deploy user-storage-api -e yunlefun-8g7ybcxc7345c490
 tcb fn deploy ai-gateway -e yunlefun-8g7ybcxc7345c490
 tcb fn deploy wxpay-order -e yunlefun-8g7ybcxc7345c490
 tcb fn deploy wxpay-notify -e yunlefun-8g7ybcxc7345c490
@@ -390,7 +392,7 @@ tcb fn deploy shortlink-stat -e yunlefun-8g7ybcxc7345c490
 > `wxpay-order` / `wxpay-notify` / `account-api` / `iap-order` / `appstore-notify`——
 > 只部署其中一个会导致各函数 `lib/` 版本不一致。先 `pnpm sync:wxpay-lib && pnpm test`，再逐个部署。
 >
-> （`desktop-auth`、`ai-gateway`、`github-api` 各有独立 `lib/`，`sso-ticket` 仅用 `mint.js`，均不在此列——改它们自己的代码只需部署该函数本身；签到 / 投币 / 关注·粉丝功能是 `account-api` 本地代码、未改 `lib/`，只需部署 `account-api`。）
+> （`desktop-auth`、`ai-gateway`、`github-api`、`user-storage-api` 各有独立 `lib/`，`sso-ticket` 仅用 `mint.js`，均不在此列——改它们自己的代码只需部署该函数本身；签到 / 投币 / 关注·粉丝功能是 `account-api` 本地代码、未改 `lib/`，只需部署 `account-api`。）
 
 或在项目根目录执行：
 
@@ -422,11 +424,13 @@ tcb fn deploy --all -e yunlefun-8g7ybcxc7345c490
 | ---------- | ------------ | ------ |
 | `idx_user` | `userId` ASC | 唯一   |
 
+`_id` 固定为 CloudBase `uid`；历史 auto-id 会员文档由会员开通 / 账户读取路径兼容并迁移。
+
 文档结构：
 
 ```jsonc
 {
-  "_id": "<doc>",
+  "_id": "<cloudbase uid>",
   "userId": "<cloudbase uid>",
   "planId": "basic",
   "activeCycle": "month", // 或 "year"
@@ -494,9 +498,9 @@ tcb fn deploy --all -e yunlefun-8g7ybcxc7345c490
 | `user_storage_files`  | `idx_user_storage_key`     | `userId` ASC, `storageKey` ASC                            | 唯一   |
 
 ```text
-// user_storage_quotas（一个用户一条）
+// user_storage_quotas（一个用户一条，_id 固定为 CloudBase uid）
 {
-  userId,
+  _id: userId, userId,
   baseQuotaBytes, addonQuotaBytes, bonusQuotaBytes, quotaBytes,
   usedBytes, reservedBytes,
   membershipActive, membershipLevel, membershipExpireAt,
@@ -505,7 +509,7 @@ tcb fn deploy --all -e yunlefun-8g7ybcxc7345c490
 
 // user_storage_files（文件索引；不扫描 Storage 目录做配额）
 {
-  reservationId, userId, appId,
+  reservationId, userId, appId, kind, slotKey,
   status: "reserved", // reserved | finalizing | active | deleted | expired
   fileName, contentType, storageKey, fileId,
   sizeBytes, reservedSizeBytes,
@@ -513,13 +517,14 @@ tcb fn deploy --all -e yunlefun-8g7ybcxc7345c490
 }
 ```
 
-> ⚠️ `user_storage_quotas.idx_user` 必须唯一，否则 `version` 乐观锁无法保证每个用户只有一份配额。
+> ⚠️ `user_storage_quotas._id` 必须固定为 CloudBase uid；`idx_user` 继续保持唯一用于兼容查询与防重复。
 >
 > 上传必须走 `reserveStorageUpload -> uploadFile(storageKey) -> finalizeStorageUpload`；删除优先走
 > `deleteStorageFile`，不要只删 Storage 对象。会员开通 / 到期通过 `getStorageQuota`、reserve、finalize、delete
 > 入口懒同步 `quotaBytes`，不会因降级删除存量文件。
 
-安全规则：用户只读自己的配额和文件索引（`auth.uid == doc.userId`），写入由 `account-api` 完成。
+安全规则：用户只读自己的配额和文件索引（`auth.uid == doc.userId`），写入由 `user-storage-api` 完成。
+新接入应用应调用 `user-storage-api`；`account-api` 的 storage action 仅作为过渡兼容入口。
 
 ### 投币 / 支持榜：`app_tip_stats` + `app_supporters`（需新建）
 

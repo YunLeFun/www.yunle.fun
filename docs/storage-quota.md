@@ -1,7 +1,7 @@
 # 云空间全局配额中心
 
-> 状态：服务端配额核心已落在 `cloudfunctions/account-api/storage.js`，并通过
-> `account-api` action 暴露给各应用。生产上线前仍需创建 CloudBase NoSQL 集合、索引和部署云函数。
+> 状态：服务端配额核心已落在 `cloudfunctions/user-storage-api/storage.js`，并通过
+> `user-storage-api` action 暴露给各应用。`account-api` 暂保留 legacy storage action 兼容旧调用。
 
 ## 1. 规则
 
@@ -22,11 +22,11 @@
 
 ### `user_storage_quotas`
 
-一个用户一条全局配额记录，所有应用共享。
+一个用户一条全局配额记录，所有应用共享。`_id` 固定为 CloudBase `uid`，`userId` 字段保留给查询与旧代码兼容。
 
 ```jsonc
 {
-  "_id": "<doc>",
+  "_id": "<cloudbase uid>",
   "userId": "<cloudbase uid>",
   "baseQuotaBytes": 104857600,
   "addonQuotaBytes": 0,
@@ -48,6 +48,8 @@
 | 索引名     | 字段         | 唯一性 |
 | ---------- | ------------ | ------ |
 | `idx_user` | `userId` ASC | 唯一   |
+
+> 服务端会兼容读取历史 `add({ userId })` 产生的 auto-id 文档，并在懒同步时迁移出 `_id == uid` 的规范文档。
 
 ### `user_storage_files`
 
@@ -86,7 +88,7 @@
 
 ## 3. Action 合约
 
-所有写入 action 都必须通过 CloudBase Auth 登录态调用 `account-api`，`userId` 由云函数读取调用者 uid，
+所有写入 action 都必须通过 CloudBase Auth 登录态调用 `user-storage-api`，`userId` 由云函数读取调用者 uid，
 前端不能传别人的 uid。
 
 ### `getStorageQuota`
@@ -112,7 +114,7 @@
 
 ### `reserveStorageUpload`
 
-上传前调用。服务端校验单文件 200MB、总配额和并发版本，然后返回后端生成的 `storageKey`。
+上传前调用。服务端校验单文件 200MB、总配额、app/kind policy 和并发版本，然后返回后端生成的 `storageKey`。
 
 入参：
 
@@ -120,6 +122,7 @@
 {
   "action": "reserveStorageUpload",
   "appId": "saier",
+  "kind": "project",
   "sizeBytes": 41943040,
   "fileName": "photo.png",
   "contentType": "image/png",
@@ -173,10 +176,17 @@
 {
   "action": "listStorageFiles",
   "appId": "saier",
+  "kind": "project",
   "skip": 0,
   "limit": 20
 }
 ```
+
+`kind` / `slotKey` 是通用存储元数据，不代表后端理解业务文件内容：
+
+- Saier 项目文件：`kind: "project"`，不使用 `slotKey`。
+- Saier 笔刷库：`kind: "brush-library"`、`slotKey: "default"`、固定文件名 `brush-library.saier.brushes.json`、`contentType: "application/json"`，单文件额外限制 256KiB。
+- `brush-library` 是 singleton：`finalizeStorageUpload` 成功后，同一 `userId + appId + kind + slotKey` 只保留最新 active 文件，并释放旧文件 quota。
 
 ### `deleteStorageFile`
 
@@ -200,4 +210,4 @@
 4. 上传成功后调用 `finalizeStorageUpload`。
 5. 删除时优先调用 `deleteStorageFile`，不要只删 Storage 对象。
 
-`saier` 侧只保留前端提示和单文件选择限制，所有权威判断都以 `account-api` 返回为准。
+`saier` 侧只保留前端提示、文件格式解析与合并策略，所有权威 quota / path / ownership 判断都以 `user-storage-api` 返回为准。`user-storage-api` 不解析 `saier.brush-library.v1` 或 `BrushPreset`。

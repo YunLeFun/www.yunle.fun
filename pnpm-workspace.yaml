@@ -21,11 +21,13 @@ catalog:
   '@nuxt/content': ^3.14.0
   '@nuxt/eslint': ^1.16.0
   '@nuxt/icon': ^2.2.4
+  '@nuxt/test-utils': ^4.0.3
   '@nuxt/ui': ^4.9.0
   '@nuxtjs/i18n': ^10.4.0
   '@nuxtjs/mdc': ^0.22.0
   '@rollup/plugin-yaml': ^5.0.0
   '@types/qrcode': ^1.5.6
+  '@vue/test-utils': ^2.4.11
   '@vueuse/nuxt': ^14.3.0
   '@yunlefun/sso': ^0.3.1
   '@yunlefun/types': ^0.2.1
@@ -33,6 +35,7 @@ catalog:
   better-sqlite3: ^12.10.0
   eslint: ^10.5.0
   eslint-plugin-format: ^2.0.1
+  happy-dom: ^20.10.6
   nuxt: ^4.4.8
   nuxt-auth-utils: ^0.5.29
   qrcode: ^1.5.4
@@ -51,3 +54,10 @@ ignoredBuiltDependencies:
 onlyBuiltDependencies:
   - better-sqlite3
 trustPolicyIgnoreAfter: 10080
+allowBuilds:
+  '@parcel/watcher': set this to true or false
+  better-sqlite3: set this to true or false
+  core-js-pure: set this to true or false
+  esbuild: set this to true or false
+  unrs-resolver: set this to true or false
+  vue-demi: set this to true or false

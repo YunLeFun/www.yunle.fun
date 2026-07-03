@@ -211,7 +211,15 @@ async function dispatch(event) {
             },
           )
         case 'listStorageFiles':
-          return await listStorageFiles(db, { userId: uid, appId: event.appId, skip: event.skip, limit: event.limit, includeDeleted: event.includeDeleted })
+          return await listStorageFiles(db, {
+            userId: uid,
+            appId: event.appId,
+            kind: event.kind,
+            slotKey: event.slotKey,
+            skip: event.skip,
+            limit: event.limit,
+            includeDeleted: event.includeDeleted,
+          })
         case 'deleteStorageFile':
           return await deleteStorageFile(
             db,

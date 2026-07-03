@@ -22,7 +22,7 @@
 （见 [§5](#5-会员--云币交互规则)）。
 
 云空间配额是会员权益在账号中心的另一个全局派生能力：普通用户 100MB、会员用户 1GB，
-单文件 200MB，所有应用通过 `account-api` 的 storage action 共享同一套
+单文件 200MB，所有应用通过 `user-storage-api` 的 storage action 共享同一套
 `user_storage_quotas` / `user_storage_files`。它不改变云币账本，只读取会员状态并懒同步
 `quotaBytes`；详细状态机和接口见 [`storage-quota.md`](./storage-quota.md)。
 
@@ -56,7 +56,7 @@
 
 ```jsonc
 {
-  "_id": "<doc>",
+  "_id": "<cloudbase uid>",
   "userId": "<cloudbase uid>",
   "balance": 1280, // 云币余额（整数，最小单位 = 1 云币）
   "version": 7, // 乐观锁版本号，每次变更 +1
@@ -95,7 +95,7 @@
 
 ```jsonc
 {
-  "_id": "<doc>",
+  "_id": "<cloudbase uid>",
   "userId": "<cloudbase uid>",
   "level": "basic", // 会员等级，预留多档（basic / pro …）
   "activeCycle": "month", // month | year
@@ -106,7 +106,7 @@
 }
 ```
 
-索引：`idx_user`（`userId` ASC，唯一）。**已存在，无需新建。**
+索引：`idx_user`（`userId` ASC，唯一）。`_id` 统一固定为 CloudBase `uid`，历史 auto-id 文档由会员开通 / 账户读取路径兼容并迁移。
 
 > 迁移：现有文档的 `planId: "basic"` 语义等同于 `level: "basic"`。可在读取层做兼容
 > （`level ?? planId`），无需一次性刷数据。详见 [§7](#7-迁移方案)。
@@ -174,9 +174,7 @@ const MEMBERSHIP_PRICES = {
 
 - `deductCoin` 必须在服务端鉴权（`uid` 来自 CloudBase Auth），子应用不能伪造他人 uid。
 - `bizId` 用于**幂等**：同一 `bizId` 重复调用只扣一次（见 §6）。
-- 云空间 action（`getStorageQuota` / `reserveStorageUpload` / `finalizeStorageUpload` /
-  `listStorageFiles` / `deleteStorageFile`）也挂在 `account-api`，详见
-  [`storage-quota.md`](./storage-quota.md)。
+- 云空间 action 已迁到独立 `user-storage-api`：`account-api` 只保留账户 / 云币 / 会员职责。
 
 ### 4.3 各子应用接入（客户端三步）
 

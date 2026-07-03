@@ -6,7 +6,31 @@ import { nextTick, ref } from 'vue'
 import OnboardingModal from '../../app/components/OnboardingModal.vue'
 
 // 可变 mock 容器：mockNuxtImport 工厂在组件 setup 时读取，beforeEach 里填充
-const h = vi.hoisted(() => ({ s: {} as Record<string, any> }))
+const h = vi.hoisted(() => {
+  const store = new Map<string, string>()
+  const localStorageMock: Storage = {
+    get length() {
+      return store.size
+    },
+    clear() {
+      store.clear()
+    },
+    getItem(key: string) {
+      return store.get(key) ?? null
+    },
+    key(index: number) {
+      return Array.from(store.keys())[index] ?? null
+    },
+    removeItem(key: string) {
+      store.delete(key)
+    },
+    setItem(key: string, value: string) {
+      store.set(key, String(value))
+    },
+  }
+  vi.stubGlobal('localStorage', localStorageMock)
+  return { s: {} as Record<string, any> }
+})
 
 mockNuxtImport('useTcbAuth', () => () => ({
   user: h.s.user,

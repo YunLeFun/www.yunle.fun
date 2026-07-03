@@ -8,6 +8,7 @@ import {
   markOrderPaid,
   MEMBERSHIPS_COLLECTION,
   ORDERS_COLLECTION,
+  readMembership,
 } from '../../cloudfunctions/wxpay-order/lib/orders.js'
 import { DAY_MS } from '../../cloudfunctions/wxpay-order/lib/plans.js'
 import { makeFakeDb } from '../_fixtures/wxpay.mjs'
@@ -71,6 +72,7 @@ describe('activateMembership', () => {
     expect(r.expireAt).toBe(NOW + 31 * DAY_MS)
     expect(db._store[MEMBERSHIPS_COLLECTION]).toHaveLength(1)
     expect(db._store[MEMBERSHIPS_COLLECTION][0]).toMatchObject({
+      _id: 'u1',
       userId: 'u1',
       planId: 'basic',
       activeCycle: 'month',
@@ -84,7 +86,7 @@ describe('activateMembership', () => {
     const existingExpire = NOW + 10 * DAY_MS
     const db = makeFakeDb({
       [MEMBERSHIPS_COLLECTION]: [{
-        _id: 'm1',
+        _id: 'u1',
         userId: 'u1',
         planId: 'basic',
         activeCycle: 'month',
@@ -108,7 +110,7 @@ describe('activateMembership', () => {
   it('已过期会员：从 now 起累加', async () => {
     const db = makeFakeDb({
       [MEMBERSHIPS_COLLECTION]: [{
-        _id: 'm1',
+        _id: 'u1',
         userId: 'u1',
         planId: 'basic',
         activeCycle: 'month',
@@ -123,6 +125,39 @@ describe('activateMembership', () => {
       outTradeNo: 'YLF3',
     })
     expect(r.expireAt).toBe(NOW + 31 * DAY_MS)
+  })
+
+  it('legacy auto-id 会员记录会迁移为 _id 等于 uid 的规范记录', async () => {
+    const existingExpire = NOW + 12 * DAY_MS
+    const db = makeFakeDb({
+      [MEMBERSHIPS_COLLECTION]: [{
+        _id: 'legacy-member',
+        userId: 'u1',
+        planId: 'basic',
+        activeCycle: 'month',
+        expireAt: existingExpire,
+        createdAt: NOW - 20 * DAY_MS,
+        updatedAt: NOW - 10 * DAY_MS,
+      }],
+    })
+
+    const r = await activateMembership(db, {
+      userId: 'u1',
+      planId: 'basic',
+      cycle: 'month',
+      now: NOW,
+      outTradeNo: 'YLF-LEGACY',
+    })
+    const canonical = await readMembership(db, 'u1')
+
+    expect(r.expireAt).toBe(existingExpire + 31 * DAY_MS)
+    expect(canonical).toMatchObject({
+      _id: 'u1',
+      userId: 'u1',
+      lastOrderId: 'YLF-LEGACY',
+      expireAt: existingExpire + 31 * DAY_MS,
+    })
+    expect(db._store[MEMBERSHIPS_COLLECTION].filter(item => item.userId === 'u1')).toHaveLength(2)
   })
 
   it('userId 缺失抛错', async () => {
@@ -147,7 +182,7 @@ describe('activateMembership — 并发安全（CAS 重试）', () => {
         where() { return this },
         limit() { return this },
         async get() {
-          return { data: [{ _id: 'm1', userId: 'u1', expireAt: currentExpire }] }
+          return { data: [{ _id: 'u1', userId: 'u1', expireAt: currentExpire }] }
         },
         async update(payload) {
           updateCalls++
@@ -186,7 +221,7 @@ describe('activateMembership — 并发安全（CAS 重试）', () => {
         async add() {
           addCalls++
           // 并发 insert：本次 add 前已有别的请求插入了记录 → 撞唯一索引
-          doc = { _id: 'm1', userId: 'u1', expireAt: NOW + 31 * DAY_MS }
+          doc = { _id: 'u1', userId: 'u1', expireAt: NOW + 31 * DAY_MS }
           throw new Error('duplicate key error collection: user_memberships index: userId')
         },
         async update(payload) {
@@ -213,7 +248,7 @@ describe('activateMembership — 并发安全（CAS 重试）', () => {
         where() { return this },
         limit() { return this },
         async get() {
-          return { data: [{ _id: 'm1', userId: 'u1', expireAt: NOW }] }
+          return { data: [{ _id: 'u1', userId: 'u1', expireAt: NOW }] }
         },
         async update() {
           return { updated: 0 } // 永远 CAS 失败
@@ -235,7 +270,7 @@ describe('activateMembership — 订单幂等（lastOrderId）', () => {
     const existingExpire = NOW + 20 * DAY_MS
     const db = makeFakeDb({
       [MEMBERSHIPS_COLLECTION]: [{
-        _id: 'm1',
+        _id: 'u1',
         userId: 'u1',
         planId: 'basic',
         activeCycle: 'month',
@@ -258,7 +293,7 @@ describe('activateMembership — 订单幂等（lastOrderId）', () => {
     const existingExpire = NOW + 20 * DAY_MS
     const db = makeFakeDb({
       [MEMBERSHIPS_COLLECTION]: [{
-        _id: 'm1',
+        _id: 'u1',
         userId: 'u1',
         planId: 'basic',
         activeCycle: 'month',
@@ -336,7 +371,7 @@ describe('grantOrderEntitlement — 幂等与 grantedAt 回写', () => {
   it('grantedAt 回写丢失时，底层 lastOrderId 幂等仍防重复续期', async () => {
     const db = makeFakeDb({
       [MEMBERSHIPS_COLLECTION]: [{
-        _id: 'm1',
+        _id: 'u1',
         userId: 'u1',
         planId: 'basic',
         activeCycle: 'month',

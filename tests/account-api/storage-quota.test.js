@@ -6,6 +6,7 @@ import {
   deleteStorageFile,
   finalizeStorageUpload,
   getStorageQuota,
+  listStorageFiles,
   MEMBER_STORAGE_QUOTA_BYTES,
   NORMAL_STORAGE_QUOTA_BYTES,
   reserveStorageUpload,
@@ -34,10 +35,57 @@ describe('account-api storage quota', () => {
     const free = await getStorageQuota(db, { userId: 'free', now: NOW })
     expect(free.quotaBytes).toBe(NORMAL_STORAGE_QUOTA_BYTES)
     expect(free.membership.isActive).toBe(false)
+    expect(db._store[USER_STORAGE_QUOTAS_COLLECTION].find(item => item.userId === 'free')).toMatchObject({
+      _id: 'free',
+      userId: 'free',
+    })
 
     const vip = await getStorageQuota(db, { userId: 'vip', now: NOW })
     expect(vip.quotaBytes).toBe(MEMBER_STORAGE_QUOTA_BYTES)
     expect(vip.membership).toMatchObject({ isActive: true, level: 'basic', expireAt: NOW + 86_400_000 })
+  })
+
+  it('配额记录使用 uid 作为 _id，重复懒同步不会创建第二条', async () => {
+    const db = makeFakeDb()
+
+    await getStorageQuota(db, { userId: 'u1', now: NOW })
+    await getStorageQuota(db, { userId: 'u1', now: NOW + 1 })
+
+    expect(db._store[USER_STORAGE_QUOTAS_COLLECTION]).toHaveLength(1)
+    expect(db._store[USER_STORAGE_QUOTAS_COLLECTION][0]).toMatchObject({
+      _id: 'u1',
+      userId: 'u1',
+      quotaBytes: NORMAL_STORAGE_QUOTA_BYTES,
+    })
+  })
+
+  it('读取 legacy quota 后迁移到 uid _id 并保留已用与扩容', async () => {
+    const db = makeFakeDb({
+      [USER_STORAGE_QUOTAS_COLLECTION]: [
+        {
+          _id: 'legacy-quota',
+          userId: 'u1',
+          baseQuotaBytes: NORMAL_STORAGE_QUOTA_BYTES,
+          addonQuotaBytes: 20 * MB,
+          bonusQuotaBytes: 5 * MB,
+          quotaBytes: NORMAL_STORAGE_QUOTA_BYTES + 25 * MB,
+          usedBytes: 12 * MB,
+          reservedBytes: 3 * MB,
+          version: 9,
+        },
+      ],
+    })
+
+    const quota = await getStorageQuota(db, { userId: 'u1', now: NOW })
+
+    expect(quota).toMatchObject({
+      addonQuotaBytes: 20 * MB,
+      bonusQuotaBytes: 5 * MB,
+      usedBytes: 12 * MB,
+      reservedBytes: 3 * MB,
+    })
+    expect(db._store[USER_STORAGE_QUOTAS_COLLECTION].some(item => item._id === 'u1')).toBe(true)
+    expect(db._store[USER_STORAGE_QUOTAS_COLLECTION].filter(item => item.userId === 'u1')).toHaveLength(2)
   })
 
   it('会员到期后降回普通额度，但保留 addon 扩容', async () => {
@@ -97,6 +145,7 @@ describe('account-api storage quota', () => {
 
     expect(res.quota.reservedBytes).toBe(40 * MB)
     expect(res.file).toMatchObject({
+      id: 'res_12345678',
       reservationId: 'res_12345678',
       appId: 'saier',
       status: STORAGE_FILE_STATUS.RESERVED,
@@ -105,6 +154,7 @@ describe('account-api storage quota', () => {
     })
     expect(res.file.storageKey).toContain('user-storage/')
     expect(db._store[USER_STORAGE_FILES_COLLECTION]).toHaveLength(1)
+    expect(db._store[USER_STORAGE_FILES_COLLECTION][0]._id).toBe('res_12345678')
   })
 
   it('finalize 使用真实文件大小把 reserved 转为 used', async () => {
@@ -133,6 +183,45 @@ describe('account-api storage quota', () => {
       sizeBytes: 25 * MB,
       reservedSizeBytes: 40 * MB,
     })
+  })
+
+  it('finalize 拒绝伪造 storageKey 或 fileId', async () => {
+    const db = makeFakeDb()
+    const reserved = await reserveStorageUpload(db, {
+      userId: 'u1',
+      appId: 'saier',
+      sizeBytes: 10 * MB,
+      fileName: 'photo.png',
+      reservationId: 'res_guard1',
+      now: NOW,
+    })
+
+    await expect(
+      finalizeStorageUpload(
+        db,
+        {
+          userId: 'u1',
+          reservationId: 'res_guard1',
+          fileId: fileIdFor(reserved.file.storageKey),
+          storageKey: 'user-storage/u2/saier/res_guard1/photo.png',
+          now: NOW + 1,
+        },
+        { readFileInfo: async () => ({ sizeBytes: 5 * MB, contentType: 'image/png' }) },
+      ),
+    ).rejects.toThrow(/storageKey/)
+
+    await expect(
+      finalizeStorageUpload(
+        db,
+        {
+          userId: 'u1',
+          reservationId: 'res_guard1',
+          fileId: fileIdFor('user-storage/u2/saier/res_guard1/photo.png'),
+          now: NOW + 2,
+        },
+        { readFileInfo: async () => ({ sizeBytes: 5 * MB, contentType: 'image/png' }) },
+      ),
+    ).rejects.toThrow(/fileId/)
   })
 
   it('finalize 拒绝超过 reserve 的真实文件并释放 reserved', async () => {
@@ -234,5 +323,45 @@ describe('account-api storage quota', () => {
     expect(cleanup.expired).toBe(1)
     expect(quota.reservedBytes).toBe(0)
     expect(db._store[USER_STORAGE_FILES_COLLECTION][0].status).toBe(STORAGE_FILE_STATUS.EXPIRED)
+  })
+
+  it('listStorageFiles 按 appId 只返回 active 文件', async () => {
+    const db = makeFakeDb()
+    const saier = await reserveStorageUpload(db, {
+      userId: 'u1',
+      appId: 'saier',
+      sizeBytes: 10 * MB,
+      fileName: 'a.saier.project.json',
+      reservationId: 'res_list1',
+      now: NOW,
+    })
+    const other = await reserveStorageUpload(db, {
+      userId: 'u1',
+      appId: 'notebook',
+      sizeBytes: 10 * MB,
+      fileName: 'note.json',
+      reservationId: 'res_list2',
+      now: NOW + 1,
+    })
+    await finalizeStorageUpload(
+      db,
+      { userId: 'u1', reservationId: 'res_list1', fileId: fileIdFor(saier.file.storageKey), now: NOW + 2 },
+      { readFileInfo: async () => ({ sizeBytes: 5 * MB, contentType: 'application/json' }) },
+    )
+    await finalizeStorageUpload(
+      db,
+      { userId: 'u1', reservationId: 'res_list2', fileId: fileIdFor(other.file.storageKey), now: NOW + 3 },
+      { readFileInfo: async () => ({ sizeBytes: 5 * MB, contentType: 'application/json' }) },
+    )
+
+    const listed = await listStorageFiles(db, { userId: 'u1', appId: 'saier' })
+
+    expect(listed.items).toHaveLength(1)
+    expect(listed.items[0]).toMatchObject({
+      appId: 'saier',
+      reservationId: 'res_list1',
+      status: STORAGE_FILE_STATUS.ACTIVE,
+      updatedAt: NOW + 2,
+    })
   })
 })
