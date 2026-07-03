@@ -27,6 +27,7 @@
  *   - listTransactions  云币流水分页（需登录）
  *   - listOrders        我的订单历史分页（需登录，会员 / 云币充值订单）
  *   - requestAccountDeletion 软注销：脱敏资料 / 解除关注 / 删通知 + 标记 deletedAt（需登录，保留财务记录）
+ *   - uploadAvatar      后端受控上传头像到 CloudBase Storage（需登录，限制 2 MiB）
  *
  * 主入口只做"参数解析 + 鉴权 + 路由"，纯逻辑委托给 lib/（与 wxpay-order 共享同一份 lib）。
  *
@@ -39,6 +40,7 @@ const cloudbase = require('@cloudbase/node-sdk')
 
 const { getAccountSnapshot } = require('./account')
 const { requestAccountDeletion } = require('./account-deletion')
+const { uploadAvatar } = require('./avatars')
 const { getFollowingFeed } = require('./feed')
 const { followUser, getRelation, listFollowers, listFollowing, unfollowUser } = require('./follows')
 const {
@@ -156,6 +158,7 @@ async function dispatch(event) {
     case 'listTransactions':
     case 'listOrders':
     case 'requestAccountDeletion':
+    case 'uploadAvatar':
     case 'signIn':
     case 'getSignInStatus':
     case 'getSignInHistory':
@@ -181,6 +184,8 @@ async function dispatch(event) {
           return await listUserOrders(db, { userId: uid, skip: event.skip, limit: event.limit })
         case 'requestAccountDeletion':
           return await requestAccountDeletion(db, { userId: uid, now: Date.now() })
+        case 'uploadAvatar':
+          return await uploadAvatar(app, { userId: uid, avatar: event.avatar, now: Date.now() })
         case 'signIn':
           return await signIn(db, { userId: uid, now: Date.now() })
         case 'getSignInStatus':

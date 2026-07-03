@@ -7,6 +7,7 @@
  * 也可「以后再说」。按 uid 写 localStorage 防重复打扰；保留脱敏层兜历史用户。
  */
 const { user, fetchUser, needsOnboarding } = useTcbAuth()
+const { uploadAvatar } = useAvatarUpload()
 const { upsertMyProfile } = useUserProfile()
 const toast = useToast()
 
@@ -86,14 +87,8 @@ function handleAvatarChange(e: Event) {
 async function handleCropConfirm(croppedFile: File) {
   try {
     uploading.value = true
-    const { app } = useCloudbase()
-    const cloudPath = `avatars/${user.value!.id}_${Date.now()}.jpg`
-    const { fileID } = await app.uploadFile({ cloudPath, filePath: croppedFile as any })
-    const urlResult = await app.getTempFileURL({ fileList: [fileID] })
-    const tempUrl = urlResult.fileList?.[0]?.tempFileURL
-    if (!tempUrl)
-      throw new Error('获取头像地址失败')
-    form.avatar = tempUrl
+    const { url } = await uploadAvatar(croppedFile)
+    form.avatar = url
   }
   catch (err: unknown) {
     toast.add({

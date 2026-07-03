@@ -4,6 +4,7 @@ import type { UpdateUserReq } from '@cloudbase/auth'
 const RE_USERNAME_START = /^[a-z]/i
 
 const { user, fetchUser, setUsername } = useTcbAuth()
+const { uploadAvatar } = useAvatarUpload()
 const toast = useToast()
 
 const editing = ref(false)
@@ -77,25 +78,11 @@ async function handleCropConfirm(croppedFile: File) {
     uploading.value = true
     uploadProgress.value = 0
 
-    const { app } = useCloudbase()
-    const cloudPath = `avatars/${user.value!.id}_${Date.now()}.jpg`
+    uploadProgress.value = 20
+    const { url } = await uploadAvatar(croppedFile)
+    uploadProgress.value = 100
 
-    // 上传裁剪后的图片到云存储
-    const { fileID } = await app.uploadFile({
-      cloudPath,
-      filePath: croppedFile as any,
-      onUploadProgress: (event: { loaded: number, total: number }) => {
-        uploadProgress.value = Math.round((event.loaded / event.total) * 100)
-      },
-    })
-
-    // 获取临时访问 URL
-    const urlResult = await app.getTempFileURL({ fileList: [fileID] })
-    const tempUrl = urlResult.fileList?.[0]?.tempFileURL
-    if (!tempUrl)
-      throw new Error('获取头像地址失败')
-
-    form.avatar = tempUrl
+    form.avatar = url
     toast.add({ title: '上传成功', description: '头像已上传，点击保存生效', color: 'success' })
   }
   catch (err: unknown) {
