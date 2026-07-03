@@ -86,13 +86,13 @@ const allProviders = [
   {
     id: GITHUB_PROVIDER_ID,
     label: 'GitHub',
-    icon: 'i-simple-icons-github',
+    icon: 'i-ri-github-fill',
     onClick: () => loginWithGitHub(),
   },
   {
     id: WECHAT_PROVIDER_ID,
     label: '微信登录',
-    icon: 'i-simple-icons-wechat',
+    icon: 'i-ri-wechat-fill',
     onClick: () => loginWithWeChat(),
   },
 ]

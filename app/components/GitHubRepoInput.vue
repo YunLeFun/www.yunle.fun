@@ -139,7 +139,7 @@ onMounted(() => {
       :model-value="local"
       :placeholder="placeholder"
       :disabled="disabled"
-      icon="i-simple-icons-github"
+      icon="i-ri-github-fill"
       class="w-full font-mono"
       @update:model-value="onInput"
     >

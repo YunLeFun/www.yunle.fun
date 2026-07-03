@@ -39,7 +39,7 @@ const appItems = [
 const deploySteps = [
   {
     label: '仓库同步',
-    icon: 'i-simple-icons-github',
+    icon: 'i-ri-github-fill',
     value: 'main',
   },
   {

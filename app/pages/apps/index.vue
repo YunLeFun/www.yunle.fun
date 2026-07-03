@@ -134,7 +134,7 @@ function formatDate(ts: number) {
               <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">
                 <span class="font-mono">{{ item.slug }}</span>
                 <span v-if="item.githubRepo" class="flex items-center gap-1">
-                  <UIcon name="i-simple-icons-github" class="text-sm" />
+                  <UIcon name="i-ri-github-fill" class="text-sm" />
                   {{ item.githubRepo }}
                 </span>
                 <span>更新于 {{ formatDate(item.updatedAt) }}</span>

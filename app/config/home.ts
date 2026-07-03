@@ -152,7 +152,7 @@ export const homePage = {
         target: '_blank',
         variant: 'outline' as const,
         class: 'ylf-gradient-border',
-        icon: 'i-simple-icons-github',
+        icon: 'i-ri-github-fill',
       },
     ],
   },

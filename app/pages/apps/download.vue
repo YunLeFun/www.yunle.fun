@@ -24,7 +24,7 @@ const platforms = ref<{
 }[]>([
   {
     name: 'iOS',
-    icon: 'i-simple-icons-apple',
+    icon: 'i-ri-apple-fill',
     description: 'iPhone 和 iPad',
     version: '最新版本 2.0.0',
     link: '#',
@@ -34,7 +34,7 @@ const platforms = ref<{
   },
   {
     name: 'Android',
-    icon: 'i-simple-icons-android',
+    icon: 'i-ri-android-fill',
     description: 'Android 设备',
     version: '最新版本 2.0.0',
     link: '#',
@@ -44,7 +44,7 @@ const platforms = ref<{
   },
   {
     name: 'Web',
-    icon: 'i-heroicons-globe-alt',
+    icon: 'i-lucide-globe',
     description: '网页版',
     version: '无需下载',
     link: '#',
@@ -57,22 +57,22 @@ const platforms = ref<{
 // 特性列表
 const features = ref([
   {
-    icon: 'i-heroicons-bolt',
+    icon: 'i-lucide-zap',
     title: '极速体验',
     description: '优化的性能，流畅的操作体验',
   },
   {
-    icon: 'i-heroicons-shield-check',
+    icon: 'i-lucide-shield-check',
     title: '安全可靠',
     description: '端到端加密，保护您的隐私数据',
   },
   {
-    icon: 'i-heroicons-arrow-path',
+    icon: 'i-lucide-refresh-cw',
     title: '自动同步',
     description: '跨设备实时同步，随时随地访问',
   },
   {
-    icon: 'i-heroicons-device-phone-mobile',
+    icon: 'i-lucide-monitor-smartphone',
     title: '跨平台支持',
     description: '支持所有主流操作系统和设备',
   },
@@ -133,7 +133,7 @@ const faqItems = ref([
                 :color="platform.color"
                 variant="solid"
                 block
-                :icon="platform.isWeb ? 'i-heroicons-arrow-top-right-on-square' : 'i-heroicons-arrow-down-tray'"
+                :icon="platform.isWeb ? 'i-lucide-external-link' : 'i-lucide-download'"
               >
                 {{ platform.isWeb ? '在线访问' : '下载' }}
               </UButton>
@@ -190,15 +190,15 @@ const faqItems = ref([
                 </h3>
                 <ul class="text-muted text-sm space-y-2">
                   <li class="flex gap-2 items-start">
-                    <UIcon name="i-heroicons-check-circle" class="text-primary mt-0.5 flex-shrink-0 h-5 w-5" />
+                    <UIcon name="i-lucide-circle-check" class="text-primary mt-0.5 flex-shrink-0 h-5 w-5" />
                     <span>iOS 14.0+ / Android 8.0+</span>
                   </li>
                   <li class="flex gap-2 items-start">
-                    <UIcon name="i-heroicons-check-circle" class="text-primary mt-0.5 flex-shrink-0 h-5 w-5" />
+                    <UIcon name="i-lucide-circle-check" class="text-primary mt-0.5 flex-shrink-0 h-5 w-5" />
                     <span>至少 2GB RAM</span>
                   </li>
                   <li class="flex gap-2 items-start">
-                    <UIcon name="i-heroicons-check-circle" class="text-primary mt-0.5 flex-shrink-0 h-5 w-5" />
+                    <UIcon name="i-lucide-circle-check" class="text-primary mt-0.5 flex-shrink-0 h-5 w-5" />
                     <span>500MB 可用存储空间</span>
                   </li>
                 </ul>
@@ -209,15 +209,15 @@ const faqItems = ref([
                 </h3>
                 <ul class="text-muted text-sm space-y-2">
                   <li class="flex gap-2 items-start">
-                    <UIcon name="i-heroicons-check-circle" class="text-primary mt-0.5 flex-shrink-0 h-5 w-5" />
+                    <UIcon name="i-lucide-circle-check" class="text-primary mt-0.5 flex-shrink-0 h-5 w-5" />
                     <span>Windows 10+ / macOS 11+ / Linux</span>
                   </li>
                   <li class="flex gap-2 items-start">
-                    <UIcon name="i-heroicons-check-circle" class="text-primary mt-0.5 flex-shrink-0 h-5 w-5" />
+                    <UIcon name="i-lucide-circle-check" class="text-primary mt-0.5 flex-shrink-0 h-5 w-5" />
                     <span>至少 4GB RAM</span>
                   </li>
                   <li class="flex gap-2 items-start">
-                    <UIcon name="i-heroicons-check-circle" class="text-primary mt-0.5 flex-shrink-0 h-5 w-5" />
+                    <UIcon name="i-lucide-circle-check" class="text-primary mt-0.5 flex-shrink-0 h-5 w-5" />
                     <span>1GB 可用存储空间</span>
                   </li>
                 </ul>

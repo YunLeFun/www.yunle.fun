@@ -5,17 +5,17 @@ const { locale, setLocale } = useI18n()
 const availableLocales: {
   code: 'zh-CN' | 'en'
   label: string
-  icon: string
+  flag: string
 }[] = [
   {
     code: 'zh-CN',
     label: '简体中文',
-    icon: 'i-twemoji-flag-china',
+    flag: '🇨🇳',
   },
   {
     code: 'en',
     label: 'English',
-    icon: 'i-twemoji-flag-united-states',
+    flag: '🇺🇸',
   },
 ]
 
@@ -25,8 +25,7 @@ const currentLocale = computed(() => {
 
 const items = computed(() => {
   return availableLocales.map(l => ({
-    label: l.label,
-    icon: l.icon,
+    label: `${l.flag} ${l.label}`,
     onSelect: () => setLocale(l.code),
     active: l.code === locale.value,
   }))
@@ -39,7 +38,7 @@ const items = computed(() => {
     :content="{ align: 'end' }"
   >
     <UButton
-      :icon="currentLocale?.icon || 'i-lucide-globe'"
+      icon="i-lucide-languages"
       color="neutral"
       variant="ghost"
       :aria-label="`当前语言: ${currentLocale?.label}`"

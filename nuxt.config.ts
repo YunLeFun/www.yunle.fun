@@ -236,6 +236,26 @@ export default defineNuxtConfig({
     },
   },
 
+  icon: {
+    clientBundle: {
+      // Nuxt UI has internal default icons that project-source scanning cannot see.
+      icons: [
+        'lucide:menu',
+        'lucide:moon',
+        'lucide:sun',
+      ],
+      scan: {
+        globInclude: [
+          'app/**/*.{vue,ts,js,mjs}',
+          'content/**/*.{md,yml,yaml}',
+          'docs/**/*.{md,yml,yaml}',
+        ],
+      },
+      sizeLimitKb: 128,
+    },
+    provider: 'none',
+  },
+
   // i18n 配置暂时禁用，未来重新启用时取消注释
   // i18n: {
   //   locales: [

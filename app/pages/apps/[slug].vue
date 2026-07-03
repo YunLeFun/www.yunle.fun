@@ -212,7 +212,7 @@ async function handleDelete() {
 
           <div v-if="appData.githubRepo" class="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div class="flex items-center gap-3">
-              <UIcon name="i-simple-icons-github" class="text-lg text-muted" />
+              <UIcon name="i-ri-github-fill" class="text-lg text-muted" />
               <span class="text-sm text-muted">GitHub 仓库</span>
             </div>
             <a

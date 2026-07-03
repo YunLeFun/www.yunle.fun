@@ -146,7 +146,7 @@ async function onDisconnect() {
 
       <div class="flex items-center gap-3 text-xs text-muted">
         <span class="flex items-center gap-1">
-          <UIcon name="i-simple-icons-github" />
+          <UIcon name="i-ri-github-fill" />
           已连接 {{ githubLogin }}
         </span>
         <button type="button" class="hover:text-primary" @click="manual = true">
@@ -172,7 +172,7 @@ async function onDisconnect() {
           size="xs"
           color="neutral"
           variant="subtle"
-          icon="i-simple-icons-github"
+          icon="i-ri-github-fill"
           :loading="connecting"
           label="连接 GitHub 选择私有仓库"
           @click="onConnect"

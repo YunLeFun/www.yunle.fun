@@ -21,7 +21,6 @@
     "@cloudbase/js-sdk": "catalog:",
     "@cloudbase/signature-nodejs": "catalog:",
     "@iconify-json/lucide": "catalog:",
-    "@iconify-json/simple-icons": "catalog:",
     "@nuxt/ui": "catalog:",
     "@nuxtjs/mdc": "catalog:",
     "@vueuse/nuxt": "catalog:",
@@ -36,7 +35,6 @@
     "@antfu/eslint-config": "catalog:",
     "@apple/app-store-server-library": "catalog:",
     "@iconify-json/ri": "catalog:",
-    "@iconify-json/twemoji": "catalog:",
     "@nuxt/eslint": "catalog:",
     "@nuxt/icon": "catalog:",
     "@nuxt/test-utils": "catalog:",
@@ -49,6 +47,7 @@
     "eslint-plugin-format": "catalog:",
     "happy-dom": "catalog:",
     "typescript": "catalog:",
+    "vite": "catalog:",
     "vitest": "catalog:",
     "vue-tsc": "catalog:"
   }
