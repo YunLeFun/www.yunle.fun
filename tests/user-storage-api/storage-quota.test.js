@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { MEMBERSHIPS_COLLECTION } from '../../cloudfunctions/account-api/lib/orders.js'
+import { MEMBERSHIPS_COLLECTION } from '../../cloudfunctions/user-storage-api/lib/orders.js'
 import {
   cleanupExpiredReservations,
   deleteStorageFile,
@@ -14,7 +14,7 @@ import {
   STORAGE_FILE_STATUS,
   USER_STORAGE_FILES_COLLECTION,
   USER_STORAGE_QUOTAS_COLLECTION,
-} from '../../cloudfunctions/account-api/storage.js'
+} from '../../cloudfunctions/user-storage-api/storage.js'
 import { makeFakeDb } from '../_fixtures/wxpay.mjs'
 
 const NOW = 1_700_000_000_000
@@ -24,7 +24,7 @@ function fileIdFor(storageKey) {
   return `cloud://yunlefun-8g7ybcxc7345c490.abc/${storageKey}`
 }
 
-describe('account-api storage quota', () => {
+describe('user-storage-api storage quota', () => {
   it('普通用户默认 100MB，会员懒同步为 1GB', async () => {
     const db = makeFakeDb({
       [MEMBERSHIPS_COLLECTION]: [

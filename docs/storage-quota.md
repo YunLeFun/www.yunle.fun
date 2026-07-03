@@ -1,7 +1,7 @@
 # 云空间全局配额中心
 
 > 状态：服务端配额核心已落在 `cloudfunctions/user-storage-api/storage.js`，并通过
-> `user-storage-api` action 暴露给各应用。`account-api` 暂保留 legacy storage action 兼容旧调用。
+> `user-storage-api` action 暴露给各应用。`account-api` 不承载云空间 action。
 
 ## 1. 规则
 

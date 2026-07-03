@@ -524,7 +524,7 @@ tcb fn deploy --all -e yunlefun-8g7ybcxc7345c490
 > 入口懒同步 `quotaBytes`，不会因降级删除存量文件。
 
 安全规则：用户只读自己的配额和文件索引（`auth.uid == doc.userId`），写入由 `user-storage-api` 完成。
-新接入应用应调用 `user-storage-api`；`account-api` 的 storage action 仅作为过渡兼容入口。
+所有接入应用必须调用 `user-storage-api`；`account-api` 只保留账户、钱包、会员、资料、关注和通知职责。
 
 ### 投币 / 支持榜：`app_tip_stats` + `app_supporters`（需新建）
 
