@@ -6,6 +6,12 @@
 
 const MEMBERSHIPS_COLLECTION = 'user_memberships'
 
+function firstDoc(data) {
+  if (Array.isArray(data))
+    return data[0] || null
+  return data || null
+}
+
 async function readMembership(db, userId) {
   if (!userId)
     return null
@@ -13,7 +19,7 @@ async function readMembership(db, userId) {
   const collection = db.collection(MEMBERSHIPS_COLLECTION)
   if (typeof collection.doc === 'function') {
     const byId = await collection.doc(userId).get()
-    const doc = byId?.data
+    const doc = firstDoc(byId?.data)
     if (doc && typeof doc === 'object' && (!doc.userId || doc.userId === userId))
       return { ...doc, _id: userId, userId: doc.userId || userId }
   }

@@ -18,6 +18,12 @@ const MEMBERSHIPS_COLLECTION = 'user_memberships'
 /** activateMembership 在并发冲突时的最大重试次数 */
 const MEMBERSHIP_MAX_RETRY = 5
 
+function firstDoc(data) {
+  if (Array.isArray(data))
+    return data[0] || null
+  return data || null
+}
+
 /**
  * 用 outTradeNo 查找订单
  *
@@ -48,7 +54,7 @@ async function readMembership(db, userId) {
   const collection = db.collection(MEMBERSHIPS_COLLECTION)
   if (typeof collection.doc === 'function') {
     const byId = await collection.doc(userId).get()
-    const doc = byId?.data
+    const doc = firstDoc(byId?.data)
     if (doc && typeof doc === 'object' && (!doc.userId || doc.userId === userId))
       return { ...doc, _id: userId, userId: doc.userId || userId }
   }

@@ -68,6 +68,11 @@ function safeNonNegativeInteger(value, fallback = 0) {
   return n
 }
 
+function isDuplicateDocumentError(err) {
+  const message = err && typeof err.message === 'string' ? err.message : String(err || '')
+  return /duplicate|already exists|already exist|E11000/i.test(message)
+}
+
 function assertByteSize(value, name) {
   const n = Number(value)
   if (!Number.isSafeInteger(n) || n <= 0)
@@ -181,7 +186,7 @@ async function readUserStorageQuota(db, userId) {
   const collection = db.collection(USER_STORAGE_QUOTAS_COLLECTION)
   if (typeof collection.doc === 'function') {
     const byId = await collection.doc(userId).get()
-    const doc = byId?.data
+    const doc = firstDoc(byId?.data)
     if (doc && typeof doc === 'object' && (!doc.userId || doc.userId === userId))
       return { ...doc, _id: userId, userId: doc.userId || userId }
   }
@@ -194,6 +199,25 @@ async function readUserStorageQuota(db, userId) {
     return null
 
   return data.find(item => item?._id === userId) || data[0]
+}
+
+function firstDoc(data) {
+  if (Array.isArray(data))
+    return data[0] || null
+  return data || null
+}
+
+async function createUserStorageQuota(db, userId, doc) {
+  const collection = db.collection(USER_STORAGE_QUOTAS_COLLECTION)
+  const { _id, ...payload } = doc
+  if (typeof collection.doc === 'function') {
+    const ref = collection.doc(userId)
+    if (ref && typeof ref.set === 'function') {
+      await ref.set(payload)
+      return
+    }
+  }
+  await collection.add({ _id, ...payload })
 }
 
 function normalizeQuotaDoc(doc) {
@@ -267,11 +291,13 @@ async function syncUserStorageQuota(db, { userId, now = Date.now() }) {
           createdAt: now,
           updatedAt: now,
         }
-        await db.collection(USER_STORAGE_QUOTAS_COLLECTION).add(doc)
+        await createUserStorageQuota(db, uid, doc)
         return normalizeQuotaDoc(doc)
       }
-      catch {
-        continue
+      catch (err) {
+        if (isDuplicateDocumentError(err))
+          continue
+        throw new Error(`初始化云空间配额失败: ${err.message || String(err)}`)
       }
     }
 
@@ -292,11 +318,13 @@ async function syncUserStorageQuota(db, { userId, now = Date.now() }) {
           createdAt: existing.createdAt || now,
           updatedAt: now,
         }
-        await db.collection(USER_STORAGE_QUOTAS_COLLECTION).add(doc)
+        await createUserStorageQuota(db, uid, doc)
         return normalizeQuotaDoc(doc)
       }
-      catch {
-        continue
+      catch (err) {
+        if (isDuplicateDocumentError(err))
+          continue
+        throw new Error(`迁移云空间配额失败: ${err.message || String(err)}`)
       }
     }
 
@@ -319,6 +347,25 @@ async function syncUserStorageQuota(db, { userId, now = Date.now() }) {
     const updated = result?.updated ?? result?.modifiedCount ?? 0
     if (updated > 0)
       return normalizeQuotaDoc({ ...normalized, version: existing.version + 1, updatedAt: now })
+  }
+
+  const [existingRaw, membership] = await Promise.all([
+    readUserStorageQuota(db, uid),
+    readMembership(db, uid),
+  ])
+  const existing = normalizeQuotaDoc(existingRaw)
+  if (existing) {
+    const fields = computeQuotaFields(existing, membership, now)
+    const normalized = {
+      ...existing,
+      _id: uid,
+      userId: uid,
+      usedBytes: safeNonNegativeInteger(existing.usedBytes),
+      reservedBytes: safeNonNegativeInteger(existing.reservedBytes),
+      ...fields,
+    }
+    if (!needsQuotaSync(existing, fields))
+      return normalized
   }
 
   throw new Error('同步云空间配额并发冲突，请重试')

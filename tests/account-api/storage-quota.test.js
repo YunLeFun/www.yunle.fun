@@ -59,6 +59,43 @@ describe('account-api storage quota', () => {
     })
   })
 
+  it('创建配额时优先使用 doc(uid).set，兼容 CloudBase 自定义 _id 写入', async () => {
+    const db = makeFakeDb()
+    const collection = db.collection.bind(db)
+
+    db.collection = (name) => {
+      const chain = collection(name)
+      if (name !== USER_STORAGE_QUOTAS_COLLECTION)
+        return chain
+
+      chain.add = async () => {
+        throw new Error('add with _id rejected')
+      }
+
+      const doc = chain.doc.bind(chain)
+      chain.doc = (id) => {
+        const docChain = doc(id)
+        docChain.get = async () => ({ data: [] })
+        docChain.set = async (payload) => {
+          db._store[name].push({ _id: id, ...payload })
+          return { updated: 1 }
+        }
+        return docChain
+      }
+
+      return chain
+    }
+
+    const quota = await getStorageQuota(db, { userId: 'u1', now: NOW })
+
+    expect(quota.quotaBytes).toBe(NORMAL_STORAGE_QUOTA_BYTES)
+    expect(db._store[USER_STORAGE_QUOTAS_COLLECTION]).toHaveLength(1)
+    expect(db._store[USER_STORAGE_QUOTAS_COLLECTION][0]).toMatchObject({
+      _id: 'u1',
+      userId: 'u1',
+    })
+  })
+
   it('读取 legacy quota 后迁移到 uid _id 并保留已用与扩容', async () => {
     const db = makeFakeDb({
       [USER_STORAGE_QUOTAS_COLLECTION]: [
@@ -116,6 +153,73 @@ describe('account-api storage quota', () => {
     expect(quota.quotaBytes).toBe(160 * MB)
     expect(quota.usedBytes).toBe(120 * MB)
     expect(quota.isOverQuota).toBe(false)
+  })
+
+  it('配额 CAS 冲突后读回已同步结果，避免首次读取直接失败', async () => {
+    const staleQuota = {
+      _id: 'u1',
+      userId: 'u1',
+      baseQuotaBytes: MEMBER_STORAGE_QUOTA_BYTES,
+      addonQuotaBytes: 0,
+      bonusQuotaBytes: 0,
+      quotaBytes: MEMBER_STORAGE_QUOTA_BYTES,
+      usedBytes: 3 * MB,
+      reservedBytes: 2 * MB,
+      membershipActive: true,
+      version: 1,
+    }
+    const syncedQuota = {
+      ...staleQuota,
+      baseQuotaBytes: NORMAL_STORAGE_QUOTA_BYTES,
+      quotaBytes: NORMAL_STORAGE_QUOTA_BYTES,
+      membershipActive: false,
+      membershipLevel: 'basic',
+      membershipExpireAt: NOW - 1,
+      version: 2,
+    }
+    const db = makeFakeDb({
+      [MEMBERSHIPS_COLLECTION]: [
+        { _id: 'm1', userId: 'u1', level: 'basic', expireAt: NOW - 1 },
+      ],
+      [USER_STORAGE_QUOTAS_COLLECTION]: [staleQuota],
+    })
+    const collection = db.collection.bind(db)
+    let quotaReads = 0
+
+    db.collection = (name) => {
+      const chain = collection(name)
+      if (name !== USER_STORAGE_QUOTAS_COLLECTION)
+        return chain
+
+      const doc = chain.doc.bind(chain)
+      chain.doc = (id) => {
+        const docChain = doc(id)
+        const get = docChain.get.bind(docChain)
+        docChain.get = async () => {
+          quotaReads += 1
+          if (quotaReads > 5)
+            return { data: { ...syncedQuota } }
+          return await get()
+        }
+        return docChain
+      }
+
+      const where = chain.where.bind(chain)
+      chain.where = (query) => {
+        const whereChain = where(query)
+        whereChain.update = async () => ({ updated: 0, modifiedCount: 0 })
+        return whereChain
+      }
+
+      return chain
+    }
+
+    const quota = await getStorageQuota(db, { userId: 'u1', now: NOW })
+
+    expect(quota.quotaBytes).toBe(NORMAL_STORAGE_QUOTA_BYTES)
+    expect(quota.usedBytes).toBe(3 * MB)
+    expect(quota.reservedBytes).toBe(2 * MB)
+    expect(quota.membership.isActive).toBe(false)
   })
 
   it('reserve 拦截单文件 200MB 和总额度超限', async () => {
