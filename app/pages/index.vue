@@ -38,7 +38,7 @@ const heroLinks = page.hero.links
             {{ page.headline }}
           </span>
           <h1 class="ylf-dreamy-display ylf-hero-shadow mt-5 text-4xl leading-[1.15] text-white sm:text-5xl lg:text-6xl">
-            <MDC :value="page.title" unwrap="p" />
+            云之彼端，<span class="ylf-gradient-text ylf-gradient-text--sun">乐趣</span>无限
           </h1>
           <p class="ylf-hero-shadow mt-5 max-w-xl text-base/relaxed text-white/90 sm:text-lg/relaxed">
             {{ page.description }}

@@ -1,5 +1,7 @@
 <script setup lang="ts">
 const route = useRoute()
+const user = useState<{ id?: string } | null>('auth_user', () => null)
+const hasUser = computed(() => Boolean(user.value?.id))
 
 const items = computed(() => [
   {
@@ -45,7 +47,7 @@ const items = computed(() => [
     <template #right>
       <UColorModeButton />
       <ClientOnly>
-        <NotificationBell />
+        <LazyNotificationBell v-if="hasUser" />
         <DeferredUserMenu />
       </ClientOnly>
     </template>

@@ -27,10 +27,6 @@ export default defineNuxtConfig({
   app: {
     head: {
       link: [
-        // 首屏很快会发起 auth 请求，主 API 域名用 preconnect 提前完成 DNS+TCP+TLS
-        { rel: 'preconnect', href: 'https://tcb-api.tencentcloudapi.com', crossorigin: '' },
-        // gateway 域名按需调用，dns-prefetch 解析即可
-        { rel: 'dns-prefetch', href: `https://${process.env.NUXT_PUBLIC_CLOUDBASE_ENV_ID || 'yunlefun-8g7ybcxc7345c490'}.api.tcloudbasegateway.com` },
         // 梦幻晴空品牌字体（站酷小薇 ZCOOL XiaoWei + Baloo 2），走国内镜像 loli.net；
         // 镜像 CSS 已按 unicode-range 切片，浏览器只下载页面实际用到的字形分片；
         // 用 preload→onload 切回 stylesheet，避免字体 CSS 往返阻塞首屏渲染（display=swap 期间用系统字体兜底）。
@@ -183,23 +179,6 @@ export default defineNuxtConfig({
     // 落地页数据（content/*.yml）直接 import，无需 @nuxt/content（见 docs/nuxt-content-removal.md）
     // cast：@rollup/plugin-yaml 与 vite 内置 rollup 版本不同，类型不兼容（运行时无碍）
     plugins: [yaml() as unknown as Plugin],
-    build: {
-      rollupOptions: {
-        output: {
-          manualChunks(id) {
-            if (
-              id.includes('/node_modules/.pnpm/@cloudbase+')
-              || id.includes('/node_modules/@cloudbase/')
-              || id.includes('/app/composables/useCloudbase.ts')
-              || id.includes('/app/composables/useTcbAuth.ts')
-              || id.includes('/app/composables/auth/')
-            ) {
-              return 'cloudbase-auth'
-            }
-          },
-        },
-      },
-    },
     server: {
       allowedHosts: true,
     },

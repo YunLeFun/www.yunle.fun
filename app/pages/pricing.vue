@@ -13,6 +13,19 @@ interface PricingFaqItem {
 const title = page.value?.seo?.title || page.value?.title
 const description = page.value?.seo?.description || page.value?.description
 const faqItems = computed(() => (page.value?.faq.items ?? []) as PricingFaqItem[])
+const PENDING_ORDER_KEY = 'wxpay:pending-order'
+
+interface PricingMembershipView {
+  isMember: boolean
+  name: string
+  expire: string
+}
+
+interface PricingPurchaseRequest {
+  key: number
+  planId?: PlanId
+  cycle?: BillingCycle
+}
 
 useSeoMeta({
   title,
@@ -21,22 +34,17 @@ useSeoMeta({
   ogDescription: description,
 })
 
-// 支付相关
-const { user } = useTcbAuth()
-const { isActive: isMember, state: membershipState, refresh: refreshMembership } = useMembership()
-const toast = useToast()
-const payment = usePayment()
-const showPaymentModal = ref(false)
-
-// 会员卡展示信息
-const memberName = computed(() => user.value?.nickname || user.value?.login || '晴空会员')
-const memberExpire = computed(() => {
-  const ts = membershipState.value?.expireAt
-  if (!ts)
-    return '—— / ——'
-  const d = new Date(ts)
-  return `${d.getFullYear()} / ${String(d.getMonth() + 1).padStart(2, '0')}`
+const membershipView = reactive<PricingMembershipView>({
+  isMember: false,
+  name: '晴空会员',
+  expire: '—— / ——',
 })
+const shouldProbeMembership = ref(false)
+const purchaseRequest = ref<PricingPurchaseRequest | null>(null)
+
+const isMember = computed(() => membershipView.isMember)
+const memberName = computed(() => membershipView.name)
+const memberExpire = computed(() => membershipView.expire)
 
 // 会员专属权益（6 项，与设计稿一致；多彩图标点缀）
 const BENEFITS = [
@@ -47,14 +55,6 @@ const BENEFITS = [
   { icon: 'i-lucide-shield-off', title: '去广告 · 高级功能', desc: '移除广告，解锁全部高级能力', color: 'var(--ylf-dopa-amber)' },
   { icon: 'i-lucide-headphones', title: '专属客服 · 优先支持', desc: '问题优先响应，专属客服通道', color: 'var(--ylf-dopa-pink)' },
 ]
-
-// H5 跳转支付后回到本页：尝试恢复轮询；同时刷新会员状态
-onMounted(() => {
-  refreshMembership()
-  const resumed = payment.resumePendingOrder()
-  if (resumed)
-    showPaymentModal.value = true
-})
 
 /**
  * 构建月付和年付两个套餐选项
@@ -99,33 +99,37 @@ const billingPlans = computed(() => {
  * 点击套餐按钮
  */
 function handlePurchase(planId: PlanId, cycle: BillingCycle) {
-  if (!user.value) {
-    toast.add({ title: '请先登录后再购买', color: 'warning' })
-    navigateTo(`/login?redirect=/pricing`)
-    return
+  purchaseRequest.value = { key: Date.now(), planId, cycle }
+}
+
+function handlePurchaseClose() {
+  purchaseRequest.value = null
+}
+
+function handleMembershipUpdate(view: PricingMembershipView) {
+  Object.assign(membershipView, view)
+}
+
+function hasPendingMembershipOrder() {
+  if (import.meta.server || typeof sessionStorage === 'undefined')
+    return false
+  try {
+    return Boolean(sessionStorage.getItem(PENDING_ORDER_KEY))
   }
-
-  payment.selectPlan(planId, cycle)
-  showPaymentModal.value = true
+  catch {
+    return false
+  }
 }
 
-/**
- * 切换计费周期
- */
-function handleSwitchCycle(cycle: 'month' | 'year') {
-  if (!payment.selectedPlan.value)
-    return
-  payment.selectPlan(payment.selectedPlan.value, cycle)
-}
+// 公开首屏保持静态；登录态/支付状态在客户端按需加载。
+onMounted(() => {
+  if (hasPendingMembershipOrder())
+    purchaseRequest.value = { key: Date.now() }
 
-function handleConfirmPay() {
-  payment.createOrder()
-}
-
-function handleClose() {
-  showPaymentModal.value = false
-  payment.reset()
-}
+  window.setTimeout(() => {
+    shouldProbeMembership.value = true
+  }, 1200)
+})
 </script>
 
 <template>
@@ -317,21 +321,19 @@ function handleClose() {
       </section>
     </UContainer>
 
-    <!-- 支付弹窗 -->
-    <PaymentModal
-      v-model:open="showPaymentModal"
-      :plan-name="payment.selectedPlanName.value"
-      :price="payment.selectedPlanPrice.value"
-      :billing-cycle="payment.selectedCycle.value"
-      :phase="payment.phase.value"
-      :loading="payment.loading.value"
-      :error-message="payment.errorMessage.value"
-      :code-url="payment.currentOrder.value?.codeUrl"
-      :plan-id="payment.selectedPlan.value ?? undefined"
-      @confirm="handleConfirmPay"
-      @close="handleClose"
-      @switch-cycle="handleSwitchCycle"
-    />
+    <ClientOnly>
+      <LazyPricingMembershipProbe
+        v-if="shouldProbeMembership"
+        @update="handleMembershipUpdate"
+      />
+      <LazyPricingPaymentController
+        v-if="purchaseRequest"
+        :key="purchaseRequest.key"
+        :plan-id="purchaseRequest.planId"
+        :cycle="purchaseRequest.cycle"
+        @close="handlePurchaseClose"
+      />
+    </ClientOnly>
   </div>
 </template>
 

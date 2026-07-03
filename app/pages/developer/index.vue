@@ -37,10 +37,7 @@ const featureIconColors = [
       </template>
 
       <template #title>
-        <MDC
-          :value="page.title"
-          unwrap="p"
-        />
+        云乐坊 <span class="ylf-gradient-text">开发者平台</span>
       </template>
     </UPageHero>
 

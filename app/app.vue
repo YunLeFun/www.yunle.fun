@@ -30,6 +30,7 @@ useSeoMeta({
 // 服务端 signIn 幂等（按东八区自然日只入账一次），autoClaim 再按 uid 去重，重复触发安全。
 const toast = useToast()
 const user = useState<{ id?: string } | null>('auth_user', () => null)
+const hasUser = computed(() => Boolean(user.value?.id))
 
 async function claimDailyReward(userId: string) {
   const { useSignIn } = await import('~/composables/useSignIn')
@@ -77,6 +78,6 @@ watch(() => user.value?.id, (id) => {
     </NuxtLayout>
 
     <!-- 新手机号用户首次登录引导（设置昵称 / 头像），由 needsOnboarding 状态驱动 -->
-    <OnboardingModal />
+    <LazyOnboardingModal v-if="hasUser" />
   </UApp>
 </template>

@@ -2,6 +2,8 @@ import cloudbase from '@cloudbase/js-sdk'
 
 type TcbApp = ReturnType<typeof cloudbase.init>
 type TcbAuth = ReturnType<TcbApp['auth']>
+const TCB_API_PRECONNECT_ID = 'ylf-cloudbase-api-preconnect'
+const TCB_GATEWAY_DNS_PREFETCH_ID = 'ylf-cloudbase-gateway-dns-prefetch'
 
 /** @cloudbase/oauth 的 SimpleStorage 接口（SDK 用它读写 credentials_<env> 等） */
 interface SimpleStorage {
@@ -37,6 +39,36 @@ function createMemoryStorage(): SimpleStorage {
   }
 }
 
+function appendResourceHint(id: string, rel: string, href: string, crossOrigin?: string) {
+  if (typeof document === 'undefined' || document.getElementById(id))
+    return
+
+  const link = document.createElement('link')
+  link.id = id
+  link.rel = rel
+  link.href = href
+  if (crossOrigin !== undefined)
+    link.crossOrigin = crossOrigin
+  document.head.appendChild(link)
+}
+
+function ensureCloudbaseResourceHints(envId: string) {
+  if (import.meta.server)
+    return
+
+  appendResourceHint(
+    TCB_API_PRECONNECT_ID,
+    'preconnect',
+    'https://tcb-api.tencentcloudapi.com',
+    '',
+  )
+  appendResourceHint(
+    TCB_GATEWAY_DNS_PREFETCH_ID,
+    'dns-prefetch',
+    `https://${envId}.api.tcloudbasegateway.com`,
+  )
+}
+
 /**
  * CloudBase SDK 全局单例（SSR 安全）
  * 使用 useNuxtApp 在请求级别隔离实例
@@ -49,6 +81,8 @@ export function useCloudbase() {
   if (import.meta.server) {
     return { app: null as unknown as TcbApp, auth: null as unknown as TcbAuth }
   }
+
+  ensureCloudbaseResourceHints(config.public.cloudbaseEnvId as string)
 
   // 已初始化则直接返回缓存
   const cachedApp = nuxtApp._cloudbaseApp as TcbApp | undefined
