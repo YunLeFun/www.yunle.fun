@@ -188,6 +188,32 @@
 - Saier 笔刷库：`kind: "brush-library"`、`slotKey: "default"`、固定文件名 `brush-library.saier.brushes.json`、`contentType: "application/json"`，单文件额外限制 256KiB。
 - `brush-library` 是 singleton：`finalizeStorageUpload` 成功后，同一 `userId + appId + kind + slotKey` 只保留最新 active 文件，并释放旧文件 quota。
 
+### `downloadStorageFile`
+
+下载当前用户的 active 文件。服务端只校验登录态归属、文件状态、app/kind policy 和 `maxBytes`，不解析业务格式；
+小文件会随函数响应返回 `text`，较大文件返回 CloudBase 临时下载 URL，由前端自行 fetch。
+
+入参：
+
+```jsonc
+{
+  "action": "downloadStorageFile",
+  "reservationId": "<reservationId>",
+  "maxBytes": 4194304
+}
+```
+
+返回：
+
+```jsonc
+{
+  "file": { "reservationId": "<reservationId>", "status": "active" },
+  "quota": { "usedBytes": 512 },
+  "downloadUrl": "https://...",
+  "text": "{...}" // 小文件才返回
+}
+```
+
 ### `deleteStorageFile`
 
 删除对象并释放用量。服务端会先调用 CloudBase Storage `deleteFile`，成功后把索引标记为 `deleted`，

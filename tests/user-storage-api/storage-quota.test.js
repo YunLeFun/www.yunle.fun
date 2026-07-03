@@ -1,9 +1,11 @@
+import { Buffer } from 'node:buffer'
 import { describe, expect, it } from 'vitest'
 
 import { MEMBERSHIPS_COLLECTION } from '../../cloudfunctions/user-storage-api/lib/orders.js'
 import {
   cleanupExpiredReservations,
   deleteStorageFile,
+  downloadStorageFile,
   finalizeStorageUpload,
   getStorageQuota,
   listStorageFiles,
@@ -408,6 +410,80 @@ describe('user-storage-api storage quota', () => {
     const quota = await getStorageQuota(db, { userId: 'u1', now: NOW + 3 })
     expect(quota.usedBytes).toBe(25 * MB)
     expect(db._store[USER_STORAGE_FILES_COLLECTION][0].status).toBe(STORAGE_FILE_STATUS.ACTIVE)
+  })
+
+  it('downloadStorageFile 只允许当前用户下载 active 文件并按 maxBytes 限制内联内容', async () => {
+    const db = makeFakeDb()
+    const reserved = await reserveStorageUpload(db, {
+      userId: 'u1',
+      appId: 'saier',
+      contentType: 'application/json',
+      fileName: 'canvas.saier.project.json',
+      kind: 'project',
+      reservationId: 'res_down1',
+      sizeBytes: 1024,
+      now: NOW,
+    })
+    const fileId = fileIdFor(reserved.file.storageKey)
+    await finalizeStorageUpload(
+      db,
+      { userId: 'u1', reservationId: 'res_down1', fileId, now: NOW + 1 },
+      { readFileInfo: async () => ({ sizeBytes: 512, contentType: 'application/json' }) },
+    )
+
+    const downloaded = await downloadStorageFile(
+      db,
+      { userId: 'u1', reservationId: 'res_down1', maxBytes: 1024, now: NOW + 2 },
+      {
+        downloadFile: async () => ({ fileContent: Buffer.from('{"ok":true}', 'utf8') }),
+        getTempFileURL: async () => 'https://temp.example/project.json',
+      },
+    )
+
+    expect(downloaded.file).toMatchObject({
+      reservationId: 'res_down1',
+      status: STORAGE_FILE_STATUS.ACTIVE,
+      userId: 'u1',
+    })
+    expect(downloaded.downloadUrl).toBe('https://temp.example/project.json')
+    expect(downloaded.text).toBe('{"ok":true}')
+
+    await expect(
+      downloadStorageFile(
+        db,
+        { userId: 'u2', reservationId: 'res_down1', maxBytes: 1024, now: NOW + 3 },
+        { downloadFile: async () => ({ fileContent: Buffer.from('{}') }) },
+      ),
+    ).rejects.toThrow(/文件不存在/)
+
+    await expect(
+      downloadStorageFile(
+        db,
+        { userId: 'u1', reservationId: 'res_down1', maxBytes: 128, now: NOW + 4 },
+        { downloadFile: async () => ({ fileContent: Buffer.from('{}') }) },
+      ),
+    ).rejects.toThrow(/下载上限/)
+  })
+
+  it('downloadStorageFile 拒绝未 finalize 的文件', async () => {
+    const db = makeFakeDb()
+    await reserveStorageUpload(db, {
+      userId: 'u1',
+      appId: 'saier',
+      sizeBytes: 1024,
+      fileName: 'draft.saier.project.json',
+      kind: 'project',
+      reservationId: 'res_down2',
+      now: NOW,
+    })
+
+    await expect(
+      downloadStorageFile(
+        db,
+        { userId: 'u1', reservationId: 'res_down2', maxBytes: 1024, now: NOW + 1 },
+        { downloadFile: async () => ({ fileContent: Buffer.from('{}') }) },
+      ),
+    ).rejects.toThrow(/不能下载/)
   })
 
   it('清理过期 reserve 会释放 reservedBytes', async () => {

@@ -19,6 +19,7 @@ describe('user-storage-api storage implementation sync', () => {
       'finalizeStorageUpload',
       'listStorageFiles',
       'deleteStorageFile',
+      'downloadStorageFile',
     ]
 
     expect(existsSync(legacyStoragePath)).toBe(false)

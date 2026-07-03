@@ -11,7 +11,7 @@
 | `wxpay-order`       | 创建支付订单（会员 / 云币充值）+ 查询订单 + 对账自愈                                                     | SDK `callFunction`     | 30s  |
 | `wxpay-notify`      | 接收微信支付异步回调通知                                                                                 | HTTP 访问服务          | 10s  |
 | `account-api`       | 平台账户中心：账户 / 云币 / 签到 / 投币 / 关注·粉丝                                                      | SDK `callFunction`     | 10s  |
-| `user-storage-api`  | 通用用户云空间：共享 quota / 上传预留 / 确认 / 文件索引 / 删除 / app-kind policy                         | SDK `callFunction`     | 10s  |
+| `user-storage-api`  | 通用用户云空间：共享 quota / 上传预留 / 确认 / 文件索引 / 下载 / 删除 / app-kind policy                  | SDK `callFunction`     | 10s  |
 | `ai-gateway`        | 通用「登录计费 + 受控 AI 生成」网关：验登录 + 按 `appId` 服务端计价 + 管理员身份调 AI + `bizId` 幂等扣费 | 登录态 `/v1/functions` | 30s  |
 | `iap-order`         | Apple 内购（IAP）凭据校验 + 权益发放                                                                     | SDK `callFunction`     | 30s  |
 | `appstore-notify`   | 接收 App Store Server Notifications V2（退款 / 撤销自动处理）                                            | HTTP 访问服务          | 30s  |

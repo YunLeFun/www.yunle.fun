@@ -9,6 +9,7 @@
 
 'use strict'
 
+const { Buffer } = require('node:buffer')
 const crypto = require('node:crypto')
 
 const { isMembershipActive } = require('./lib/membership')
@@ -23,6 +24,7 @@ const NORMAL_STORAGE_QUOTA_BYTES = 100 * MB
 const MEMBER_STORAGE_QUOTA_BYTES = 1024 * MB
 const SINGLE_FILE_LIMIT_BYTES = 200 * MB
 const BRUSH_LIBRARY_MAX_BYTES = 256 * 1024
+const INLINE_DOWNLOAD_MAX_BYTES = 4 * MB
 const STORAGE_RESERVATION_TTL_MS = 30 * 60 * 1000
 const STORAGE_QUOTA_MAX_RETRY = 5
 
@@ -78,6 +80,15 @@ function assertByteSize(value, name) {
   if (!Number.isSafeInteger(n) || n <= 0)
     throw new Error(`${name} 必须为正整数 bytes`)
   return n
+}
+
+function assertOptionalPositiveInteger(value, name, fallback, max) {
+  if (value == null)
+    return fallback
+  const n = Number(value)
+  if (!Number.isSafeInteger(n) || n <= 0)
+    throw new Error(`${name} 必须为正整数`)
+  return Math.min(n, max)
 }
 
 function assertOptionalString(value, name, maxLength) {
@@ -874,6 +885,82 @@ async function deleteStorageFile(db, input, options = {}) {
   }
 }
 
+async function downloadStorageFile(db, input, options = {}) {
+  if (!input || typeof input !== 'object')
+    throw new Error('参数必须为对象')
+
+  const userId = assertUserId(input.userId)
+  const file = await findStorageFile(db, {
+    userId,
+    reservationId: input.reservationId,
+    fileId: input.fileId,
+    storageKey: input.storageKey,
+  })
+  if (!file)
+    throw new Error('文件不存在')
+  if (file.status !== STORAGE_FILE_STATUS.ACTIVE)
+    throw new Error(`当前文件状态不能下载: ${file.status}`)
+  if (!file.fileId)
+    throw new Error('文件对象不存在')
+
+  const policy = resolveStoredFilePolicy(file)
+  const maxBytes = assertOptionalPositiveInteger(input.maxBytes, 'maxBytes', INLINE_DOWNLOAD_MAX_BYTES, policy.maxBytes)
+  const sizeBytes = safeNonNegativeInteger(file.sizeBytes)
+  if (sizeBytes <= 0)
+    throw new Error('文件大小无效')
+  if (sizeBytes > maxBytes)
+    throw new Error(`文件超过下载上限: ${maxBytes} bytes`)
+
+  let downloadUrl = ''
+  if (options.getTempFileURL)
+    downloadUrl = await options.getTempFileURL(file.fileId)
+
+  let text
+  if (sizeBytes <= INLINE_DOWNLOAD_MAX_BYTES && options.downloadFile) {
+    const content = await options.downloadFile(file.fileId)
+    text = downloadFileContentToUtf8Text(content)
+    const actualBytes = Buffer.byteLength(text, 'utf8')
+    if (actualBytes > INLINE_DOWNLOAD_MAX_BYTES || actualBytes > maxBytes)
+      throw new Error(`文件超过下载上限: ${maxBytes} bytes`)
+  }
+
+  if (!text && !downloadUrl)
+    throw new Error('CloudBase 文件下载能力不可用')
+
+  const quota = await syncUserStorageQuota(db, { userId, now: input.now || Date.now() })
+  return {
+    file: toFileSummary(file),
+    quota: toQuotaSnapshot(quota),
+    ...(downloadUrl ? { downloadUrl } : {}),
+    ...(text != null ? { text } : {}),
+  }
+}
+
+function downloadFileContentToUtf8Text(result) {
+  if (result && result.code && !isSuccessCode(result.code))
+    throw new Error(`读取云存储对象失败: ${result.code}`)
+
+  const content = result && typeof result === 'object' && Object.hasOwn(result, 'fileContent')
+    ? result.fileContent
+    : result
+
+  if (typeof content === 'string')
+    return content
+  if (Buffer.isBuffer(content))
+    return content.toString('utf8')
+  if (content instanceof ArrayBuffer)
+    return Buffer.from(content).toString('utf8')
+  if (ArrayBuffer.isView(content))
+    return Buffer.from(content.buffer, content.byteOffset, content.byteLength).toString('utf8')
+
+  throw new Error('读取云存储对象失败: EMPTY_CONTENT')
+}
+
+function isSuccessCode(code) {
+  const normalized = String(code).toLowerCase()
+  return normalized === 'success' || normalized === 'ok' || normalized === '0'
+}
+
 async function listStorageFiles(db, { userId, appId, kind, slotKey, skip = 0, limit = 20, includeDeleted = false }) {
   const uid = assertUserId(userId)
   const n = Math.min(Math.max(Number(limit) || 20, 1), 100)
@@ -913,6 +1000,7 @@ module.exports = {
   MEMBER_STORAGE_QUOTA_BYTES,
   SINGLE_FILE_LIMIT_BYTES,
   BRUSH_LIBRARY_MAX_BYTES,
+  INLINE_DOWNLOAD_MAX_BYTES,
   STORAGE_RESERVATION_TTL_MS,
   STORAGE_FILE_STATUS,
   STORAGE_FILE_KIND,
@@ -920,6 +1008,7 @@ module.exports = {
   getStorageQuota,
   reserveStorageUpload,
   finalizeStorageUpload,
+  downloadStorageFile,
   deleteStorageFile,
   listStorageFiles,
   cleanupExpiredReservations,

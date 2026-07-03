@@ -11,6 +11,7 @@ const cloudbase = require('@cloudbase/node-sdk')
 
 const {
   deleteStorageFile,
+  downloadStorageFile,
   finalizeStorageUpload,
   getStorageQuota,
   listStorageFiles,
@@ -74,9 +75,37 @@ async function dispatch(event, deps = {}) {
         { ...payload, userId, now: Date.now() },
         { deleteFile: fileId => cloudbaseApp.deleteFile({ fileList: [fileId] }) },
       )
+    case 'downloadStorageFile':
+      return await downloadStorageFile(
+        database,
+        { ...payload, userId, now: Date.now() },
+        {
+          ...(typeof cloudbaseApp.downloadFile === 'function'
+            ? { downloadFile: fileId => cloudbaseApp.downloadFile({ fileID: fileId }) }
+            : {}),
+          getTempFileURL: fileId => readCloudbaseTempFileURL(cloudbaseApp, fileId),
+        },
+      )
     default:
       throw new Error(`未知 action: ${action}`)
   }
+}
+
+async function readCloudbaseTempFileURL(cloudbaseApp, fileId) {
+  if (!cloudbaseApp || typeof cloudbaseApp.getTempFileURL !== 'function')
+    return ''
+  const res = await cloudbaseApp.getTempFileURL({ fileList: [fileId] })
+  const info = Array.isArray(res?.fileList) ? res.fileList[0] : null
+  if (!info)
+    return ''
+  if (info.code && !isSuccessCode(info.code))
+    throw new Error(`生成下载链接失败: ${info.code}`)
+  return info.tempFileURL || info.download_url || info.downloadUrl || info.downloadUrlEncoded || ''
+}
+
+function isSuccessCode(code) {
+  const normalized = String(code).toLowerCase()
+  return normalized === 'success' || normalized === 'ok' || normalized === '0'
 }
 
 exports.main = async (event) => {
@@ -93,4 +122,5 @@ exports._private = {
   ANON_UIDS,
   dispatch,
   getCallerUid,
+  readCloudbaseTempFileURL,
 }
