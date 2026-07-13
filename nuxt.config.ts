@@ -87,7 +87,7 @@ export default defineNuxtConfig({
       // 内存化 token opt-in（需 cookieSession=true）：token 只存内存、不落 localStorage（XSS at-rest 硬化）。
       // 默认 false——启用前需先做「会话就绪前不发鉴权请求」门控，否则启动竞态会 403。见 docs/cookie-session-migration.md。
       cookieSessionMemory: process.env.NUXT_PUBLIC_COOKIE_SESSION_MEMORY === 'true',
-      ssoAllowedTargetOrigins: process.env.NUXT_PUBLIC_SSO_ALLOWED_TARGET_ORIGINS || 'https://*.yunle.fun,https://*.yunyoujun.cn,https://*.elpsy.cn',
+      ssoAllowedTargetOrigins: process.env.NUXT_PUBLIC_SSO_ALLOWED_TARGET_ORIGINS || 'https://*.yunle.fun,https://*.yunyoujun.cn,https://*.elpsy.cn,https://zero-echo.advjs.org',
       // SSO 本地联调：dev 默认允许 HTTP loopback 任意端口；生产如需用线上主站调本地子应用，必须显式 opt-in。
       ssoAllowLocalTargetOrigins: process.env.NUXT_PUBLIC_SSO_ALLOW_LOCAL_TARGET_ORIGINS === 'true' || process.env.NODE_ENV === 'development',
       enableH5Pay: process.env.NUXT_PUBLIC_ENABLE_H5_PAY === 'true',

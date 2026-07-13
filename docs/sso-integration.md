@@ -168,7 +168,7 @@ session 一经注入，子站就持有一份**独立的登录态**，与主站�
 ```bash
 # .env
 # 逗号分隔，支持「精确 origin」与「HTTPS 通配子域名」两种写法
-NUXT_PUBLIC_SSO_ALLOWED_TARGET_ORIGINS=https://*.yunle.fun,https://*.yunyoujun.cn
+NUXT_PUBLIC_SSO_ALLOWED_TARGET_ORIGINS=https://*.yunle.fun,https://*.yunyoujun.cn,https://zero-echo.advjs.org
 ```
 
 **新增一个子站**：把它的 origin 追加进去即可，例如再接一个独立域名 `https://example.com`

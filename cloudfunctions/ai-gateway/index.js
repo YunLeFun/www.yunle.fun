@@ -23,10 +23,13 @@ const process = require('node:process')
 const cloudbase = require('@cloudbase/node-sdk')
 
 const { deductCoinForUid, getAccountForUid } = require('./lib/account-proxy')
+const { verifyAppRequest } = require('./lib/attestation')
+const { releaseDailyQuota, reserveDailyQuota, runQuotaChat } = require('./lib/quota')
 const { runMeteredChat } = require('./lib/relay')
 const { assertBizId, assertMessages, isAnonUid } = require('./lib/validation')
 
 const app = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV })
+const db = app.database()
 
 /** account-api 转调器（同 env 函数间调用，取 result） */
 const callAccountApi = data => app.callFunction({ name: 'account-api', data }).then(r => r.result)
@@ -37,7 +40,15 @@ const callAccountApi = data => app.callFunction({ name: 'account-api', data }).t
  * 没有任何业务域知识（如何构造 prompt、如何解析结果都在应用侧）。
  */
 const APP_REGISTRY = {
-  'ai-sfc': { group: 'custom-deepseek-open', model: 'deepseek-v4-flash', cost: 1 },
+  'ai-sfc': { group: 'custom-deepseek-open', model: 'deepseek-v4-flash', billing: 'coin', cost: 1 },
+  'zero-echo-2026': {
+    group: 'custom-deepseek-open',
+    model: 'deepseek-v4-flash',
+    billing: 'daily_quota',
+    memberDailyLimit: 27,
+    signingSecretEnv: 'ZERO_ECHO_APP_SIGNING_SECRET',
+    standardDailyLimit: 9,
+  },
 }
 
 /** 当前调用者 uid（CloudBase Auth）；匿名 / 占位身份一律视为未登录返回 '' */
@@ -82,6 +93,31 @@ async function handleChat(event) {
   }
 
   const uid = getCallerUid()
+
+  if (appCfg.billing === 'daily_quota') {
+    const signingSecret = process.env[appCfg.signingSecretEnv] || ''
+    const attestationValid = verifyAppRequest(signingSecret, {
+      appId,
+      bizId,
+      messages,
+      signature: event.attestation?.signature,
+      timestamp: event.attestation?.timestamp,
+    })
+    if (!attestationValid)
+      return { ok: false, code: 'forbidden', message: '应用来源校验失败。' }
+
+    if (!uid)
+      return { ok: false, code: 'unauthorized', message: '请先登录后再使用。' }
+
+    const account = await getAccountForUid(callAccountApi, { serviceToken, userId: uid })
+    const memberActive = account?.membership?.isActive === true
+    const limit = memberActive ? appCfg.memberDailyLimit : appCfg.standardDailyLimit
+    return runQuotaChat({ uid, limit, messages }, {
+      reserve: () => reserveDailyQuota(db, { uid, appId, limit }),
+      generate: msgs => generateWithAdmin(appCfg, msgs),
+      release: reservation => releaseDailyQuota(db, reservation),
+    })
+  }
 
   return runMeteredChat({ uid, cost: appCfg.cost, messages, bizId }, {
     getBalance: async (u) => {

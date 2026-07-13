@@ -62,25 +62,26 @@
 
 ### ai-gateway 环境变量
 
-| 变量名                       | 说明                                                                                                                           | 获取方式                                       |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- |
-| `ACCOUNT_API_INTERNAL_TOKEN` | 内部转调 `account-api`（查余额 `getAccountForUser` / 扣云币 `deductCoinForUser`）的共享密钥，**须与 `account-api` 配同一值**。 | 与 `account-api` / `desktop-auth` 中的值相同。 |
+| 变量名                         | 说明                                                                                                                           | 获取方式                                                        |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------- |
+| `ACCOUNT_API_INTERNAL_TOKEN`   | 内部转调 `account-api`（查余额 `getAccountForUser` / 扣云币 `deductCoinForUser`）的共享密钥，**须与 `account-api` 配同一值**。 | 与 `account-api` / `desktop-auth` 中的值相同。                  |
+| `ZERO_ECHO_APP_SIGNING_SECRET` | 《零点回声》EdgeOne 调用的 HMAC 应用签名密钥，只在服务端使用。                                                                 | 与 EdgeOne 的 `YUNLE_ZERO_ECHO_SIGNING_SECRET` 配置同一随机值。 |
 
 `ai-gateway` 是**通用**「登录计费 + 受控 AI 生成」网关：只收发通用 `messages` / `content`，**不含任何业务语义**（不认识「春联」之类业务概念）——prompt 构造与结果解析留在各接入应用自己手里。计价 / 模型 / AI 凭证全锁在服务端，端用户改不了。
 
 **入口**：接入应用（如 `ai-sfc`）的服务端携带**用户登录态**（access_token）经 `/v1/functions/ai-gateway` 调用。
 
 - action：`chat`
-- 入参：`{ action: 'chat', appId, messages, bizId }`（`messages` 为 OpenAI 风格 `{ role, content }` 数组，`bizId` 为幂等键、必填）
-- 返回：`{ ok: true, content, balance, deduped }`，或 `{ ok: false, code, message }`（`code`：`unauthorized` / `insufficient` / `ai_failed` / `unknown_app` / `bad_request`）
+- 入参：`{ action: 'chat', appId, messages, bizId, attestation? }`（`messages` 为 OpenAI 风格 `{ role, content }` 数组，`bizId` 必填；要求应用签名的注册项还需 `attestation`）
+- 返回：按云币计费时为 `{ ok: true, content, balance, deduped }`；按日额度时为 `{ ok: true, content, quota }`；失败统一为 `{ ok: false, code, message, quota? }`
 
 **处理流程**：
 
 1. `app.auth().getUserInfo().uid` 取登录态 uid（匿名 / `anon` 占位身份一律视为未登录，拒绝，避免命中共享占位账户）；
-2. 按 `appId` 查**服务端权威**注册表 `APP_REGISTRY`（端用户无法篡改 `cost` / `model` / `group`）——目前仅 `ai-sfc → { group: 'custom-deepseek-open', model: 'deepseek-v4-flash', cost: 1 }`；新接入一个应用 = 在 `index.js` 加一条 + 重新部署；
-3. 余额预检：凭 `ACCOUNT_API_INTERNAL_TOKEN` 转调 `account-api` 的 `getAccountForUser` 读余额，不够 `cost` 直接拒（省下白生成的模型开销）；
+2. 按 `appId` 查**服务端权威**注册表 `APP_REGISTRY`（端用户无法篡改计价 / 模型 / group）。`ai-sfc` 按次扣 1 云币；`zero-echo-2026` 按 Asia/Shanghai 自然日提供普通账号 9 次、有效会员 27 次成功生成；
+3. 需要应用签名的注册项先校验 HMAC 和时间窗，再读取登录账户；云币策略执行余额预检，日额度策略在 `ai_usage_daily` 原子预占；
 4. `app.ai()` 以**管理员身份**调 CloudBase AI 生成；
-5. 生成成功后转调 `account-api` 的 `deductCoinForUser` 按 `cost` 扣费（`bizId` 幂等）。**生成失败不扣费**；扣费异常不浪费已生成结果，余额回退本地估算（下次刷新校准）。
+5. 云币策略生成成功后按 `bizId` 幂等扣费；日额度策略只保留成功生成的占用，模型失败会回滚本次预占。两种策略均不让失败生成消耗用户权益。
 
 > 🔒 **防白嫖（与 CloudBase 网关权限策略配合）**：AI 由本函数以**管理员身份**（`app.ai()` 走函数内置服务凭证）调用，豁免 deny；而网关侧对 `ai` 资源 **deny 注册 / 匿名用户**，端用户的 access_token 无法直打 `/v1/ai/<group>`，只能经此函数计费生成。`account-api` **零改动**——与 `desktop-auth` 同一「内部服务令牌转调」代理模式（`lib/account-proxy.js`），编排与计费纯逻辑在 `lib/relay.js`、入参校验在 `lib/validation.js`，均有单测覆盖（`tests/ai-gateway/relay.test.js`）。云币 + 跨应用会员整体设计见 [`docs/coin-and-membership.md`](../docs/coin-and-membership.md)。
 
