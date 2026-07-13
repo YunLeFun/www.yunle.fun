@@ -215,3 +215,13 @@ const { result } = await app.callFunction({
 - [ ] 按次扣费接 `deductCoin`（带 `bizId`，处理余额不足）
 - [ ] 充值：跳转 `/wallet` 或内嵌 `useCoinRecharge`
 - [ ] 自测：充值到账、扣费幂等、余额不足提示、会员免扣费
+
+## 8. 受控 AI 日额度应用
+
+`zero-echo-2026` 采用独立于云币的日额度策略：普通用户每天 9 次成功生成，活跃会员每天
+27 次。额度按 Asia/Shanghai 自然日归档在 `ai_usage_daily`，模型失败会回滚本次预占。
+
+该应用不能由浏览器直接免费调用 `ai-gateway`。EdgeOne 服务端必须用
+`ZERO_ECHO_APP_SIGNING_SECRET` 对 `appId + bizId + timestamp + messages digest` 进行 HMAC
+签名；CloudBase 端在读取账户、预占额度和调用模型前校验签名。签名密钥只配置在两端服务端，
+不得写入仓库、浏览器环境变量或日志。
