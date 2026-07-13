@@ -25,6 +25,22 @@ function signAppRequest(secret, input) {
   return crypto.createHmac('sha256', secret).update(createSigningPayload(input)).digest('hex')
 }
 
+function createRateLimitSigningPayload({ appId, clientKey, timestamp }) {
+  return [
+    'v1',
+    'rateLimit',
+    appId,
+    clientKey,
+    String(timestamp),
+  ].join('\n')
+}
+
+function signRateLimitRequest(secret, input) {
+  if (typeof secret !== 'string' || !secret)
+    throw new Error('应用签名密钥未配置')
+  return crypto.createHmac('sha256', secret).update(createRateLimitSigningPayload(input)).digest('hex')
+}
+
 function timingSafeEqualString(left, right) {
   if (typeof left !== 'string' || typeof right !== 'string')
     return false
@@ -54,10 +70,32 @@ function verifyAppRequest(secret, input, options = {}) {
   return timingSafeEqualString(signature, expected)
 }
 
+function verifyRateLimitRequest(secret, input, options = {}) {
+  const now = options.now ?? Date.now()
+  const maxClockSkewMs = options.maxClockSkewMs ?? DEFAULT_MAX_CLOCK_SKEW_MS
+  const timestamp = Number(input?.timestamp)
+  const signature = input?.signature
+
+  if (!Number.isSafeInteger(timestamp) || Math.abs(now - timestamp) > maxClockSkewMs)
+    return false
+
+  let expected = ''
+  try {
+    expected = signRateLimitRequest(secret, { ...input, timestamp })
+  }
+  catch {
+    return false
+  }
+  return timingSafeEqualString(signature, expected)
+}
+
 module.exports = {
   DEFAULT_MAX_CLOCK_SKEW_MS,
+  createRateLimitSigningPayload,
   createSigningPayload,
   hashMessages,
   signAppRequest,
+  signRateLimitRequest,
   verifyAppRequest,
+  verifyRateLimitRequest,
 }

@@ -23,7 +23,8 @@ const process = require('node:process')
 const cloudbase = require('@cloudbase/node-sdk')
 
 const { deductCoinForUid, getAccountForUid } = require('./lib/account-proxy')
-const { verifyAppRequest } = require('./lib/attestation')
+const { verifyAppRequest, verifyRateLimitRequest } = require('./lib/attestation')
+const { reserveIpRateLimit, runIpRateLimit } = require('./lib/ip-rate-limit')
 const { releaseDailyQuota, reserveDailyQuota, runQuotaChat } = require('./lib/quota')
 const { runMeteredChat } = require('./lib/relay')
 const { assertBizId, assertMessages, isAnonUid } = require('./lib/validation')
@@ -46,9 +47,35 @@ const APP_REGISTRY = {
     model: 'deepseek-v4-flash',
     billing: 'daily_quota',
     memberDailyLimit: 27,
+    ipRateLimit: { blockMs: 60_000, limit: 6, windowMs: 60_000 },
     signingSecretEnv: 'ZERO_ECHO_APP_SIGNING_SECRET',
     standardDailyLimit: 9,
   },
+}
+
+async function handleRateLimit(event) {
+  const appId = typeof event.appId === 'string' ? event.appId : ''
+  const appCfg = APP_REGISTRY[appId]
+  const clientKey = typeof event.clientKey === 'string' ? event.clientKey : ''
+  if (!appCfg?.ipRateLimit || !/^[a-f0-9]{64}$/.test(clientKey))
+    return { ok: false, code: 'forbidden', message: '应用来源校验失败。' }
+
+  const signingSecret = process.env[appCfg.signingSecretEnv] || ''
+  const attestationValid = verifyRateLimitRequest(signingSecret, {
+    appId,
+    clientKey,
+    signature: event.attestation?.signature,
+    timestamp: event.attestation?.timestamp,
+  })
+  if (!attestationValid)
+    return { ok: false, code: 'forbidden', message: '应用来源校验失败。' }
+
+  return runIpRateLimit({ appId, clientKey }, {
+    reserve: input => reserveIpRateLimit(db, {
+      ...input,
+      ...appCfg.ipRateLimit,
+    }),
+  })
 }
 
 /** 当前调用者 uid（CloudBase Auth）；匿名 / 占位身份一律视为未登录返回 '' */
@@ -141,6 +168,8 @@ async function dispatch(event) {
   switch (event && event.action) {
     case 'chat':
       return await handleChat(event)
+    case 'rateLimit':
+      return await handleRateLimit(event)
     default:
       throw new Error(`未知 action: ${event && event.action}`)
   }
@@ -186,4 +215,4 @@ exports.main = async (event) => {
   }
 }
 
-exports._private = { dispatch, handleChat, generateWithAdmin, APP_REGISTRY }
+exports._private = { dispatch, handleChat, handleRateLimit, generateWithAdmin, APP_REGISTRY }
