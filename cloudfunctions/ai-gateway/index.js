@@ -24,6 +24,14 @@ const cloudbase = require('@cloudbase/node-sdk')
 
 const { deductCoinForUid, getAccountForUid } = require('./lib/account-proxy')
 const { verifyAppRequest, verifyRateLimitRequest } = require('./lib/attestation')
+const {
+  auditAction,
+  auditMessageCount,
+  auditOutcome,
+  auditRequestId,
+  buildAuditRecord,
+  emitAuditLog,
+} = require('./lib/audit-log')
 const { reserveIpRateLimit, runIpRateLimit } = require('./lib/ip-rate-limit')
 const { releaseDailyQuota, reserveDailyQuota, runQuotaChat } = require('./lib/quota')
 const { runMeteredChat } = require('./lib/relay')
@@ -31,6 +39,7 @@ const { assertBizId, assertMessages, isAnonUid } = require('./lib/validation')
 
 const app = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV })
 const db = app.database()
+const writeAuditLog = message => process.stdout.write(`${message}\n`)
 
 /** account-api 转调器（同 env 函数间调用，取 result） */
 const callAccountApi = data => app.callFunction({ name: 'account-api', data }).then(r => r.result)
@@ -171,7 +180,7 @@ async function dispatch(event) {
     case 'rateLimit':
       return await handleRateLimit(event)
     default:
-      throw new Error(`未知 action: ${event && event.action}`)
+      throw new Error('未知 action')
   }
 }
 
@@ -186,7 +195,9 @@ const CORS_HEADERS = {
  *   - SDK callFunction / HTTP /v1/functions（带登录态）：event = { action, ... }，返回纯对象。
  *   - HTTP 访问服务：event = { httpMethod, headers, body(JSON 字符串) }，返回 { statusCode, headers, body }。
  */
-exports.main = async (event) => {
+exports.main = async (event, context = {}) => {
+  const startedAt = Date.now()
+  const requestId = auditRequestId(context)
   const isHttp = !!(event && event.httpMethod)
   if (isHttp && event.httpMethod === 'OPTIONS')
     return { statusCode: 204, headers: CORS_HEADERS, body: '' }
@@ -197,21 +208,45 @@ exports.main = async (event) => {
       payload = event.body ? JSON.parse(event.body) : {}
     }
     catch {
-      return { statusCode: 400, headers: CORS_HEADERS, body: JSON.stringify({ ok: false, code: 'bad_request', message: '请求体不是合法 JSON' }) }
+      const result = { ok: false, code: 'bad_request', message: '请求体不是合法 JSON' }
+      emitAuditLog(writeAuditLog, buildAuditRecord({
+        action: 'unknown',
+        durationMs: Date.now() - startedAt,
+        messageCount: 0,
+        outcome: auditOutcome(result),
+        requestId,
+      }))
+      return { statusCode: 400, headers: CORS_HEADERS, body: JSON.stringify(result) }
     }
   }
 
+  const action = auditAction(payload)
+  const messageCount = auditMessageCount(payload)
   try {
     const result = await dispatch(payload)
+    emitAuditLog(writeAuditLog, buildAuditRecord({
+      action,
+      durationMs: Date.now() - startedAt,
+      messageCount,
+      outcome: auditOutcome(result),
+      requestId,
+    }))
     return isHttp
       ? { statusCode: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }, body: JSON.stringify(result) }
       : result
   }
-  catch (err) {
-    console.error('[ai-gateway] 处理失败:', payload && payload.action, err.message)
-    if (isHttp)
-      return { statusCode: 500, headers: CORS_HEADERS, body: JSON.stringify({ ok: false, code: 'error', message: err.message }) }
-    throw err
+  catch {
+    const result = { ok: false, code: 'error', message: '服务暂时不可用。' }
+    emitAuditLog(writeAuditLog, buildAuditRecord({
+      action,
+      durationMs: Date.now() - startedAt,
+      messageCount,
+      outcome: 'error',
+      requestId,
+    }))
+    return isHttp
+      ? { statusCode: 500, headers: CORS_HEADERS, body: JSON.stringify(result) }
+      : result
   }
 }
 
