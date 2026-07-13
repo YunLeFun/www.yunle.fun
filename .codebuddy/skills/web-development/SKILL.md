@@ -78,7 +78,8 @@ Use this skill for **Web frontend project development** when you need to:
 ## CloudBase Web SDK Usage
 
 1. **SDK Integration**:
-   - If user's project needs database, cloud functions, and other features, need to introduce `@cloudbase/js-sdk@latest` in the web application
+   - If user's project needs database, cloud functions, and other features, introduce `@cloudbase/js-sdk@^3.6.2` in the web application
+   - Trusted YunLeFun first-party Web sub-apps should also use `@yunlefun/sso@^0.3.1` and the shared SSO origin `https://www.yunle.fun` instead of implementing a separate login system
 
 **Important: Authentication must use SDK built-in features. It is strictly forbidden to implement login authentication logic using cloud functions!**
 
@@ -131,6 +132,7 @@ else {
 - Only use **documented** CloudBase Web SDK methods
 - Before calling any method on `app`, `auth`, `db`, or other SDK objects, **confirm it exists in the official CloudBase Web SDK documentation**
 - If a method or option is **not** mentioned in the official docs (for example some guessed method name), **do NOT invent or use it**
+- For YunLeFun SSO consumers, `signInWithSso(auth, { mode: 'silent' | 'interactive' })` injects the returned session with `auth.setSession`; check `auth.getSession()` before doing user-owned database reads.
 
 ## Authentication Best Practices
 

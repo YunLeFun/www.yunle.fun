@@ -16,8 +16,8 @@ catalogs:
       specifier: ^3.3.13
       version: 3.3.13
     '@cloudbase/js-sdk':
-      specifier: ^3.5.4
-      version: 3.5.4
+      specifier: ^3.6.2
+      version: 3.6.2
     '@cloudbase/signature-nodejs':
       specifier: ^2.0.0
       version: 2.0.0
@@ -112,7 +112,7 @@ importers:
         version: 3.3.13
       '@cloudbase/js-sdk':
         specifier: 'catalog:'
-        version: 3.5.4
+        version: 3.6.2
       '@cloudbase/signature-nodejs':
         specifier: 'catalog:'
         version: 2.0.0
@@ -473,8 +473,8 @@ packages:
   '@cloudbase/auth@3.3.13':
     resolution: {integrity: sha512-y9WNCAo74EIpHAwB6hO+o30qGkD4Gx/BDDOQOqcUoNenhcHU1lzYDMsvfLZxIWv7jHE61BGqE04tx2HOTOwNaQ==}
 
-  '@cloudbase/js-sdk@3.5.4':
-    resolution: {integrity: sha512-hkqb7BcpfwK6GVpEAVGaVAnVMsrd8EvmZBf15CBNdciusw2h+oqMaxshgYOxuqb2vtV97Vd/xx8HxE/SJFjryw==}
+  '@cloudbase/js-sdk@3.6.2':
+    resolution: {integrity: sha512-UfWFLpeNx5TI0ICMvPKUZEm0BDRUeQge8YM3xpnFEeX3GnPqQwGeeCgi9StQWL7sIxAabILkMEmyow6x7NE5XQ==}
 
   '@cloudbase/oauth@3.3.13':
     resolution: {integrity: sha512-x8FsIl1HNITj3D9REuEtpwhdpXnUfoapWiOECrW6Mp8sgKO2+zdCB6uF/oqfLp4Q3r5hlXHqsKl51eQg5mMDNg==}
@@ -3866,9 +3866,9 @@ packages:
     engines: {node: ^6 || ^7 || ^8 || ^9 || ^10 || ^11 || ^12 || >=13.7}
     hasBin: true
 
-  bson@7.3.1:
-    resolution: {integrity: sha512-h/C0qe6857pQhcSJHLfsR1uYGj98Ge3wKAD3Ed9KqH3wcVh+BM4Jq4xISD7vs9OPuT07n+q3QQVjslJ286j6ag==}
-    engines: {node: '>=20.19.0'}
+  bson@6.10.4:
+    resolution: {integrity: sha512-WIsKqkSC0ABoBJuT1LEX+2HEvNmNKKgnTAyd0fL8qzK4SH2i9NXg+t08YtdZp/V9IZ33cxe3iV4yM0qg8lMQng==}
+    engines: {node: '>=16.20.1'}
 
   buffer-crc32@1.0.0:
     resolution: {integrity: sha512-Db1SbgBS/fg/392AblrMJk97KggmvYhr4pB5ZIMTWtaivCPMWLkmb7m21cJvpvgK+J3nsU2CmmixNBZx4vFj/w==}
@@ -6586,6 +6586,9 @@ packages:
     resolution: {integrity: sha512-J8rn6v4DBb2nnFqkqwy6/NnTYMcgLA+sLr0iIO41qpv0n+ngb7ksag2tMRl0inb1bbO/esUwzW1vbJi7K0sI0g==}
     engines: {node: ^12.0.0 || ^14.0.0 || >=16.0.0}
 
+  regenerator-runtime@0.14.1:
+    resolution: {integrity: sha512-dYnhHh0nJoMfnkZs6GmmhFknAGRrLznOu5nc9ML+EJxGvrx6H7teuevqVqCuPcPK//3eDrrjQhehXVx9cnkGdw==}
+
   regex-recursion@6.0.2:
     resolution: {integrity: sha512-0YCaSCq2VRIebiaUviZNs0cBz1kg5kVS2UKUfNIx8YVs1cN3AV7NTctO5FOKBA+UT2BPJIWZauYHPqJODG50cg==}
 
@@ -8138,15 +8141,16 @@ snapshots:
       '@cloudbase/oauth': 3.3.13(@cloudbase/utilities@3.3.13)
       '@cloudbase/utilities': 3.3.13
 
-  '@cloudbase/js-sdk@3.5.4':
+  '@cloudbase/js-sdk@3.6.2':
     dependencies:
       '@cloudbase/adapter-interface': 0.7.1
       '@cloudbase/adapter-wx_mp': 1.3.1
       '@cloudbase/wx-cloud-client-sdk': 1.8.8
       '@mattiasbuelens/web-streams-adapter': 0.1.0
-      bson: 7.3.1
+      bson: 6.10.4
       jwt-decode: 3.1.2
       lodash: 4.18.1
+      regenerator-runtime: 0.14.1
       text-encoding-shim: 1.0.5
       web-streams-polyfill: 4.3.0
 
@@ -11536,7 +11540,7 @@ snapshots:
       node-releases: 2.0.50
       update-browserslist-db: 1.2.3(browserslist@4.28.4)
 
-  bson@7.3.1: {}
+  bson@6.10.4: {}
 
   buffer-crc32@1.0.0: {}
 
@@ -15069,6 +15073,8 @@ snapshots:
   refa@0.12.1:
     dependencies:
       '@eslint-community/regexpp': 4.12.2
+
+  regenerator-runtime@0.14.1: {}
 
   regex-recursion@6.0.2:
     dependencies:

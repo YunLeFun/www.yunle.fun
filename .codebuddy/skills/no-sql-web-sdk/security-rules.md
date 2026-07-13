@@ -266,6 +266,32 @@ await writeSecurityRule({
 })
 ```
 
+**Example 1b: YunLeFun first-party app state and private sessions**
+
+Use this pattern for trusted YunLeFun Web sub-apps after SSO login. User isolation must be enforced by `uid`; `appId` is only a naming convention.
+
+```json
+{
+  "read": "auth.uid == doc.uid",
+  "create": "auth.uid != null && request.data.uid == auth.uid",
+  "update": "auth.uid == doc.uid && (request.data.uid == undefined || request.data.uid == auth.uid)",
+  "delete": false
+}
+```
+
+Use the rule above for `ylf_user_app_state`, where `_id = ${uid}:${appId}:${namespace}` and the write payload excludes `_id`.
+
+For app business collections that support user delete, such as `chat_generator_sessions`, allow owner delete:
+
+```json
+{
+  "read": "auth.uid == doc.uid",
+  "create": "auth.uid != null && request.data.uid == auth.uid",
+  "update": "auth.uid == doc.uid && (request.data.uid == undefined || request.data.uid == auth.uid)",
+  "delete": "auth.uid == doc.uid"
+}
+```
+
 **Example 2: Public read, authenticated users can create, only owner can update/delete**
 
 ```javascript
@@ -671,7 +697,7 @@ For non-WeChat login (Web):
 ```json
 {
   "read": true,
-  "write": "doc._openid == auth.uid"
+  "write": "doc.uid == auth.uid"
 }
 ```
 
@@ -690,8 +716,8 @@ For non-WeChat login (Web):
 
 ```json
 {
-  "read": "doc._openid == auth.uid",
-  "write": "doc._openid == auth.uid"
+  "read": "doc.uid == auth.uid",
+  "write": "doc.uid == auth.uid"
 }
 ```
 

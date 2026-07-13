@@ -47,7 +47,23 @@ const result = await db.collection('todos')
   })
 ```
 
-**Note:** Use `.set()` with `.doc()` to specify a custom ID. If document exists, it will be overwritten.
+**Note:** Use `.set()` with `.doc()` to specify a custom ID. If document exists, it will be overwritten. The custom ID is supplied by `.doc('custom-todo-id')`; do **not** also include `_id` in the `.set()` payload.
+
+For user-owned Web app state, include an explicit `uid` field so security rules can enforce `auth.uid == doc.uid`:
+
+```javascript
+const uid = currentSession.user.uid || currentSession.user.id
+await db.collection('ylf_user_app_state')
+  .doc(`${uid}:chat-generator:generator`)
+  .set({
+    uid,
+    appId: 'chat-generator',
+    namespace: 'generator',
+    schemaVersion: 1,
+    payload: { currentText: 'draft' },
+    updatedAt: Date.now()
+  })
+```
 
 ### Adding Multiple Documents
 

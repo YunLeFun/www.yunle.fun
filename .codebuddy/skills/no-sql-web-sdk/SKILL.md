@@ -158,6 +158,53 @@ See `./security-rules.md` for:
 
 ## Common Patterns
 
+### YunLeFun First-Party App Data
+
+Trusted YunLeFun Web sub-apps may use the Web SDK directly after SSO login. Use three separate data layers:
+
+1. CloudBase Auth user metadata: identity/profile only (`uid`, nickname, avatar, phone/email state)
+2. `ylf_user_app_state`: one lightweight state document per `uid + appId + namespace`
+3. App-owned business collections: user-created records that need list/load/edit/delete flows
+
+Use `ylf_user_app_state` for current draft and preferences only:
+
+```ts
+const uid = session.user.uid || session.user.id
+const appId = 'chat-generator'
+const namespace = 'generator'
+const id = `${uid}:${appId}:${namespace}`
+
+await db.collection('ylf_user_app_state').doc(id).set({
+  uid,
+  appId,
+  namespace,
+  schemaVersion: 1,
+  payload: {
+    currentText: 'draft',
+    preferences: { theme: 'system' },
+  },
+  updatedAt: Date.now(),
+})
+```
+
+When using `.doc(id).set()`, the document ID comes from `.doc(id)`. Do **not** include `_id` in the write payload.
+
+Use a separate business collection for saved content:
+
+```ts
+await db.collection('chat_generator_sessions').add({
+  uid,
+  title: 'Conversation title',
+  messagesText: '...',
+  visibility: 'private',
+  source: 'custom',
+  createdAt: Date.now(),
+  updatedAt: Date.now(),
+})
+```
+
+All user-owned Web collections must be protected with `auth.uid == doc.uid` style custom rules. `appId` is a first-party convention for naming and diagnostics, not a strong security boundary.
+
 ### Error Handling
 
 Always wrap database operations in try-catch:

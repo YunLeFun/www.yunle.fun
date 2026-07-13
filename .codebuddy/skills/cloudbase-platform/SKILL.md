@@ -124,6 +124,7 @@ Use this skill for **CloudBase platform knowledge** when you need to:
    - **E-commerce products**: `READONLY` (admin manages via cloud functions)
    - **Shopping carts**: `CUSTOM` with `auth.uid` check (users manage their own)
    - **Orders**: `CUSTOM` with ownership validation
+   - **YunLeFun first-party app state**: `CUSTOM` with `auth.uid == doc.uid`; use `ylf_user_app_state` only for lightweight drafts/preferences, and create an app-owned collection for saved business records
    - **System logs**: `PRIVATE` or `ADMINONLY`
 
 5. **Cross-Collection Operations**:

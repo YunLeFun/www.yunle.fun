@@ -13,9 +13,52 @@ alwaysApply: false
 
 ## Core Capabilities
 
-**Use Case**: Web frontend projects using `@cloudbase/js-sdk@2.24.0+` for user authentication
+**Use Case**: Web frontend projects using `@cloudbase/js-sdk@3.6.2+` for user authentication
 **Key Benefits**: Compatible with `supabase-js` API, supports phone, email, anonymous, username/password, and third-party login methods
 **`@cloudbase/js-sdk` cdn source**: `https://static.cloudbase.net/cloudbase-js-sdk/latest/cloudbase.full.js`
+
+## YunLeFun First-Party SSO
+
+For trusted YunLeFun first-party Web sub-apps, do not build a separate login system. Use the shared CloudBase Auth environment and the cross-site SSO client:
+
+```bash
+pnpm add @yunlefun/sso @cloudbase/js-sdk
+```
+
+Recommended versions:
+
+- `@yunlefun/sso@^0.3.1`
+- `@cloudbase/js-sdk@^3.6.2`
+
+Use silent SSO on startup and interactive SSO only from a user gesture:
+
+```ts
+import cloudbase from '@cloudbase/js-sdk'
+import { signInWithSso } from '@yunlefun/sso'
+
+const app = cloudbase.init({
+  env: 'yunlefun-8g7ybcxc7345c490',
+  region: 'ap-shanghai',
+})
+const auth = app.auth({ persistence: 'local' })
+
+const { data } = await auth.getSession()
+if (!data?.session || data.session.user?.is_anonymous) {
+  await signInWithSso(auth, {
+    mode: 'silent',
+    ssoOrigin: 'https://www.yunle.fun',
+  })
+}
+
+async function loginWithYunLeFun() {
+  return signInWithSso(auth, {
+    mode: 'interactive',
+    ssoOrigin: 'https://www.yunle.fun',
+  })
+}
+```
+
+SSO only transfers the CloudBase session. Store user-specific application data in CloudBase collections protected by `auth.uid == doc.uid`; do not store business data inside CloudBase Auth user metadata.
 
 ## Prerequisites
 

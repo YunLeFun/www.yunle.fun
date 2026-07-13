@@ -73,10 +73,10 @@ SSO 桥接就是用来**跨 origin 安全搬运这份登录态**的：主站把 
 ### 第一步：装包
 
 ```bash
-pnpm add @yunlefun/sso
+pnpm add @yunlefun/sso @cloudbase/js-sdk
 ```
 
-> 包首次发布前，可临时从 ylf/ylf 仓库 `packages/sso/src` 拷贝 `client.ts` + `protocol.ts` 自用（零依赖、框架无关）。
+> 当前推荐版本：`@yunlefun/sso@^0.3.1`、`@cloudbase/js-sdk@^3.6.2`。云乐坊主站通过 pnpm catalog 统一管理版本；子应用独立仓库接入时建议显式固定同一主版本范围。
 
 按需取用三个层级的 API：
 
@@ -202,10 +202,7 @@ import {
 } from '@yunlefun/sso/protocol'
 ```
 
-依赖经 catalog 引入（`package.json` 的 `"@yunlefun/sso": "catalog:"` + `pnpm-workspace.yaml` 的 `'@yunlefun/sso': ^0.1.0`）。
-
-> ⚠️ **发布门控**：`@yunlefun/sso` 首次 `npm publish` 后，在 www 跑一次 `pnpm install` 即补齐锁文件；
-> 发布前 `pnpm install` 会因拉不到包而失败（本地 `node_modules` 已有副本，不影响当前 dev/build）。
+依赖经 catalog 引入（`package.json` 的 `"@yunlefun/sso": "catalog:"` + `pnpm-workspace.yaml` 的 `'@yunlefun/sso': ^0.3.1`）。CloudBase Web SDK 同样走 catalog，目前为 `'@cloudbase/js-sdk': ^3.6.2`。
 
 ## 7. 协议参考
 
@@ -250,7 +247,7 @@ type SsoResult
 ## 9. 接入 checklist
 
 - [ ] 确认与云乐坊同 env、同 Auth；子站 origin 已加入主站白名单
-- [ ] `pnpm add @yunlefun/sso`
+- [ ] `pnpm add @yunlefun/sso @cloudbase/js-sdk`
 - [ ] 进站 `silent` 静默同步（已登录则跳过）
 - [ ] 「用云乐坊账号登录」按钮接 `interactive`，并在用户点击事件里同步触发
 - [ ] 登录态就绪后再调 [account-api](./sub-app-integration.md#4-接入方式-b任意前端直接调云函数) 拉余额 / 判会员

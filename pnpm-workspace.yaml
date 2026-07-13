@@ -11,7 +11,7 @@ catalog:
   '@antfu/eslint-config': ^9.1.0
   '@apple/app-store-server-library': ^3.1.0
   '@cloudbase/auth': ^3.3.13
-  '@cloudbase/js-sdk': ^3.5.4
+  '@cloudbase/js-sdk': ^3.6.2
   '@cloudbase/node-sdk': latest
   '@cloudbase/signature-nodejs': ^2.0.0
   '@iconify-json/lucide': ^1.2.114
