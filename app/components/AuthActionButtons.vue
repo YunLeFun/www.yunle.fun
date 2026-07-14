@@ -1,15 +1,5 @@
-<script setup lang="ts">
-const emit = defineEmits<{
-  prepare: []
-}>()
-</script>
-
 <template>
-  <div
-    class="flex items-center gap-2"
-    @pointerenter="emit('prepare')"
-    @focusin="emit('prepare')"
-  >
+  <div class="flex items-center gap-2">
     <UButton
       to="/login"
       label="登录"

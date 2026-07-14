@@ -1,7 +1,8 @@
 <script setup lang="ts">
-const route = useRoute()
+const user = useState<{ id?: string } | null>('auth_user', () => null)
 const shouldMount = useState('deferred_user_menu_ready', () => false)
 const isPreparing = useState('deferred_user_menu_preparing', () => false)
+const isMounted = shallowRef(false)
 
 function revealUserMenu() {
   if (shouldMount.value)
@@ -19,8 +20,8 @@ async function prepareUserMenu() {
     const { useTcbAuthSession } = await import('~/composables/auth/useAuthSession')
     const { authReady, checkAuthStatus, isAuthenticated } = useTcbAuthSession()
 
-    // hover/focus 只预热登录态。访客保持按钮 DOM 稳定，避免
-    // 「登录 / 注册」→ UserMenuSkeleton →「登录 / 注册」的闪烁。
+    // 公开路由不经全局中间件，页头挂载后主动恢复持久化会话。
+    // 校验期间由模板显示骨架，只有确认为访客后才显示登录 / 注册。
     if (!authReady.value)
       await checkAuthStatus()
 
@@ -35,15 +36,16 @@ async function prepareUserMenu() {
 }
 
 onMounted(() => {
-  if (!isPublicAuthRoute(route.path))
-    revealUserMenu()
+  isMounted.value = true
+  void prepareUserMenu()
 })
 
 watch(
-  () => route.path,
-  (path) => {
-    if (!isPublicAuthRoute(path))
-      revealUserMenu()
+  () => user.value?.id,
+  (id) => {
+    // 登录页与页头共用 auth_user；在 SPA 导航中登录成功后立即切换用户菜单。
+    if (id)
+      void prepareUserMenu()
   },
 )
 </script>
@@ -57,8 +59,7 @@ watch(
     </template>
   </Suspense>
 
-  <AuthActionButtons
-    v-else
-    @prepare="prepareUserMenu"
-  />
+  <UserMenuSkeleton v-else-if="!isMounted || isPreparing" />
+
+  <AuthActionButtons v-else />
 </template>
