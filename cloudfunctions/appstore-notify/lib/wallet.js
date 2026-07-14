@@ -4,20 +4,124 @@
  * 跨应用共享余额：一个用户一条 user_wallet 记录（与 appId 无关），
  * 每笔流水写入 coin_transactions 并携带 appId，便于分应用对账。
  *
- * 并发安全沿用 orders.js 的策略：read-modify-write + 乐观锁（version 比对）重试，
- * 且**不使用** db 的 _.inc() 等命令对象——在 JS 里算出新值后整字段写回，
- * 这样既能被 vitest 的 fake db 直接测试，也避免命令对象在不同运行时的兼容差异。
+ * 余额与对应流水必须在同一 CloudBase 事务内提交，避免并发重试时只改余额、
+ * 流水因唯一索引失败而产生资损。有业务引用时，流水使用稳定文档 ID，
+ * 事务冲突重试后可在事务内直接判定幂等。
  *
  * SYNCED FILE: 修改此文件后，请执行 `pnpm sync:wxpay-lib`。
  */
 
 'use strict'
 
+const crypto = require('node:crypto')
+
 const WALLET_COLLECTION = 'user_wallet'
 const COIN_TX_COLLECTION = 'coin_transactions'
 
-/** 钱包变更在并发冲突时的最大重试次数 */
+/** 兼容旧模块导出；实际事务冲突由 CloudBase SDK 自动重试。 */
 const WALLET_MAX_RETRY = 5
+
+function stableDocId(namespace, ...parts) {
+  return crypto
+    .createHash('sha256')
+    .update(JSON.stringify([namespace, ...parts]))
+    .digest('hex')
+    .slice(0, 24)
+}
+
+function randomDocId() {
+  return crypto.randomBytes(12).toString('hex')
+}
+
+function walletDocId(userId, wallet) {
+  return wallet && typeof wallet._id === 'string' && wallet._id
+    ? wallet._id
+    : stableDocId('user_wallet', userId)
+}
+
+function coinTxDocId({ userId, type, refId }) {
+  return refId
+    ? stableDocId('coin_transaction', userId, type, refId)
+    : randomDocId()
+}
+
+function transactionDoc(result) {
+  if (!result)
+    return null
+  if (Array.isArray(result.data))
+    return result.data[0] || null
+  return result.data && typeof result.data === 'object' ? result.data : null
+}
+
+function assertDatabaseResult(result) {
+  if (!result || !result.code)
+    return
+  const error = new Error(typeof result.message === 'string' ? result.message : 'database transaction failed')
+  error.code = typeof result.code === 'string' ? result.code : 'DATABASE_ERROR'
+  throw error
+}
+
+async function readTransactionDoc(ref) {
+  const result = await ref.get()
+  assertDatabaseResult(result)
+  return transactionDoc(result)
+}
+
+async function setTransactionDoc(ref, data) {
+  const result = await ref.set(data)
+  assertDatabaseResult(result)
+}
+
+async function updateTransactionDoc(ref, data) {
+  const result = await ref.update(data)
+  assertDatabaseResult(result)
+  const updated = result?.updated ?? result?.modifiedCount
+  if (updated !== undefined && Number(updated) <= 0)
+    throw new Error('云币钱包事务更新未生效')
+}
+
+function walletBalance(wallet) {
+  if (!wallet)
+    return 0
+  if (!Number.isInteger(wallet.balance) || wallet.balance < 0)
+    throw new Error('云币钱包余额数据异常')
+  return wallet.balance
+}
+
+function walletVersion(wallet) {
+  return Number.isInteger(wallet && wallet.version) && wallet.version >= 0 ? wallet.version : 0
+}
+
+function assertWalletOwner(wallet, userId) {
+  if (wallet && wallet.userId !== userId)
+    throw new Error('云币钱包文档归属异常')
+}
+
+function assertCoinTxMatch(transaction, { userId, type, refId }) {
+  if (
+    transaction
+    && (
+      transaction.userId !== userId
+      || transaction.type !== type
+      || transaction.refId !== refId
+    )
+  ) {
+    throw new Error('云币流水幂等键冲突')
+  }
+}
+
+function coinTxData({ userId, appId, type, amount, balanceAfter, refId, meta, now }) {
+  return {
+    userId,
+    appId: appId || '',
+    type,
+    amount,
+    balanceAfter,
+    refId: refId || '',
+    meta: meta || {},
+    createdAt: now,
+  }
+}
 
 /**
  * 读取用户钱包（不存在返回 null）
@@ -69,23 +173,6 @@ async function findTxByRef(db, { userId, refId, type }) {
 }
 
 /**
- * 写一条云币流水
- * @private
- */
-async function writeCoinTx(db, { userId, appId, type, amount, balanceAfter, refId, meta, now }) {
-  await db.collection(COIN_TX_COLLECTION).add({
-    userId,
-    appId: appId || '',
-    type,
-    amount,
-    balanceAfter,
-    refId: refId || '',
-    meta: meta || {},
-    createdAt: now,
-  })
-}
-
-/**
  * 云币入账（充值 / 退款补偿 / 活动赠送）。
  *
  * 幂等：传入 refId 时，若已存在同 (userId, refId, type) 流水则直接返回，不重复入账。
@@ -112,44 +199,65 @@ async function creditCoin(db, { userId, appId, amount, type = 'recharge', refId,
   if (dup)
     return { balance: dup.balanceAfter, deduped: true }
 
-  let lastError = null
-  for (let attempt = 0; attempt < WALLET_MAX_RETRY; attempt++) {
-    const wallet = await getWallet(db, userId)
+  const knownWallet = await getWallet(db, userId)
+  const walletId = walletDocId(userId, knownWallet)
+  const transactionId = coinTxDocId({ userId, type, refId })
+  let outcome
 
-    if (!wallet) {
-      // 首次：尝试创建钱包；若并发 insert 撞唯一索引，回到循环走 update 分支
-      try {
-        await db.collection(WALLET_COLLECTION).add({
+  try {
+    await db.runTransaction(async (transaction) => {
+      const txRef = transaction.collection(COIN_TX_COLLECTION).doc(transactionId)
+      if (refId) {
+        const existing = await readTransactionDoc(txRef)
+        assertCoinTxMatch(existing, { userId, type, refId })
+        if (existing) {
+          outcome = { balance: existing.balanceAfter, deduped: true }
+          return outcome
+        }
+      }
+
+      const walletRef = transaction.collection(WALLET_COLLECTION).doc(walletId)
+      const current = await readTransactionDoc(walletRef)
+      assertWalletOwner(current, userId)
+      const newBalance = walletBalance(current) + amount
+      if (current) {
+        await updateTransactionDoc(walletRef, {
+          balance: newBalance,
+          version: walletVersion(current) + 1,
+          updatedAt: now,
+        })
+      }
+      else {
+        await setTransactionDoc(walletRef, {
           userId,
-          balance: amount,
+          balance: newBalance,
           version: 1,
           createdAt: now,
           updatedAt: now,
         })
-        await writeCoinTx(db, { userId, appId, type, amount, balanceAfter: amount, refId, meta, now })
-        return { balance: amount }
       }
-      catch (err) {
-        lastError = err
-        continue
-      }
-    }
-
-    const newBalance = wallet.balance + amount
-    // 乐观锁：仅当 version 未变时更新
-    const result = await db
-      .collection(WALLET_COLLECTION)
-      .where({ userId, version: wallet.version })
-      .update({ balance: newBalance, version: wallet.version + 1, updatedAt: now })
-    const updated = result?.updated ?? result?.modifiedCount ?? 0
-    if (updated > 0) {
-      await writeCoinTx(db, { userId, appId, type, amount, balanceAfter: newBalance, refId, meta, now })
-      return { balance: newBalance }
-    }
-    // 被并发改写，重读重试
+      await setTransactionDoc(txRef, coinTxData({
+        userId,
+        appId,
+        type,
+        amount,
+        balanceAfter: newBalance,
+        refId,
+        meta,
+        now,
+      }))
+      outcome = { balance: newBalance }
+      return outcome
+    })
+  }
+  catch (error) {
+    const duplicate = refId ? await findTxByRef(db, { userId, refId, type }) : null
+    if (duplicate)
+      return { balance: duplicate.balanceAfter, deduped: true }
+    throw error
   }
 
-  throw lastError || new Error(`creditCoin: 用户 ${userId} 并发重试 ${WALLET_MAX_RETRY} 次仍未成功`)
+  return outcome
 }
 
 /**
@@ -181,19 +289,37 @@ async function deductCoin(db, { userId, appId, amount, bizId, meta, now }) {
       return { balance: dup.balanceAfter, deduped: true }
   }
 
-  for (let attempt = 0; attempt < WALLET_MAX_RETRY; attempt++) {
-    const wallet = await getWallet(db, userId)
-    if (!wallet || wallet.balance < amount)
-      throw new Error('云币余额不足')
+  const knownWallet = await getWallet(db, userId)
+  const walletId = walletDocId(userId, knownWallet)
+  const transactionId = coinTxDocId({ userId, type: 'consume', refId: bizId })
+  let outcome
 
-    const newBalance = wallet.balance - amount
-    const result = await db
-      .collection(WALLET_COLLECTION)
-      .where({ userId, version: wallet.version })
-      .update({ balance: newBalance, version: wallet.version + 1, updatedAt: now })
-    const updated = result?.updated ?? result?.modifiedCount ?? 0
-    if (updated > 0) {
-      await writeCoinTx(db, {
+  try {
+    await db.runTransaction(async (transaction) => {
+      const txRef = transaction.collection(COIN_TX_COLLECTION).doc(transactionId)
+      if (bizId) {
+        const existing = await readTransactionDoc(txRef)
+        assertCoinTxMatch(existing, { userId, type: 'consume', refId: bizId })
+        if (existing) {
+          outcome = { balance: existing.balanceAfter, deduped: true }
+          return outcome
+        }
+      }
+
+      const walletRef = transaction.collection(WALLET_COLLECTION).doc(walletId)
+      const current = await readTransactionDoc(walletRef)
+      assertWalletOwner(current, userId)
+      const currentBalance = walletBalance(current)
+      if (!current || currentBalance < amount)
+        throw new Error('云币余额不足')
+
+      const newBalance = currentBalance - amount
+      await updateTransactionDoc(walletRef, {
+        balance: newBalance,
+        version: walletVersion(current) + 1,
+        updatedAt: now,
+      })
+      await setTransactionDoc(txRef, coinTxData({
         userId,
         appId,
         type: 'consume',
@@ -202,13 +328,21 @@ async function deductCoin(db, { userId, appId, amount, bizId, meta, now }) {
         refId: bizId,
         meta,
         now,
-      })
-      return { balance: newBalance }
-    }
-    // 被并发改写，重读重试
+      }))
+      outcome = { balance: newBalance }
+      return outcome
+    })
+  }
+  catch (error) {
+    const duplicate = bizId
+      ? await findTxByRef(db, { userId, refId: bizId, type: 'consume' })
+      : null
+    if (duplicate)
+      return { balance: duplicate.balanceAfter, deduped: true }
+    throw error
   }
 
-  throw new Error('云币扣费并发冲突，请重试')
+  return outcome
 }
 
 /**
@@ -240,48 +374,66 @@ async function clawbackCoin(db, { userId, appId, amount, refId, meta, now }) {
   if (dup)
     return { balance: dup.balanceAfter, clawed: Math.abs(dup.amount), deduped: true }
 
-  for (let attempt = 0; attempt < WALLET_MAX_RETRY; attempt++) {
-    const wallet = await getWallet(db, userId)
+  const knownWallet = await getWallet(db, userId)
+  const walletId = walletDocId(userId, knownWallet)
+  const transactionId = coinTxDocId({ userId, type: 'refund', refId })
+  let outcome
 
-    if (!wallet) {
-      // 无钱包视为余额 0：只写占位流水挡住后续重试
-      await writeCoinTx(db, {
+  try {
+    await db.runTransaction(async (transaction) => {
+      const txRef = transaction.collection(COIN_TX_COLLECTION).doc(transactionId)
+      const existing = await readTransactionDoc(txRef)
+      assertCoinTxMatch(existing, { userId, type: 'refund', refId })
+      if (existing) {
+        outcome = {
+          balance: existing.balanceAfter,
+          clawed: Math.abs(existing.amount),
+          deduped: true,
+        }
+        return outcome
+      }
+
+      const walletRef = transaction.collection(WALLET_COLLECTION).doc(walletId)
+      const current = await readTransactionDoc(walletRef)
+      assertWalletOwner(current, userId)
+      const currentBalance = walletBalance(current)
+      const clawed = Math.min(currentBalance, amount)
+      const newBalance = currentBalance - clawed
+
+      if (current) {
+        await updateTransactionDoc(walletRef, {
+          balance: newBalance,
+          version: walletVersion(current) + 1,
+          updatedAt: now,
+        })
+      }
+      await setTransactionDoc(txRef, coinTxData({
         userId,
         appId,
         type: 'refund',
-        amount: 0,
-        balanceAfter: 0,
-        refId,
-        meta: { ...meta, requested: amount, clawed: 0 },
-        now,
-      })
-      return { balance: 0, clawed: 0 }
-    }
-
-    const clawed = Math.min(wallet.balance, amount)
-    const newBalance = wallet.balance - clawed
-    const result = await db
-      .collection(WALLET_COLLECTION)
-      .where({ userId, version: wallet.version })
-      .update({ balance: newBalance, version: wallet.version + 1, updatedAt: now })
-    const updated = result?.updated ?? result?.modifiedCount ?? 0
-    if (updated > 0) {
-      await writeCoinTx(db, {
-        userId,
-        appId,
-        type: 'refund',
-        amount: -clawed,
+        amount: clawed === 0 ? 0 : -clawed,
         balanceAfter: newBalance,
         refId,
         meta: { ...meta, requested: amount, clawed },
         now,
-      })
-      return { balance: newBalance, clawed }
+      }))
+      outcome = { balance: newBalance, clawed }
+      return outcome
+    })
+  }
+  catch (error) {
+    const duplicate = await findTxByRef(db, { userId, refId, type: 'refund' })
+    if (duplicate) {
+      return {
+        balance: duplicate.balanceAfter,
+        clawed: Math.abs(duplicate.amount),
+        deduped: true,
+      }
     }
-    // 被并发改写，重读重试
+    throw error
   }
 
-  throw new Error(`clawbackCoin: 用户 ${userId} 并发重试 ${WALLET_MAX_RETRY} 次仍未成功`)
+  return outcome
 }
 
 module.exports = {

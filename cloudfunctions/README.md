@@ -462,8 +462,10 @@ tcb fn deploy --all -e yunlefun-8g7ybcxc7345c490
 
 > ⚠️ `user_wallet.idx_user` 必须**唯一**，否则余额的乐观锁（`version` 比对）在并发下可能产生多条钱包记录。
 >
-> ✅ `coin_transactions.idx_ref_uniq`（2026-06 已建，**唯一**）把云币幂等下沉到数据库兜底：
-> 应用层 `findTxByRef` 先查后写在并发同 `refId`（如同一 `bizId` 并发扣费）下有 TOCTOU 窗口，唯一索引堵住它。
+> ✅ 充值、扣费、追回都在 CloudBase 事务内同时更新 `user_wallet` 并写入 `coin_transactions`：
+> 同一 `(userId, type, refId)` 使用稳定的 24 位流水文档 ID，并发事务重试后可直接读到已存在流水。
+> 钱包与流水要么同时提交，要么同时回滚，不会再出现“余额已改、流水被唯一索引拒绝”的中间态。
+> `coin_transactions.idx_ref_uniq`（2026-06 已建，**唯一**）作为业务字段层的第二道幂等保护，并兼容上线前的随机 ID 历史流水。
 > 该索引要求 `refId` 非空——故 `deductCoin` 的 `bizId` 已改为**必填**（`lib/validation.js`），杜绝空 `refId` 互撞约束；
 > 充值（`refId=outTradeNo`）、调账（`refId` 必填）本就非空，不受影响。
 

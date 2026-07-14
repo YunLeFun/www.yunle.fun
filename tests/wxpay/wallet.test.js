@@ -49,6 +49,36 @@ describe('creditCoin', () => {
     expect(db._store[COIN_TX_COLLECTION]).toHaveLength(1)
   })
 
+  it('同 refId 并发充值幂等：钱包与流水只提交一次', async () => {
+    const db = makeFakeDb({
+      [WALLET_COLLECTION]: [{ _id: 'w', userId: 'u1', balance: 100, version: 1 }],
+    })
+    const results = await Promise.all([
+      creditCoin(db, { userId: 'u1', appId: 'a', amount: 50, refId: 'CONCURRENT', now: NOW }),
+      creditCoin(db, { userId: 'u1', appId: 'a', amount: 50, refId: 'CONCURRENT', now: NOW }),
+    ])
+
+    expect(results).toEqual(expect.arrayContaining([
+      { balance: 150 },
+      { balance: 150, deduped: true },
+    ]))
+    expect(await getBalance(db, 'u1')).toBe(150)
+    expect(db._store[COIN_TX_COLLECTION]).toHaveLength(1)
+    expect(db._store[COIN_TX_COLLECTION][0]._id).toMatch(/^[a-f0-9]{24}$/)
+  })
+
+  it('首次不同 refId 并发充值：共享一个稳定钱包文档', async () => {
+    const db = makeFakeDb({})
+    await Promise.all([
+      creditCoin(db, { userId: 'u1', appId: 'a', amount: 40, refId: 'FIRST-A', now: NOW }),
+      creditCoin(db, { userId: 'u1', appId: 'a', amount: 60, refId: 'FIRST-B', now: NOW }),
+    ])
+
+    expect(await getBalance(db, 'u1')).toBe(100)
+    expect(db._store[WALLET_COLLECTION]).toHaveLength(1)
+    expect(db._store[COIN_TX_COLLECTION]).toHaveLength(2)
+  })
+
   it('amount 非正整数抛错', async () => {
     const db = makeFakeDb({})
     await expect(creditCoin(db, { userId: 'u1', amount: 0, now: NOW })).rejects.toThrow(/正整数/)
@@ -96,6 +126,56 @@ describe('deductCoin', () => {
     expect(res).toMatchObject({ balance: 450, deduped: true })
     expect(await getBalance(db, 'u1')).toBe(450)
     expect(db._store[COIN_TX_COLLECTION]).toHaveLength(1)
+  })
+
+  it('同 bizId 并发扣费幂等：不会重复扣减', async () => {
+    const db = makeFakeDb({
+      [WALLET_COLLECTION]: [{ _id: 'w', userId: 'u1', balance: 100, version: 1 }],
+    })
+    const results = await Promise.all([
+      deductCoin(db, { userId: 'u1', appId: 'a', amount: 50, bizId: 'CONCURRENT', now: NOW }),
+      deductCoin(db, { userId: 'u1', appId: 'a', amount: 50, bizId: 'CONCURRENT', now: NOW }),
+    ])
+
+    expect(results).toEqual(expect.arrayContaining([
+      { balance: 50 },
+      { balance: 50, deduped: true },
+    ]))
+    expect(await getBalance(db, 'u1')).toBe(50)
+    expect(db._store[COIN_TX_COLLECTION]).toHaveLength(1)
+  })
+
+  it('流水写入失败时回滚余额扣减', async () => {
+    const db = makeFakeDb({
+      [WALLET_COLLECTION]: [{ _id: 'w', userId: 'u1', balance: 100, version: 1 }],
+    })
+    const runTransaction = db.runTransaction
+    db.runTransaction = callback => runTransaction(transaction => callback({
+      collection(name) {
+        const collection = transaction.collection(name)
+        if (name !== COIN_TX_COLLECTION)
+          return collection
+        return {
+          ...collection,
+          doc(id) {
+            const ref = collection.doc(id)
+            return {
+              ...ref,
+              async set() {
+                throw new Error('ledger write failed')
+              },
+            }
+          },
+        }
+      },
+    }))
+
+    await expect(
+      deductCoin(db, { userId: 'u1', appId: 'a', amount: 50, bizId: 'ROLLBACK', now: NOW }),
+    ).rejects.toThrow('ledger write failed')
+    expect(await getBalance(db, 'u1')).toBe(100)
+    expect(db._store[WALLET_COLLECTION][0]).toMatchObject({ balance: 100, version: 1 })
+    expect(db._store[COIN_TX_COLLECTION] ?? []).toHaveLength(0)
   })
 })
 
@@ -149,6 +229,23 @@ describe('clawbackCoin', () => {
     const res = await clawbackCoin(db, { userId: 'u1', appId: 'a', amount: 100, refId: 'SAME', now: NOW })
     expect(res).toMatchObject({ balance: 400, clawed: 100, deduped: true })
     expect(await getBalance(db, 'u1')).toBe(400)
+    expect(db._store[COIN_TX_COLLECTION]).toHaveLength(1)
+  })
+
+  it('同 refId 并发追回幂等：只追回一次', async () => {
+    const db = makeFakeDb({
+      [WALLET_COLLECTION]: [{ _id: 'w', userId: 'u1', balance: 200, version: 1 }],
+    })
+    const results = await Promise.all([
+      clawbackCoin(db, { userId: 'u1', appId: 'a', amount: 50, refId: 'CONCURRENT', now: NOW }),
+      clawbackCoin(db, { userId: 'u1', appId: 'a', amount: 50, refId: 'CONCURRENT', now: NOW }),
+    ])
+
+    expect(results).toEqual(expect.arrayContaining([
+      { balance: 150, clawed: 50 },
+      { balance: 150, clawed: 50, deduped: true },
+    ]))
+    expect(await getBalance(db, 'u1')).toBe(150)
     expect(db._store[COIN_TX_COLLECTION]).toHaveLength(1)
   })
 

@@ -90,8 +90,10 @@ export function makeCallbackEvent({
  *   db.collection(name).where(query).limit(n).get()
  *   db.collection(name).where(query).update(updates)
  *   db.collection(name).where(query).remove()
+ *   db.collection(name).doc(id).get()/set(doc)
  *   db.collection(name).doc(id).update(updates)
  *   db.collection(name).doc(id).remove()
+ *   db.runTransaction(callback)（串行执行，异常时回滚内存快照）
  *
  * 支持 where 等值匹配的简单条件（无 operator）。
  */
@@ -99,6 +101,14 @@ export function makeFakeDb(initial = {}) {
   const store = {}
   for (const [k, v] of Object.entries(initial))
     store[k] = v.map(doc => ({ ...doc }))
+  let transactionTail = Promise.resolve()
+
+  function restoreStore(snapshot) {
+    for (const key of Object.keys(store))
+      delete store[key]
+    for (const [key, value] of Object.entries(snapshot))
+      store[key] = structuredClone(value)
+  }
 
   function nextId(name) {
     return `${name}_${Object.keys(store[name] || {}).length}_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`
@@ -187,6 +197,15 @@ export function makeFakeDb(initial = {}) {
             const doc = store[name].find(d => d._id === id)
             return { data: doc ? { ...doc } : null }
           },
+          async set(doc) {
+            const index = store[name].findIndex(d => d._id === id)
+            const full = { ...doc, _id: id }
+            if (index >= 0)
+              store[name][index] = full
+            else
+              store[name].push(full)
+            return { updated: index >= 0 ? 1 : 0, upsertedId: index >= 0 ? '' : id }
+          },
           async update(updates) {
             const doc = store[name].find(d => d._id === id)
             if (!doc)
@@ -205,6 +224,26 @@ export function makeFakeDb(initial = {}) {
     return chain
   }
 
+  async function runTransaction(callback) {
+    const previous = transactionTail
+    let release
+    transactionTail = new Promise((resolve) => {
+      release = resolve
+    })
+    await previous
+    const snapshot = structuredClone(store)
+    try {
+      return await callback({ collection })
+    }
+    catch (error) {
+      restoreStore(snapshot)
+      throw error
+    }
+    finally {
+      release()
+    }
+  }
+
   return {
     _store: store,
     command: {
@@ -212,5 +251,6 @@ export function makeFakeDb(initial = {}) {
       gt: value => ({ __op: 'gt', value }),
     },
     collection,
+    runTransaction,
   }
 }
