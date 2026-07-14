@@ -6,6 +6,8 @@
  * cookie 是「我们自己的持久会话」，与 CloudBase SDK 的内存 token 解耦。
  */
 export default defineEventHandler(async (event) => {
+  disableSessionResponseCaching(event)
+
   // CSRF + 限速（见 server/utils/session-security.ts）
   assertSameOrigin(event)
   rateLimit(event, { key: 'session-login', limit: 20, windowMs: 60_000 })

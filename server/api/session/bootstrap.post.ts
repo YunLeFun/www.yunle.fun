@@ -6,6 +6,8 @@
  * 令牌存于 cookie 的 secure 段（仅服务端可读），随 HTTPS 响应下发，客户端落内存（memory-only）。
  */
 export default defineEventHandler(async (event) => {
+  disableSessionResponseCaching(event)
+
   // CSRF + 限速（见 server/utils/session-security.ts）
   assertSameOrigin(event)
   rateLimit(event, { key: 'session-bootstrap', limit: 60, windowMs: 60_000 })

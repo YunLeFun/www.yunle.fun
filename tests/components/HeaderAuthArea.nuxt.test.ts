@@ -2,14 +2,13 @@
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import { flushPromises } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { nextTick, reactive, ref } from 'vue'
-import DeferredUserMenu from '../../app/components/DeferredUserMenu.vue'
+import { nextTick, ref } from 'vue'
+import HeaderAuthArea from '../../app/components/HeaderAuthArea.vue'
 
 const h = vi.hoisted(() => ({
   s: {} as Record<string, any>,
 }))
 
-mockNuxtImport('useRoute', () => () => h.s.route)
 mockNuxtImport('preloadComponents', () => (...args: unknown[]) => h.s.preloadComponents(...args))
 
 vi.mock('~/composables/auth/useAuthSession', () => ({
@@ -20,6 +19,15 @@ const globalStubs = {
   UButton: {
     props: ['label'],
     template: '<button type="button"><slot>{{ label }}</slot></button>',
+  },
+  HeaderAuthSkeleton: {
+    template: '<div data-testid="header-auth-skeleton" />',
+  },
+  LazyNotificationBell: {
+    template: '<button data-testid="notification-bell" />',
+  },
+  NotificationBell: {
+    template: '<button data-testid="notification-bell" />',
   },
   LazyUserMenu: {
     template: '<div data-testid="user-menu">user menu</div>',
@@ -32,9 +40,8 @@ const globalStubs = {
   },
 }
 
-describe('deferredUserMenu', () => {
+describe('headerAuthArea', () => {
   beforeEach(() => {
-    h.s.route = reactive({ path: '/' })
     h.s.authReady = ref(false)
     h.s.isAuthenticated = ref(false)
     h.s.checkAuthStatus = vi.fn(async () => {
@@ -47,12 +54,12 @@ describe('deferredUserMenu', () => {
       isAuthenticated: h.s.isAuthenticated,
     }
 
-    useState<boolean>('deferred_user_menu_ready', () => false).value = false
-    useState<boolean>('deferred_user_menu_preparing', () => false).value = false
+    useState<boolean>('header_auth_area_ready', () => false).value = false
+    useState<boolean>('header_auth_area_preparing', () => false).value = false
     useState<{ id?: string } | null>('auth_user', () => null).value = null
   })
 
-  it('shows a skeleton while checking auth instead of flashing login actions', async () => {
+  it('keeps the complete auth skeleton visible while checking the session', async () => {
     let resolveAuthCheck!: () => void
     h.s.checkAuthStatus.mockImplementationOnce(() => new Promise<void>((resolve) => {
       resolveAuthCheck = () => {
@@ -61,14 +68,14 @@ describe('deferredUserMenu', () => {
       }
     }))
 
-    const wrapper = await mountSuspended(DeferredUserMenu, {
+    const wrapper = await mountSuspended(HeaderAuthArea, {
       global: { stubs: globalStubs },
     })
     await nextTick()
 
     expect(wrapper.text()).not.toContain('登录')
-    expect(wrapper.find('[data-testid="user-menu"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="user-menu-skeleton"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="header-auth-skeleton"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="notification-bell"]').exists()).toBe(false)
 
     await flushPromises()
     expect(h.s.checkAuthStatus).toHaveBeenCalledTimes(1)
@@ -79,17 +86,17 @@ describe('deferredUserMenu', () => {
 
     expect(h.s.preloadComponents).not.toHaveBeenCalled()
     expect(wrapper.text()).toContain('登录')
-    expect(wrapper.find('[data-testid="user-menu"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="user-menu-skeleton"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="header-auth-skeleton"]').exists()).toBe(false)
   })
 
-  it('mounts the user menu after the initial auth check resolves as authenticated', async () => {
+  it('switches atomically to the fixed authenticated slot after authentication', async () => {
     h.s.checkAuthStatus.mockImplementationOnce(async () => {
       h.s.authReady.value = true
       h.s.isAuthenticated.value = true
+      useState<{ id: string } | null>('auth_user').value = { id: 'user-1' }
     })
 
-    await mountSuspended(DeferredUserMenu, {
+    const wrapper = await mountSuspended(HeaderAuthArea, {
       global: { stubs: globalStubs },
     })
 
@@ -97,14 +104,21 @@ describe('deferredUserMenu', () => {
     await nextTick()
     await flushPromises()
     await nextTick()
+    await flushPromises()
+    await nextTick()
 
     expect(h.s.checkAuthStatus).toHaveBeenCalledTimes(1)
     expect(h.s.preloadComponents).toHaveBeenCalledWith('UserMenu')
-    expect(useState<boolean>('deferred_user_menu_ready').value).toBe(true)
+    expect(wrapper.find('[data-testid="notification-bell"]').exists()).toBe(true)
+    expect(
+      wrapper.find('[data-testid="user-menu"]').exists()
+      || wrapper.find('[data-testid="user-menu-skeleton"]').exists(),
+    ).toBe(true)
+    expect(useState<boolean>('header_auth_area_ready').value).toBe(true)
   })
 
-  it('switches to the user menu when a guest logs in after mount', async () => {
-    const wrapper = await mountSuspended(DeferredUserMenu, {
+  it('switches to authenticated controls when a guest logs in after mount', async () => {
+    const wrapper = await mountSuspended(HeaderAuthArea, {
       global: { stubs: globalStubs },
     })
     await flushPromises()
@@ -117,8 +131,15 @@ describe('deferredUserMenu', () => {
     await flushPromises()
     await nextTick()
     await flushPromises()
+    await nextTick()
+    await flushPromises()
+    await nextTick()
 
     expect(h.s.preloadComponents).toHaveBeenCalledWith('UserMenu')
-    expect(useState<boolean>('deferred_user_menu_ready').value).toBe(true)
+    expect(wrapper.find('[data-testid="notification-bell"]').exists()).toBe(true)
+    expect(
+      wrapper.find('[data-testid="user-menu"]').exists()
+      || wrapper.find('[data-testid="user-menu-skeleton"]').exists(),
+    ).toBe(true)
   })
 })

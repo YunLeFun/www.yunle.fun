@@ -52,8 +52,9 @@ export function useServerSession() {
       })
       if (error || !data?.session)
         return false
-      // 刷新可能轮换 refresh_token：用刷新后的新令牌重新封 cookie，避免下次用到失效令牌
-      await setServerSession()
+      // setSession 已恢复可用登录态，页头无需继续等待服务端二次校验。
+      // 刷新可能轮换 refresh_token，后台重新封 cookie 供下次启动使用。
+      void setServerSession()
       return true
     }
     catch {

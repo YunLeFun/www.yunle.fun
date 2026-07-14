@@ -1,7 +1,5 @@
 <script setup lang="ts">
 const route = useRoute()
-const user = useState<{ id?: string } | null>('auth_user', () => null)
-const hasUser = computed(() => Boolean(user.value?.id))
 
 const items = computed(() => [
   {
@@ -46,10 +44,22 @@ const items = computed(() => [
 
     <template #right>
       <UColorModeButton />
-      <ClientOnly>
-        <LazyNotificationBell v-if="hasUser" />
-        <DeferredUserMenu />
-      </ClientOnly>
+      <!--
+        首页保持可预渲染；认证区域在服务端与客户端均预留相同尺寸，
+        避免通知、头像和登录按钮切换时推动颜色模式与导航图标。
+      -->
+      <div
+        data-testid="header-auth-slot"
+        class="flex w-20 items-center justify-end gap-1.5 lg:w-40"
+      >
+        <ClientOnly>
+          <HeaderAuthArea />
+
+          <template #fallback>
+            <HeaderAuthSkeleton />
+          </template>
+        </ClientOnly>
+      </div>
     </template>
 
     <template #body>
@@ -61,9 +71,15 @@ const items = computed(() => [
 
       <USeparator class="my-6" />
 
-      <ClientOnly>
-        <DeferredUserMenu />
-      </ClientOnly>
+      <div class="flex w-full items-center justify-start gap-1.5">
+        <ClientOnly>
+          <HeaderAuthArea />
+
+          <template #fallback>
+            <HeaderAuthSkeleton />
+          </template>
+        </ClientOnly>
+      </div>
     </template>
   </UHeader>
 </template>

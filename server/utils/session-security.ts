@@ -9,7 +9,7 @@
  * server/utils 下的导出会被 Nitro 自动导入，端点内可直接调用。
  */
 import type { H3Event } from 'h3'
-import { createError, getHeader, getRequestHost, getRequestIP } from 'h3'
+import { createError, getHeader, getRequestHost, getRequestIP, setHeader } from 'h3'
 
 const PRODUCTION_HOSTS = ['www.yunle.fun']
 
@@ -81,6 +81,14 @@ export function assertSameOrigin(event: H3Event): void {
 
 interface Bucket { count: number, resetAt: number }
 const buckets = new Map<string, Bucket>()
+
+/**
+ * 会话端点会返回或轮换用户凭证，任何成功 / 失败响应都不得进入浏览器、代理或 CDN 缓存。
+ */
+export function disableSessionResponseCaching(event: H3Event): void {
+  setHeader(event, 'cache-control', 'private, no-store')
+  setHeader(event, 'pragma', 'no-cache')
+}
 
 /**
  * 进程内固定窗口限速。⚠️ serverless / 边缘多实例下是「每实例」限速、非全局，仅作最佳努力；

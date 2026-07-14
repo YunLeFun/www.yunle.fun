@@ -66,7 +66,7 @@ const items = computed(() => [
           size="xs"
           :is-member="isMember"
         />
-        <span class="hidden md:inline">
+        <span class="hidden w-16 truncate md:inline-block">
           {{ user.nickname || user.login }}
         </span>
       </UButton>
