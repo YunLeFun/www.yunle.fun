@@ -119,9 +119,11 @@ async function loginWithYunLeFun() {
     const { data, error } = await auth.getSession()
     if (error || !data?.session || data.session.user?.is_anonymous) {
       toast('登录结果未能在当前站点生效，请重试')
-      return
     }
-    // 当前站点已确认登录，再刷新用户态 / 拉账户
+    else {
+      // 当前站点已确认登录，再刷新用户态 / 拉账户
+      await refreshUserState()
+    }
   }
   else if (res.reason === 'closed') {
     // 用户关掉了弹窗，静默处理
@@ -262,13 +264,13 @@ type SsoResult
 
 ## 8. 排错
 
-| 现象                               | 可能原因                                                | 处理                                                                        |
-| ---------------------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------- |
-| 始终 `invalid_request`             | 子站 origin 不在白名单 / 用了 HTTP 通配 / 顶级域        | 核对 `NUXT_PUBLIC_SSO_ALLOWED_TARGET_ORIGINS`，通配子域须 HTTPS             |
-| `silent` 总是 `not_authenticated`  | 主站确实没登录，或主站 session 已过期/为匿名态          | 改走 `interactive` 让用户登录一次                                           |
-| `interactive` 返回 `popup_blocked` | 弹窗被拦截                                              | 必须在用户点击事件里直接调用（同步触发 `window.open`），勿放在 `await` 之后 |
-| 注入后子应用仍未登录               | ticket 被拒绝、SDK 返回 `{ error }`，或旧 session 缺 `refresh_token` | 检查 SDK 结果的 `error` 并以 `getSession()` 复核；让用户重新登录             |
-| 收不到任何回传，最终 `timeout`     | 主站源写错 / 跨端口本地未放行                           | 核对 `ssoOrigin` 与本地端口白名单                                           |
+| 现象                               | 可能原因                                                             | 处理                                                                        |
+| ---------------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| 始终 `invalid_request`             | 子站 origin 不在白名单 / 用了 HTTP 通配 / 顶级域                     | 核对 `NUXT_PUBLIC_SSO_ALLOWED_TARGET_ORIGINS`，通配子域须 HTTPS             |
+| `silent` 总是 `not_authenticated`  | 主站确实没登录，或主站 session 已过期/为匿名态                       | 改走 `interactive` 让用户登录一次                                           |
+| `interactive` 返回 `popup_blocked` | 弹窗被拦截                                                           | 必须在用户点击事件里直接调用（同步触发 `window.open`），勿放在 `await` 之后 |
+| 注入后子应用仍未登录               | ticket 被拒绝、SDK 返回 `{ error }`，或旧 session 缺 `refresh_token` | 检查 SDK 结果的 `error` 并以 `getSession()` 复核；让用户重新登录            |
+| 收不到任何回传，最终 `timeout`     | 主站源写错 / 跨端口本地未放行                                        | 核对 `ssoOrigin` 与本地端口白名单                                           |
 
 ## 9. 接入 checklist
 
