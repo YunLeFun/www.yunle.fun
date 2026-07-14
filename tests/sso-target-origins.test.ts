@@ -2,17 +2,22 @@ import { describe, expect, it } from 'vitest'
 import { createSsoTargetRules, isAllowedSsoTargetOrigin, LOCAL_SSO_TARGET_RULES, readSsoTargetRules } from '../app/utils/ssoTargetOrigins'
 
 describe('sso target origin rules', () => {
-  const rules = readSsoTargetRules('*.yunle.fun,https://*.yunyoujun.cn,http://localhost:2333')
+  const rules = readSsoTargetRules('*.yunle.fun,https://*.yunyoujun.cn,https://*.advjs.org,http://localhost:2333')
 
   it('allows configured wildcard subdomains over HTTPS', () => {
     expect(isAllowedSsoTargetOrigin('https://wenta.yunle.fun', rules)).toBe(true)
     expect(isAllowedSsoTargetOrigin('https://apps.yunle.fun', rules)).toBe(true)
     expect(isAllowedSsoTargetOrigin('https://gmm.yunyoujun.cn', rules)).toBe(true)
+    expect(isAllowedSsoTargetOrigin('https://zero-echo.advjs.org', rules)).toBe(true)
+    expect(isAllowedSsoTargetOrigin('https://preview.advjs.org', rules)).toBe(true)
   })
 
   it('does not allow apex domains or HTTP for bare wildcard rules', () => {
     expect(isAllowedSsoTargetOrigin('https://yunle.fun', rules)).toBe(false)
+    expect(isAllowedSsoTargetOrigin('https://advjs.org', rules)).toBe(false)
     expect(isAllowedSsoTargetOrigin('http://wenta.yunle.fun', rules)).toBe(false)
+    expect(isAllowedSsoTargetOrigin('http://zero-echo.advjs.org', rules)).toBe(false)
+    expect(isAllowedSsoTargetOrigin('https://zero-echo.advjs.org:8443', rules)).toBe(false)
   })
 
   it('keeps exact local development origins available', () => {
@@ -49,5 +54,7 @@ describe('sso target origin rules', () => {
   it('does not match lookalike domains', () => {
     expect(isAllowedSsoTargetOrigin('https://notyunle.fun', rules)).toBe(false)
     expect(isAllowedSsoTargetOrigin('https://yunle.fun.evil.com', rules)).toBe(false)
+    expect(isAllowedSsoTargetOrigin('https://notadvjs.org', rules)).toBe(false)
+    expect(isAllowedSsoTargetOrigin('https://advjs.org.evil.com', rules)).toBe(false)
   })
 })
