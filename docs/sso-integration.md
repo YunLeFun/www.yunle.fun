@@ -14,8 +14,9 @@ CloudBase Web SDK 把登录凭证存在 **localStorage**，而 localStorage 是*
 `apps.yunle.fun` 读不到 `www.yunle.fun` 的登录态。哪怕用的是同一个 CloudBase env、同一套 Auth，
 跨域名也不会自动共享登录。
 
-SSO 桥接就是用来**跨 origin 安全搬运这份登录态**的：主站把 session 通过 `postMessage` 发给
-被许可的子站，子站再用 `auth.setSession()` 注入到自己的 SDK——于是两边变成同一个登录用户。
+SSO 桥接就是用来**跨 origin 安全建立同一账号会话**的：主站优先签发一次性 ticket，通过
+`postMessage` 或顶层重定向交给被许可的子站；子站再用 `auth.signInWithCustomTicket()` 换取自己的
+独立会话。兼容旧 Provider 时才回退到 `auth.setSession()` 注入主站 session。
 
 ## 1. 前提
 
@@ -51,7 +52,7 @@ SSO 桥接就是用来**跨 origin 安全搬运这份登录态**的：主站把 
      │   ④ postMessage({ ok, nonce, session })      │    └─ 未登录 + interactive → 引导去 /login，登录后回到本页
      │ ◀───────────────────────────────────────────┘
      │  ⑤ 校验 origin + nonce + 来源窗口
-     │  ⑥ auth.setSession({ access_token, refresh_token })
+     │  ⑥ 优先 signInWithCustomTicket()；旧 Provider 回退 setSession()
      ▼
    子应用已登录，uid 与主站一致
 ```
@@ -99,8 +100,13 @@ const auth = app.auth({ persistence: 'local' })
 const { data } = await auth.getSession()
 if (!data?.session || data.session.user?.is_anonymous) {
   const res = await signInWithSso(auth, { mode: 'silent' })
-  // res.ok === true  → 已与主站同账号登录
-  // res.ok === false → 主站也未登录（reason: 'not_authenticated'），保持未登录即可
+  if (res.ok) {
+    // SSO 请求成功后，仍以当前 origin 的 SDK 会话为真值。
+    const { data: localData, error: localError } = await auth.getSession()
+    if (localError || !localData?.session || localData.session.user?.is_anonymous)
+      throw new Error('sso_session_not_adopted')
+  }
+  // res.ok === false 且 reason === 'not_authenticated' → 主站也未登录，保持未登录即可
 }
 ```
 
@@ -110,7 +116,12 @@ if (!data?.session || data.session.user?.is_anonymous) {
 async function loginWithYunLeFun() {
   const res = await signInWithSso(auth, { mode: 'interactive' })
   if (res.ok) {
-    // 登录成功，刷新你的用户态 / 拉账户
+    const { data, error } = await auth.getSession()
+    if (error || !data?.session || data.session.user?.is_anonymous) {
+      toast('登录结果未能在当前站点生效，请重试')
+      return
+    }
+    // 当前站点已确认登录，再刷新用户态 / 拉账户
   }
   else if (res.reason === 'closed') {
     // 用户关掉了弹窗，静默处理
@@ -121,20 +132,26 @@ async function loginWithYunLeFun() {
 }
 ```
 
-`signInWithSso` 内部等价于：
+`signInWithSso` 的采用阶段等价于：
 
 ```ts
 const res = await requestSso({ mode: 'interactive' })
 if (res.ok) {
-  await auth.setSession({
-    access_token: res.session.access_token,
-    refresh_token: res.session.refresh_token,
-  })
+  if (res.ticket) {
+    await auth.signInWithCustomTicket(() => Promise.resolve(res.ticket))
+  }
+  else {
+    await auth.setSession({
+      access_token: res.session.access_token,
+      refresh_token: res.session.refresh_token,
+    })
+  }
 }
 ```
 
-> `auth.setSession({ access_token, refresh_token })` 是 CloudBase Web SDK 注入登录态的官方入口——
-> 这正是 SSO「在子站落地」的关键一步。
+> CloudBase Web SDK v3 的认证方法可能 resolve 为 `{ data, error }`，而不是以 rejected Promise 表示
+> 业务失败。无论包内采用方法是否 resolve，Consumer 都必须检查 `error`，并再次调用
+> `auth.getSession()` 确认当前 origin 存在非匿名 session；不要只用 `res.ok` 更新 UI 登录态。
 
 ## 5. 安全模型（务必读）
 
@@ -168,11 +185,20 @@ session 一经注入，子站就持有一份**独立的登录态**，与主站�
 ```bash
 # .env
 # 逗号分隔，支持「精确 origin」与「HTTPS 通配子域名」两种写法
-NUXT_PUBLIC_SSO_ALLOWED_TARGET_ORIGINS=https://*.yunle.fun,https://*.yunyoujun.cn,https://zero-echo.advjs.org
+NUXT_PUBLIC_SSO_ALLOWED_TARGET_ORIGINS=https://*.yunle.fun,https://*.yunyoujun.cn,https://*.advjs.org
 ```
 
 **新增一个子站**：把它的 origin 追加进去即可，例如再接一个独立域名 `https://example.com`
 （精确写法）或一整组子域 `https://*.example.com`（通配写法），重新部署主站生效。
+
+`https://*.advjs.org` 用于 ADV.JS 团队控制的游戏子域，例如 `https://zero-echo.advjs.org`。
+它不匹配 `https://advjs.org` 顶级域、HTTP、显式非默认端口、`notadvjs.org` 或
+`advjs.org.evil.com`。通配规则意味着每个命中子域都进入同一 SSO 信任边界；若未来允许第三方
+创建或接管 `*.advjs.org` 子域，必须改回逐 origin 精确白名单，不能继续使用该通配规则。
+
+> 修改仓库里的默认值或 `.env.example` 不会自动改变已部署环境。生产环境显式设置了
+> `NUXT_PUBLIC_SSO_ALLOWED_TARGET_ORIGINS` 时，应同步把 `https://*.advjs.org` 写入该变量并重新部署
+> `www.yunle.fun`，然后再用无真实账号的 origin 校验和一次获批的人工账号回归确认生效。
 
 **本地联调**：桥接页内置放行了 HTTP loopback 任意端口（`localhost`、`127.0.0.0/8`、
 `[::1]`），在 `nuxt dev` 下无需改配置即可跑通两端。生产构建默认不启用这条开发规则；
@@ -241,14 +267,16 @@ type SsoResult
 | 始终 `invalid_request`             | 子站 origin 不在白名单 / 用了 HTTP 通配 / 顶级域        | 核对 `NUXT_PUBLIC_SSO_ALLOWED_TARGET_ORIGINS`，通配子域须 HTTPS             |
 | `silent` 总是 `not_authenticated`  | 主站确实没登录，或主站 session 已过期/为匿名态          | 改走 `interactive` 让用户登录一次                                           |
 | `interactive` 返回 `popup_blocked` | 弹窗被拦截                                              | 必须在用户点击事件里直接调用（同步触发 `window.open`），勿放在 `await` 之后 |
-| 注入后子应用仍未登录               | session 缺 `refresh_token`（`adoptSession` 返回 false） | 让用户走一次 `interactive` 重新登录刷新凭证                                 |
+| 注入后子应用仍未登录               | ticket 被拒绝、SDK 返回 `{ error }`，或旧 session 缺 `refresh_token` | 检查 SDK 结果的 `error` 并以 `getSession()` 复核；让用户重新登录             |
 | 收不到任何回传，最终 `timeout`     | 主站源写错 / 跨端口本地未放行                           | 核对 `ssoOrigin` 与本地端口白名单                                           |
 
 ## 9. 接入 checklist
 
 - [ ] 确认与云乐坊同 env、同 Auth；子站 origin 已加入主站白名单
+- [ ] 使用通配规则前确认全部命中子域均为第一方受控域名；否则使用精确 origin
 - [ ] `pnpm add @yunlefun/sso @cloudbase/js-sdk`
 - [ ] 进站 `silent` 静默同步（已登录则跳过）
 - [ ] 「用云乐坊账号登录」按钮接 `interactive`，并在用户点击事件里同步触发
 - [ ] 登录态就绪后再调 [account-api](./sub-app-integration.md#4-接入方式-b任意前端直接调云函数) 拉余额 / 判会员
+- [ ] 每次采用结果后检查 CloudBase `{ error }`，再用 `getSession()` 确认当前 origin 的非匿名会话
 - [ ] 自测：主站登录后子站静默免登、退出登录后子站同步失效、弹窗登录回流、弹窗被关的兜底
