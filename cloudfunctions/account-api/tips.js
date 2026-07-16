@@ -205,19 +205,19 @@ async function tip(db, { userId, appId, now }) {
  */
 async function getAppSupport(db, { userId, appId }) {
   const cleanAppId = assertAppId(appId)
-  const [statsRes, mineRes] = await Promise.all([
+  const [statsRes, mineRes, syntheticAdjustments] = await Promise.all([
     db.collection(APP_TIP_STATS_COLLECTION).where({ appId: cleanAppId }).limit(1).get(),
     userId
       ? db.collection(APP_SUPPORTERS_COLLECTION).where({ appId: cleanAppId, userId }).limit(1).get()
       : Promise.resolve({ data: [] }),
+    loadSyntheticTipAdjustments(db),
   ])
   const stats = (Array.isArray(statsRes.data) && statsRes.data[0]) || null
   const mine = (Array.isArray(mineRes.data) && mineRes.data[0]) || null
+  const publicStats = subtractSyntheticTipStats(stats, syntheticAdjustments.get(cleanAppId))
   return {
     appId: cleanAppId,
-    totalCoins: stats?.totalCoins || 0,
-    supporterCount: stats?.supporterCount || 0,
-    tipCount: stats?.tipCount || 0,
+    ...publicStats,
     tippedByMe: !!mine,
     myCoins: mine?.totalCoins || 0,
   }
@@ -236,16 +236,81 @@ async function getAppSupport(db, { userId, appId }) {
  */
 async function getTipLeaderboard(db, { limit } = {}) {
   const n = Math.min(Math.max(Number(limit) || 20, 1), 100)
-  const { data } = await db.collection(APP_TIP_STATS_COLLECTION).limit(1000).get()
+  const [{ data }, syntheticAdjustments] = await Promise.all([
+    db.collection(APP_TIP_STATS_COLLECTION).limit(1000).get(),
+    loadSyntheticTipAdjustments(db),
+  ])
   const rows = Array.isArray(data) ? data.slice() : []
-  rows.sort((a, b) => (b.totalCoins || 0) - (a.totalCoins || 0))
+  const publicRows = rows.map(row => ({
+    appId: row.appId,
+    ...subtractSyntheticTipStats(row, syntheticAdjustments.get(row.appId)),
+  }))
+  publicRows.sort((a, b) => b.totalCoins - a.totalCoins)
   return {
-    items: rows.slice(0, n).map(s => ({
+    items: publicRows.slice(0, n).map(s => ({
       appId: s.appId,
-      totalCoins: s.totalCoins || 0,
-      supporterCount: s.supporterCount || 0,
-      tipCount: s.tipCount || 0,
+      totalCoins: s.totalCoins,
+      supporterCount: s.supporterCount,
+      tipCount: s.tipCount,
     })),
+  }
+}
+
+async function loadSyntheticTipAdjustments(db) {
+  const identityResult = await db.collection('test_identities').where({ synthetic: true }).limit(1000).get()
+  if (!Array.isArray(identityResult?.data) || identityResult.data.length >= 1000)
+    throw new Error('测试身份分类结果无效或不完整')
+  const uids = new Set()
+  for (const identity of identityResult.data) {
+    if (!identity || identity.synthetic !== true || typeof identity._id !== 'string'
+      || typeof identity.uid !== 'string' || !/^[\w:-]{1,128}$/.test(identity.uid)
+      || uids.has(identity.uid)) {
+      throw new Error('测试身份分类结果无效')
+    }
+    uids.add(identity.uid)
+  }
+
+  const adjustments = new Map()
+  const supporterKeys = new Set()
+  for (const uid of uids) {
+    const result = await db.collection(APP_SUPPORTERS_COLLECTION).where({ userId: uid }).limit(1000).get()
+    if (!Array.isArray(result?.data) || result.data.length >= 1000)
+      throw new Error('测试身份支持记录无效或不完整')
+    for (const supporter of result.data) {
+      const key = `${supporter?.appId}:${uid}`
+      if (!supporter || typeof supporter.appId !== 'string' || supporter.userId !== uid
+        || !Number.isSafeInteger(supporter.totalCoins) || supporter.totalCoins < 0
+        || !Number.isSafeInteger(supporter.tipCount) || supporter.tipCount < 0
+        || supporterKeys.has(key)) {
+        throw new Error('测试身份支持记录无效')
+      }
+      supporterKeys.add(key)
+      const current = adjustments.get(supporter.appId) || { totalCoins: 0, supporterCount: 0, tipCount: 0 }
+      adjustments.set(supporter.appId, {
+        totalCoins: current.totalCoins + supporter.totalCoins,
+        supporterCount: current.supporterCount + 1,
+        tipCount: current.tipCount + supporter.tipCount,
+      })
+    }
+  }
+  return adjustments
+}
+
+function subtractSyntheticTipStats(stats, adjustment) {
+  const values = {
+    totalCoins: stats?.totalCoins || 0,
+    supporterCount: stats?.supporterCount || 0,
+    tipCount: stats?.tipCount || 0,
+  }
+  const excluded = adjustment || { totalCoins: 0, supporterCount: 0, tipCount: 0 }
+  for (const key of Object.keys(values)) {
+    if (!Number.isSafeInteger(values[key]) || values[key] < excluded[key])
+      throw new Error('应用支持统计与测试身份明细不一致')
+  }
+  return {
+    totalCoins: values.totalCoins - excluded.totalCoins,
+    supporterCount: values.supporterCount - excluded.supporterCount,
+    tipCount: values.tipCount - excluded.tipCount,
   }
 }
 

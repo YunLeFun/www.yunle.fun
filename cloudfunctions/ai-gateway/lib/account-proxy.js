@@ -35,4 +35,25 @@ async function deductCoinForUid(callAccountApi, { serviceToken, userId, appId, a
   return callAccountApi({ action: 'deductCoinForUser', serviceToken, userId, appId, amount, bizId, meta })
 }
 
-module.exports = { getAccountForUid, deductCoinForUid }
+/**
+ * Synthetic billing uses a separate trusted action. The account service
+ * revalidates the durable reservation and writes synthetic metadata itself;
+ * caller-provided meta is intentionally not accepted here.
+ */
+async function deductSyntheticCoinForUid(callAccountApi, args) {
+  if (!args.serviceToken)
+    throw new Error('内部服务鉴权未配置')
+  return callAccountApi({
+    action: 'deductSyntheticCoinForUser',
+    serviceToken: args.serviceToken,
+    userId: args.userId,
+    appId: args.appId,
+    amount: args.amount,
+    bizId: args.bizId,
+    reservationId: args.reservationId,
+    syntheticLeaseId: args.syntheticLeaseId,
+    syntheticScopeId: args.syntheticScopeId,
+  })
+}
+
+module.exports = { getAccountForUid, deductCoinForUid, deductSyntheticCoinForUid }

@@ -124,4 +124,30 @@ describe('getAppSupport / getTipLeaderboard', () => {
     expect(board.items.map(i => i.appId)).toEqual(['wenta', 'other'])
     expect(board.items[0]).toMatchObject({ totalCoins: 2, supporterCount: 1, tipCount: 2 })
   })
+
+  it('公开支持统计排除遗留测试身份的历史投币', async () => {
+    const db = seed({
+      test_identities: [{ _id: 'identity_01', uid: 'test_uid_01', synthetic: true }],
+      [APP_SUPPORTERS_COLLECTION]: [
+        { _id: 'support_real', appId: 'wenta', userId: 'u1', totalCoins: 2, tipCount: 2 },
+        { _id: 'support_test', appId: 'wenta', userId: 'test_uid_01', totalCoins: 3, tipCount: 3 },
+      ],
+      [APP_TIP_STATS_COLLECTION]: [{
+        _id: 'stats_wenta',
+        appId: 'wenta',
+        totalCoins: 5,
+        supporterCount: 2,
+        tipCount: 5,
+      }],
+    })
+
+    await expect(getAppSupport(db, { userId: 'u1', appId: 'wenta' })).resolves.toMatchObject({
+      totalCoins: 2,
+      supporterCount: 1,
+      tipCount: 2,
+    })
+    await expect(getTipLeaderboard(db, { limit: 10 })).resolves.toMatchObject({
+      items: [{ appId: 'wenta', totalCoins: 2, supporterCount: 1, tipCount: 2 }],
+    })
+  })
 })

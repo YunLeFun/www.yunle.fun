@@ -42,8 +42,13 @@
       "runtime": "Nodejs18.15",
       "handler": "index.main",
       "installDependency": true,
+      "aclRule": {
+        "invoke": "auth != null"
+      },
       "envVariables": {
-        "ACCOUNT_API_INTERNAL_TOKEN": "{{env.ACCOUNT_API_INTERNAL_TOKEN}}"
+        "ACCOUNT_API_INTERNAL_TOKEN": "{{env.ACCOUNT_API_INTERNAL_TOKEN}}",
+        "AI_GATEWAY_ACCOUNT_API_TOKEN": "{{env.AI_GATEWAY_ACCOUNT_API_TOKEN}}",
+        "TEST_BROKER_ACCOUNT_API_TOKEN": "{{env.TEST_BROKER_ACCOUNT_API_TOKEN}}"
       }
     },
     {
@@ -59,8 +64,14 @@
       "runtime": "Nodejs18.15",
       "handler": "index.main",
       "installDependency": true,
+      "aclRule": {
+        "invoke": "auth != null"
+      },
       "envVariables": {
-        "ACCOUNT_API_INTERNAL_TOKEN": "{{env.ACCOUNT_API_INTERNAL_TOKEN}}"
+        "ACCOUNT_API_INTERNAL_TOKEN": "{{env.ACCOUNT_API_INTERNAL_TOKEN}}",
+        "AI_GATEWAY_ACCOUNT_API_TOKEN": "{{env.AI_GATEWAY_ACCOUNT_API_TOKEN}}",
+        "TEST_LEASE_CAPABILITY_SIGNING_KEY": "{{env.TEST_LEASE_CAPABILITY_SIGNING_KEY}}",
+        "TEST_BROKER_RECONCILE_TOKEN": "{{env.TEST_BROKER_RECONCILE_TOKEN}}"
       }
     },
     {
@@ -82,11 +93,37 @@
       "runtime": "Nodejs18.15",
       "handler": "index.main",
       "installDependency": true,
+      "aclRule": {
+        "invoke": "auth != null"
+      },
       "envVariables": {
         "SSO_TICKET_PRIVATE_KEY_ID": "{{env.SSO_TICKET_PRIVATE_KEY_ID}}",
         "SSO_TICKET_PRIVATE_KEY": "{{env.SSO_TICKET_PRIVATE_KEY}}",
-        "SSO_TICKET_REFRESH_SEC": "{{env.SSO_TICKET_REFRESH_SEC}}"
+        "SSO_TICKET_REFRESH_SEC": "{{env.SSO_TICKET_REFRESH_SEC}}",
+        "SSO_TICKET_INTERNAL_TOKEN": "{{env.SSO_TICKET_INTERNAL_TOKEN}}",
+        "TEST_BROKER_INTERNAL_TOKEN": "{{env.TEST_BROKER_INTERNAL_TOKEN}}",
+        "TEST_TICKET_ESCROW_KEY": "{{env.TEST_TICKET_ESCROW_KEY}}"
       }
+    },
+    {
+      "name": "test-identity-sweeper",
+      "timeout": 10,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": false,
+      "aclRule": {
+        "invoke": false
+      },
+      "envVariables": {
+        "TEST_BROKER_SWEEP_KEY": "{{env.TEST_BROKER_SWEEP_KEY}}"
+      },
+      "triggers": [
+        {
+          "name": "testIdentitySweepEveryMinute",
+          "type": "timer",
+          "config": "0 * * * * * *"
+        }
+      ]
     },
     {
       "name": "iap-order",

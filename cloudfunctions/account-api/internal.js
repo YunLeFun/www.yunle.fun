@@ -7,6 +7,7 @@ const process = require('node:process')
 const { getAccountSnapshot } = require('./account')
 const { assertAppId, assertDeductCoinInput } = require('./lib/validation')
 const { creditCoin, deductCoin } = require('./lib/wallet')
+const { SyntheticAccountError, classifyAccountIdentity } = require('./synthetic')
 
 /** 单笔管理员调账的云币绝对值上限（防误操作 / 防滥用的资损护栏） */
 const ADMIN_ADJUST_MAX_COIN = 100_000
@@ -45,6 +46,13 @@ function assertUserId(userId) {
 async function handleDeductCoinForUser(targetDb, event, options = {}) {
   assertInternalServiceToken(event?.serviceToken, options.expectedToken)
   const userId = assertUserId(event?.userId)
+  const classification = await classifyAccountIdentity(targetDb, userId)
+  if (classification.synthetic) {
+    throw new SyntheticAccountError(
+      'synthetic_action_forbidden',
+      '测试身份只能通过带有效预算预留的专用扣费接口结算',
+    )
+  }
   const { appId, amount, bizId } = assertDeductCoinInput(event)
   if (!bizId)
     throw new Error('bizId 必填')
@@ -130,10 +138,35 @@ function assertAdminAdjustInput(input) {
  * @returns {Promise<{ balance: number, deduped: boolean }>} 调账后余额及是否幂等命中
  */
 async function handleAdminAdjustCoin(targetDb, event, options = {}) {
-  assertInternalServiceToken(event?.serviceToken, options.expectedToken)
-  const { userId, appId, amount, refId, reason, operator } = assertAdminAdjustInput(event)
+  const userId = assertUserId(event?.userId)
+  const expectedToken = options.expectedToken ?? getExpectedInternalToken()
+  const expectedCleanupToken = options.expectedCleanupToken ?? process.env.TEST_BROKER_ACCOUNT_API_TOKEN ?? ''
+  const tokenMatchesDefault = Boolean(expectedToken)
+    && timingSafeEqualStr(event?.serviceToken, expectedToken)
+  const tokenMatchesCleanup = Boolean(expectedCleanupToken)
+    && timingSafeEqualStr(event?.serviceToken, expectedCleanupToken)
+  if (!expectedToken && !expectedCleanupToken)
+    throw new Error('内部服务鉴权未配置')
+  if (!tokenMatchesDefault && !tokenMatchesCleanup)
+    throw new Error('内部服务鉴权失败')
+
+  const classification = await classifyAccountIdentity(targetDb, userId)
+  const { appId, amount, refId, reason, operator } = assertAdminAdjustInput(event)
+  let syntheticReset = false
+  if (classification.synthetic) {
+    if (!tokenMatchesCleanup)
+      throw new Error('内部服务鉴权失败')
+    await assertSyntheticReset(targetDb, { ...event, amount }, classification.identity)
+    syntheticReset = true
+  }
+  else if (!tokenMatchesDefault) {
+    throw new Error('内部服务鉴权失败')
+  }
+
   const now = options.now || Date.now()
-  const meta = { adminAdjust: true, reason, operator }
+  const meta = syntheticReset
+    ? { adminAdjust: true, reason, operator, syntheticReset: true, syntheticLeaseId: event.syntheticLeaseId }
+    : { adminAdjust: true, reason, operator }
 
   if (amount > 0) {
     const { balance, deduped } = await creditCoin(targetDb, {
@@ -160,6 +193,47 @@ async function handleAdminAdjustCoin(targetDb, event, options = {}) {
   return { balance, deduped: !!deduped }
 }
 
+async function assertSyntheticReset(targetDb, event, identity) {
+  if (typeof event.syntheticLeaseId !== 'string' || !/^[\w:-]{4,128}$/.test(event.syntheticLeaseId))
+    throw new SyntheticAccountError('synthetic_reset_invalid', 'syntheticLeaseId 无效')
+  if (event.refId !== `synthetic-reset:${event.syntheticLeaseId}:wallet`
+    || event.reason !== 'synthetic test identity baseline restore'
+    || event.operator !== 'cleanup-sweeper'
+    || (event.appId || 'admin') !== 'admin-test-broker') {
+    throw new SyntheticAccountError('synthetic_reset_invalid', '测试身份钱包重置参数无效')
+  }
+  const [leaseResult, walletResult] = await Promise.all([
+    targetDb.collection('test_identity_leases').doc(event.syntheticLeaseId).get(),
+    targetDb.collection('user_wallet').where({ userId: identity.uid }).limit(2).get(),
+  ])
+  const lease = Array.isArray(leaseResult?.data) ? leaseResult.data[0] : leaseResult?.data
+  if (!lease
+    || lease._id !== event.syntheticLeaseId
+    || lease.identityId !== identity._id
+    || lease.effectiveUid !== identity.uid
+    || !['revoking', 'cleaning', 'cleanup_failed'].includes(lease.status)
+    || !['cleaning', 'quarantined'].includes(identity.status)) {
+    throw new SyntheticAccountError('synthetic_reset_invalid', '测试身份租约不在可清理状态')
+  }
+  const wallets = walletResult?.data
+  const wallet = Array.isArray(wallets) && wallets.length === 1 ? wallets[0] : null
+  const baseline = identity?.baseline?.coin
+  if (!wallet
+    || typeof wallet._id !== 'string'
+    || !wallet._id
+    || wallet.userId !== identity.uid
+    || !Number.isSafeInteger(wallet.balance)
+    || wallet.balance < 0
+    || !Number.isSafeInteger(wallet.version)
+    || wallet.version < 0
+    || !Number.isSafeInteger(baseline)
+    || baseline < 0
+    || event.amount !== baseline - wallet.balance
+    || event.amount === 0) {
+    throw new SyntheticAccountError('synthetic_reset_invalid', '测试身份钱包基线差额无效')
+  }
+}
+
 module.exports = {
   ADMIN_ADJUST_MAX_COIN,
   assertInternalServiceToken,
@@ -168,4 +242,5 @@ module.exports = {
   handleDeductCoinForUser,
   handleGetAccountForUser,
   handleAdminAdjustCoin,
+  assertSyntheticReset,
 }

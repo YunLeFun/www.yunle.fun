@@ -1,7 +1,5 @@
 import type { MembershipRecord, MembershipState } from '~/types/membership'
 
-const COLLECTION = 'user_memberships'
-
 /**
  * 由会员记录派生出前端可直接消费的会员状态。
  */
@@ -45,14 +43,12 @@ export function useMembership() {
     loading.value = true
     error.value = null
     try {
-      const db = app.database()
-      const { data } = await db
-        .collection(COLLECTION)
-        .where({ userId: user.value.id })
-        .limit(1)
-        .get()
-      const arr = data as MembershipRecord[]
-      record.value = arr.length > 0 ? arr[0] ?? null : null
+      const response = await app.callFunction({
+        name: 'account-api',
+        data: { action: 'getMembership' },
+      })
+      const value = response.result
+      record.value = value && typeof value === 'object' ? value as MembershipRecord : null
       return record.value
     }
     catch (err) {

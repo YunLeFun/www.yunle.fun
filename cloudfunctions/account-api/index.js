@@ -3,6 +3,7 @@
  *
  * 路由 action：
  *   - getAccount        一次拿到账户全貌（云币余额 + 会员状态），需登录
+ *   - getMembership     读取本人会员记录，需登录（替代浏览器直读集合）
  *   - deductCoin        按次扣云币（需登录，幂等键 bizId）
  *   - signIn            每日签到领云币（需登录，免费 1 / 会员 2，按东八区切日幂等）
  *   - getSignInStatus   读今日签到态（需登录）
@@ -38,7 +39,7 @@
 
 const cloudbase = require('@cloudbase/node-sdk')
 
-const { getAccountSnapshot } = require('./account')
+const { getAccountSnapshot, readMembership } = require('./account')
 const { requestAccountDeletion } = require('./account-deletion')
 const { uploadAvatar } = require('./avatars')
 const { getFollowingFeed } = require('./feed')
@@ -59,6 +60,11 @@ const { getUnreadCount, listNotifications, markRead } = require('./notifications
 const { listUserOrders } = require('./orders-query')
 const { backfillDefaultNicknames, getProfile, upsertMyProfile } = require('./profiles')
 const { getSignInHistory, getSignInStatus, signIn } = require('./signin')
+const {
+  SyntheticAccountError,
+  guardSyntheticSessionAction,
+  handleSyntheticDeductCoinForUser,
+} = require('./synthetic')
 const { getAppSupport, getTipLeaderboard, tip } = require('./tips')
 
 const app = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV })
@@ -86,6 +92,10 @@ function getCallerUid() {
 
 async function handleGetAccount(uid) {
   return getAccountSnapshot(db, uid)
+}
+
+async function handleGetMembership(uid) {
+  return readMembership(db, uid)
 }
 
 async function handleDeductCoin(uid, event) {
@@ -129,6 +139,8 @@ const CORS_HEADERS = {
 async function dispatch(event) {
   const { action } = event || {}
   switch (action) {
+    case 'deductSyntheticCoinForUser':
+      return await handleSyntheticDeductCoinForUser(db, event)
     case 'deductCoinForUser':
       return await handleDeductCoinForUser(db, event)
     case 'getAccountForUser':
@@ -137,7 +149,7 @@ async function dispatch(event) {
       return await handleAdminAdjustCoin(db, event)
     case 'backfillDefaultNicknames':
       // 运维一次性回填存量空 / 手机号昵称为「云游者_xxxx」，复用内部服务令牌鉴权
-      assertInternalServiceToken(event)
+      assertInternalServiceToken(event?.serviceToken)
       return await backfillDefaultNicknames(db, { cursor: event.cursor, limit: event.limit, dryRun: event.dryRun, now: Date.now() })
       // 公开只读：应用支持榜 / 单应用支持详情（支持详情用可选 uid 标记 tippedByMe）
     case 'getTipLeaderboard':
@@ -154,6 +166,7 @@ async function dispatch(event) {
     case 'listFollowers':
       return await listFollowers(db, { userId: event.userId, viewerId: getCallerUid(), skip: event.skip, limit: event.limit })
     case 'getAccount':
+    case 'getMembership':
     case 'deductCoin':
     case 'listTransactions':
     case 'listOrders':
@@ -173,9 +186,12 @@ async function dispatch(event) {
       const uid = getCallerUid()
       if (!uid)
         throw new Error('请先登录')
+      await guardSyntheticSessionAction(db, uid, action)
       switch (action) {
         case 'getAccount':
           return await handleGetAccount(uid)
+        case 'getMembership':
+          return await handleGetMembership(uid)
         case 'deductCoin':
           return await handleDeductCoin(uid, event)
         case 'listTransactions':
@@ -246,8 +262,13 @@ exports.main = async (event) => {
   }
   catch (err) {
     console.error('[account-api] 处理失败:', payload.action, err.message)
-    if (isHttp)
-      return { statusCode: 400, headers: CORS_HEADERS, body: JSON.stringify({ error: err.message }) }
+    if (isHttp) {
+      return {
+        statusCode: err instanceof SyntheticAccountError ? err.httpStatus : 400,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: err.message, code: err.code }),
+      }
+    }
     throw err
   }
 }
@@ -257,5 +278,6 @@ exports._private = {
   assertUserId,
   handleAdminAdjustCoin,
   handleDeductCoinForUser,
+  handleSyntheticDeductCoinForUser,
   handleGetAccountForUser,
 }

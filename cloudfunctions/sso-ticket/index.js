@@ -7,6 +7,8 @@
  *  2) 新增「内部服务」路径（HTTP，action='mintForUser'）：Nuxt 服务端验过自己的 httpOnly cookie、
  *     拿到可信 uid 后，凭 serviceToken（= SSO_TICKET_INTERNAL_TOKEN）请求为该 uid 铸票，用于双层
  *     会话的 cookie→内存登录（见 docs/cookie-session-migration.md）。私钥始终只在本函数 env。
+ *  3) 测试身份 Broker 路径（action='mintForTestLease'）：只接受独立服务令牌与已预留的 lease / issuance
+ *     标识，自行读取受保护状态、原子认领、签发不超过租约截止时间的 ticket，并以 AES-GCM 托管。
  *
  * 客户端用 `signInWithCustomTicket(() => ticket)` 换取自己独立、可同源续期的会话。
  *
@@ -16,6 +18,8 @@
  *   - SSO_TICKET_REFRESH_SEC       可选，票据派生会话的可续期时长（秒），默认 30 天
  *   - SSO_TICKET_INTERNAL_TOKEN    内部服务 token（mintForUser 路径校验），需与 Nuxt 端
  *                                  NUXT_SSO_TICKET_INTERNAL_TOKEN 一致；未配置则该路径一律拒绝
+ *   - TEST_BROKER_INTERNAL_TOKEN   测试身份 Broker 专用 token（不得与其它内部 token 共用）
+ *   - TEST_TICKET_ESCROW_KEY       32 字节标准 base64 AES-GCM key，与 Broker 解密配置一致
  * 未配置私钥时返回 { ok:false, reason:'not_configured' }，桥接页据此回退（向后兼容）。
  */
 
@@ -24,6 +28,8 @@
 const process = require('node:process')
 const cloudbase = require('@cloudbase/node-sdk')
 const { isAnonUid, isValidTicketUid, normalizePrivateKey, tokensMatch } = require('./mint')
+const { mintForTestLease: mintTestLeaseTicket } = require('./test-lease')
+const { createTestLeaseStore } = require('./test-lease-store')
 
 const ENV = cloudbase.SYMBOL_CURRENT_ENV
 const DEFAULT_REFRESH_SEC = 60 * 60 * 24 * 30 // 30 天可续期
@@ -36,6 +42,7 @@ const CORS_HEADERS = {
 
 // 读调用者身份用的 app（绑定函数调用上下文）。
 const contextApp = cloudbase.init({ env: ENV })
+const db = contextApp.database()
 
 // 签发票据用的 app（需自定义登录私钥）。惰性构建并缓存；未配置时缓存 null 以便优雅降级。
 let cachedSignAuth
@@ -105,8 +112,37 @@ function mintForUser(payload) {
   return mintTicket(payload.uid)
 }
 
+// 路径 3：受管测试身份。Broker 不能传 uid 或任意过期时间；签发函数从受保护集合解析。
+async function mintForTestLease(payload) {
+  const signAuth = getSignAuth()
+  if (!signAuth)
+    return { ok: false, reason: 'not_configured', definitive: true }
+  const store = createTestLeaseStore(db)
+  return mintTestLeaseTicket(payload, {
+    expectedToken: process.env.TEST_BROKER_INTERNAL_TOKEN || '',
+    escrowKey: process.env.TEST_TICKET_ESCROW_KEY || '',
+    now: () => Date.now(),
+    ...store,
+    createTicket: (uid, options) => signAuth.createTicket(uid, options),
+  })
+}
+
 function httpJson(statusCode, obj) {
   return { statusCode, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }, body: JSON.stringify(obj) }
+}
+
+function testLeaseHttpStatus(result) {
+  if (result.ok)
+    return 200
+  if (result.reason === 'forbidden')
+    return 403
+  if (result.reason === 'invalid_request')
+    return 400
+  if (result.reason === 'ticket_mint_in_progress')
+    return 409
+  if (result.reason === 'not_configured' || result.definitive === false)
+    return 503
+  return 422
 }
 
 exports.main = async function main(event) {
@@ -124,11 +160,18 @@ exports.main = async function main(event) {
     }
   }
 
-  const result = payload && payload.action === 'mintForUser'
-    ? mintForUser(payload)
-    : mintForCaller()
+  let result
+  if (payload && payload.action === 'mintForTestLease')
+    result = await mintForTestLease(payload)
+  else if (payload && payload.action === 'mintForUser')
+    result = mintForUser(payload)
+  else
+    result = mintForCaller()
 
-  return isHttp ? httpJson(result.ok ? 200 : 401, result) : result
+  const status = payload?.action === 'mintForTestLease'
+    ? testLeaseHttpStatus(result)
+    : result.ok ? 200 : 401
+  return isHttp ? httpJson(status, result) : result
 }
 
-exports._private = { mintForUser, mintForCaller, mintTicket }
+exports._private = { mintForUser, mintForTestLease, mintForCaller, mintTicket, testLeaseHttpStatus }
