@@ -9,6 +9,7 @@ const process = require('node:process')
 const { COIN_TX_COLLECTION, WALLET_COLLECTION } = require('./lib/wallet')
 
 const ALLOWED_SESSION_ACTIONS = new Set(['getAccount', 'listTransactions'])
+const SYNTHETIC_BASELINE_COIN_MAX = 20
 
 class SyntheticAccountError extends Error {
   constructor(code, message, httpStatus = 403) {
@@ -40,6 +41,11 @@ function timingSafeTokenMatch(provided, expected) {
   const a = Buffer.from(provided)
   const b = Buffer.from(expected)
   return a.length === b.length && crypto.timingSafeEqual(a, b)
+}
+
+function isSecureServiceToken(value) {
+  const length = typeof value === 'string' ? Buffer.byteLength(value, 'utf8') : 0
+  return length >= 32 && length <= 512
 }
 
 async function classifyAccountIdentity(db, uid) {
@@ -78,9 +84,152 @@ async function guardSyntheticSessionAction(db, uid, action) {
   return classification
 }
 
+async function handlePrepareSyntheticBaseline(db, event, options = {}) {
+  const expectedToken = options.expectedToken ?? process.env.TEST_BROKER_ACCOUNT_API_TOKEN ?? ''
+  if (!isSecureServiceToken(expectedToken))
+    throw new SyntheticAccountError('synthetic_baseline_not_configured', '测试身份钱包基线服务未配置', 503)
+  if (!timingSafeTokenMatch(event?.serviceToken, expectedToken))
+    throw new SyntheticAccountError('synthetic_baseline_forbidden', '测试身份钱包基线鉴权失败')
+
+  const input = normalizeBaselinePreparation(event, options.now ?? Date.now())
+  const walletResult = await db.collection(WALLET_COLLECTION).where({ userId: input.userId }).limit(2).get()
+  assertDatabaseResult(walletResult)
+  if (!Array.isArray(walletResult?.data) || walletResult.data.length > 1)
+    throw new SyntheticAccountError('synthetic_wallet_invalid', '测试身份钱包不存在唯一映射')
+  const knownWallet = walletResult.data[0] || null
+  if (knownWallet && (!knownWallet._id
+    || knownWallet.userId !== input.userId
+    || !Number.isSafeInteger(knownWallet.balance)
+    || knownWallet.balance < 0
+    || !Number.isSafeInteger(knownWallet.version)
+    || knownWallet.version < 0)) {
+    throw new SyntheticAccountError('synthetic_wallet_invalid', '测试身份钱包状态无效')
+  }
+
+  const walletId = knownWallet?._id || stableId('user_wallet', input.userId)
+  const refId = `synthetic-baseline:${input.identityId}:v${input.identityVersion}`
+  const transactionId = stableId('synthetic_baseline_transaction', input.identityId, input.identityVersion)
+  let outcome
+  await db.runTransaction(async (transaction) => {
+    const identity = await readRequired(transaction, 'test_identities', input.identityId)
+    assertBaselineIdentity(identity, input)
+    const baseline = identity.baseline.coin
+    const transactionRef = transaction.collection(COIN_TX_COLLECTION).doc(transactionId)
+    const walletRef = transaction.collection(WALLET_COLLECTION).doc(walletId)
+    const wallet = await readRef(walletRef)
+    if (wallet && (wallet.userId !== input.userId
+      || !Number.isSafeInteger(wallet.balance)
+      || wallet.balance < 0
+      || !Number.isSafeInteger(wallet.version)
+      || wallet.version < 0)) {
+      throw new SyntheticAccountError('synthetic_wallet_invalid', '测试身份钱包状态无效')
+    }
+    const existingTransaction = await readRef(transactionRef)
+    if (existingTransaction) {
+      assertExistingBaselineTransaction(existingTransaction, input, baseline, refId, transactionId)
+      if (!wallet || wallet.balance !== baseline)
+        throw new SyntheticAccountError('synthetic_baseline_conflict', '测试身份钱包与基线幂等记录冲突')
+      outcome = { balance: baseline, deduped: true, transactionId }
+      return
+    }
+    const currentBalance = wallet?.balance || 0
+    const amount = baseline - currentBalance
+    if (amount === 0) {
+      outcome = { balance: baseline, deduped: true }
+      return
+    }
+
+    const nextWallet = {
+      userId: input.userId,
+      balance: baseline,
+      version: wallet ? wallet.version + 1 : 1,
+      ...(wallet ? {} : { createdAt: input.now }),
+      updatedAt: input.now,
+    }
+    if (wallet)
+      await updateRef(walletRef, nextWallet)
+    else
+      await setRef(walletRef, nextWallet)
+    await setRef(transactionRef, {
+      userId: input.userId,
+      appId: 'admin-test-broker',
+      type: amount > 0 ? 'gift' : 'consume',
+      amount,
+      balanceAfter: baseline,
+      refId,
+      meta: {
+        synthetic: true,
+        syntheticBaseline: true,
+        syntheticIdentityId: input.identityId,
+        syntheticIdentityVersion: input.identityVersion,
+      },
+      createdAt: input.now,
+    })
+    outcome = { balance: baseline, deduped: false, transactionId }
+  })
+  if (!outcome)
+    throw new SyntheticAccountError('synthetic_baseline_unavailable', '测试身份钱包基线事务无结果', 503)
+  return outcome
+}
+
+function normalizeBaselinePreparation(event, now) {
+  if (!event || typeof event !== 'object'
+    || typeof event.identityId !== 'string'
+    || !/^[\w:-]{4,128}$/.test(event.identityId)
+    || typeof event.userId !== 'string'
+    || !/^[\w:-]{1,128}$/.test(event.userId)
+    || !Number.isSafeInteger(event.identityVersion)
+    || event.identityVersion < 1) {
+    throw new SyntheticAccountError('synthetic_baseline_input_invalid', '测试身份钱包基线参数无效')
+  }
+  return {
+    identityId: event.identityId,
+    identityVersion: event.identityVersion,
+    userId: event.userId,
+    now,
+  }
+}
+
+function assertBaselineIdentity(identity, input) {
+  if (identity._id !== input.identityId
+    || identity.uid !== input.userId
+    || identity.synthetic !== true
+    || identity.source !== 'managed'
+    || !['disabled', 'quarantined'].includes(identity.status)
+    || identity.activeLeaseId !== undefined
+    || identity.activeLeaseExpiresAt !== undefined
+    || identity.version !== input.identityVersion
+    || !Number.isSafeInteger(identity.baseline?.coin)
+    || identity.baseline.coin < 0
+    || identity.baseline.coin > SYNTHETIC_BASELINE_COIN_MAX) {
+    throw new SyntheticAccountError('synthetic_baseline_forbidden', '测试身份当前不能准备钱包基线')
+  }
+}
+
+function assertExistingBaselineTransaction(transaction, input, baseline, refId, transactionId) {
+  const meta = transaction.meta || {}
+  const validAmount = Number.isSafeInteger(transaction.amount) && transaction.amount !== 0
+  const validType = transaction.amount > 0
+    ? transaction.type === 'gift'
+    : transaction.type === 'consume'
+  if (transaction._id !== transactionId
+    || transaction.userId !== input.userId
+    || transaction.appId !== 'admin-test-broker'
+    || transaction.refId !== refId
+    || transaction.balanceAfter !== baseline
+    || !validAmount
+    || !validType
+    || meta.synthetic !== true
+    || meta.syntheticBaseline !== true
+    || meta.syntheticIdentityId !== input.identityId
+    || meta.syntheticIdentityVersion !== input.identityVersion) {
+    throw new SyntheticAccountError('synthetic_baseline_conflict', '测试身份钱包基线幂等记录冲突')
+  }
+}
+
 async function handleSyntheticDeductCoinForUser(db, event, options = {}) {
   const expectedToken = options.expectedToken ?? process.env.AI_GATEWAY_ACCOUNT_API_TOKEN ?? ''
-  if (!expectedToken)
+  if (!isSecureServiceToken(expectedToken))
     throw new SyntheticAccountError('synthetic_billing_not_configured', 'AI Gateway 内部鉴权未配置', 503)
   if (!timingSafeTokenMatch(event?.serviceToken, expectedToken))
     throw new SyntheticAccountError('synthetic_billing_forbidden', 'AI Gateway 内部鉴权失败')
@@ -306,7 +455,9 @@ module.exports = {
   assertSyntheticSessionAction,
   classifyAccountIdentity,
   guardSyntheticSessionAction,
+  handlePrepareSyntheticBaseline,
   handleSyntheticDeductCoinForUser,
+  isSecureServiceToken,
   syntheticCoinTransactionId,
   syntheticReservationId,
 }

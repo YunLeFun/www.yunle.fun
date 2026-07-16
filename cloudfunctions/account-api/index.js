@@ -24,6 +24,7 @@
  *   - deductCoinForUser 内部服务按指定 userId 扣云币（需 ACCOUNT_API_INTERNAL_TOKEN）
  *   - getAccountForUser 内部服务按指定 userId 读账户全貌（需 ACCOUNT_API_INTERNAL_TOKEN）
  *   - adminAdjustCoin   管理员人工调账（增/减，需 ACCOUNT_API_INTERNAL_TOKEN）
+ *   - prepareSyntheticBaseline Broker 在受管身份禁用态初始化/恢复钱包基线（需 TEST_BROKER_ACCOUNT_API_TOKEN）
  *   - backfillDefaultNicknames 运维回填存量空/手机号昵称为「云游者_xxxx」（需 ACCOUNT_API_INTERNAL_TOKEN，幂等/分批/dryRun）
  *   - listTransactions  云币流水分页（需登录）
  *   - listOrders        我的订单历史分页（需登录，会员 / 云币充值订单）
@@ -63,6 +64,7 @@ const { getSignInHistory, getSignInStatus, signIn } = require('./signin')
 const {
   SyntheticAccountError,
   guardSyntheticSessionAction,
+  handlePrepareSyntheticBaseline,
   handleSyntheticDeductCoinForUser,
 } = require('./synthetic')
 const { getAppSupport, getTipLeaderboard, tip } = require('./tips')
@@ -139,6 +141,8 @@ const CORS_HEADERS = {
 async function dispatch(event) {
   const { action } = event || {}
   switch (action) {
+    case 'prepareSyntheticBaseline':
+      return await handlePrepareSyntheticBaseline(db, event)
     case 'deductSyntheticCoinForUser':
       return await handleSyntheticDeductCoinForUser(db, event)
     case 'deductCoinForUser':

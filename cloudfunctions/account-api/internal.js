@@ -7,7 +7,7 @@ const process = require('node:process')
 const { getAccountSnapshot } = require('./account')
 const { assertAppId, assertDeductCoinInput } = require('./lib/validation')
 const { creditCoin, deductCoin } = require('./lib/wallet')
-const { SyntheticAccountError, classifyAccountIdentity } = require('./synthetic')
+const { SyntheticAccountError, classifyAccountIdentity, isSecureServiceToken } = require('./synthetic')
 
 /** 单笔管理员调账的云币绝对值上限（防误操作 / 防滥用的资损护栏） */
 const ADMIN_ADJUST_MAX_COIN = 100_000
@@ -143,9 +143,9 @@ async function handleAdminAdjustCoin(targetDb, event, options = {}) {
   const expectedCleanupToken = options.expectedCleanupToken ?? process.env.TEST_BROKER_ACCOUNT_API_TOKEN ?? ''
   const tokenMatchesDefault = Boolean(expectedToken)
     && timingSafeEqualStr(event?.serviceToken, expectedToken)
-  const tokenMatchesCleanup = Boolean(expectedCleanupToken)
+  const tokenMatchesCleanup = isSecureServiceToken(expectedCleanupToken)
     && timingSafeEqualStr(event?.serviceToken, expectedCleanupToken)
-  if (!expectedToken && !expectedCleanupToken)
+  if (!expectedToken && !isSecureServiceToken(expectedCleanupToken))
     throw new Error('内部服务鉴权未配置')
   if (!tokenMatchesDefault && !tokenMatchesCleanup)
     throw new Error('内部服务鉴权失败')

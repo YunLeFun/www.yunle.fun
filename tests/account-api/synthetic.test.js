@@ -5,13 +5,15 @@ import { COIN_TX_COLLECTION, WALLET_COLLECTION } from '../../cloudfunctions/acco
 import {
   assertSyntheticSessionAction,
   classifyAccountIdentity,
+  handlePrepareSyntheticBaseline,
   handleSyntheticDeductCoinForUser,
   syntheticReservationId,
 } from '../../cloudfunctions/account-api/synthetic.js'
 import { makeFakeDb } from '../_fixtures/wxpay.mjs'
 
 const NOW = Date.UTC(2026, 6, 17)
-const TOKEN = 'ai-gateway-account-token'
+const TOKEN = 'ai-gateway-account-token'.padEnd(32, 'x')
+const CLEANUP_TOKEN = 'cleanup-token'.padEnd(32, 'x')
 
 describe('account-api synthetic wallet settlement', () => {
   it('revalidates reservation, lease, identity, and wallet in one transaction', async () => {
@@ -90,6 +92,161 @@ describe('account-api synthetic wallet settlement', () => {
 })
 
 describe('account-api synthetic mutation guard', () => {
+  it('initializes a disabled managed identity wallet to its protected baseline idempotently', async () => {
+    const db = syntheticDb({
+      identity: {
+        source: 'managed',
+        status: 'disabled',
+        activeLeaseId: undefined,
+      },
+      wallet: null,
+    })
+    const input = {
+      serviceToken: CLEANUP_TOKEN,
+      identityId: 'identity_01',
+      userId: 'test_uid_01',
+      identityVersion: 8,
+    }
+
+    const first = await handlePrepareSyntheticBaseline(db, input, {
+      expectedToken: CLEANUP_TOKEN,
+      now: NOW,
+    })
+    const replay = await handlePrepareSyntheticBaseline(db, input, {
+      expectedToken: CLEANUP_TOKEN,
+      now: NOW + 1,
+    })
+
+    expect(first).toEqual({ balance: 2, deduped: false, transactionId: expect.any(String) })
+    expect(replay).toEqual({ ...first, deduped: true })
+    expect(db._store[WALLET_COLLECTION]).toHaveLength(1)
+    expect(db._store[WALLET_COLLECTION][0]).toMatchObject({ userId: 'test_uid_01', balance: 2, version: 1 })
+    expect(db._store[COIN_TX_COLLECTION]).toHaveLength(1)
+    expect(db._store[COIN_TX_COLLECTION][0]).toMatchObject({
+      userId: 'test_uid_01',
+      amount: 2,
+      balanceAfter: 2,
+      refId: 'synthetic-baseline:identity_01:v8',
+      meta: {
+        synthetic: true,
+        syntheticBaseline: true,
+        syntheticIdentityId: 'identity_01',
+        syntheticIdentityVersion: 8,
+      },
+    })
+  })
+
+  it('reduces an existing disabled wallet to the exact protected baseline', async () => {
+    const db = syntheticDb({
+      identity: {
+        source: 'managed',
+        status: 'disabled',
+        activeLeaseId: undefined,
+      },
+      wallet: { balance: 5 },
+    })
+
+    await expect(handlePrepareSyntheticBaseline(db, {
+      serviceToken: CLEANUP_TOKEN,
+      identityId: 'identity_01',
+      userId: 'test_uid_01',
+      identityVersion: 8,
+    }, {
+      expectedToken: CLEANUP_TOKEN,
+      now: NOW,
+    })).resolves.toMatchObject({ balance: 2, deduped: false })
+    expect(db._store[COIN_TX_COLLECTION][0]).toMatchObject({ amount: -3, balanceAfter: 2 })
+  })
+
+  it('fails closed when a replayed baseline receipt no longer matches the wallet', async () => {
+    const db = syntheticDb({
+      identity: { source: 'managed', status: 'disabled', activeLeaseId: undefined },
+      wallet: null,
+    })
+    const input = {
+      serviceToken: CLEANUP_TOKEN,
+      identityId: 'identity_01',
+      userId: 'test_uid_01',
+      identityVersion: 8,
+    }
+    await handlePrepareSyntheticBaseline(db, input, {
+      expectedToken: CLEANUP_TOKEN,
+      now: NOW,
+    })
+    db._store[WALLET_COLLECTION][0].balance = 1
+
+    await expect(handlePrepareSyntheticBaseline(db, input, {
+      expectedToken: CLEANUP_TOKEN,
+      now: NOW + 1,
+    })).rejects.toThrow(/冲突|基线/)
+  })
+
+  it('rejects weak baseline service tokens before wallet mutation', async () => {
+    const db = syntheticDb({
+      identity: { source: 'managed', status: 'disabled', activeLeaseId: undefined },
+    })
+    await expect(handlePrepareSyntheticBaseline(db, {
+      serviceToken: 'short',
+      identityId: 'identity_01',
+      userId: 'test_uid_01',
+      identityVersion: 8,
+    }, {
+      expectedToken: 'short',
+      now: NOW,
+    })).rejects.toMatchObject({ code: 'synthetic_baseline_not_configured', httpStatus: 503 })
+    expect(db._store[WALLET_COLLECTION][0].balance).toBe(2)
+  })
+
+  it('rejects a corrupted baseline transaction receipt on replay', async () => {
+    const db = syntheticDb({
+      identity: { source: 'managed', status: 'disabled', activeLeaseId: undefined },
+      wallet: null,
+    })
+    const input = {
+      serviceToken: CLEANUP_TOKEN,
+      identityId: 'identity_01',
+      userId: 'test_uid_01',
+      identityVersion: 8,
+    }
+    await handlePrepareSyntheticBaseline(db, input, { expectedToken: CLEANUP_TOKEN, now: NOW })
+    Object.assign(db._store[COIN_TX_COLLECTION][0], { amount: 0, type: 'consume' })
+
+    await expect(handlePrepareSyntheticBaseline(db, input, {
+      expectedToken: CLEANUP_TOKEN,
+      now: NOW + 1,
+    })).rejects.toMatchObject({ code: 'synthetic_baseline_conflict' })
+  })
+
+  it.each([
+    ['wrong token', { serviceToken: 'wrong' }, {}],
+    ['wrong version', { identityVersion: 7 }, {}],
+    ['active identity', {}, { identity: { status: 'leased', activeLeaseId: 'lease_01' } }],
+    ['orphaned active lease expiry', {}, { identity: { activeLeaseId: undefined, activeLeaseExpiresAt: 0 } }],
+    ['baseline above safety cap', {}, { identity: { baseline: { coin: 21, enabled: true } } }],
+    ['legacy identity', {}, { identity: { source: 'legacy', status: 'quarantined', activeLeaseId: undefined } }],
+  ])('rejects synthetic baseline preparation for %s', async (_label, eventPatch, dbPatch) => {
+    const db = syntheticDb({
+      identity: {
+        source: 'managed',
+        status: 'disabled',
+        activeLeaseId: undefined,
+        ...dbPatch.identity,
+      },
+    })
+    await expect(handlePrepareSyntheticBaseline(db, {
+      serviceToken: CLEANUP_TOKEN,
+      identityId: 'identity_01',
+      userId: 'test_uid_01',
+      identityVersion: 8,
+      ...eventPatch,
+    }, {
+      expectedToken: CLEANUP_TOKEN,
+      now: NOW,
+    })).rejects.toThrow()
+    expect(db._store[WALLET_COLLECTION][0].balance).toBe(2)
+    expect(db._store[COIN_TX_COLLECTION] ?? []).toHaveLength(0)
+  })
+
   it('allows only getAccount and listTransactions for a logged-in synthetic identity', () => {
     expect(() => assertSyntheticSessionAction('getAccount')).not.toThrow()
     expect(() => assertSyntheticSessionAction('listTransactions')).not.toThrow()
@@ -135,7 +292,7 @@ describe('account-api synthetic mutation guard', () => {
       wallet: { balance: 1 },
     })
     const reset = {
-      serviceToken: 'cleanup-token',
+      serviceToken: CLEANUP_TOKEN,
       userId: 'test_uid_01',
       appId: 'admin-test-broker',
       amount: 1,
@@ -147,7 +304,7 @@ describe('account-api synthetic mutation guard', () => {
 
     await expect(handleAdminAdjustCoin(db, reset, {
       expectedToken: 'legacy-token',
-      expectedCleanupToken: 'cleanup-token',
+      expectedCleanupToken: CLEANUP_TOKEN,
       now: NOW,
     })).resolves.toMatchObject({ balance: 2 })
     expect(db._store[COIN_TX_COLLECTION][0].meta).toMatchObject({
@@ -158,7 +315,7 @@ describe('account-api synthetic mutation guard', () => {
     const wrongDb = syntheticDb({ identity: { status: 'cleaning' }, lease: { status: 'cleaning' } })
     await expect(handleAdminAdjustCoin(wrongDb, { ...reset, serviceToken: 'legacy-token' }, {
       expectedToken: 'legacy-token',
-      expectedCleanupToken: 'cleanup-token',
+      expectedCleanupToken: CLEANUP_TOKEN,
       now: NOW,
     })).rejects.toThrow(/鉴权失败/)
   })
@@ -170,7 +327,7 @@ describe('account-api synthetic mutation guard', () => {
       wallet: { balance: 1 },
     })
     const reset = {
-      serviceToken: 'cleanup-token',
+      serviceToken: CLEANUP_TOKEN,
       userId: 'test_uid_01',
       appId: 'admin-test-broker',
       amount: 2,
@@ -182,7 +339,7 @@ describe('account-api synthetic mutation guard', () => {
 
     await expect(handleAdminAdjustCoin(db, reset, {
       expectedToken: 'legacy-token',
-      expectedCleanupToken: 'cleanup-token',
+      expectedCleanupToken: CLEANUP_TOKEN,
       now: NOW,
     })).rejects.toMatchObject({ code: 'synthetic_reset_invalid' })
     expect(db._store[WALLET_COLLECTION][0].balance).toBe(1)
@@ -219,7 +376,7 @@ describe('account-api synthetic mutation guard', () => {
       operator: 'owner',
     }, {
       expectedToken: '',
-      expectedCleanupToken: 'cleanup-token',
+      expectedCleanupToken: CLEANUP_TOKEN,
       now: NOW,
     })).rejects.toThrow(/鉴权失败/)
     expect(regular._store[WALLET_COLLECTION][0].balance).toBe(1)
@@ -281,16 +438,19 @@ function syntheticDb(patches = {}) {
     status: 'reserved',
     ...patches.reservation,
   }
+  const wallet = patches.wallet === null
+    ? []
+    : [{
+        _id: 'wallet_01',
+        userId: 'test_uid_01',
+        balance: 2,
+        version: 1,
+        ...patches.wallet,
+      }]
   return makeFakeDb({
     test_identities: [identity],
     test_identity_leases: [lease],
     test_identity_coin_reservations: [reservation],
-    [WALLET_COLLECTION]: [{
-      _id: 'wallet_01',
-      userId: 'test_uid_01',
-      balance: 2,
-      version: 1,
-      ...patches.wallet,
-    }],
+    [WALLET_COLLECTION]: wallet,
   })
 }
