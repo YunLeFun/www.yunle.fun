@@ -80,7 +80,7 @@
 **处理流程**：
 
 1. `app.auth().getUserInfo().uid` 取登录态 uid（匿名 / `anon` 占位身份一律视为未登录，拒绝，避免命中共享占位账户）；
-2. 按 `appId` 查**服务端权威**注册表 `APP_REGISTRY`（端用户无法篡改计价 / 模型 / group）。`ai-sfc` 按次扣 1 云币；`zero-echo-2026` 按 Asia/Shanghai 自然日提供普通账号 9 次、有效会员 27 次成功生成；
+2. 按 `appId` 查**服务端权威**注册表 `APP_REGISTRY`（端用户无法篡改计价 / 模型 / group）。`ai-sfc` 与 `everything-generator` 按次扣 1 云币；`zero-echo-2026` 按 Asia/Shanghai 自然日提供普通账号 9 次、有效会员 27 次成功生成；
 3. 需要应用签名的注册项先校验 HMAC 和时间窗，再读取登录账户；云币策略执行余额预检，日额度策略在 `ai_usage_daily` 原子预占；
 4. `app.ai()` 以**管理员身份**调 CloudBase AI 生成；
 5. 云币策略生成成功后按 `bizId` 幂等扣费；日额度策略只保留成功生成的占用，模型失败会回滚本次预占。两种策略均不让失败生成消耗用户权益。

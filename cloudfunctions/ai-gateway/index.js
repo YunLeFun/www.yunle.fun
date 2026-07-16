@@ -23,6 +23,7 @@ const process = require('node:process')
 const cloudbase = require('@cloudbase/node-sdk')
 
 const { deductCoinForUid, getAccountForUid } = require('./lib/account-proxy')
+const { APP_REGISTRY, messageLimitsForApp } = require('./lib/app-registry')
 const { verifyAppRequest, verifyRateLimitRequest } = require('./lib/attestation')
 const {
   auditAction,
@@ -43,24 +44,6 @@ const writeAuditLog = message => process.stdout.write(`${message}\n`)
 
 /** account-api 转调器（同 env 函数间调用，取 result） */
 const callAccountApi = data => app.callFunction({ name: 'account-api', data }).then(r => r.result)
-
-/**
- * 应用计价 / 模型注册表 —— **服务端权威**，端用户无法篡改 cost/model/group。
- * 新接入一个应用 = 在此加一条 + 重新部署。注意：这里只有"计费与模型"配置，
- * 没有任何业务域知识（如何构造 prompt、如何解析结果都在应用侧）。
- */
-const APP_REGISTRY = {
-  'ai-sfc': { group: 'custom-deepseek-open', model: 'deepseek-v4-flash', billing: 'coin', cost: 1 },
-  'zero-echo-2026': {
-    group: 'custom-deepseek-open',
-    model: 'deepseek-v4-flash',
-    billing: 'daily_quota',
-    memberDailyLimit: 27,
-    ipRateLimit: { blockMs: 60_000, limit: 6, windowMs: 60_000 },
-    signingSecretEnv: 'ZERO_ECHO_APP_SIGNING_SECRET',
-    standardDailyLimit: 9,
-  },
-}
 
 async function handleRateLimit(event) {
   const appId = typeof event.appId === 'string' ? event.appId : ''
@@ -121,7 +104,7 @@ async function handleChat(event) {
   let messages
   let bizId
   try {
-    messages = assertMessages(event.messages)
+    messages = assertMessages(event.messages, messageLimitsForApp(appCfg))
     bizId = assertBizId(event.bizId)
   }
   catch (err) {
