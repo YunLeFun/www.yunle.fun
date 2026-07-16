@@ -20,7 +20,17 @@ describe('test identity timer sweeper', () => {
         cleanupRuns: 0,
         ticketIssuancesReconciled: 0,
         purged: [],
-        reconciled: { scanned: 0, settled: 0, released: 0, manual: 0, skipped: 0, errors: 0 },
+        reconciled: {
+          scanned: 0,
+          settled: 0,
+          released: 0,
+          manual: 0,
+          skipped: 0,
+          errors: 0,
+          dailyScanned: 1,
+          dailyRepaired: 0,
+          dailySkipped: 1,
+        },
       }),
     }))
 

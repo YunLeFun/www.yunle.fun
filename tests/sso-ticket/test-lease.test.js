@@ -3,9 +3,9 @@ import crypto from 'node:crypto'
 import { describe, expect, it } from 'vitest'
 
 import {
-  ESCROW_AAD,
   mintForTestLease,
   TestLeaseMintError,
+  ticketEscrowAad,
   validateMintContext,
 } from '../../cloudfunctions/sso-ticket/test-lease.js'
 
@@ -13,6 +13,7 @@ const NOW = Date.UTC(2026, 6, 17)
 const LEASE_ID = 'lease_01'
 const ISSUANCE_ID = 'issuance_01'
 const ESCROW_KEY = crypto.randomBytes(32).toString('base64')
+const BROKER_TOKEN = 'b'.repeat(32)
 
 describe('sso-ticket test lease minting', () => {
   it('rejects an invalid broker token before reading broker state', async () => {
@@ -24,6 +25,17 @@ describe('sso-ticket test lease minting', () => {
       issuanceId: ISSUANCE_ID,
     }, deps)).resolves.toEqual({ ok: false, reason: 'forbidden', definitive: true })
 
+    expect(deps.claimCalls).toBe(0)
+  })
+
+  it('fails closed when the configured broker token is weak', async () => {
+    const deps = fakeDeps()
+    deps.expectedToken = 'short'
+
+    await expect(mintForTestLease({
+      ...validInput(),
+      serviceToken: 'short',
+    }, deps)).resolves.toEqual({ ok: false, reason: 'not_configured', definitive: true })
     expect(deps.claimCalls).toBe(0)
   })
 
@@ -41,6 +53,7 @@ describe('sso-ticket test lease minting', () => {
     })
     expect(JSON.stringify(deps.persisted)).not.toContain('cloudbase-ticket-secret')
     expect(decryptEscrow(deps.persisted, ESCROW_KEY)).toBe('cloudbase-ticket-secret')
+    expect(() => decryptEscrow({ ...deps.persisted, issuanceId: 'issuance_other' }, ESCROW_KEY)).toThrow()
   })
 
   it('does not mint again when the issuance was already escrowed', async () => {
@@ -115,7 +128,7 @@ describe('sso-ticket broker-state validation', () => {
 
 function validInput() {
   return {
-    serviceToken: 'broker-token',
+    serviceToken: BROKER_TOKEN,
     leaseId: LEASE_ID,
     issuanceId: ISSUANCE_ID,
   }
@@ -189,7 +202,7 @@ function deepMerge(base, patch) {
 
 function fakeDeps(options = {}) {
   const deps = {
-    expectedToken: 'broker-token',
+    expectedToken: BROKER_TOKEN,
     escrowKey: ESCROW_KEY,
     now: () => NOW,
     claimCalls: 0,
@@ -229,7 +242,7 @@ function decryptEscrow(value, key) {
     Buffer.from(key, 'base64'),
     Buffer.from(value.ticketIv, 'base64url'),
   )
-  decipher.setAAD(Buffer.from(ESCROW_AAD, 'utf8'))
+  decipher.setAAD(ticketEscrowAad(value.leaseId, value.issuanceId))
   decipher.setAuthTag(Buffer.from(value.ticketTag, 'base64url'))
   return Buffer.concat([
     decipher.update(Buffer.from(value.ticketCiphertext, 'base64url')),

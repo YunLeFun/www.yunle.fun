@@ -37,6 +37,10 @@ function syntheticCoinTransactionId(userId, bizId) {
   return stableId('coin_transaction', userId, 'consume', bizId)
 }
 
+function syntheticAuditDocumentId(reservationId, action, reasonCode) {
+  return stableId('synthetic_ai_audit', reservationId, action, reasonCode)
+}
+
 function assertInternalReconcileToken(provided, expected) {
   if (typeof expected !== 'string' || expected.length < 32 || expected.length > 512)
     throw new SyntheticBudgetError('reconcile_not_configured', '预算对账内部令牌未配置')
@@ -186,11 +190,11 @@ function createSyntheticBudgetStore(db) {
         const dailyUsage = checkedUsage(daily)
         const policy = lease.policySnapshot || {}
         const leaseCoinLimit = Math.min(
-          assertPositiveLimit(lease.budget?.maxCoin, 'lease budget'),
-          assertPositiveLimit(policy.maxCoinPerLease, 'lease coin policy'),
+          assertNonNegative(lease.budget?.maxCoin, 'lease budget'),
+          assertNonNegative(policy.maxCoinPerLease, 'lease coin policy'),
         )
         const exceeds = usage.coinSpent + usage.coinReserved + input.amount > leaseCoinLimit
-          || dailyUsage.coinSpent + dailyUsage.coinReserved + input.amount > assertPositiveLimit(policy.maxCoinPerDay, 'daily coin policy')
+          || dailyUsage.coinSpent + dailyUsage.coinReserved + input.amount > assertNonNegative(policy.maxCoinPerDay, 'daily coin policy')
           || usage.modelCallsStarted + usage.modelCallsReserved + 1 > assertPositiveLimit(policy.maxModelCallsPerLease, 'lease model policy')
           || dailyUsage.modelCallsStarted + dailyUsage.modelCallsReserved + 1 > assertPositiveLimit(policy.maxModelCallsPerDay, 'daily model policy')
         if (exceeds) {
@@ -380,8 +384,215 @@ function createSyntheticBudgetStore(db) {
           result.errors += 1
         }
       }
-      return result
+      return { ...result, ...await rebuildRecentDailyUsage(db, now) }
     },
+  }
+}
+
+async function rebuildRecentDailyUsage(db, now) {
+  const dateKeys = [...new Set([shanghaiDateKey(now), shanghaiDateKey(now - 86_400_000)])]
+  const dailyRecords = (await Promise.all(dateKeys.map(async dateKey => await listBoundedDocuments(
+    db,
+    COLLECTIONS.daily,
+    { dateKey },
+    200,
+    'Daily usage',
+  )))).flat()
+  const result = { dailyScanned: dailyRecords.length, dailyRepaired: 0, dailySkipped: 0 }
+  for (const snapshot of dailyRecords) {
+    const expected = await reconstructDailyUsage(db, snapshot, snapshot.dateKey, now)
+    if (!expected) {
+      result.dailySkipped += 1
+      continue
+    }
+    const outcome = await repairDailyUsage(db, snapshot, expected, now)
+    result[outcome] += 1
+  }
+  return result
+}
+
+async function reconstructDailyUsage(db, daily, dateKey, now) {
+  assertDailyBinding(daily, daily.identityId, dateKey)
+  checkedCompleteDailyUsage(daily)
+  assertNonNegative(daily.version, 'daily version')
+  const identity = await readDocument(db, COLLECTIONS.identities, daily.identityId)
+  if (identity.synthetic !== true || typeof identity.uid !== 'string' || !identity.uid)
+    throw new SyntheticBudgetError('daily_usage_invalid', 'Daily usage identity binding is invalid')
+
+  const reservations = await listBoundedDocuments(
+    db,
+    COLLECTIONS.reservations,
+    { identityId: daily.identityId, dateKey },
+    200,
+    'Daily reservation',
+  )
+  let coinReserved = 0
+  let coinSpent = 0
+  let modelCallsReserved = 0
+  let modelCallsStarted = 0
+  for (const reservation of reservations) {
+    assertDailyReservation(reservation, daily.identityId, dateKey)
+    const transactionId = syntheticCoinTransactionId(reservation.effectiveUid, reservation.bizId)
+    const coinTransaction = await readDocument(db, COLLECTIONS.coinTransactions, transactionId, false)
+    if (coinTransaction) {
+      assertSyntheticCoinTransaction(coinTransaction, reservation, transactionId)
+      if (reservation.status !== 'settled')
+        return null
+      coinSpent += reservation.amount
+    }
+    else if (reservation.status === 'settled') {
+      throw new SyntheticBudgetError('reconcile_transaction_conflict', 'Settled reservation is missing its coin transaction')
+    }
+    else if (reservation.status === 'reserved' || reservation.status === 'reconcile_required') {
+      coinReserved += reservation.amount
+    }
+
+    if (reservation.status === 'reserved' && reservation.generationStatus === 'reserved')
+      modelCallsReserved += 1
+    if (Number.isSafeInteger(reservation.modelStartedAt))
+      modelCallsStarted += 1
+  }
+
+  const { start, end } = shanghaiDateBounds(dateKey)
+  const audits = await listBoundedDocuments(
+    db,
+    COLLECTIONS.audits,
+    {
+      effectiveUid: identity.uid,
+      // A slot reserved immediately before midnight may be released by a
+      // delayed signer/sweep after midnight. Include facts through this sweep
+      // while still attributing reserve/create events by their Shanghai day.
+      createdAt: dateRange(db, start - 120_000, Math.max(end + 120_000, now + 1)),
+    },
+    999,
+    'Daily audit',
+  )
+  const leaseIds = new Set()
+  const reservedIssuances = new Set()
+  const releasedIssuances = new Set()
+  const mintedIssuances = new Set()
+  for (const audit of audits) {
+    if (!Number.isSafeInteger(audit.createdAt) || typeof audit.action !== 'string'
+      || typeof audit.traceId !== 'string' || audit.identityId !== daily.identityId) {
+      throw new SyntheticBudgetError('daily_usage_invalid', 'Daily audit fact is invalid')
+    }
+    const eventDateKey = shanghaiDateKey(audit.createdAt)
+    if ((audit.action === 'lease.create' || audit.action === 'lease.approve')
+      && audit.outcome === 'succeeded' && eventDateKey === dateKey && typeof audit.leaseId === 'string') {
+      leaseIds.add(audit.leaseId)
+    }
+    if (audit.action === 'grant.exchange.reserve'
+      && audit.outcome === 'succeeded' && eventDateKey === dateKey) {
+      reservedIssuances.add(audit.traceId)
+    }
+    if (audit.action === 'grant.exchange.mint' && audit.traceId.endsWith(':expired'))
+      releasedIssuances.add(audit.traceId.slice(0, -':expired'.length))
+    if (audit.action === 'ticket.reconcile'
+      && (audit.reasonCode === 'signer-not-claimed' || audit.detail?.status === 'expired')) {
+      releasedIssuances.add(audit.traceId)
+    }
+    if (audit.action === 'grant.exchange.deliver' && audit.outcome === 'succeeded'
+      && audit.traceId.endsWith(':delivered')) {
+      mintedIssuances.add(audit.traceId.slice(0, -':delivered'.length))
+    }
+  }
+
+  let ticketSlotsReserved = 0
+  let ticketsMinted = 0
+  for (const issuanceId of reservedIssuances) {
+    if (!releasedIssuances.has(issuanceId))
+      ticketSlotsReserved += 1
+    if (mintedIssuances.has(issuanceId))
+      ticketsMinted += 1
+  }
+  return {
+    coinReserved,
+    coinSpent,
+    leasesCreated: leaseIds.size,
+    modelCallsReserved,
+    modelCallsStarted,
+    ticketSlotsReserved,
+    ticketsMinted,
+  }
+}
+
+async function repairDailyUsage(db, snapshot, expected, now) {
+  let outcome = 'dailySkipped'
+  await db.runTransaction(async (transaction) => {
+    const current = await readDocument(transaction, COLLECTIONS.daily, snapshot._id)
+    assertDailyBinding(current, snapshot.identityId, snapshot.dateKey)
+    const currentUsage = checkedCompleteDailyUsage(current)
+    if (assertNonNegative(current.version, 'daily version') !== snapshot.version)
+      return
+    const changed = Object.entries(expected).some(([key, value]) => currentUsage[key] !== value)
+    if (!changed)
+      return
+    const identity = await readDocument(transaction, COLLECTIONS.identities, current.identityId)
+    if (identity.synthetic !== true || typeof identity.uid !== 'string' || !identity.uid)
+      throw new SyntheticBudgetError('daily_usage_invalid', 'Daily usage identity binding is invalid')
+    await updateDocument(transaction, COLLECTIONS.daily, current._id, {
+      ...expected,
+      version: current.version + 1,
+      updatedAt: now,
+    })
+    const auditId = stableId('daily_usage_repair', current._id, current.version)
+    await persistImmutableAudit(transaction, {
+      _id: auditId,
+      action: 'daily-usage.reconcile',
+      outcome: 'succeeded',
+      reasonCode: 'drift-repaired',
+      principal: { type: 'system', service: 'ai-gateway' },
+      effectiveUid: identity.uid,
+      identityId: current.identityId,
+      identityVersion: identity.version,
+      traceId: current._id,
+      detail: { previousVersion: current.version, ...expected },
+      createdAt: now,
+    })
+    outcome = 'dailyRepaired'
+  })
+  return outcome
+}
+
+async function listBoundedDocuments(db, collection, filters, maximum, label) {
+  const result = await db.collection(collection).where(filters).limit(maximum + 1).get()
+  assertDatabaseResult(result)
+  if (!Array.isArray(result?.data))
+    throw new SyntheticBudgetError('reconcile_database_invalid', `${label} query returned invalid data`)
+  if (result.data.length > maximum)
+    throw new SyntheticBudgetError('reconcile_source_limit', `${label} query exceeded its safe bound`)
+  return result.data
+}
+
+function shanghaiDateBounds(dateKey) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey))
+    throw new SyntheticBudgetError('daily_usage_invalid', 'Daily usage date is invalid')
+  const start = Date.parse(`${dateKey}T00:00:00+08:00`)
+  if (!Number.isSafeInteger(start))
+    throw new SyntheticBudgetError('daily_usage_invalid', 'Daily usage date is invalid')
+  return { start, end: start + 86_400_000 }
+}
+
+function dateRange(db, start, end) {
+  if (!db?.command || typeof db.command.gte !== 'function' || typeof db.command.lt !== 'function')
+    throw new SyntheticBudgetError('reconcile_database_invalid', 'Database range command is unavailable')
+  const lower = db.command.gte(start)
+  if (!lower || typeof lower.and !== 'function')
+    throw new SyntheticBudgetError('reconcile_database_invalid', 'Database range command is unavailable')
+  return lower.and(db.command.lt(end))
+}
+
+function assertDailyReservation(reservation, identityId, dateKey) {
+  if (!reservation || typeof reservation._id !== 'string'
+    || reservation.identityId !== identityId
+    || reservation.dateKey !== dateKey
+    || typeof reservation.effectiveUid !== 'string'
+    || typeof reservation.bizId !== 'string'
+    || !Number.isInteger(reservation.amount)
+    || reservation.amount <= 0
+    || typeof reservation.status !== 'string'
+    || typeof reservation.generationStatus !== 'string') {
+    throw new SyntheticBudgetError('daily_usage_invalid', 'Daily reservation fact is invalid')
   }
 }
 
@@ -621,6 +832,15 @@ function checkedUsage(value) {
   }
 }
 
+function checkedCompleteDailyUsage(value) {
+  return {
+    ...checkedUsage(value),
+    leasesCreated: assertNonNegative(value?.leasesCreated, 'leasesCreated'),
+    ticketSlotsReserved: assertNonNegative(value?.ticketSlotsReserved, 'ticketSlotsReserved'),
+    ticketsMinted: assertNonNegative(value?.ticketsMinted, 'ticketsMinted'),
+  }
+}
+
 function assertPositiveLimit(value, label) {
   if (!Number.isInteger(value) || value <= 0)
     throw new SyntheticBudgetError('budget_policy_invalid', `${label} is invalid`)
@@ -637,8 +857,12 @@ function assertDailyBinding(daily, identityId, dateKey) {
 }
 
 async function writeAudit(transaction, action, reasonCode, reservation, lease, now, outcome = 'succeeded') {
-  const id = stableId('synthetic_ai_audit', reservation._id, action)
-  await setDocument(transaction, COLLECTIONS.audits, id, {
+  if (!lease?.principal || typeof lease.principal !== 'object'
+    || !lease?.approvedBy || typeof lease.approvedBy !== 'object') {
+    throw new SyntheticBudgetError('audit_context_invalid', 'Synthetic lease audit principals are invalid')
+  }
+  const id = syntheticAuditDocumentId(reservation._id, action, reasonCode)
+  const audit = {
     _id: id,
     action,
     outcome,
@@ -655,8 +879,24 @@ async function writeAudit(transaction, action, reasonCode, reservation, lease, n
     identityVersion: lease.policySnapshot?.identityVersion,
     registryVersion: lease.policySnapshot?.registryVersion,
     traceId: reservation._id,
+    detail: { amount: reservation.amount, bizId: reservation.bizId },
     createdAt: now,
-  })
+  }
+  await persistImmutableAudit(transaction, audit)
+}
+
+async function persistImmutableAudit(transaction, audit) {
+  const existing = await readDocument(transaction, COLLECTIONS.audits, audit._id, false)
+  if (existing) {
+    if (!auditMatches(existing, audit))
+      throw new SyntheticBudgetError('audit_event_conflict', 'Synthetic audit event is immutable')
+    return
+  }
+  await setDocument(transaction, COLLECTIONS.audits, audit._id, audit)
+}
+
+function auditMatches(existing, expected) {
+  return Object.entries(expected).every(([key, value]) => JSON.stringify(existing[key]) === JSON.stringify(value))
 }
 
 function requireOutcome(outcome) {
@@ -672,5 +912,6 @@ module.exports = {
   createSyntheticBudgetStore,
   reservationDocumentId,
   shanghaiDateKey,
+  syntheticAuditDocumentId,
   syntheticCoinTransactionId,
 }

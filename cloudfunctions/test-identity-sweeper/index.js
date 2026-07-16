@@ -63,7 +63,17 @@ function assertSweepResult(result) {
     || !result.reconciled || typeof result.reconciled !== 'object') {
     throw new Error('admin test-identity sweep returned an invalid result')
   }
-  for (const key of ['scanned', 'settled', 'released', 'manual', 'skipped', 'errors']) {
+  for (const key of [
+    'scanned',
+    'settled',
+    'released',
+    'manual',
+    'skipped',
+    'errors',
+    'dailyScanned',
+    'dailyRepaired',
+    'dailySkipped',
+  ]) {
     const value = result.reconciled[key]
     if (!Number.isSafeInteger(value) || value < 0)
       throw new Error('admin test-identity sweep returned an invalid result')

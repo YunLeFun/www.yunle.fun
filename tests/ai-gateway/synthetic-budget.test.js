@@ -4,6 +4,7 @@ import {
   assertInternalReconcileToken,
   createSyntheticBudgetStore,
   reservationDocumentId,
+  syntheticAuditDocumentId,
   syntheticCoinTransactionId,
 } from '../../cloudfunctions/ai-gateway/lib/synthetic-budget.js'
 
@@ -15,6 +16,32 @@ describe('ai-gateway synthetic budget transactions', () => {
     expect(() => assertInternalReconcileToken(token, token)).not.toThrow()
     expect(() => assertInternalReconcileToken('wrong', token)).toThrow(/鉴权/)
     expect(() => assertInternalReconcileToken('', '')).toThrow(/未配置/)
+  })
+
+  it('uses distinct immutable audit IDs for distinct state transitions', () => {
+    const required = syntheticAuditDocumentId('reservation_01', 'budget.reconcile', 'required')
+    const missing = syntheticAuditDocumentId('reservation_01', 'budget.reconcile', 'transaction-missing')
+    expect(required).not.toBe(missing)
+  })
+
+  it('refuses to overwrite a conflicting immutable audit event', async () => {
+    const documents = validDocuments()
+    const reservationId = reservationDocumentId('lease_01', 'wish:req-01:audit')
+    const auditId = syntheticAuditDocumentId(reservationId, 'budget.reserve', 'reserved')
+    documents.test_identity_audit_logs[auditId] = {
+      _id: auditId,
+      action: 'budget.reserve',
+      outcome: 'failed',
+      reasonCode: 'tampered',
+      traceId: reservationId,
+      createdAt: NOW,
+    }
+    const db = new MemoryDb(documents)
+
+    await expect(createSyntheticBudgetStore(db).reserve(operation()))
+      .rejects
+      .toMatchObject({ code: 'audit_event_conflict' })
+    expect(db.get('test_identity_coin_reservations', reservationId)).toBeUndefined()
   })
 
   it('reserves coin and one model call without persisting model input', async () => {
@@ -31,6 +58,10 @@ describe('ai-gateway synthetic budget transactions', () => {
       generationStatus: 'reserved',
       status: 'reserved',
     })
+    expect(Object.values(db.documents.test_identity_audit_logs)).toContainEqual(expect.objectContaining({
+      action: 'budget.reserve',
+      detail: { amount: 1, bizId: 'wish:req-01:audit' },
+    }))
     expect(JSON.stringify(reservation)).not.toContain('private wish')
     expect(db.get('test_identity_leases', 'lease_01').usage).toMatchObject({
       coinReserved: 1,
@@ -59,6 +90,18 @@ describe('ai-gateway synthetic budget transactions', () => {
     await expect(store.reserve(operation())).resolves.toEqual({ kind: 'budget_exceeded' })
     expect(db.get('test_identity_coin_reservations', reservationDocumentId('lease_01', 'wish:req-01:audit')))
       .toBeUndefined()
+  })
+
+  it('treats an intentionally zeroed lease budget as exhausted, not corrupt', async () => {
+    const documents = validDocuments()
+    documents.test_identity_leases.lease_01.budget.maxCoin = 0
+    documents.test_identity_leases.lease_01.policySnapshot.maxCoinPerLease = 0
+    documents.test_identity_leases.lease_01.policySnapshot.maxCoinPerDay = 0
+    const db = new MemoryDb(documents)
+
+    await expect(createSyntheticBudgetStore(db).reserve(operation()))
+      .resolves
+      .toEqual({ kind: 'budget_exceeded' })
   })
 
   it('allows only one reserved-to-generating transition', async () => {
@@ -198,6 +241,140 @@ describe('ai-gateway synthetic budget transactions', () => {
       modelCallsStarted: 1,
     })
   })
+
+  it('rebuilds current daily usage from durable transactions and structured audit facts', async () => {
+    const db = new MemoryDb(validDocuments())
+    const store = createSyntheticBudgetStore(db)
+    const reserved = await store.reserve(operation())
+    const state = { ...operation(), reservationId: reserved.reservationId }
+    await store.start(state)
+    await store.succeedGeneration(state)
+    const transactionId = syntheticCoinTransactionId('test_uid_01', 'wish:req-01:audit')
+    db.documents.coin_transactions = {
+      [transactionId]: {
+        _id: transactionId,
+        userId: 'test_uid_01',
+        appId: 'everything-generator',
+        type: 'consume',
+        amount: -1,
+        refId: 'wish:req-01:audit',
+        meta: {
+          synthetic: true,
+          syntheticLeaseId: 'lease_01',
+          syntheticReservationId: reserved.reservationId,
+          syntheticScopeId: 'wish',
+        },
+        createdAt: NOW + 2,
+      },
+    }
+    await store.settle({ ...state, coinTransactionId: transactionId })
+    Object.assign(db.documents.test_identity_audit_logs, {
+      lease: audit('lease.create', 'lease_01', 'lease_01', NOW),
+      reserve_1: audit('grant.exchange.reserve', 'lease_01', 'issuance_01', NOW + 1),
+      deliver_1: audit('grant.exchange.deliver', 'lease_01', 'issuance_01:delivered', NOW + 2),
+      reserve_2: audit('grant.exchange.reserve', 'lease_01', 'issuance_02', NOW + 3),
+      expire_2: audit('grant.exchange.mint', 'lease_01', 'issuance_02:expired', NOW + 4, 'failed'),
+    })
+    Object.assign(db.documents.test_identity_usage_daily['identity_01:2026-07-17'], {
+      coinSpent: 99,
+      coinReserved: 99,
+      modelCallsReserved: 99,
+      modelCallsStarted: 99,
+      leasesCreated: 99,
+      ticketSlotsReserved: 99,
+      ticketsMinted: 99,
+    })
+
+    await expect(store.reconcile({ now: NOW + 180_000 })).resolves.toMatchObject({
+      dailyScanned: 1,
+      dailyRepaired: 1,
+      dailySkipped: 0,
+    })
+    expect(db.get('test_identity_usage_daily', 'identity_01:2026-07-17')).toMatchObject({
+      coinSpent: 1,
+      coinReserved: 0,
+      modelCallsReserved: 0,
+      modelCallsStarted: 1,
+      leasesCreated: 1,
+      ticketSlotsReserved: 1,
+      ticketsMinted: 1,
+    })
+    expect(Object.values(db.documents.test_identity_audit_logs)).toContainEqual(expect.objectContaining({
+      action: 'daily-usage.reconcile',
+      principal: { type: 'system', service: 'ai-gateway' },
+      identityId: 'identity_01',
+      reasonCode: 'drift-repaired',
+    }))
+  })
+
+  it('rebuilds the previous Shanghai day across the midnight sweep boundary', async () => {
+    const documents = validDocuments()
+    delete documents.test_identity_usage_daily['identity_01:2026-07-17']
+    documents.test_identity_usage_daily['identity_01:2026-07-16'] = {
+      _id: 'identity_01:2026-07-16',
+      identityId: 'identity_01',
+      dateKey: '2026-07-16',
+      timezone: 'Asia/Shanghai',
+      coinSpent: 0,
+      coinReserved: 0,
+      modelCallsReserved: 0,
+      modelCallsStarted: 0,
+      leasesCreated: 9,
+      ticketSlotsReserved: 0,
+      ticketsMinted: 0,
+      version: 1,
+    }
+    documents.test_identity_audit_logs.lease_previous = audit(
+      'lease.create',
+      'lease_previous',
+      'lease_previous',
+      NOW - 86_400_000,
+    )
+    const db = new MemoryDb(documents)
+
+    await expect(createSyntheticBudgetStore(db).reconcile({ now: NOW + 180_000 }))
+      .resolves
+      .toMatchObject({ dailyScanned: 1, dailyRepaired: 1 })
+    expect(db.get('test_identity_usage_daily', 'identity_01:2026-07-16').leasesCreated).toBe(1)
+  })
+
+  it('applies a delayed post-midnight slot release to the previous Shanghai day', async () => {
+    const documents = validDocuments()
+    documents.test_identity_usage_daily['identity_01:2026-07-16'] = {
+      _id: 'identity_01:2026-07-16',
+      identityId: 'identity_01',
+      dateKey: '2026-07-16',
+      timezone: 'Asia/Shanghai',
+      coinSpent: 0,
+      coinReserved: 0,
+      modelCallsReserved: 0,
+      modelCallsStarted: 0,
+      leasesCreated: 0,
+      ticketSlotsReserved: 9,
+      ticketsMinted: 0,
+      version: 1,
+    }
+    const reserveAt = Date.parse('2026-07-16T15:59:00.000Z')
+    const releaseAt = Date.parse('2026-07-16T16:10:00.000Z')
+    documents.test_identity_audit_logs.reserve_previous = audit(
+      'grant.exchange.reserve',
+      'lease_previous',
+      'issuance_previous',
+      reserveAt,
+    )
+    documents.test_identity_audit_logs.release_previous = audit(
+      'grant.exchange.mint',
+      'lease_previous',
+      'issuance_previous:expired',
+      releaseAt,
+      'failed',
+    )
+    const db = new MemoryDb(documents)
+
+    await createSyntheticBudgetStore(db).reconcile({ now: releaseAt + 60_000 })
+
+    expect(db.get('test_identity_usage_daily', 'identity_01:2026-07-16').ticketSlotsReserved).toBe(0)
+  })
 })
 
 function operation() {
@@ -254,6 +431,8 @@ function validDocuments() {
         status: 'active',
         expiresAt: NOW + 600_000,
         budget: { maxCoin: 2 },
+        principal: { type: 'admin', login: 'owner' },
+        approvedBy: { type: 'admin', login: 'owner' },
         policySnapshot: {
           identityVersion: 7,
           registryVersion: '2026-07-17.1',
@@ -275,10 +454,28 @@ function validDocuments() {
         coinReserved: 0,
         modelCallsReserved: 0,
         modelCallsStarted: 0,
+        leasesCreated: 0,
+        ticketSlotsReserved: 0,
+        ticketsMinted: 0,
         version: 1,
       },
     },
     test_identity_coin_reservations: {},
+    test_identity_audit_logs: {},
+  }
+}
+
+function audit(action, leaseId, traceId, createdAt, outcome = 'succeeded') {
+  return {
+    _id: `${action}:${traceId}`,
+    action,
+    outcome,
+    reasonCode: outcome,
+    effectiveUid: 'test_uid_01',
+    identityId: 'identity_01',
+    leaseId,
+    traceId,
+    createdAt,
   }
 }
 
@@ -297,13 +494,18 @@ class MemoryDb {
   }
 
   ref(name) {
+    const values = filters => Object.values(this.documents[name] || {})
+      .filter(value => matches(value, filters))
+    const limit = filters => count => ({
+      get: async () => ({ data: values(filters).slice(0, count) }),
+    })
     const query = {
       where: filters => ({
+        limit: limit(filters),
         orderBy: () => ({
           limit: count => ({
             get: async () => ({
-              data: Object.values(this.documents[name] || {})
-                .filter(value => matches(value, filters))
+              data: values(filters)
                 .sort((a, b) => a.updatedAt - b.updatedAt)
                 .slice(0, count),
             }),
@@ -329,11 +531,27 @@ class MemoryDb {
   }
 
   async runTransaction(callback) {
-    return callback({ collection: name => this.ref(name) })
+    const original = this.documents
+    this.documents = structuredClone(this.documents)
+    try {
+      return await callback({ collection: name => this.ref(name) })
+    }
+    catch (error) {
+      this.documents = original
+      throw error
+    }
   }
 
   command = {
     lte: value => ({ operator: 'lte', value }),
+    gte: value => ({
+      operator: 'gte',
+      value,
+      and(other) {
+        return { operator: 'range', start: value, end: other.value }
+      },
+    }),
+    lt: value => ({ operator: 'lt', value }),
   }
 }
 
@@ -341,6 +559,8 @@ function matches(value, filters) {
   return Object.entries(filters).every(([key, expected]) => {
     if (expected?.operator === 'lte')
       return value[key] <= expected.value
+    if (expected?.operator === 'range')
+      return value[key] >= expected.start && value[key] < expected.end
     return value[key] === expected
   })
 }

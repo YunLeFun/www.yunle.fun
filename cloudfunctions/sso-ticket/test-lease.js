@@ -12,7 +12,7 @@ const { Buffer } = require('node:buffer')
 const crypto = require('node:crypto')
 const { isValidTicketUid, tokensMatch } = require('./mint')
 
-const ESCROW_AAD = 'yunlefun:test-ticket:v1'
+const ESCROW_AAD = 'yunlefun:test-ticket:v2'
 const MAX_LEASE_MILLISECONDS = 15 * 60 * 1000
 const REF_RE = /^[\w:-]{4,128}$/
 
@@ -96,13 +96,17 @@ function validateMintContext(context, leaseId, issuanceId, now) {
   return { uid: lease.effectiveUid, expiresAt: lease.expiresAt }
 }
 
-function encryptTicket(ticket, rawKey) {
+function ticketEscrowAad(leaseId, issuanceId) {
+  return Buffer.from(`${ESCROW_AAD}\0${assertRef(leaseId, 'leaseId')}\0${assertRef(issuanceId, 'issuanceId')}`, 'utf8')
+}
+
+function encryptTicket(ticket, rawKey, context) {
   if (typeof ticket !== 'string' || !ticket)
     throw new TestLeaseMintError('ticket_invalid', 'CloudBase returned an invalid ticket')
   const key = assertStrictBase64Key(rawKey)
   const iv = crypto.randomBytes(12)
   const cipher = crypto.createCipheriv('aes-256-gcm', key, iv)
-  cipher.setAAD(Buffer.from(ESCROW_AAD, 'utf8'))
+  cipher.setAAD(ticketEscrowAad(context?.leaseId, context?.issuanceId))
   const ciphertext = Buffer.concat([cipher.update(ticket, 'utf8'), cipher.final()])
   return {
     ticketCiphertext: ciphertext.toString('base64url'),
@@ -122,6 +126,11 @@ async function safeMark(callback, input) {
 }
 
 async function mintForTestLease(payload, deps) {
+  if (typeof deps.expectedToken !== 'string'
+    || deps.expectedToken.length < 32
+    || deps.expectedToken.length > 512) {
+    return { ok: false, reason: 'not_configured', definitive: true }
+  }
   if (!tokensMatch(payload?.serviceToken, deps.expectedToken))
     return { ok: false, reason: 'forbidden', definitive: true }
 
@@ -181,7 +190,7 @@ async function mintForTestLease(payload, deps) {
 
   let escrow
   try {
-    escrow = encryptTicket(ticket, deps.escrowKey)
+    escrow = encryptTicket(ticket, deps.escrowKey, { leaseId, issuanceId })
     await deps.persistMinted({
       leaseId,
       issuanceId,
@@ -216,5 +225,6 @@ module.exports = {
   assertStrictBase64Key,
   encryptTicket,
   mintForTestLease,
+  ticketEscrowAad,
   validateMintContext,
 }
