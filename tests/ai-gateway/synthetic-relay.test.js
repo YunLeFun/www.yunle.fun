@@ -42,6 +42,27 @@ describe('ai-gateway synthetic metered relay', () => {
     expect(deps.generate).not.toHaveBeenCalled()
   })
 
+  it('logs only bounded technical metadata when a budget phase throws', async () => {
+    const error = Object.assign(new Error('private wish text must not be logged'), {
+      code: 'DATABASE_TRANSACTION_CONFLICT',
+    })
+    const deps = fakeDeps({ startError: error })
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await expect(runSyntheticChat(input(), deps)).resolves.toMatchObject({
+      ok: false,
+      code: 'synthetic_budget_unavailable',
+    })
+
+    expect(log).toHaveBeenCalledWith('[ai-gateway] synthetic phase failed', {
+      phase: 'start',
+      errorCode: 'DATABASE_TRANSACTION_CONFLICT',
+      errorName: 'Error',
+    })
+    expect(JSON.stringify(log.mock.calls)).not.toContain('private wish text')
+    log.mockRestore()
+  })
+
   it('releases reserved coin after a definite model failure but keeps the started count', async () => {
     const deps = fakeDeps({ generateError: new Error('model failed') })
 
@@ -94,7 +115,11 @@ function fakeDeps(options = {}) {
       scopeId: 'wish',
     })),
     reserve: vi.fn(async () => options.reserve || { kind: 'reserved', reservationId: 'reservation_01' }),
-    start: vi.fn(async () => options.start || { kind: 'started' }),
+    start: vi.fn(async () => {
+      if (options.startError)
+        throw options.startError
+      return options.start || { kind: 'started' }
+    }),
     generate: vi.fn(async () => {
       if (options.generateError)
         throw options.generateError

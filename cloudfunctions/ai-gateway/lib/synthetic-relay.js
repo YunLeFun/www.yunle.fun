@@ -26,7 +26,8 @@ async function runSyntheticChat(input, deps) {
   try {
     reservation = await deps.reserve(operation)
   }
-  catch {
+  catch (error) {
+    reportSyntheticPhaseError('reserve', error)
     return fail('synthetic_budget_unavailable', '测试预算服务暂时不可用。')
   }
   if (reservation.kind !== 'reserved')
@@ -37,7 +38,8 @@ async function runSyntheticChat(input, deps) {
   try {
     started = await deps.start(stateInput)
   }
-  catch {
+  catch (error) {
+    reportSyntheticPhaseError('start', error)
     return fail('synthetic_budget_unavailable', '测试预算服务暂时不可用。')
   }
   if (started.kind !== 'started')
@@ -133,6 +135,16 @@ function reservationFailure(kind) {
 
 function fail(code, message) {
   return { ok: false, code, message }
+}
+
+function reportSyntheticPhaseError(phase, error) {
+  const errorCode = boundedTechnicalLabel(error?.code)
+  const errorName = boundedTechnicalLabel(error?.name)
+  console.error('[ai-gateway] synthetic phase failed', { phase, errorCode, errorName })
+}
+
+function boundedTechnicalLabel(value) {
+  return typeof value === 'string' && /^[\w.:-]{1,64}$/.test(value) ? value : 'unknown'
 }
 
 module.exports = { runSyntheticChat }
