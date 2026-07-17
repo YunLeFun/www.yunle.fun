@@ -10,6 +10,7 @@ const { COIN_TX_COLLECTION, WALLET_COLLECTION } = require('./lib/wallet')
 
 const ALLOWED_SESSION_ACTIONS = new Set(['getAccount', 'listTransactions'])
 const SYNTHETIC_BASELINE_COIN_MAX = 20
+const TRANSACTION_BUSY_RETRY_DELAYS_MS = [60, 180, 420]
 
 class SyntheticAccountError extends Error {
   constructor(code, message, httpStatus = 403) {
@@ -172,6 +173,29 @@ async function handlePrepareSyntheticBaseline(db, event, options = {}) {
   return outcome
 }
 
+async function runTransactionWithBusyRetry(db, callback, options = {}) {
+  const sleep = options.sleep ?? (async delay => await new Promise(resolve => setTimeout(resolve, delay)))
+  let retryIndex = 0
+  while (true) {
+    try {
+      return await db.runTransaction(callback)
+    }
+    catch (error) {
+      const delay = TRANSACTION_BUSY_RETRY_DELAYS_MS[retryIndex]
+      if (delay === undefined || !isTransactionBusy(error))
+        throw error
+      retryIndex += 1
+      await sleep(delay)
+    }
+  }
+}
+
+function isTransactionBusy(error) {
+  return error?.code === 'ResourceUnavailable.TransactionBusy'
+    || (typeof error?.message === 'string'
+      && error.message.includes('[ResourceUnavailable.TransactionBusy]'))
+}
+
 function normalizeBaselinePreparation(event, now) {
   if (!event || typeof event !== 'object'
     || typeof event.identityId !== 'string'
@@ -248,7 +272,7 @@ async function handleSyntheticDeductCoinForUser(db, event, options = {}) {
 
   const transactionId = syntheticCoinTransactionId(input.userId, input.bizId)
   let outcome
-  await db.runTransaction(async (transaction) => {
+  await runTransactionWithBusyRetry(db, async (transaction) => {
     const reservation = await readRequired(transaction, 'test_identity_coin_reservations', input.reservationId)
     assertReservationBinding(reservation, input, classification.identity._id)
     const transactionRef = transaction.collection(COIN_TX_COLLECTION).doc(transactionId)
@@ -306,7 +330,7 @@ async function handleSyntheticDeductCoinForUser(db, event, options = {}) {
       updatedAt: input.now,
     })
     outcome = { balance, deduped: false, transactionId }
-  })
+  }, options)
 
   if (!outcome)
     throw new SyntheticAccountError('synthetic_billing_unavailable', 'Synthetic billing transaction returned no result', 503)

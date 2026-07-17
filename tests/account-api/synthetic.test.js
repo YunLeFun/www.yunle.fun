@@ -51,6 +51,34 @@ describe('account-api synthetic wallet settlement', () => {
     expect(db._store[COIN_TX_COLLECTION]).toHaveLength(1)
   })
 
+  it('retries a transient CloudBase transaction conflict without changing the idempotency key', async () => {
+    const db = syntheticDb()
+    const runTransaction = db.runTransaction.bind(db)
+    let attempts = 0
+    db.runTransaction = async (callback) => {
+      attempts += 1
+      if (attempts === 1) {
+        const error = new Error('[ResourceUnavailable.TransactionBusy] Transaction is busy')
+        error.code = 'ResourceUnavailable.TransactionBusy'
+        throw error
+      }
+      return await runTransaction(callback)
+    }
+    const delays = []
+
+    const result = await handleSyntheticDeductCoinForUser(db, event(), {
+      expectedToken: TOKEN,
+      now: NOW,
+      sleep: async delay => delays.push(delay),
+    })
+
+    expect(result).toMatchObject({ balance: 1, deduped: false, transactionId: expect.any(String) })
+    expect(attempts).toBe(2)
+    expect(delays).toEqual([60])
+    expect(db._store[WALLET_COLLECTION][0].balance).toBe(1)
+    expect(db._store[COIN_TX_COLLECTION]).toHaveLength(1)
+  })
+
   it('keeps account settlement idempotent after the budget reservation is settled', async () => {
     const db = syntheticDb()
     const first = await handleSyntheticDeductCoinForUser(db, event(), { expectedToken: TOKEN, now: NOW })
