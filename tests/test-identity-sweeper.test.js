@@ -11,27 +11,26 @@ const NOW = Date.UTC(2026, 6, 17)
 const KEY = Buffer.alloc(32, 7).toString('base64')
 
 describe('test identity timer sweeper', () => {
+  it('leaves enough time for the multi-step admin cleanup request', async () => {
+    const signal = new AbortController().signal
+    const timeout = vi.spyOn(AbortSignal, 'timeout').mockReturnValue(signal)
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => validSweepResult(),
+    }))
+
+    await invokeAdminSweep({ fetchImpl, key: KEY, nonce: 'nonce-fixed-01', now: NOW })
+
+    expect(timeout).toHaveBeenCalledWith(25_000)
+    timeout.mockRestore()
+  })
+
   it('calls only the fixed admin endpoint with an exact body-bound HMAC', async () => {
     const fetchImpl = vi.fn(async () => ({
       ok: true,
       status: 200,
-      json: async () => ({
-        released: [],
-        cleanupRuns: 0,
-        ticketIssuancesReconciled: 0,
-        purged: [],
-        reconciled: {
-          scanned: 0,
-          settled: 0,
-          released: 0,
-          manual: 0,
-          skipped: 0,
-          errors: 0,
-          dailyScanned: 1,
-          dailyRepaired: 0,
-          dailySkipped: 1,
-        },
-      }),
+      json: async () => validSweepResult(),
     }))
 
     await expect(invokeAdminSweep({
@@ -69,3 +68,23 @@ describe('test identity timer sweeper', () => {
     })).rejects.toThrow(/503/)
   })
 })
+
+function validSweepResult() {
+  return {
+    released: [],
+    cleanupRuns: 0,
+    ticketIssuancesReconciled: 0,
+    purged: [],
+    reconciled: {
+      scanned: 0,
+      settled: 0,
+      released: 0,
+      manual: 0,
+      skipped: 0,
+      errors: 0,
+      dailyScanned: 1,
+      dailyRepaired: 0,
+      dailySkipped: 1,
+    },
+  }
+}

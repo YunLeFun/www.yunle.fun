@@ -107,7 +107,7 @@
     },
     {
       "name": "test-identity-sweeper",
-      "timeout": 10,
+      "timeout": 30,
       "runtime": "Nodejs18.15",
       "handler": "index.main",
       "installDependency": false,

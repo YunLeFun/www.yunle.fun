@@ -515,11 +515,15 @@ class MemoryDb {
       doc: id => ({
         get: async () => ({ data: this.get(name, id) ? [this.get(name, id)] : [] }),
         set: async (value) => {
+          if (Object.hasOwn(value, '_id'))
+            throw new Error('CloudBase transaction set rejects the read-only _id field')
           this.documents[name] ||= {}
-          this.documents[name][id] = structuredClone(value)
+          this.documents[name][id] = { _id: id, ...structuredClone(value) }
           return { created: 1 }
         },
         update: async (value) => {
+          if (Object.hasOwn(value, '_id'))
+            throw new Error('CloudBase transaction update rejects the read-only _id field')
           if (!this.documents[name]?.[id])
             return { updated: 0 }
           Object.assign(this.documents[name][id], structuredClone(value))

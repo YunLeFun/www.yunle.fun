@@ -46,7 +46,7 @@ async function invokeAdminSweep(options = {}) {
     },
     body,
     redirect: 'error',
-    signal: AbortSignal.timeout(8_000),
+    signal: AbortSignal.timeout(25_000),
   })
   if (!response?.ok)
     throw new Error(`admin test-identity sweep failed with HTTP ${response?.status || 0}`)

@@ -90,7 +90,8 @@ async function updateDocument(database, collection, id, value) {
 }
 
 async function setDocument(database, collection, id, value) {
-  const result = await database.collection(collection).doc(id).set(value)
+  const { _id: _documentId, ...document } = value
+  const result = await database.collection(collection).doc(id).set(document)
   assertDatabaseResult(result)
 }
 

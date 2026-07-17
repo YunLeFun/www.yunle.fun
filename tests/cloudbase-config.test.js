@@ -24,6 +24,7 @@ describe('cloudBase test identity deployment manifest', () => {
   it('runs the HMAC-authenticated sweep every minute', () => {
     expect(functions.get('test-identity-sweeper')).toMatchObject({
       aclRule: { invoke: false },
+      timeout: 30,
       envVariables: { TEST_BROKER_SWEEP_KEY: '{{env.TEST_BROKER_SWEEP_KEY}}' },
       triggers: [{ name: 'testIdentitySweepEveryMinute', type: 'timer', config: '0 * * * * * *' }],
     })
