@@ -35,4 +35,8 @@ describe('cloudBase test identity deployment manifest', () => {
     expect(functions.get('account-api').aclRule).toEqual({ invoke: 'auth != null' })
     expect(functions.get('ai-gateway').aclRule).toEqual({ invoke: 'auth != null' })
   })
+
+  it('allows the AI gateway enough time for non-streaming structured output', () => {
+    expect(functions.get('ai-gateway').timeout).toBe(90)
+  })
 })

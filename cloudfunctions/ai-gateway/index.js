@@ -36,6 +36,7 @@ const {
 const { reserveIpRateLimit, runIpRateLimit } = require('./lib/ip-rate-limit')
 const { releaseDailyQuota, reserveDailyQuota, runQuotaChat } = require('./lib/quota')
 const { runMeteredChat } = require('./lib/relay')
+const { AI_SDK_TIMEOUT_MS } = require('./lib/runtime')
 const {
   SyntheticBudgetError,
   assertInternalReconcileToken,
@@ -50,7 +51,10 @@ const {
 } = require('./lib/test-identity')
 const { assertBizId, assertMessages, isAnonUid } = require('./lib/validation')
 
-const app = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV })
+const app = cloudbase.init({
+  env: cloudbase.SYMBOL_CURRENT_ENV,
+  timeout: AI_SDK_TIMEOUT_MS,
+})
 const db = app.database()
 const writeAuditLog = message => process.stdout.write(`${message}\n`)
 
