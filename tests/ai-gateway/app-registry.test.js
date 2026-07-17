@@ -23,4 +23,18 @@ describe('ai-gateway app registry', () => {
     expect(assertMessages(messages, messageLimitsForApp(APP_REGISTRY['everything-generator'])))
       .toEqual(messages)
   })
+
+  it('registers cangsheng with member-aware daily quota and an isolated signing secret', () => {
+    expect(APP_REGISTRY['cangsheng-2026']).toMatchObject({
+      billing: 'daily_quota',
+      group: 'custom-deepseek-open',
+      memberDailyLimit: 27,
+      model: 'deepseek-v4-flash',
+      signingSecretEnv: 'CANGSHENG_APP_SIGNING_SECRET',
+      standardDailyLimit: 9,
+    })
+    expect(APP_REGISTRY['cangsheng-2026'].signingSecretEnv).not.toBe(
+      APP_REGISTRY['zero-echo-2026'].signingSecretEnv,
+    )
+  })
 })

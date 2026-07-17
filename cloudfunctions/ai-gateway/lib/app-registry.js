@@ -22,6 +22,15 @@ const APP_REGISTRY = {
     signingSecretEnv: 'ZERO_ECHO_APP_SIGNING_SECRET',
     standardDailyLimit: 9,
   },
+  'cangsheng-2026': {
+    group: 'custom-deepseek-open',
+    model: 'deepseek-v4-flash',
+    billing: 'daily_quota',
+    memberDailyLimit: 27,
+    ipRateLimit: { blockMs: 60_000, limit: 6, windowMs: 60_000 },
+    signingSecretEnv: 'CANGSHENG_APP_SIGNING_SECRET',
+    standardDailyLimit: 9,
+  },
 }
 
 function messageLimitsForApp(appConfig) {
