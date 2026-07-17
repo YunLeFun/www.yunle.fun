@@ -6,6 +6,7 @@ const PUBLIC_AUTH_ROUTE_EXACT = [
   '/auth/github',
   '/auth/callback',
   '/pricing',
+  '/explore',
 ]
 
 const PUBLIC_AUTH_ROUTE_PREFIXES = [
