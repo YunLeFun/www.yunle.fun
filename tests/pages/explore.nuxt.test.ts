@@ -58,6 +58,13 @@ describe('explore page', () => {
     expect(wrapper.get('[data-testid="cloud-island-ai-sfc"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="cloud-island-fc"]').exists()).toBe(false)
     expect(wrapper.findAll('a[href="/apps/fc"]')).toHaveLength(0)
+
+    await wrapper.get('input[type="search"]').setValue('')
+    await wrapper.get('[data-category="play"]').trigger('click')
+    await nextTick()
+
+    expect(wrapper.find('[data-testid="cloud-island-ai-sfc"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="cloud-island-fc"]').exists()).toBe(true)
   })
 
   it('retries loading after a transient error', async () => {

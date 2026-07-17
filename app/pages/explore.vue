@@ -80,9 +80,10 @@ onMounted(loadApps)
 
         <AppDiscoveryToolbar
           v-model:query="query"
-          v-model:selected-category="selectedCategory"
+          :selected-category="selectedCategory"
           :categories="categories"
           :result-count="filteredApps.length"
+          @update:category="selectedCategory = $event"
         />
 
         <AppDiscoveryGrid
