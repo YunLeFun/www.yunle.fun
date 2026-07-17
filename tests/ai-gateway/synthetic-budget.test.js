@@ -60,7 +60,7 @@ describe('ai-gateway synthetic budget transactions', () => {
     })
     expect(Object.values(db.documents.test_identity_audit_logs)).toContainEqual(expect.objectContaining({
       action: 'budget.reserve',
-      detail: { amount: 1, bizId: 'wish:req-01:audit' },
+      detail: { amount: 1, bizId: 'wish:req-01:audit', attemptCount: 0 },
     }))
     expect(JSON.stringify(reservation)).not.toContain('private wish')
     expect(db.get('test_identity_leases', 'lease_01').usage).toMatchObject({
@@ -153,6 +153,40 @@ describe('ai-gateway synthetic budget transactions', () => {
       coinReserved: 0,
       modelCallsStarted: 1,
     })
+  })
+
+  it('reopens a definitely failed uncharged reservation for the same bizId', async () => {
+    const db = new MemoryDb(validDocuments())
+    const store = createSyntheticBudgetStore(db)
+    const first = await store.reserve(operation())
+    const state = { ...operation(), reservationId: first.reservationId }
+    await store.start(state)
+    await store.failGeneration(state)
+
+    const retry = await store.reserve(operation())
+
+    expect(retry).toEqual(first)
+    expect(db.get('test_identity_coin_reservations', first.reservationId)).toMatchObject({
+      attemptCount: 1,
+      generationStatus: 'reserved',
+      status: 'reserved',
+    })
+    expect(db.get('test_identity_leases', 'lease_01').usage).toMatchObject({
+      coinReserved: 1,
+      modelCallsReserved: 1,
+      modelCallsStarted: 1,
+    })
+    await expect(store.start(state)).resolves.toEqual({ kind: 'started' })
+    await store.succeedGeneration(state)
+    await store.settle({ ...state, coinTransactionId: 'tx_retry' })
+    expect(db.get('test_identity_leases', 'lease_01').usage).toMatchObject({
+      coinReserved: 0,
+      coinSpent: 1,
+      modelCallsReserved: 0,
+      modelCallsStarted: 2,
+    })
+    expect(Object.values(db.documents.test_identity_audit_logs).filter(item => item.action === 'model.start'))
+      .toHaveLength(2)
   })
 
   it('settles a succeeded reservation from reserved coin into spent coin', async () => {

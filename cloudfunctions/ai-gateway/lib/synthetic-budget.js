@@ -165,6 +165,12 @@ function reservationOutcome(reservation) {
     return { kind: 'reserved', reservationId: reservation._id }
   if (reservation.status === 'reserved' && reservation.generationStatus === 'generating')
     return { kind: 'in_progress' }
+  if (reservation.status === 'released'
+    && reservation.generationStatus === 'failed'
+    && !reservation.billingStatus
+    && !reservation.coinTransactionId) {
+    return { kind: 'retryable' }
+  }
   return { kind: 'already_processed' }
 }
 
@@ -179,11 +185,14 @@ function createSyntheticBudgetStore(db) {
         const existing = await readDocument(transaction, COLLECTIONS.reservations, reservationId, false)
         if (existing) {
           assertReservationBinding(existing, { ...input, reservationId })
-          outcome = reservationOutcome(existing)
-          return
+          const prior = reservationOutcome(existing)
+          if (prior.kind !== 'retryable') {
+            outcome = prior
+            return
+          }
         }
 
-        const dateKey = shanghaiDateKey(input.now)
+        const dateKey = existing?.dateKey ?? shanghaiDateKey(input.now)
         const dailyId = `${identity._id}:${dateKey}`
         const daily = await readDocument(transaction, COLLECTIONS.daily, dailyId)
         assertDailyBinding(daily, identity._id, dateKey)
@@ -203,23 +212,42 @@ function createSyntheticBudgetStore(db) {
           return
         }
 
-        const reservation = {
-          _id: reservationId,
-          identityId: identity._id,
-          leaseId: lease._id,
-          effectiveUid: input.uid,
-          billingAppId: input.billingAppId,
-          scopeId: input.scopeId,
-          action: input.action,
-          bizId: input.bizId,
-          amount: input.amount,
-          dateKey,
-          generationStatus: 'reserved',
-          status: 'reserved',
-          createdAt: input.now,
-          updatedAt: input.now,
+        const reservation = existing
+          ? {
+              ...existing,
+              attemptCount: assertNonNegative(existing.attemptCount ?? 0, 'reservation attempt') + 1,
+              generationStatus: 'reserved',
+              status: 'reserved',
+              updatedAt: input.now,
+            }
+          : {
+              _id: reservationId,
+              identityId: identity._id,
+              leaseId: lease._id,
+              effectiveUid: input.uid,
+              billingAppId: input.billingAppId,
+              scopeId: input.scopeId,
+              action: input.action,
+              bizId: input.bizId,
+              amount: input.amount,
+              dateKey,
+              attemptCount: 0,
+              generationStatus: 'reserved',
+              status: 'reserved',
+              createdAt: input.now,
+              updatedAt: input.now,
+            }
+        if (existing) {
+          await updateDocument(transaction, COLLECTIONS.reservations, reservationId, {
+            attemptCount: reservation.attemptCount,
+            generationStatus: reservation.generationStatus,
+            status: reservation.status,
+            updatedAt: reservation.updatedAt,
+          })
         }
-        await setDocument(transaction, COLLECTIONS.reservations, reservationId, reservation)
+        else {
+          await setDocument(transaction, COLLECTIONS.reservations, reservationId, reservation)
+        }
         await updateDocument(transaction, COLLECTIONS.leases, lease._id, {
           usage: {
             ...lease.usage,
@@ -862,7 +890,9 @@ async function writeAudit(transaction, action, reasonCode, reservation, lease, n
     || !lease?.approvedBy || typeof lease.approvedBy !== 'object') {
     throw new SyntheticBudgetError('audit_context_invalid', 'Synthetic lease audit principals are invalid')
   }
-  const id = syntheticAuditDocumentId(reservation._id, action, reasonCode)
+  const attemptCount = assertNonNegative(reservation.attemptCount ?? 0, 'reservation attempt')
+  const eventKey = attemptCount > 0 ? `${reasonCode}:attempt-${attemptCount}` : reasonCode
+  const id = syntheticAuditDocumentId(reservation._id, action, eventKey)
   const audit = {
     _id: id,
     action,
@@ -880,7 +910,7 @@ async function writeAudit(transaction, action, reasonCode, reservation, lease, n
     identityVersion: lease.policySnapshot?.identityVersion,
     registryVersion: lease.policySnapshot?.registryVersion,
     traceId: reservation._id,
-    detail: { amount: reservation.amount, bizId: reservation.bizId },
+    detail: { amount: reservation.amount, bizId: reservation.bizId, attemptCount },
     createdAt: now,
   }
   await persistImmutableAudit(transaction, audit)
