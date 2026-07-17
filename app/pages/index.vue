@@ -46,7 +46,6 @@ const heroLinks = page.hero.links
           <div class="mt-8 flex flex-wrap items-center gap-3">
             <UButton
               :to="heroLinks[0]?.to"
-              :target="heroLinks[0]?.target"
               :label="heroLinks[0]?.label"
               :icon="heroLinks[0]?.icon"
               :trailing="heroLinks[0]?.trailing"
@@ -55,7 +54,6 @@ const heroLinks = page.hero.links
             />
             <UButton
               :to="heroLinks[1]?.to"
-              :target="heroLinks[1]?.target"
               :label="heroLinks[1]?.label"
               :icon="heroLinks[1]?.icon"
               size="xl"

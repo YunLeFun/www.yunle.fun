@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ExplorerApp } from '~/types/app-explorer'
-import { explorerCategories } from '~/config/app-explorer'
 import { computed, shallowRef } from 'vue'
+import { explorerCategories } from '~/config/app-explorer'
 import { buildCloudRoutes, layoutCloudApps } from '~/utils/app-cloud-layout'
 import SkyScene from '../SkyScene.vue'
 import AppCloudRoutes from './AppCloudRoutes.vue'
@@ -15,7 +15,7 @@ const props = withDefaults(defineProps<{
 })
 
 defineEmits<{
-  'scroll-to-grid': []
+  scrollToGrid: []
 }>()
 
 const colorMode = useColorMode()
@@ -68,8 +68,8 @@ function activate(slug: string) {
       ]"
       :style="{
         '--app-accent': island.app.accent,
-        left: `${island.x}%`,
-        top: `${island.y}%`,
+        'left': `${island.x}%`,
+        'top': `${island.y}%`,
       }"
       :aria-label="`探索应用：${island.app.name}`"
       @focus="activate(island.app.slug)"
@@ -91,7 +91,7 @@ function activate(slug: string) {
       icon="i-lucide-layout-grid"
       color="neutral"
       variant="solid"
-      @click="$emit('scroll-to-grid')"
+      @click="$emit('scrollToGrid')"
     />
   </section>
 </template>
@@ -190,7 +190,9 @@ function activate(slug: string) {
   justify-items: center;
   gap: 0.25rem;
   transform: translate(-50%, -50%);
-  transition: filter 180ms ease, transform 180ms ease;
+  transition:
+    filter 180ms ease,
+    transform 180ms ease;
 }
 
 .app-cloud-map__island :deep(.app-explorer-icon) {

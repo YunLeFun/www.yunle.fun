@@ -85,7 +85,10 @@ function updateSpotlight(event: PointerEvent) {
   border-radius: 1.5rem;
   background: color-mix(in srgb, var(--ui-bg) 88%, transparent);
   box-shadow: 0 18px 55px color-mix(in srgb, var(--app-accent) 7%, transparent);
-  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
 }
 
 .app-discovery-card::before {

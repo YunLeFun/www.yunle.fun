@@ -45,7 +45,8 @@ function routePath(route: CloudRoute) {
       v-for="route in routes"
       :key="route.id"
       :d="routePath(route)"
-      :class="['app-cloud-routes__path', `app-cloud-routes__path--${route.kind}`]"
+      class="app-cloud-routes__path"
+      :class="`app-cloud-routes__path--${route.kind}`"
       vector-effect="non-scaling-stroke"
     />
 

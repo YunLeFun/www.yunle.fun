@@ -8,7 +8,7 @@ const props = defineProps<{
 }>()
 
 defineEmits<{
-  'scroll-to-grid': []
+  scrollToGrid: []
 }>()
 
 const categoryCount = computed(() => new Set(props.apps.map(app => app.category)).size)
@@ -44,7 +44,7 @@ const featuredCount = computed(() => props.apps.filter(app => app.featured).leng
       </dl>
     </div>
 
-    <AppCloudMap :apps="apps" @scroll-to-grid="$emit('scroll-to-grid')" />
+    <AppCloudMap :apps="apps" @scroll-to-grid="$emit('scrollToGrid')" />
   </section>
 </template>
 
