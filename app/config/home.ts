@@ -12,8 +12,7 @@ export const homePage = {
         label: '开始探索',
         icon: 'i-lucide-arrow-right',
         trailing: true,
-        to: 'https://apps.yunle.fun',
-        target: '_blank',
+        to: '/explore',
         size: 'xl' as const,
       },
       {

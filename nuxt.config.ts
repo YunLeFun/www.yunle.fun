@@ -112,6 +112,7 @@ export default defineNuxtConfig({
     '/docs/**': { prerender: true },
     '/changelog': { prerender: true },
     '/developer': { prerender: true },
+    '/explore': { prerender: true },
     // 账号 / 交互 / OAuth / 数据驱动页：纯客户端渲染。
     // CloudBase 登录态只在客户端（localStorage），SSR 只会渲染未登录骨架并闪烁；这些页也无 SEO 需求。
     '/profile': { ssr: false },
@@ -170,7 +171,7 @@ export default defineNuxtConfig({
     prerender: {
       // 显式列出内容页 + 关 crawlLinks（不爬 /apps、/wallet 等重的账号页），配合 build 脚本调高的 Node 堆避免预渲染 OOM。
       crawlLinks: false,
-      routes: ['/', '/pricing', '/blog', '/blog/yunle-fun', '/changelog', '/developer', '/docs/getting-started', '/docs/getting-started/usage', '/docs/privacy-policy', '/docs/terms-of-service', '/docs/contact', '/docs/sitemap'],
+      routes: ['/', '/pricing', '/blog', '/blog/yunle-fun', '/changelog', '/developer', '/explore', '/docs/getting-started', '/docs/getting-started/usage', '/docs/privacy-policy', '/docs/terms-of-service', '/docs/contact', '/docs/sitemap'],
       failOnError: false,
     },
   },
