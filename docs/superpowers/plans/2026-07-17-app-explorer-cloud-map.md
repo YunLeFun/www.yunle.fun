@@ -24,12 +24,14 @@
 ### Task 1: Explorer data model, metadata, and filters
 
 **Files:**
+
 - Create: `app/types/app-explorer.ts`
 - Create: `app/config/app-explorer.ts`
 - Create: `app/utils/app-explorer.ts`
 - Create: `tests/utils/appExplorer.test.ts`
 
 **Interfaces:**
+
 - Consumes: existing `AppRecord` from `app/types/app.ts`.
 - Produces: `ExplorerApp`, `ExplorerCategory`, `normalizeExplorerApps(apps)`, `filterExplorerApps(apps, query, category)`, and `getExplorerCategories(apps)`.
 
@@ -39,18 +41,20 @@
 import { describe, expect, it } from 'vitest'
 import { filterExplorerApps, getExplorerCategories, normalizeExplorerApps } from '../../app/utils/app-explorer'
 
-const app = (slug: string, overrides = {}) => ({
-  _id: slug,
-  _openid: 'owner',
-  ownerId: 'owner',
-  ownerLogin: 'YunYouJun',
-  name: slug,
-  slug,
-  isPublic: true,
-  createdAt: 1,
-  updatedAt: 2,
-  ...overrides,
-})
+function app(slug: string, overrides = {}) {
+  return {
+    _id: slug,
+    _openid: 'owner',
+    ownerId: 'owner',
+    ownerLogin: 'YunYouJun',
+    name: slug,
+    slug,
+    isPublic: true,
+    createdAt: 1,
+    updatedAt: 2,
+    ...overrides,
+  }
+}
 
 it('merges configured metadata and falls back safely', () => {
   const result = normalizeExplorerApps([app('ai-sfc'), app('unknown')])
@@ -116,10 +120,12 @@ git commit -m "feat(explore): add application discovery model"
 ### Task 2: Deterministic cloud layout and route generation
 
 **Files:**
+
 - Create: `app/utils/app-cloud-layout.ts`
 - Create: `tests/utils/appCloudLayout.test.ts`
 
 **Interfaces:**
+
 - Consumes: `ExplorerApp[]`, category anchors from `APP_EXPLORER_CATEGORIES`.
 - Produces: `layoutCloudApps(apps, options?) => CloudIsland[]` and `buildCloudRoutes(islands) => CloudRoute[]`.
 
@@ -185,11 +191,13 @@ git commit -m "feat(explore): add deterministic cloud layout"
 ### Task 3: Explorer state composable and discovery controls
 
 **Files:**
+
 - Create: `app/composables/useAppExplorer.ts`
 - Create: `app/components/apps/AppDiscoveryToolbar.vue`
 - Create: `tests/components/AppDiscoveryToolbar.nuxt.test.ts`
 
 **Interfaces:**
+
 - Consumes: `Ref<AppRecord[]>` and pure utilities from Task 1.
 - Produces: `query`, `selectedCategory`, `normalizedApps`, `filteredApps`, `categories`, `clearFilters`, and toolbar `update:query` / `update:category` events.
 
@@ -228,12 +236,14 @@ git commit -m "feat(explore): add discovery filters"
 ### Task 4: Accessible application cards and grid states
 
 **Files:**
+
 - Create: `app/components/apps/AppExplorerIcon.vue`
 - Create: `app/components/apps/AppDiscoveryCard.vue`
 - Create: `app/components/apps/AppDiscoveryGrid.vue`
 - Create: `tests/components/AppDiscoveryGrid.nuxt.test.ts`
 
 **Interfaces:**
+
 - Consumes: `ExplorerApp[]`, `loading`, `error`, and `hasFilters`.
 - Produces: semantic cards linking to `/apps/:slug`, optional external “打开应用”, `retry`, and `clear` events.
 
@@ -267,12 +277,14 @@ git commit -m "feat(explore): add application discovery grid"
 ### Task 5: Cloud atlas visualization
 
 **Files:**
+
 - Create: `app/components/apps/AppCloudRoutes.vue`
 - Create: `app/components/apps/AppCloudMap.vue`
 - Create: `app/components/apps/AppExplorerHero.vue`
 - Create: `tests/components/AppCloudMap.nuxt.test.ts`
 
 **Interfaces:**
+
 - Consumes: filtered `ExplorerApp[]`, layout utilities, selected/focused slug.
 - Produces: real `/apps/:slug` links, focus/hover preview, decorative single-SVG routes, and scroll-to-grid event.
 
@@ -310,12 +322,14 @@ git commit -m "feat(explore): add interactive cloud atlas"
 ### Task 6: Public explore page and homepage entry
 
 **Files:**
+
 - Create: `app/pages/explore.vue`
 - Modify: `app/config/home.ts`
 - Modify: `nuxt.config.ts`
 - Create: `tests/pages/explore.nuxt.test.ts`
 
 **Interfaces:**
+
 - Consumes: `useApps().getOfficialApps()`, `useAppExplorer`, hero, cloud map, toolbar, and grid.
 - Produces: `/explore`, retry behavior, SEO metadata, shared filters, and homepage navigation.
 
@@ -377,9 +391,11 @@ git commit -m "feat(explore): publish cloud application atlas"
 ### Task 7: Final verification and documentation
 
 **Files:**
+
 - Modify only if verification exposes a scoped defect in the files above.
 
 **Interfaces:**
+
 - Consumes: all previous tasks.
 - Produces: verified implementation with no unrelated staged changes.
 
