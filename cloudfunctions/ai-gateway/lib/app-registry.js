@@ -7,7 +7,7 @@
 const APP_REGISTRY = {
   'ai-sfc': { group: 'custom-deepseek-open', model: 'deepseek-v4-flash', billing: 'coin', cost: 1 },
   'everything-generator': {
-    group: 'custom-deepseek-open',
+    group: 'cloudbase',
     model: 'deepseek-v4-flash',
     billing: 'coin',
     cost: 1,

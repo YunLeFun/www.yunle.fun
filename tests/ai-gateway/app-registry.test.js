@@ -7,11 +7,11 @@ import {
 import { assertMessages } from '../../cloudfunctions/ai-gateway/lib/validation.js'
 
 describe('ai-gateway app registry', () => {
-  it('registers everything-generator with the existing metered model', () => {
+  it('registers everything-generator with the enabled CloudBase metered model', () => {
     expect(APP_REGISTRY['everything-generator']).toMatchObject({
       billing: 'coin',
       cost: 1,
-      group: 'custom-deepseek-open',
+      group: 'cloudbase',
       model: 'deepseek-v4-flash',
     })
   })
