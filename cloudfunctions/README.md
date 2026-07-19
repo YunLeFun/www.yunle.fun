@@ -6,20 +6,22 @@
 
 ## 云函数列表
 
-| 云函数              | 用途                                                                                                     | 调用方式               | 超时 |
-| ------------------- | -------------------------------------------------------------------------------------------------------- | ---------------------- | ---- |
-| `wxpay-order`       | 创建支付订单（会员 / 云币充值）+ 查询订单 + 对账自愈                                                     | SDK `callFunction`     | 30s  |
-| `wxpay-notify`      | 接收微信支付异步回调通知                                                                                 | HTTP 访问服务          | 10s  |
-| `account-api`       | 平台账户中心：账户 / 云币 / 签到 / 投币 / 关注·粉丝                                                      | SDK `callFunction`     | 10s  |
-| `user-storage-api`  | 通用用户云空间：共享 quota / 上传预留 / 确认 / 文件索引 / 下载 / 删除 / app-kind policy                  | SDK `callFunction`     | 10s  |
-| `ai-gateway`        | 通用「登录计费 + 受控 AI 生成」网关：验登录 + 按 `appId` 服务端计价 + 管理员身份调 AI + `bizId` 幂等扣费 | 登录态 `/v1/functions` | 30s  |
-| `iap-order`         | Apple 内购（IAP）凭据校验 + 权益发放                                                                     | SDK `callFunction`     | 30s  |
-| `appstore-notify`   | 接收 App Store Server Notifications V2（退款 / 撤销自动处理）                                            | HTTP 访问服务          | 30s  |
-| `desktop-auth`      | 桌面 / 本地应用登录授权（设备授权码 + Ed25519 离线 entitlement）                                         | SDK + HTTP 双入口      | 10s  |
-| `shortlink-resolve` | 短链只读解析：按 `(domain, slug)` 读 `short_links` 返回跳转目标，供 EdgeOne 跳转函数回源                 | HTTP 访问服务          | 10s  |
-| `shortlink-stat`    | 短链点击统计：接收 EdgeOne 跳转函数上报，分片 CAS 累加到 `shortlink_stats`；admin 经 SDK 读              | HTTP（写）+ SDK（读）  | 10s  |
-| `sso-ticket`        | 签发一次性自定义登录票据（CloudBase `createTicket`）：跨站 SSO 桥接 + 服务端内部代签                     | SDK + HTTP 双入口      | 10s  |
-| `github-api`        | 多用户 GitHub App 仓库连接 / 列举 / 校验（含私有仓库），短期 installation token 不落库                   | SDK + HTTP 双入口      | 10s  |
+| 云函数                     | 用途                                                                                                     | 调用方式               | 超时 |
+| -------------------------- | -------------------------------------------------------------------------------------------------------- | ---------------------- | ---- |
+| `wxpay-order`              | 创建支付订单（会员 / 云币充值）+ 查询订单 + 对账自愈                                                     | SDK `callFunction`     | 30s  |
+| `wxpay-notify`             | 接收微信支付异步回调通知                                                                                 | HTTP 访问服务          | 10s  |
+| `account-api`              | 平台账户中心：账户 / 云币 / 签到 / 投币 / 关注·粉丝                                                      | SDK `callFunction`     | 10s  |
+| `user-storage-api`         | 通用用户云空间：共享 quota / 上传预留 / 确认 / 文件索引 / 下载 / 删除 / app-kind policy                  | SDK `callFunction`     | 10s  |
+| `ai-gateway`               | 通用「登录计费 + 受控 AI 生成」网关：验登录 + 按 `appId` 服务端计价 + 管理员身份调 AI + `bizId` 幂等扣费 | 登录态 `/v1/functions` | 30s  |
+| `iap-order`                | Apple 内购（IAP）凭据校验 + 权益发放                                                                     | SDK `callFunction`     | 30s  |
+| `appstore-notify`          | 接收 App Store Server Notifications V2（退款 / 撤销自动处理）                                            | HTTP 访问服务          | 30s  |
+| `desktop-auth`             | 桌面 / 本地应用登录授权（设备授权码 + Ed25519 离线 entitlement）                                         | SDK + HTTP 双入口      | 10s  |
+| `shortlink-resolve`        | 短链只读解析：按 `(domain, slug)` 读 `short_links` 返回跳转目标，供 EdgeOne 跳转函数回源                 | HTTP 访问服务          | 10s  |
+| `shortlink-stat`           | 短链点击统计：接收 EdgeOne 跳转函数上报，分片 CAS 累加到 `shortlink_stats`；admin 经 SDK 读              | HTTP（写）+ SDK（读）  | 10s  |
+| `sso-ticket`               | 签发/消费绑定 origin+nonce 的一次性 SSO 授权码，并在同源 HTTPS 响应中铸 CloudBase ticket                 | SDK + HTTP 双入口      | 10s  |
+| `sso-security-sweeper`     | 清理过期 SSO 授权码审计记录与持久化限流窗口；不持有签票私钥                                              | timer，禁止直接调用    | 30s  |
+| `session-security-sweeper` | 将到期的 Drive/CMS opaque session 置为 expired，并清理超过 90 天的终态记录                               | timer，禁止直接调用    | 30s  |
+| `github-api`               | 多用户 GitHub App 仓库连接 / 列举 / 校验（含私有仓库），短期 installation token 不落库                   | SDK + HTTP 双入口      | 10s  |
 
 > 云币 + 跨应用会员的整体设计见 [`docs/coin-and-membership.md`](../docs/coin-and-membership.md)。
 > 其中 5 个支付 / 账户函数共享同一份 `lib/`：权威源在 `cloudfunctions/wxpay-order/lib`，`pnpm sync:wxpay-lib` 同步到
@@ -120,17 +122,27 @@
 
 ### sso-ticket 环境变量
 
-| 变量名                      | 必填 | 说明                                                                                                                                                                  |
-| --------------------------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SSO_TICKET_PRIVATE_KEY_ID` | 是   | 自定义登录私钥 ID（`private_key_id`）。CloudBase 控制台 → 登录授权 → 自定义登录 → 下载私钥获取                                                                        |
-| `SSO_TICKET_PRIVATE_KEY`    | 是   | 自定义登录私钥 PEM（`private_key`）；env 注入建议用 `\n` 转义或 base64。未配置私钥时函数返回 `{ ok:false, reason:'not_configured' }`，桥接页据此回退（向后兼容）      |
-| `SSO_TICKET_INTERNAL_TOKEN` | 否   | 内部服务代签路径（`action='mintForUser'`）的校验令牌，须与调用方（Nuxt 服务端）配同一值；未配置则该路径一律拒绝。「调用者上下文」路径（只签发调用者自身 uid）不需要它 |
-| `SSO_TICKET_REFRESH_SEC`    | 否   | 票据派生会话的可续期时长（秒），默认 30 天                                                                                                                            |
+| 变量名                               | 必填 | 说明                                                                                                                                                             |
+| ------------------------------------ | ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SSO_TICKET_PRIVATE_KEY_ID`          | 是   | 自定义登录私钥 ID（`private_key_id`）。CloudBase 控制台 → 登录授权 → 自定义登录 → 下载私钥获取                                                                   |
+| `SSO_TICKET_PRIVATE_KEY`             | 是   | 自定义登录私钥 PEM（`private_key`）；env 注入建议用 `\n` 转义或 base64。未配置私钥时函数返回 `{ ok:false, reason:'not_configured' }`，桥接页据此回退（向后兼容） |
+| `SSO_ALLOWED_ORIGINS`                | 是   | 允许签发与兑换授权码的精确第一方 HTTPS origin 列表；禁止通配符，应与主站页面配置一致                                                                             |
+| `SSO_ALLOWED_RETURN_ORIGINS`         | 是   | 允许 redirect returnUrl 的精确 HTTPS origin 列表；禁止通配符                                                                                                     |
+| `SSO_ALLOWED_TARGET_ORIGINS`         | 否   | 仅供 v1 → v2 零停机迁移回退；新部署必须使用上面两个变量，迁移完成后删除                                                                                          |
+| `SSO_ALLOW_LOCAL_TARGET_ORIGINS`     | 否   | 仅本地联调允许 loopback HTTP；生产必须为 `false`                                                                                                                 |
+| `SSO_TICKET_REFRESH_SEC`             | 否   | 票据派生会话的可续期时长（秒），默认 30 天                                                                                                                       |
+| `SSO_ISSUE_PER_USER_PER_MINUTE`      | 否   | 每用户、每目标 origin 的签发上限，默认 10                                                                                                                        |
+| `SSO_ISSUE_PER_IP_PER_MINUTE`        | 否   | 每 IP 的签发上限，默认 30                                                                                                                                        |
+| `SSO_EXCHANGE_PER_IP_PER_MINUTE`     | 否   | 每 IP 的兑换上限，默认 60                                                                                                                                        |
+| `SSO_EXCHANGE_PER_ORIGIN_PER_MINUTE` | 否   | 每 Consumer origin 的兑换上限，默认 300                                                                                                                          |
 
-`sso-ticket` 有两条铸票路径，私钥始终只在本函数 env：
+`sso-ticket` 的用户 SSO 是两步授权码流程，私钥始终只在本函数 env：
 
-- **调用者上下文**（SDK `callFunction`，无 `action`）：只凭调用者自身登录态签发其自己 uid 的票据，不接受外部传入 uid——跨站 SSO 桥接页 `/auth/sso` 走这条。
-- **内部服务**（HTTP，`action='mintForUser'`）：Nuxt 服务端验过自己的 httpOnly cookie、拿到可信 uid 后，凭 `SSO_TICKET_INTERNAL_TOKEN` 为该 uid 铸票（双层会话的 cookie→内存登录）。
+- **签发**（已认证 SDK `action='issueSsoCode'`）：uid 只从调用上下文派生；授权码绑定 origin、return URL、nonce 和 S256 PKCE challenge。
+- **兑换**（HTTPS `action='exchangeSsoCode'`）：校验 PKCE verifier 后事务性消费授权码，精确 Origin CORS，仅返回短暂 custom ticket。
+- **迁移兼容**：`SSO_ALLOW_LEGACY_DIRECT_TICKET=true` 时，旧桥接页可暂时通过无 action 的已认证 SDK 调用为当前调用者本人签票；不接受 HTTP/uid。完成 v2 发布后立即设回 `false`。
+- 任何调用者选择 `uid`/`subject` 的输入都拒绝；主站 session 和 refresh token 不跨 origin。
+- `sso_login_codes` 与 `sso_security_limits` 均为 server-only；独立 `sso-security-sweeper` 每小时清理，且 `aclRule.invoke=false`。
 
 > 客户端用 `signInWithCustomTicket(() => ticket)` 换取自己独立、可同源续期的会话。设计详见 [`docs/cookie-session-migration.md`](../docs/cookie-session-migration.md)。
 
@@ -165,7 +177,7 @@
 | `appstore-notify`   | `https://<envId>.service.tcloudbase.com/appstore-notify`                                                                               | App Store Connect → App Store Server Notifications（V2，生产与沙盒各配一次）  |
 | `desktop-auth`      | `https://api.yunle.fun/desktop-auth`（设备侧 HTTP 入口，详见 [`docs/desktop-sso-integration.md`](../docs/desktop-sso-integration.md)） | 桌面客户端                                                                    |
 | `shortlink-resolve` | `https://<envId>.service.tcloudbase.com/shortlink-resolve`                                                                             | EdgeOne 短链跳转边缘函数（KV 未命中回源），配为其 `RESOLVE_ENDPOINT` 环境变量 |
-| `sso-ticket`        | `https://api.yunle.fun/sso-ticket`                                                                                                     | Nuxt 服务端内部代签（`mintForUser`）；当前保留给跨站 SSO                      |
+| `sso-ticket`        | `https://api.yunle.fun/sso-ticket`                                                                                                     | 第一方 SSO 一次性授权码兑换（精确 Origin CORS、no-store）                     |
 | `github-api`        | `https://api.yunle.fun/github-api`                                                                                                     | GitHub App 设置 → Callback URL（安装回调；函数把任意 GET 当回调处理）         |
 
 > 当前环境 `<envId>` = `yunlefun-8g7ybcxc7345c490`。这些函数的 HTTP 路径绑定在网关的**通配域名 `*`** 上，因此在所有已接入域名都可达：默认域名 `https://<envId>.service.tcloudbase.com`，以及自定义域名 `api.yunle.fun` / `tcb.yunle.fun` / `tcb.api.yunle.fun`（如 `https://api.yunle.fun/desktop-auth`）。

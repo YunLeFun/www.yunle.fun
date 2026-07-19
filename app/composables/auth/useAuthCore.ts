@@ -3,6 +3,7 @@
  * 提供 user, loading, error 以及 fetchUser/checkAuthStatus/logout 等基础方法
  */
 import type { TcbRawUser, User } from './types'
+import { isAnonymousSession } from '@yunlefun/sso'
 import { getErrorMessage, mapCloudbaseUser } from './types'
 import { useServerSession } from './useServerSession'
 
@@ -69,6 +70,10 @@ export function useTcbAuthCore() {
         return null
       }
       const rawUser = data.user as unknown as TcbRawUser
+      if (isAnonymousSession({ user: rawUser })) {
+        clearAuth()
+        return null
+      }
 
       // 立即就绪：头像 / 昵称等展示字段无需等待网络，先填充登录态
       user.value = mapCloudbaseUser(rawUser)
@@ -128,8 +133,10 @@ export function useTcbAuthCore() {
         }
         if (!data?.session)
           data = (await auth.getSession()).data
-        if (data?.session)
+        if (data?.session && !isAnonymousSession(data.session))
           await fetchUser()
+        else
+          clearAuth()
       }
       catch {
         // CloudBase 未登录

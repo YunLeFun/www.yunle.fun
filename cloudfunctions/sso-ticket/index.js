@@ -1,12 +1,10 @@
 /**
- * 云函数 sso-ticket —— 签发一次性自定义登录票据（CloudBase createTicket）。
+ * 云函数 sso-ticket —— 一次性 SSO 授权码 + CloudBase custom ticket 同源兑换。
  *
- * 两条路径：
- *  1) 既有「调用者上下文」路径（SDK callFunction，无 action）：只凭调用者自身登录态、签发其
- *     自己 uid 的票据，不接受外部传入 uid。跨站 SSO 桥接页（/auth/sso）走这条，行为不变。
- *  2) 新增「内部服务」路径（HTTP，action='mintForUser'）：Nuxt 服务端验过自己的 httpOnly cookie、
- *     拿到可信 uid 后，凭 serviceToken（= SSO_TICKET_INTERNAL_TOKEN）请求为该 uid 铸票，用于双层
- *     会话的 cookie→内存登录（见 docs/cookie-session-migration.md）。私钥始终只在本函数 env。
+ * 三条受限步骤：
+ *  1) `issueSsoCode` 仅接受已认证 SDK 调用，从 CloudBase 调用上下文派生当前 uid，签发绑定
+ *     origin/returnUrl/nonce 的 256-bit 一次性授权码；绝不接受调用者选择 uid。
+ *  2) `exchangeSsoCode` 仅接受 HTTPS 网关 POST，原子消费授权码并在同源响应中返回短暂 CloudBase ticket。
  *  3) 测试身份 Broker 路径（action='mintForTestLease'）：只接受独立服务令牌与已预留的 lease / issuance
  *     标识，自行读取受保护状态、原子认领、签发不超过租约截止时间的 ticket，并以 AES-GCM 托管。
  *
@@ -16,8 +14,10 @@
  *   - SSO_TICKET_PRIVATE_KEY_ID    私钥 ID（private_key_id）
  *   - SSO_TICKET_PRIVATE_KEY       私钥 PEM（private_key）；env 注入建议用 `\n` 转义或 base64
  *   - SSO_TICKET_REFRESH_SEC       可选，票据派生会话的可续期时长（秒），默认 30 天
- *   - SSO_TICKET_INTERNAL_TOKEN    内部服务 token（mintForUser 路径校验），需与 Nuxt 端
- *                                  NUXT_SSO_TICKET_INTERNAL_TOKEN 一致；未配置则该路径一律拒绝
+ *   - SSO_ALLOWED_ORIGINS          允许签发/兑换授权码的 HTTPS 精确 origin（禁止通配符）
+ *   - SSO_ALLOWED_RETURN_ORIGINS   允许 redirect returnUrl 的独立 HTTPS origin 规则
+ *   - SSO_ALLOW_LEGACY_DIRECT_TICKET 仅迁移期设为 `true`；允许旧桥接页通过已认证 SDK 调用
+ *                                     为当前调用者本人签票。消费者切换到授权码后立即设为 `false`
  *   - TEST_BROKER_INTERNAL_TOKEN   测试身份 Broker 专用 token（不得与其它内部 token 共用）
  *   - TEST_TICKET_ESCROW_KEY       32 字节标准 base64 AES-GCM key，与 Broker 解密配置一致
  * 未配置私钥时返回 { ok:false, reason:'not_configured' }，桥接页据此回退（向后兼容）。
@@ -25,24 +25,32 @@
 
 'use strict'
 
+const { Buffer } = require('node:buffer')
+const { createHash } = require('node:crypto')
 const process = require('node:process')
 const cloudbase = require('@cloudbase/node-sdk')
-const { isAnonUid, isValidTicketUid, normalizePrivateKey, tokensMatch } = require('./mint')
+const { isAnonUid, isValidTicketUid, normalizePrivateKey } = require('./mint')
+const { createSsoCodeStore, SsoCodeStoreError } = require('./sso-code-store')
+const { createSsoRateLimiter, SsoRateLimitError } = require('./sso-rate-limit')
+const {
+  SsoRequestError,
+  assertNoCallerSelectedSubject,
+  isAllowedOrigin,
+  readAllowedOriginRules,
+  validateExchangeRequest,
+  validateIssueRequest,
+} = require('./sso-request')
 const { mintForTestLease: mintTestLeaseTicket } = require('./test-lease')
 const { createTestLeaseStore } = require('./test-lease-store')
 
 const ENV = cloudbase.SYMBOL_CURRENT_ENV
 const DEFAULT_REFRESH_SEC = 60 * 60 * 24 * 30 // 30 天可续期
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-}
-
 // 读调用者身份用的 app（绑定函数调用上下文）。
 const contextApp = cloudbase.init({ env: ENV })
 const db = contextApp.database()
+const ssoCodeStore = createSsoCodeStore(db)
+const ssoRateLimiter = createSsoRateLimiter(db)
 
 // 签发票据用的 app（需自定义登录私钥）。惰性构建并缓存；未配置时缓存 null 以便优雅降级。
 let cachedSignAuth
@@ -89,8 +97,7 @@ function mintTicket(uid) {
   }
 }
 
-// 路径 1：调用者上下文 —— 只签发调用者自己的 uid。
-function mintForCaller() {
+function currentCallerUid() {
   let uid = ''
   try {
     uid = contextApp.auth().getUserInfo()?.uid || ''
@@ -99,17 +106,87 @@ function mintForCaller() {
     uid = ''
   }
   if (isAnonUid(uid))
+    throw new SsoRequestError('not_authenticated', 'authenticated current user is required')
+  return uid
+}
+
+function ssoRequestOptions() {
+  const legacyRules = readAllowedOriginRules(process.env.SSO_ALLOWED_TARGET_ORIGINS)
+  const originRules = readAllowedOriginRules(process.env.SSO_ALLOWED_ORIGINS)
+  const returnOriginRules = readAllowedOriginRules(process.env.SSO_ALLOWED_RETURN_ORIGINS)
+  return {
+    originRules: originRules.length ? originRules : legacyRules,
+    returnOriginRules: returnOriginRules.length ? returnOriginRules : originRules.length ? originRules : legacyRules,
+    allowLocal: process.env.SSO_ALLOW_LOCAL_TARGET_ORIGINS === 'true',
+  }
+}
+
+function positiveEnvInt(name, fallback, maximum) {
+  const value = Number(process.env[name])
+  return Number.isSafeInteger(value) && value > 0 && value <= maximum ? value : fallback
+}
+
+function securityLimits() {
+  return {
+    issuePerUser: positiveEnvInt('SSO_ISSUE_PER_USER_PER_MINUTE', 10, 1_000),
+    issuePerIp: positiveEnvInt('SSO_ISSUE_PER_IP_PER_MINUTE', 30, 5_000),
+    exchangePerIp: positiveEnvInt('SSO_EXCHANGE_PER_IP_PER_MINUTE', 60, 5_000),
+    exchangePerOrigin: positiveEnvInt('SSO_EXCHANGE_PER_ORIGIN_PER_MINUTE', 300, 10_000),
+  }
+}
+
+function auditId(value) {
+  return createHash('sha256').update(String(value || 'unknown')).digest('hex').slice(0, 16)
+}
+
+function auditSecurity(event, details) {
+  console.warn('[sso-ticket] security_event', JSON.stringify({ event, ...details }))
+}
+
+// 仅用于 v1 -> v2 的无中断发布窗口。它不接受 action、uid 或 HTTP 调用，且始终从认证上下文取本人 uid。
+// 该开关默认关闭；所有消费者完成授权码迁移后必须保持关闭并在后续版本删除此分支。
+async function mintLegacyCaller(clientAddress = 'unknown') {
+  if (process.env.SSO_ALLOW_LEGACY_DIRECT_TICKET !== 'true')
+    return { ok: false, reason: 'invalid_request' }
+  const uid = currentCallerUid()
+  if (!isValidTicketUid(uid))
     return { ok: false, reason: 'not_authenticated' }
+  const limits = securityLimits()
+  await Promise.all([
+    ssoRateLimiter.consume({ scope: 'legacy-user', key: uid, limit: limits.issuePerUser, windowMs: 60_000 }),
+    ssoRateLimiter.consume({ scope: 'legacy-ip', key: clientAddress, limit: limits.issuePerIp, windowMs: 60_000 }),
+  ])
+  auditSecurity('legacy_ticket_issued', { subject: auditId(uid) })
   return mintTicket(uid)
 }
 
-// 路径 2：内部服务 —— Nuxt 验过 cookie，凭 serviceToken + 显式 uid 铸票。
-function mintForUser(payload) {
-  if (!tokensMatch(payload && payload.serviceToken, process.env.SSO_TICKET_INTERNAL_TOKEN))
-    return { ok: false, reason: 'forbidden' }
-  if (!isValidTicketUid(payload && payload.uid))
-    return { ok: false, reason: 'invalid_uid' }
-  return mintTicket(payload.uid)
+// 路径 1：已认证调用者上下文签发一次性授权码，uid 只从运行时上下文取得。
+async function issueSsoCode(payload, clientAddress = 'unknown') {
+  const request = validateIssueRequest(payload, ssoRequestOptions())
+  const uid = currentCallerUid()
+  if (!isValidTicketUid(uid))
+    return { ok: false, reason: 'not_authenticated' }
+  const limits = securityLimits()
+  await Promise.all([
+    ssoRateLimiter.consume({ scope: 'issue-user', key: `${uid}\0${request.targetOrigin}`, limit: limits.issuePerUser, windowMs: 60_000 }),
+    ssoRateLimiter.consume({ scope: 'issue-ip', key: clientAddress, limit: limits.issuePerIp, windowMs: 60_000 }),
+  ])
+  const issued = await ssoCodeStore.issue({ uid, ...request })
+  auditSecurity('sso_code_issued', { subject: auditId(uid), origin: request.targetOrigin })
+  return { ok: true, code: issued.code, expiresAt: issued.expiresAt }
+}
+
+// 路径 2：HTTP Origin 与 nonce 都必须命中授权码绑定；消费成功后才铸 CloudBase ticket。
+async function exchangeSsoCode(payload, requestOrigin, clientAddress = 'unknown') {
+  const request = validateExchangeRequest(payload, requestOrigin, ssoRequestOptions())
+  const limits = securityLimits()
+  await Promise.all([
+    ssoRateLimiter.consume({ scope: 'exchange-ip', key: clientAddress, limit: limits.exchangePerIp, windowMs: 60_000 }),
+    ssoRateLimiter.consume({ scope: 'exchange-origin', key: requestOrigin, limit: limits.exchangePerOrigin, windowMs: 60_000 }),
+  ])
+  const { uid } = await ssoCodeStore.consume(request)
+  auditSecurity('sso_code_consumed', { subject: auditId(uid), origin: requestOrigin })
+  return mintTicket(uid)
 }
 
 // 路径 3：受管测试身份。Broker 不能传 uid 或任意过期时间；签发函数从受保护集合解析。
@@ -127,8 +204,30 @@ async function mintForTestLease(payload) {
   })
 }
 
-function httpJson(statusCode, obj) {
-  return { statusCode, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }, body: JSON.stringify(obj) }
+function corsHeaders(origin) {
+  return origin
+    ? {
+        'Access-Control-Allow-Origin': origin,
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Max-Age': '600',
+        'Vary': 'Origin',
+      }
+    : {}
+}
+
+function httpJson(statusCode, obj, origin = '') {
+  return {
+    statusCode,
+    headers: {
+      ...corsHeaders(origin),
+      'Cache-Control': 'no-store',
+      'Content-Type': 'application/json',
+      'Pragma': 'no-cache',
+      'Referrer-Policy': 'no-referrer',
+    },
+    body: JSON.stringify(obj),
+  }
 }
 
 function testLeaseHttpStatus(result) {
@@ -145,33 +244,122 @@ function testLeaseHttpStatus(result) {
   return 422
 }
 
+function header(event, name) {
+  const headers = event?.headers || {}
+  const found = Object.entries(headers).find(([key]) => key.toLowerCase() === name.toLowerCase())
+  return found ? String(found[1] || '') : ''
+}
+
+function clientAddress(event, isHttp) {
+  if (!isHttp) {
+    try {
+      return contextApp.auth().getClientIP() || 'unknown'
+    }
+    catch {
+      return 'unknown'
+    }
+  }
+  return String(
+    event?.requestContext?.http?.sourceIp
+    || event?.requestContext?.identity?.sourceIp
+    || header(event, 'x-real-ip')
+    || header(event, 'x-forwarded-for').split(',')[0]
+    || 'unknown',
+  ).trim().slice(0, 128)
+}
+
+function parseHttpPayload(event) {
+  const forwardedProto = header(event, 'x-forwarded-proto').toLowerCase()
+  if (forwardedProto && forwardedProto !== 'https')
+    throw new SsoRequestError('https_required', 'HTTPS is required')
+  const contentType = header(event, 'content-type').toLowerCase()
+  if (event.body && !contentType.startsWith('application/json'))
+    throw new SsoRequestError('invalid_content_type', 'application/json is required')
+  const raw = event.isBase64Encoded
+    ? Buffer.from(String(event.body || ''), 'base64').toString('utf8')
+    : String(event.body || '')
+  if (Buffer.byteLength(raw, 'utf8') > 4096)
+    throw new SsoRequestError('payload_too_large', 'request body is too large')
+  try {
+    return raw ? JSON.parse(raw) : {}
+  }
+  catch {
+    throw new SsoRequestError('bad_json', 'request body is not valid JSON')
+  }
+}
+
 exports.main = async function main(event) {
   const isHttp = !!(event && event.httpMethod)
-  if (isHttp && event.httpMethod === 'OPTIONS')
-    return { statusCode: 204, headers: CORS_HEADERS, body: '' }
+  const requestOrigin = isHttp
+    ? String(event.headers?.origin || event.headers?.Origin || '')
+    : ''
+  if (isHttp && event.httpMethod === 'OPTIONS') {
+    const options = ssoRequestOptions()
+    const allowed = isAllowedOrigin(requestOrigin, options.originRules, options.allowLocal)
+    return allowed
+      ? { statusCode: 204, headers: corsHeaders(requestOrigin), body: '' }
+      : httpJson(403, { ok: false, reason: 'origin_not_allowed' })
+  }
+  if (isHttp && event.httpMethod !== 'POST')
+    return httpJson(405, { ok: false, reason: 'method_not_allowed' })
 
   let payload = event || {}
   if (isHttp) {
     try {
-      payload = event.body ? JSON.parse(event.body) : {}
+      payload = parseHttpPayload(event)
     }
-    catch {
-      return httpJson(400, { ok: false, reason: 'bad_json' })
+    catch (error) {
+      const reason = error instanceof SsoRequestError ? error.reason : 'bad_json'
+      const status = reason === 'payload_too_large' ? 413 : reason === 'invalid_content_type' ? 415 : reason === 'https_required' ? 403 : 400
+      return httpJson(status, { ok: false, reason })
     }
   }
 
   let result
-  if (payload && payload.action === 'mintForTestLease')
-    result = await mintForTestLease(payload)
-  else if (payload && payload.action === 'mintForUser')
-    result = mintForUser(payload)
-  else
-    result = mintForCaller()
+  try {
+    assertNoCallerSelectedSubject(payload)
+    if (payload && payload.action === 'mintForTestLease')
+      result = await mintForTestLease(payload)
+    else if (isHttp && payload && payload.action === 'exchangeSsoCode')
+      result = await exchangeSsoCode(payload, requestOrigin, clientAddress(event, true))
+    else if (!isHttp && payload && payload.action === 'issueSsoCode')
+      result = await issueSsoCode(payload, clientAddress(event, false))
+    else if (!isHttp && payload && !payload.action)
+      result = await mintLegacyCaller(clientAddress(event, false))
+    else
+      result = { ok: false, reason: 'invalid_request' }
+  }
+  catch (error) {
+    if (error instanceof SsoRequestError || error instanceof SsoCodeStoreError || error instanceof SsoRateLimitError) {
+      result = { ok: false, reason: error.reason }
+      auditSecurity('sso_request_rejected', { reason: error.reason, origin: requestOrigin || undefined })
+    }
+    else {
+      console.error('[sso-ticket] request failed:', error && error.message)
+      result = { ok: false, reason: 'error' }
+    }
+  }
 
   const status = payload?.action === 'mintForTestLease'
     ? testLeaseHttpStatus(result)
-    : result.ok ? 200 : 401
-  return isHttp ? httpJson(status, result) : result
+    : result.ok
+      ? 200
+      : ['invalid_request', 'subject_not_allowed', 'pkce_required'].includes(result.reason)
+          ? 400
+          : ['origin_not_allowed', 'code_binding_invalid', 'pkce_invalid', 'forbidden'].includes(result.reason)
+              ? 403
+              : result.reason === 'rate_limited'
+                ? 429
+                : ['code_used'].includes(result.reason)
+                    ? 409
+                    : ['not_configured', 'error'].includes(result.reason)
+                        ? 503
+                        : 401
+  const responseOrigin = payload?.action === 'exchangeSsoCode'
+    && isAllowedOrigin(requestOrigin, ssoRequestOptions().originRules, ssoRequestOptions().allowLocal)
+    ? requestOrigin
+    : ''
+  return isHttp ? httpJson(status, result, responseOrigin) : result
 }
 
-exports._private = { mintForUser, mintForTestLease, mintForCaller, mintTicket, testLeaseHttpStatus }
+exports._private = { exchangeSsoCode, issueSsoCode, mintForTestLease, mintLegacyCaller, mintTicket, testLeaseHttpStatus }

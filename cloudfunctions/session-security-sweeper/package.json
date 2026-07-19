@@ -1,0 +1,11 @@
+{
+  "name": "session-security-sweeper",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.js",
+  "dependencies": {
+    "@cloudbase/node-sdk": "^3.18.3",
+    "@yunlefun/server-session-cloudbase": "0.2.0",
+    "ws": "^8.21.1"
+  }
+}

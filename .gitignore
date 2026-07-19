@@ -33,3 +33,6 @@ logs
 # CloudBase rules (managed globally via skills)
 .codebuddy/rules/tcb
 .codebuddy/rules/cloudbase-rules.mdc
+
+# EdgeOne CLI local project linkage
+.edgeone/

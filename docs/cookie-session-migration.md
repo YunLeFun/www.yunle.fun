@@ -1,5 +1,9 @@
 # httpOnly Cookie 会话迁移方案（双层会话 hybrid）
 
+> 历史迁移记录：本文保留用于追溯旧的 token-bearing cookie 迁移过程，其中
+> `mintForUser(uid)`、主站 session 转发和 cookie 内保存 CloudBase token 的设计不再允许用于新代码。
+> 当前规范以 [跨站 SSO 接入指南](./sso-integration.md) 和 `@yunlefun/server-session` 文档为准。
+
 > 状态：Phase 1 代码与本地 E2E 已完成；生产激活仍依赖 EdgeOne 真正托管 Nuxt SSR 运行时。本文是迁移的唯一权威设计参考，按阶段推进，每阶段独立可发布。
 
 ## 1. 背景与目标

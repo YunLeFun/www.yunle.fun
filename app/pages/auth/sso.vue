@@ -15,9 +15,9 @@ import { createSsoTargetRules, isAllowedSsoTargetOrigin } from '~/utils/ssoTarge
 /**
  * Lightweight SSO bridge for YunLeFun sub-apps.
  *
- * This route runs on www.yunle.fun so it can read the main site's CloudBase
- * session from local persistence. It sends the session only to explicitly
- * allowlisted child origins and only when the caller's nonce matches.
+ * This route runs on www.yunle.fun so it can prove the main site's current user.
+ * It sends only an origin/nonce-bound one-time authorization code to explicitly
+ * allowlisted first-party consumers; the main-site session never crosses origins.
  */
 definePageMeta({
   layout: 'auth',
@@ -40,6 +40,8 @@ function isEnabled(value: unknown): boolean {
 const allowedTargetRules = createSsoTargetRules(config.public.ssoAllowedTargetOrigins, {
   allowLocal: isEnabled(config.public.ssoAllowLocalTargetOrigins),
 })
+const allowLocalTargets = isEnabled(config.public.ssoAllowLocalTargetOrigins)
+const allowLegacyRedirect = isEnabled(config.public.ssoAllowLegacyRedirect)
 
 const status = shallowRef<'checking' | 'success' | 'error'>('checking')
 const message = shallowRef('正在同步云乐坊账号...')
@@ -96,19 +98,37 @@ function currentSsoPath(): string {
 }
 
 /**
- * 最佳努力：为当前登录用户换取一次性自定义登录票据（云函数 sso-ticket）。
- * 子站凭票据 `signInWithCustomTicket` 建立**自己独立、可同源续期的会话**，不再复用主站会话。
- * 任何失败（未配置私钥 / 调用异常 / 未登录）都返回 undefined —— 桥接回退到仅转发 session，向后兼容。
+ * 为当前登录用户签发一次性授权码。uid 只由云函数调用上下文派生；请求体不含 uid。
+ * 子站以同一 origin + nonce 原子兑换，CloudBase ticket 不进入跨站 URL/postMessage。
  */
-async function mintSsoTicket(): Promise<string | undefined> {
-  try {
-    const res = await app.callFunction({ name: 'sso-ticket' }) as { result?: { ok?: boolean, ticket?: unknown } }
-    const ticket = res?.result?.ok ? res.result.ticket : ''
-    return typeof ticket === 'string' && ticket ? ticket : undefined
-  }
-  catch {
-    return undefined
-  }
+async function issueSsoCode(input: {
+  mode: 'silent' | 'interactive' | 'redirect'
+  targetOrigin: string
+  returnUrl?: string
+  nonce: string
+  codeChallenge: string
+  codeChallengeMethod: 'S256'
+}): Promise<string> {
+  const res = await app.callFunction({
+    name: 'sso-ticket',
+    data: { action: 'issueSsoCode', ...input },
+  }) as { result?: { ok?: boolean, code?: unknown, reason?: unknown } }
+  const code = res?.result?.ok ? res.result.code : ''
+  if (typeof code !== 'string' || !/^[\w-]{43}$/.test(code))
+    throw new Error(typeof res?.result?.reason === 'string' ? res.result.reason : 'code_issue_failed')
+  return code
+}
+
+/**
+ * Time-bounded v1 redirect compatibility. The function-side flag must also be enabled.
+ * This returns only a one-time custom ticket and never returns the main-site session.
+ */
+async function mintLegacyRedirectTicket(): Promise<string> {
+  const res = await app.callFunction({ name: 'sso-ticket' }) as { result?: { ok?: boolean, ticket?: unknown, reason?: unknown } }
+  const ticket = res?.result?.ok ? res.result.ticket : ''
+  if (typeof ticket !== 'string' || !ticket)
+    throw new Error(typeof res?.result?.reason === 'string' ? res.result.reason : 'legacy_ticket_failed')
+  return ticket
 }
 
 /** redirect 模式：把结果写进回跳地址的 fragment 并整页跳回子站（先抹掉 returnUrl 自带的 hash）。 */
@@ -120,47 +140,84 @@ function redirectBack(returnUrl: string, value: string): void {
   window.location.replace(url.toString())
 }
 
+function encodeLegacyRedirectTicket(nonce: string, ticket: string): string {
+  if (!/^[\w-]{32,128}$/.test(nonce) || !ticket || ticket.length > 8192 || /\p{Cc}/u.test(ticket))
+    throw new Error('legacy redirect result is invalid')
+  const bytes = new TextEncoder().encode(JSON.stringify({ nonce, ok: true, ticket }))
+  let binary = ''
+  for (const byte of bytes)
+    binary += String.fromCharCode(byte)
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
 onMounted(async () => {
   const mode = readSsoMode(route.query.mode)
-  const targetOrigin = readSsoTargetOrigin(route.query.targetOrigin)
+  // Compatibility cast keeps this repository buildable during the coordinated @yunlefun/sso rollout.
+  const targetOrigin = (readSsoTargetOrigin as (raw: unknown, options?: { allowHttpLocalhost?: boolean }) => string)(
+    route.query.targetOrigin,
+    { allowHttpLocalhost: allowLocalTargets },
+  )
   const nonce = readSsoNonce(route.query.nonce)
+  const codeChallengeRaw = Array.isArray(route.query.codeChallenge) ? route.query.codeChallenge[0] : route.query.codeChallenge
+  const codeChallengeMethodRaw = Array.isArray(route.query.codeChallengeMethod) ? route.query.codeChallengeMethod[0] : route.query.codeChallengeMethod
+  const codeChallenge = typeof codeChallengeRaw === 'string' && /^[\w-]{43}$/.test(codeChallengeRaw)
+    ? codeChallengeRaw
+    : ''
+  const codeChallengeMethod = codeChallengeMethodRaw === 'S256' ? 'S256' : ''
+  const legacyRedirect = allowLegacyRedirect
+    && mode === 'redirect'
+    && !codeChallengeRaw
+    && !codeChallengeMethodRaw
 
   // redirect 模式（顶层重定向，抗存储分区）：回跳地址必须存在且其 origin 在白名单内
   // ——否则就是开放重定向漏洞。非 redirect 模式不需要 returnUrl。
-  const returnUrl = mode === 'redirect' ? readSsoReturnUrl(route.query.returnUrl) : ''
-  const returnOk = mode !== 'redirect' || (!!returnUrl && isAllowedTarget(new URL(returnUrl).origin))
+  const returnUrl = mode === 'redirect'
+    ? (readSsoReturnUrl as (raw: unknown, options?: { allowHttpLocalhost?: boolean }) => string)(
+        route.query.returnUrl,
+        { allowHttpLocalhost: allowLocalTargets },
+      )
+    : ''
+  const returnOk = mode !== 'redirect'
+    || (!!returnUrl && new URL(returnUrl).origin === targetOrigin && isAllowedTarget(targetOrigin))
 
-  if (!targetOrigin || !nonce || !isAllowedTarget(targetOrigin) || !returnOk) {
+  const hasPkce = !!codeChallenge && codeChallengeMethod === 'S256'
+  if (!targetOrigin || !nonce || (!hasPkce && !legacyRedirect) || !isAllowedTarget(targetOrigin) || !returnOk) {
     postInvalidRequest(targetOrigin, nonce)
     return
   }
 
   try {
-    const { data } = await auth.getSession()
+    const { data, error } = await auth.getSession()
+    if (error)
+      throw error
     const session = data?.session
     if (session && !isAnonymousSession(session)) {
-      // Hand the sub-app a one-time custom-login ticket so it can establish its *own*
-      // independent, same-origin-renewable session instead of reusing (and racing)
-      // the main site's single-use refresh_token.
-      const ticket = await mintSsoTicket()
+      if (legacyRedirect) {
+        const ticket = await mintLegacyRedirectTicket()
+        redirectBack(returnUrl, encodeLegacyRedirectTicket(nonce, ticket))
+        return
+      }
+      if (!hasPkce)
+        throw new Error('pkce_required')
+      const code = await issueSsoCode({
+        mode,
+        targetOrigin,
+        nonce,
+        codeChallenge,
+        codeChallengeMethod: 'S256',
+        ...(returnUrl ? { returnUrl } : {}),
+      })
 
       if (mode === 'redirect') {
-        // The redirect channel only ever carries the one-time ticket — never the
-        // refresh_token (putting it in a URL is the deprecated implicit-flow
-        // anti-pattern). No ticket (custom-login unconfigured) → signal
-        // `not_configured` so the sub-app falls back to popup/iframe.
+        // Compatibility cast is removed once @yunlefun/sso >= 0.4.0 is installed here.
         redirectBack(returnUrl, encodeSsoRedirectResult(
-          ticket ? { nonce, ok: true, ticket } : { nonce, ok: false, reason: 'not_configured' },
+          { nonce, ok: true, code } as Parameters<typeof encodeSsoRedirectResult>[0] & { code: string },
         ))
         return
       }
 
-      // iframe / popup channel: deliver the session (+ ticket when available) via
-      // postMessage. `ticket` is an additive SsoResultMessage field; the intersection
-      // keeps this typechecking against both the current and ticket-aware package.
-      const payload = { type: SSO_RESULT_TYPE, ok: true, nonce, session } as SsoResultMessage & { ticket?: string }
-      if (ticket)
-        payload.ticket = ticket
+      // iframe / popup compatibility channel carries the same one-time code, never a session.
+      const payload = { type: SSO_RESULT_TYPE, ok: true, nonce, code } as SsoResultMessage & { code: string }
       postToRequester(targetOrigin, payload)
       return
     }
