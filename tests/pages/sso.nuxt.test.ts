@@ -15,7 +15,7 @@ vi.mock('~/composables/auth/useAuthSession', () => ({
   useTcbAuthSession: () => h.s.authSession,
 }))
 
-describe('SSO bridge', () => {
+describe('sso bridge', () => {
   beforeEach(() => {
     const callOrder: string[] = []
     const authReady = ref(false)
