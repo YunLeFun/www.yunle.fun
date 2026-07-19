@@ -1,6 +1,6 @@
 {
   "buildCommand": "pnpm build",
-  "nodeVersion": "22.11.0",
+  "nodeVersion": "22.17.1",
   "headers": [
     {
       "source": "/*",

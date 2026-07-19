@@ -7,7 +7,7 @@ const packageManifest = JSON.parse(readFileSync(new URL('../package.json', impor
 describe('edgeOne production configuration', () => {
   it('uses the Nuxt full-stack build in bounded regions', () => {
     expect(config.buildCommand).toBe('pnpm build')
-    expect(config.nodeVersion).toBe('22.11.0')
+    expect(config.nodeVersion).toBe('22.17.1')
     expect(config.cloudFunctions).toEqual({
       mainlandRegions: ['ap-shanghai'],
       overseasRegions: ['ap-singapore'],
