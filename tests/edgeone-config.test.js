@@ -2,11 +2,12 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 const config = JSON.parse(readFileSync(new URL('../edgeone.json', import.meta.url), 'utf8'))
+const packageManifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
 
 describe('edgeOne production configuration', () => {
   it('uses the Nuxt full-stack build in bounded regions', () => {
     expect(config.buildCommand).toBe('pnpm build')
-    expect(config.nodeVersion).toBe('20.18.0')
+    expect(config.nodeVersion).toBe('22.11.0')
     expect(config.cloudFunctions).toEqual({
       mainlandRegions: ['ap-shanghai'],
       overseasRegions: ['ap-singapore'],
@@ -21,5 +22,14 @@ describe('edgeOne production configuration', () => {
     expect(headers['X-Frame-Options']).toBe('DENY')
     expect(headers['Referrer-Policy']).toBe('strict-origin-when-cross-origin')
     expect(headers['Permissions-Policy']).toBe('camera=(), microphone=(), geolocation=()')
+  })
+
+  it('pins the Linux OXC build chain required by EdgeOne', () => {
+    expect(packageManifest.devDependencies).toMatchObject({
+      '@oxc-minify/binding-linux-x64-gnu': 'catalog:',
+      '@oxc-parser/binding-linux-x64-gnu': 'catalog:',
+      '@oxc-transform/binding-linux-x64-gnu': 'catalog:',
+      'oxc-parser': 'catalog:',
+    })
   })
 })

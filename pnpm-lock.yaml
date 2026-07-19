@@ -90,6 +90,9 @@ catalogs:
     nuxt-auth-utils:
       specifier: ^0.5.29
       version: 0.5.29
+    oxc-parser:
+      specifier: 0.133.0
+      version: 0.133.0
     qrcode:
       specifier: ^1.5.4
       version: 1.5.4
@@ -207,6 +210,9 @@ importers:
       happy-dom:
         specifier: 'catalog:'
         version: 20.10.6
+      oxc-parser:
+        specifier: 'catalog:'
+        version: 0.133.0
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -1501,7 +1507,6 @@ packages:
     engines: {node: ^20.19.0 || >=22.12.0}
     cpu: [x64]
     os: [linux]
-    libc: [glibc]
 
   '@oxc-minify/binding-linux-x64-musl@0.133.0':
     resolution: {integrity: sha512-kd36CDkTkZDMNfVceNTSfpWnitE1+GjZmzJCeq8yaxsgvs/MXg8aauI2RgFjElYZIHSMyZku4pQ7Jtl3ZEYI6w==}
@@ -2108,7 +2113,6 @@ packages:
     engines: {node: ^20.19.0 || >=22.12.0}
     cpu: [x64]
     os: [linux]
-    libc: [glibc]
 
   '@oxc-transform/binding-linux-x64-musl@0.128.0':
     resolution: {integrity: sha512-NjYtwl9ijp34iisHxYBvE7nii1Ac0QPP3doHv8MQHhDA3zjUcDCROuBNybfaEYCxnJ1aF+cAPqsyeopnAGsyuQ==}

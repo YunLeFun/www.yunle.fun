@@ -49,6 +49,7 @@
     "eslint": "catalog:",
     "eslint-plugin-format": "catalog:",
     "happy-dom": "catalog:",
+    "oxc-parser": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:",
