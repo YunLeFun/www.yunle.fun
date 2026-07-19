@@ -40,11 +40,13 @@ function firstDocument(result) {
   return isRecord(result?.data) && Object.keys(result.data).length ? result.data : null
 }
 
-function assertWrite(result) {
+function assertWrite(result, requireModified = false) {
   if (!isRecord(result))
     throw new Error('rate limit database write returned an invalid result')
   if (result.code !== undefined && result.code !== 0 && result.code !== '0')
     throw new Error('rate limit database write failed')
+  if (!requireModified)
+    return
   const updated = result.updated ?? result.modifiedCount
   if (updated !== undefined && (!Number.isSafeInteger(updated) || updated < 1))
     throw new Error('rate limit database write did not modify a document')
@@ -95,7 +97,7 @@ function createSsoRateLimiter(database, options = {}) {
           throw new Error('invalid rate limit count')
         if (count >= input.limit)
           throw new SsoRateLimitError()
-        assertWrite(await ref.update({ count: count + 1 }))
+        assertWrite(await ref.update({ count: count + 1 }), true)
       })
     },
 
