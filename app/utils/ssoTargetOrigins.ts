@@ -1,5 +1,6 @@
 export interface SsoTargetRule {
   exactOrigin?: string
+  subdomainSuffix?: string
   loopbackHost?: boolean
   protocol?: string
   port?: string
@@ -50,10 +51,35 @@ function parseExactRule(value: string): SsoTargetRule | null {
   }
 }
 
+function parseHttpsSubdomainRule(value: string): SsoTargetRule | null {
+  const match = /^https:\/\/\*\.([^/:?#]+)\/?$/i.exec(value)
+  if (!match?.[1])
+    return null
+
+  try {
+    const url = new URL(`https://${match[1]}`)
+    const hostname = normalizeHost(url.hostname)
+    const labels = hostname.split('.')
+    if (url.hostname.endsWith('.')
+      || url.port
+      || labels.length < 2
+      || labels.some(label => !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(label))
+      || isLoopbackHost(hostname)) {
+      return null
+    }
+    return { subdomainSuffix: hostname, protocol: 'https:', port: '' }
+  }
+  catch {
+    return null
+  }
+}
+
 export function parseSsoTargetRule(value: string): SsoTargetRule | null {
   const trimmed = value.trim()
   if (!trimmed)
     return null
+  if (trimmed.includes('*'))
+    return parseHttpsSubdomainRule(trimmed)
   return parseExactRule(trimmed)
 }
 
@@ -89,6 +115,8 @@ export function isAllowedSsoTargetOrigin(origin: string, rules: readonly SsoTarg
 
   if (url.protocol !== 'http:' && url.protocol !== 'https:')
     return false
+  if (url.origin !== origin || url.hostname.endsWith('.'))
+    return false
 
   return rules.some((rule) => {
     if (rule.exactOrigin)
@@ -99,6 +127,11 @@ export function isAllowedSsoTargetOrigin(origin: string, rules: readonly SsoTarg
       return false
     if (rule.loopbackHost)
       return isLoopbackHost(url.hostname)
+    if (rule.subdomainSuffix) {
+      const hostname = normalizeHost(url.hostname)
+      return hostname !== rule.subdomainSuffix
+        && hostname.endsWith(`.${rule.subdomainSuffix}`)
+    }
     return false
   })
 }

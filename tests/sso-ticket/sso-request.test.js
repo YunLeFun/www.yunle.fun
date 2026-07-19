@@ -12,18 +12,27 @@ const NONCE = 'n'.repeat(32)
 const CODE = 'c'.repeat(43)
 const CHALLENGE = 'p'.repeat(43)
 const VERIFIER = 'v'.repeat(64)
-const rules = readAllowedOriginRules('https://drive.yunle.fun,https://cms.example.com')
-const returnOriginRules = readAllowedOriginRules('https://drive.yunle.fun')
+const rules = readAllowedOriginRules('https://*.yunle.fun,https://cms.example.com')
+const returnOriginRules = readAllowedOriginRules('https://*.yunle.fun')
 const options = { originRules: rules, returnOriginRules }
 
 describe('sso-ticket request validation', () => {
-  it('accepts only exact HTTPS origins and rejects wildcard configuration', () => {
+  it('accepts exact HTTPS origins and constrained subdomain wildcards', () => {
     expect(isAllowedOrigin('https://drive.yunle.fun', rules)).toBe(true)
+    expect(isAllowedOrigin('https://preview.drive.yunle.fun', rules)).toBe(true)
     expect(isAllowedOrigin('https://cms.example.com', rules)).toBe(true)
     expect(isAllowedOrigin('https://yunle.fun', rules)).toBe(false)
     expect(isAllowedOrigin('https://yunle.fun.evil.example', rules)).toBe(false)
+    expect(isAllowedOrigin('https://drive.yunle.fun.evil.example', rules)).toBe(false)
+    expect(isAllowedOrigin('https://drive.yunle.fun:8443', rules)).toBe(false)
+    expect(isAllowedOrigin('https://drive.yunle.fun.', rules)).toBe(false)
+    expect(isAllowedOrigin('https://drive.yunle.fun/path', rules)).toBe(false)
     expect(isAllowedOrigin('http://drive.yunle.fun', rules)).toBe(false)
-    expect(readAllowedOriginRules('https://*.yunle.fun')).toEqual([])
+    expect(readAllowedOriginRules('https://*.yunle.fun')).toEqual([{ subdomainSuffix: 'yunle.fun' }])
+    expect(readAllowedOriginRules('https://*.localhost')).toEqual([])
+    expect(readAllowedOriginRules('https://*.yunle.fun:8443')).toEqual([])
+    expect(readAllowedOriginRules('https://*.*.yunle.fun')).toEqual([])
+    expect(readAllowedOriginRules('http://*.yunle.fun')).toEqual([])
   })
 
   it('requires a redirect return URL to share the exact target origin', () => {
