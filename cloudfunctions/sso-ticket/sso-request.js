@@ -20,6 +20,25 @@ function readAllowedOriginRules(raw) {
   if (typeof raw !== 'string')
     return []
   return raw.split(',').map(value => value.trim()).filter(Boolean).flatMap((value) => {
+    const wildcardMatch = /^https:\/\/\*\.([^/:?#]+)\/?$/i.exec(value)
+    if (wildcardMatch?.[1]) {
+      try {
+        const url = new URL(`https://${wildcardMatch[1]}`)
+        const hostname = url.hostname.toLowerCase()
+        const labels = hostname.split('.')
+        if (url.hostname.endsWith('.')
+          || url.port
+          || labels.length < 2
+          || labels.some(label => !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(label))
+          || isLoopbackHost(hostname)) {
+          return []
+        }
+        return [{ subdomainSuffix: hostname }]
+      }
+      catch {
+        return []
+      }
+    }
     try {
       if (value.includes('*'))
         return []
@@ -54,9 +73,20 @@ function isAllowedOrigin(origin, rules, allowLocal = false) {
   }
   if (allowLocal && url.protocol === 'http:' && isLoopbackHost(url.hostname))
     return true
-  if (url.protocol !== 'https:' || url.origin !== origin)
+  if (url.protocol !== 'https:' || url.origin !== origin || url.hostname.endsWith('.'))
     return false
-  return rules.some(rule => rule.exactOrigin === url.origin)
+  return rules.some((rule) => {
+    if (rule.exactOrigin)
+      return rule.exactOrigin === url.origin
+    if (rule.subdomainSuffix) {
+      if (url.port)
+        return false
+      const hostname = url.hostname.toLowerCase()
+      return hostname !== rule.subdomainSuffix
+        && hostname.endsWith(`.${rule.subdomainSuffix}`)
+    }
+    return false
+  })
 }
 
 function assertNoCallerSelectedSubject(payload) {

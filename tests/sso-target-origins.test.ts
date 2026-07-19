@@ -2,24 +2,28 @@ import { describe, expect, it } from 'vitest'
 import { createSsoTargetRules, isAllowedSsoTargetOrigin, LOCAL_SSO_TARGET_RULES, readSsoTargetRules } from '../app/utils/ssoTargetOrigins'
 
 describe('sso target origin rules', () => {
-  const rules = readSsoTargetRules('https://wenta.yunle.fun,https://apps.yunle.fun,https://gmm.yunyoujun.cn,https://zero-echo.advjs.org,https://preview.advjs.org,http://localhost:2333')
+  const rules = readSsoTargetRules('https://*.yunle.fun,https://gmm.yunyoujun.cn,https://zero-echo.advjs.org,https://preview.advjs.org,http://localhost:2333')
 
-  it('allows only explicitly registered HTTPS origins', () => {
+  it('allows registered HTTPS origins and YunLeFun subdomains', () => {
     expect(isAllowedSsoTargetOrigin('https://wenta.yunle.fun', rules)).toBe(true)
     expect(isAllowedSsoTargetOrigin('https://apps.yunle.fun', rules)).toBe(true)
+    expect(isAllowedSsoTargetOrigin('https://cms.yunle.fun', rules)).toBe(true)
+    expect(isAllowedSsoTargetOrigin('https://preview.cms.yunle.fun', rules)).toBe(true)
     expect(isAllowedSsoTargetOrigin('https://gmm.yunyoujun.cn', rules)).toBe(true)
     expect(isAllowedSsoTargetOrigin('https://zero-echo.advjs.org', rules)).toBe(true)
     expect(isAllowedSsoTargetOrigin('https://preview.advjs.org', rules)).toBe(true)
   })
 
-  it('does not allow sibling, apex, wildcard, or HTTP origins', () => {
+  it('does not allow apex, lookalike, port-qualified, or HTTP origins', () => {
     expect(isAllowedSsoTargetOrigin('https://yunle.fun', rules)).toBe(false)
     expect(isAllowedSsoTargetOrigin('https://advjs.org', rules)).toBe(false)
     expect(isAllowedSsoTargetOrigin('http://wenta.yunle.fun', rules)).toBe(false)
     expect(isAllowedSsoTargetOrigin('http://zero-echo.advjs.org', rules)).toBe(false)
     expect(isAllowedSsoTargetOrigin('https://zero-echo.advjs.org:8443', rules)).toBe(false)
-    expect(readSsoTargetRules('https://*.yunle.fun,*.advjs.org')).toEqual([])
-    expect(isAllowedSsoTargetOrigin('https://cms.yunle.fun', rules)).toBe(false)
+    expect(isAllowedSsoTargetOrigin('https://cms.yunle.fun:8443', rules)).toBe(false)
+    expect(isAllowedSsoTargetOrigin('https://cms.yunle.fun.', rules)).toBe(false)
+    expect(isAllowedSsoTargetOrigin('https://cms.yunle.fun/path', rules)).toBe(false)
+    expect(readSsoTargetRules('*.advjs.org')).toEqual([])
   })
 
   it('does not accept HTTP origins from production configuration', () => {
@@ -58,5 +62,12 @@ describe('sso target origin rules', () => {
     expect(isAllowedSsoTargetOrigin('https://yunle.fun.evil.com', rules)).toBe(false)
     expect(isAllowedSsoTargetOrigin('https://notadvjs.org', rules)).toBe(false)
     expect(isAllowedSsoTargetOrigin('https://advjs.org.evil.com', rules)).toBe(false)
+  })
+
+  it('rejects unsafe wildcard rules', () => {
+    expect(readSsoTargetRules('https://*.localhost')).toEqual([])
+    expect(readSsoTargetRules('https://*.yunle.fun:8443')).toEqual([])
+    expect(readSsoTargetRules('https://*.*.yunle.fun')).toEqual([])
+    expect(readSsoTargetRules('http://*.yunle.fun')).toEqual([])
   })
 })

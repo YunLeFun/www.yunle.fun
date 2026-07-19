@@ -126,8 +126,8 @@
 | ------------------------------------ | ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `SSO_TICKET_PRIVATE_KEY_ID`          | 是   | 自定义登录私钥 ID（`private_key_id`）。CloudBase 控制台 → 登录授权 → 自定义登录 → 下载私钥获取                                                                   |
 | `SSO_TICKET_PRIVATE_KEY`             | 是   | 自定义登录私钥 PEM（`private_key`）；env 注入建议用 `\n` 转义或 base64。未配置私钥时函数返回 `{ ok:false, reason:'not_configured' }`，桥接页据此回退（向后兼容） |
-| `SSO_ALLOWED_ORIGINS`                | 是   | 允许签发与兑换授权码的精确第一方 HTTPS origin 列表；禁止通配符，应与主站页面配置一致                                                                             |
-| `SSO_ALLOWED_RETURN_ORIGINS`         | 是   | 允许 redirect returnUrl 的精确 HTTPS origin 列表；禁止通配符                                                                                                     |
+| `SSO_ALLOWED_ORIGINS`                | 是   | 允许签发与兑换授权码的第一方 HTTPS origin；支持受限 `https://*.example.com`，且应与主站页面配置一致                                                              |
+| `SSO_ALLOWED_RETURN_ORIGINS`         | 是   | 允许 redirect returnUrl 的 HTTPS origin；支持同样的受限子域通配符                                                                                                |
 | `SSO_ALLOWED_TARGET_ORIGINS`         | 否   | 仅供 v1 → v2 零停机迁移回退；新部署必须使用上面两个变量，迁移完成后删除                                                                                          |
 | `SSO_ALLOW_LOCAL_TARGET_ORIGINS`     | 否   | 仅本地联调允许 loopback HTTP；生产必须为 `false`                                                                                                                 |
 | `SSO_TICKET_REFRESH_SEC`             | 否   | 票据派生会话的可续期时长（秒），默认 30 天                                                                                                                       |
@@ -139,7 +139,7 @@
 `sso-ticket` 的用户 SSO 是两步授权码流程，私钥始终只在本函数 env：
 
 - **签发**（已认证 SDK `action='issueSsoCode'`）：uid 只从调用上下文派生；授权码绑定 origin、return URL、nonce 和 S256 PKCE challenge。
-- **兑换**（HTTPS `action='exchangeSsoCode'`）：校验 PKCE verifier 后事务性消费授权码，精确 Origin CORS，仅返回短暂 custom ticket。
+- **兑换**（HTTPS `action='exchangeSsoCode'`）：校验 PKCE verifier 后事务性消费授权码，回显已校验的具体 Origin，仅返回短暂 custom ticket。
 - **迁移兼容**：`SSO_ALLOW_LEGACY_DIRECT_TICKET=true` 时，旧桥接页可暂时通过无 action 的已认证 SDK 调用为当前调用者本人签票；不接受 HTTP/uid。完成 v2 发布后立即设回 `false`。
 - 任何调用者选择 `uid`/`subject` 的输入都拒绝；主站 session 和 refresh token 不跨 origin。
 - `sso_login_codes` 与 `sso_security_limits` 均为 server-only；独立 `sso-security-sweeper` 每小时清理，且 `aclRule.invoke=false`。

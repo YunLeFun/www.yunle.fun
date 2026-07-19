@@ -14,7 +14,7 @@
  *   - SSO_TICKET_PRIVATE_KEY_ID    私钥 ID（private_key_id）
  *   - SSO_TICKET_PRIVATE_KEY       私钥 PEM（private_key）；env 注入建议用 `\n` 转义或 base64
  *   - SSO_TICKET_REFRESH_SEC       可选，票据派生会话的可续期时长（秒），默认 30 天
- *   - SSO_ALLOWED_ORIGINS          允许签发/兑换授权码的 HTTPS 精确 origin（禁止通配符）
+ *   - SSO_ALLOWED_ORIGINS          允许签发/兑换授权码的 HTTPS origin；支持受限 `https://*.example.com`
  *   - SSO_ALLOWED_RETURN_ORIGINS   允许 redirect returnUrl 的独立 HTTPS origin 规则
  *   - SSO_ALLOW_LEGACY_DIRECT_TICKET 仅迁移期设为 `true`；允许旧桥接页通过已认证 SDK 调用
  *                                     为当前调用者本人签票。消费者切换到授权码后立即设为 `false`

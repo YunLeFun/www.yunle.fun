@@ -100,15 +100,15 @@ await auth.signOut() // BFF 已设置应用自己的 opaque session
 页面和函数必须使用相同的生产白名单：
 
 ```dotenv
-NUXT_PUBLIC_SSO_ALLOWED_TARGET_ORIGINS=https://drive.yunle.fun,https://cms.yunle.fun
-SSO_ALLOWED_ORIGINS=https://drive.yunle.fun,https://cms.yunle.fun
-SSO_ALLOWED_RETURN_ORIGINS=https://drive.yunle.fun,https://cms.yunle.fun
+NUXT_PUBLIC_SSO_ALLOWED_TARGET_ORIGINS=https://*.yunle.fun
+SSO_ALLOWED_ORIGINS=https://*.yunle.fun
+SSO_ALLOWED_RETURN_ORIGINS=https://*.yunle.fun
 SSO_ALLOW_LOCAL_TARGET_ORIGINS=false
 NUXT_PUBLIC_SSO_ALLOW_LEGACY_REDIRECT=false
 SSO_ALLOW_LEGACY_DIRECT_TICKET=false
 ```
 
-每个生产 Consumer 必须登记完整、精确的 HTTPS origin；配置中出现 `*` 会被拒绝。这样子域接管不会自动扩大登录信任边界。开发时可显式放行 loopback HTTP，但不得放行局域网地址。
+同一受控主域下可使用受限的 `https://*.yunle.fun`：它匹配一级或多级子域，但不匹配根域、HTTP、显式端口、路径、尾随点或伪后缀。只有在全部子域都由同一可信团队治理时才应启用；第三方或不同信任边界的 Consumer 仍必须登记精确 HTTPS origin。开发时可显式放行 loopback HTTP，但不得放行局域网地址。
 
 协调升级时，可短时同时打开页面端 `NUXT_PUBLIC_SSO_ALLOW_LEGACY_REDIRECT` 和函数端 `SSO_ALLOW_LEGACY_DIRECT_TICKET`。该兼容只接受缺少 PKCE 参数的旧版顶层 redirect，仅在 fragment 返回一次性 ticket，不返回主站 session；所有 Consumer 升级到 0.4.0 后必须同时关闭。任一开关关闭即 fail closed。
 
@@ -120,7 +120,7 @@ SSO_ALLOW_LEGACY_DIRECT_TICKET=false
 - `sso-ticket` 已认证 SDK 调用权限，以及 HTTPS `/sso-ticket` 兑换网关。
 - `sso-security-sweeper` 禁止直接调用，仅由小时级 timer trigger 清理 24 小时前的 code 审计记录和已过期限流窗口。
 - 函数环境中的 custom-login private key 与白名单。
-- 精确 Origin CORS，禁止 `*`，响应设置 `no-store`。
+- 校验具体 Origin 后动态回显的 CORS（响应值绝不使用部分通配符），并设置 `no-store`。
 
 资源创建、ACL/网关变化和生产环境变量更新必须按变更审批单独执行。
 
