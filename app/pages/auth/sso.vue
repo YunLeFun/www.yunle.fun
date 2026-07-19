@@ -10,6 +10,7 @@ import {
   SSO_REDIRECT_HASH_KEY,
   SSO_RESULT_TYPE,
 } from '@yunlefun/sso/protocol'
+import { useTcbAuthSession } from '~/composables/auth/useAuthSession'
 import { createSsoTargetRules, isAllowedSsoTargetOrigin } from '~/utils/ssoTargetOrigins'
 
 /**
@@ -31,6 +32,7 @@ useSeoMeta({
 const route = useRoute()
 const router = useRouter()
 const { app, auth } = useCloudbase()
+const { authReady, checkAuthStatus } = useTcbAuthSession()
 const config = useRuntimeConfig()
 
 function isEnabled(value: unknown): boolean {
@@ -187,6 +189,12 @@ onMounted(async () => {
   }
 
   try {
+    // /auth/sso is intentionally public, so the global auth middleware does not
+    // restore the in-memory CloudBase SDK session on a fresh page load. Restore
+    // it from the httpOnly server session before attempting to issue a code.
+    if (!authReady.value)
+      await checkAuthStatus()
+
     const { data, error } = await auth.getSession()
     if (error)
       throw error
