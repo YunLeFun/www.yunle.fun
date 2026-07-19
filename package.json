@@ -39,6 +39,7 @@
     "@nuxt/icon": "catalog:",
     "@nuxt/test-utils": "catalog:",
     "@nuxtjs/i18n": "catalog:",
+    "@oxc-parser/binding-linux-x64-gnu": "catalog:",
     "@rollup/plugin-yaml": "catalog:",
     "@types/qrcode": "catalog:",
     "@vue/test-utils": "catalog:",
