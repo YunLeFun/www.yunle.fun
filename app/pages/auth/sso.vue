@@ -32,7 +32,7 @@ useSeoMeta({
 const route = useRoute()
 const router = useRouter()
 const { app, auth } = useCloudbase()
-const { authReady, checkAuthStatus } = useTcbAuthSession()
+const { authReady, authStatus, checkAuthStatus } = useTcbAuthSession()
 const config = useRuntimeConfig()
 
 function isEnabled(value: unknown): boolean {
@@ -211,6 +211,28 @@ onMounted(async () => {
     // it from the httpOnly server session before attempting to issue a code.
     if (!authReady.value)
       await checkAuthStatus()
+
+    // `checkAuthStatus` deliberately absorbs the SDK's unauthenticated error and
+    // exposes it as a stable guest state. Do not call getSession() again here:
+    // CloudBase reports a normal signed-out visitor as an error, which would send
+    // redirect mode back to the consumer with reason=error instead of showing login.
+    if (authStatus.value === 'guest') {
+      if (mode === 'interactive' || mode === 'redirect') {
+        await navigateTo({
+          path: '/login',
+          query: { redirect: currentSsoPath() },
+        })
+        return
+      }
+
+      postToRequester(targetOrigin, {
+        type: SSO_RESULT_TYPE,
+        ok: false,
+        nonce,
+        reason: 'not_authenticated',
+      })
+      return
+    }
 
     const { data, error } = await auth.getSession()
     if (error)
