@@ -48,6 +48,23 @@ const allowLegacyRedirect = isEnabled(config.public.ssoAllowLegacyRedirect)
 const status = shallowRef<'checking' | 'success' | 'error'>('checking')
 const message = shallowRef('正在同步云乐坊账号...')
 
+interface SsoTicketResult {
+  ok?: boolean
+  code?: unknown
+  ticket?: unknown
+  reason?: unknown
+}
+
+function readSsoTicketResult(response: unknown): SsoTicketResult {
+  if (!response || typeof response !== 'object' || Array.isArray(response))
+    return {}
+  const record = response as Record<string, unknown>
+  const nested = record.result
+  return nested && typeof nested === 'object' && !Array.isArray(nested)
+    ? nested as SsoTicketResult
+    : record as SsoTicketResult
+}
+
 function isAllowedTarget(origin: string): boolean {
   return isAllowedSsoTargetOrigin(origin, allowedTargetRules)
 }
@@ -111,13 +128,13 @@ async function issueSsoCode(input: {
   codeChallenge: string
   codeChallengeMethod: 'S256'
 }): Promise<string> {
-  const res = await app.callFunction({
+  const result = readSsoTicketResult(await app.callFunction({
     name: 'sso-ticket',
     data: { action: 'issueSsoCode', ...input },
-  }) as { result?: { ok?: boolean, code?: unknown, reason?: unknown } }
-  const code = res?.result?.ok ? res.result.code : ''
+  }))
+  const code = result.ok ? result.code : ''
   if (typeof code !== 'string' || !/^[\w-]{43}$/.test(code))
-    throw new Error(typeof res?.result?.reason === 'string' ? res.result.reason : 'code_issue_failed')
+    throw new Error(typeof result.reason === 'string' ? result.reason : 'code_issue_failed')
   return code
 }
 
@@ -126,10 +143,10 @@ async function issueSsoCode(input: {
  * This returns only a one-time custom ticket and never returns the main-site session.
  */
 async function mintLegacyRedirectTicket(): Promise<string> {
-  const res = await app.callFunction({ name: 'sso-ticket' }) as { result?: { ok?: boolean, ticket?: unknown, reason?: unknown } }
-  const ticket = res?.result?.ok ? res.result.ticket : ''
+  const result = readSsoTicketResult(await app.callFunction({ name: 'sso-ticket' }))
+  const ticket = result.ok ? result.ticket : ''
   if (typeof ticket !== 'string' || !ticket)
-    throw new Error(typeof res?.result?.reason === 'string' ? res.result.reason : 'legacy_ticket_failed')
+    throw new Error(typeof result.reason === 'string' ? result.reason : 'legacy_ticket_failed')
   return ticket
 }
 

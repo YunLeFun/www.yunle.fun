@@ -17,7 +17,9 @@ class FakeDatabase {
       get: async () => ({ data: this.documents.has(id) ? [{ ...this.documents.get(id), _id: id }] : [] }),
       set: async (value) => {
         this.documents.set(id, structuredClone(value))
-        return { updated: 1 }
+        // CloudBase reports a successful first-time doc.set() as an upsert with
+        // updated=0; only updates to an existing record require updated > 0.
+        return { updated: 0, upsertedId: id }
       },
       update: async (value) => {
         this.documents.set(id, { ...this.documents.get(id), ...structuredClone(value) })

@@ -34,10 +34,11 @@ describe('sso bridge', () => {
       app: {
         callFunction: vi.fn(async () => {
           callOrder.push('issue-code')
-          return { result: { ok: true, code: 'b'.repeat(43) } }
+          return h.s.functionResponse
         }),
       },
     }
+    h.s.functionResponse = { ok: true, code: 'b'.repeat(43) }
     h.s.authSession = {
       authReady,
       checkAuthStatus: vi.fn(async () => {
@@ -48,6 +49,7 @@ describe('sso bridge', () => {
   })
 
   it('restores the server-backed CloudBase session before issuing an SSO code', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     await mountSuspended(SsoPage, {
       route: `/auth/sso?mode=silent&targetOrigin=${encodeURIComponent('https://cms.yunle.fun')}&nonce=1234567890abcdef1234567890abcdef&codeChallenge=${'a'.repeat(43)}&codeChallengeMethod=S256`,
       global: {
@@ -60,5 +62,23 @@ describe('sso bridge', () => {
 
     expect(h.s.authSession.checkAuthStatus).toHaveBeenCalledTimes(1)
     expect(h.s.callOrder).toEqual(['restore-session', 'get-session', 'issue-code'])
+    expect(errorSpy).not.toHaveBeenCalled()
+  })
+
+  it('keeps compatibility with the legacy callFunction result envelope', async () => {
+    h.s.functionResponse = { result: { ok: true, code: 'c'.repeat(43) } }
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    await mountSuspended(SsoPage, {
+      route: `/auth/sso?mode=silent&targetOrigin=${encodeURIComponent('https://cms.yunle.fun')}&nonce=1234567890abcdef1234567890abcdef&codeChallenge=${'a'.repeat(43)}&codeChallengeMethod=S256`,
+      global: {
+        stubs: {
+          UIcon: { template: '<span />' },
+        },
+      },
+    })
+    await flushPromises()
+
+    expect(h.s.callOrder).toEqual(['restore-session', 'get-session', 'issue-code'])
+    expect(errorSpy).not.toHaveBeenCalled()
   })
 })
