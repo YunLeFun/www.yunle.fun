@@ -23,7 +23,9 @@ catalog:
   '@nuxt/ui': ^4.9.0
   '@nuxtjs/i18n': ^10.4.0
   '@nuxtjs/mdc': ^0.22.0
+  '@oxc-minify/binding-linux-x64-gnu': 0.133.0
   '@oxc-parser/binding-linux-x64-gnu': 0.133.0
+  '@oxc-transform/binding-linux-x64-gnu': 0.133.0
   '@rollup/plugin-yaml': ^5.0.0
   '@types/qrcode': ^1.5.6
   '@vue/test-utils': ^2.4.11
