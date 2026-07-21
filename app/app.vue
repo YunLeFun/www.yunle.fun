@@ -2,8 +2,10 @@
 import { zh_cn } from '@nuxt/ui/locale'
 
 const colorMode = useColorMode()
+const route = useRoute()
 
 const color = computed(() => colorMode.value === 'dark' ? '#020618' : 'white')
+const canonicalUrl = computed(() => `https://www.yunle.fun${route.path}`)
 
 useHead({
   meta: [
@@ -13,6 +15,7 @@ useHead({
   ],
   link: [
     { rel: 'icon', href: '/favicon.ico' },
+    { key: 'canonical', rel: 'canonical', href: canonicalUrl },
   ],
   htmlAttrs: {
     lang: 'zh-CN',

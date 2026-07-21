@@ -75,7 +75,7 @@ export default defineNuxtConfig({
       },
     },
     public: {
-      siteUrl: process.env.NUXT_PUBLIC_SITE_URL || 'http://localhost:5173',
+      siteUrl: process.env.NUXT_PUBLIC_SITE_URL || 'https://www.yunle.fun',
       apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || 'http://localhost:3000',
       githubClientId: process.env.NUXT_PUBLIC_GITHUB_CLIENT_ID || '',
       cloudbaseEnvId: process.env.NUXT_PUBLIC_CLOUDBASE_ENV_ID || 'yunlefun-8g7ybcxc7345c490',

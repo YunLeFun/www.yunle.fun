@@ -24,6 +24,14 @@ describe('edgeOne production configuration', () => {
     expect(headers['Permissions-Policy']).toBe('camera=(), microphone=(), geolocation=()')
   })
 
+  it('permanently redirects the apex domain to www', () => {
+    expect(config.redirects).toContainEqual({
+      source: '$host',
+      destination: '$wwwhost',
+      statusCode: 301,
+    })
+  })
+
   it('pins the Linux OXC build chain required by EdgeOne', () => {
     expect(packageManifest.devDependencies).toMatchObject({
       '@oxc-minify/binding-linux-x64-gnu': 'catalog:',
