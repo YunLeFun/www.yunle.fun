@@ -10,7 +10,7 @@
 | -------------------------- | -------------------------------------------------------------------------------------------------------- | ---------------------- | ---- |
 | `wxpay-order`              | 创建支付订单（会员 / 云币充值）+ 查询订单 + 对账自愈                                                     | SDK `callFunction`     | 30s  |
 | `wxpay-notify`             | 接收微信支付异步回调通知                                                                                 | HTTP 访问服务          | 10s  |
-| `account-api`              | 平台账户中心：账户 / 云币 / 签到 / 投币 / 关注·粉丝                                                      | SDK `callFunction`     | 10s  |
+| `account-api`              | 平台账户中心：账户 / 云币 / 会员 / 奖励 / 签到 / 投币 / 关注·粉丝                                        | SDK `callFunction`     | 10s  |
 | `user-storage-api`         | 通用用户云空间：共享 quota / 上传预留 / 确认 / 文件索引 / 下载 / 删除 / app-kind policy                  | SDK `callFunction`     | 10s  |
 | `ai-gateway`               | 通用「登录计费 + 受控 AI 生成」网关：验登录 + 按 `appId` 服务端计价 + 管理员身份调 AI + `bizId` 幂等扣费 | 登录态 `/v1/functions` | 30s  |
 | `iap-order`                | Apple 内购（IAP）凭据校验 + 权益发放                                                                     | SDK `callFunction`     | 30s  |
@@ -58,9 +58,9 @@
 
 ### account-api 环境变量
 
-| 变量名                       | 说明                                                                                                                                       | 获取方式                         |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------- |
-| `ACCOUNT_API_INTERNAL_TOKEN` | 内部服务调用 `deductCoinForUser` / `adminAdjustCoin`（管理员人工调账）时校验用的共享密钥；调用方（其它云函数、admin 后台）需配置同一个值。 | 使用随机长字符串，勿暴露给前端。 |
+| 变量名                       | 说明                                                                                                                                                                  | 获取方式                         |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| `ACCOUNT_API_INTERNAL_TOKEN` | 内部服务调用 `deductCoinForUser` / `adminAdjustCoin` / `adminGrantReward` / `adminCorrectReward` 时校验用的共享密钥；调用方（其它云函数、admin 后台）需配置同一个值。 | 使用随机长字符串，勿暴露给前端。 |
 
 ### ai-gateway 环境变量
 
@@ -498,6 +498,26 @@ tcb fn deploy --all -e yunlefun-8g7ybcxc7345c490
 ```
 
 安全规则：用户只读自己的钱包与流水（`auth.uid == doc.userId`），写入仅由云函数完成。
+
+### 运营奖励：云币 + 会员
+
+admin owner 通过私有服务令牌调用 `account-api`：
+
+- `adminGrantReward`：按稳定 `grantId` 发放固定的 100 云币和/或 30 天会员；会员从 `max(当前时间, 当前到期时间)` 顺延，不覆盖已有付费时长。
+- `adminCorrectReward`：创建不可变的关联纠正记录；云币余额不允许为负，无法追回的部分记为差额；会员仅在当前到期时间仍与原奖励结果完全一致时自动纠正，否则返回 `manual_review_required`。
+- `listRewardHistory`：登录用户查询自己的友好奖励名称、到账内容和到账时间，不返回 operator、内部原因或审批信息。
+
+奖励到账同时写入 `user_notifications`；云币流水的 `meta` 只包含可公开的来源标识、奖励名称和稳定业务 ID，钱包页面会显示友好来源。所有操作使用稳定文档 ID 和资产级幂等键，批次部分失败后可安全重试。
+
+以下集合均应配置为 `ADMINONLY`，由 admin 仓库的 `scripts/ensure-reward-resources.mjs` 初始化：
+
+| 集合                                  | 主要索引                                                         |
+| ------------------------------------- | ---------------------------------------------------------------- |
+| `reward_operations`                   | `grantId` 唯一；`userId + completedAt`；`campaignId + createdAt` |
+| `reward_corrections`                  | `grantId` 唯一；`userId + createdAt`                             |
+| `membership_entitlement_transactions` | `userId + createdAt`；`grantId + type`；`originalGrantId + type` |
+
+admin 自身另使用 `reward_campaigns` 和 `reward_grant_items` 保存批次控制面。部署顺序为：初始化资源 → 部署 `account-api` → 发布 admin。
 
 ### 云空间配额：`user_storage_quotas` + `user_storage_files`（需新建）
 

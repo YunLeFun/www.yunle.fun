@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { OrderSummary } from '~/composables/useCoin'
+import type { OrderSummary, RewardHistoryItem } from '~/composables/useCoin'
 import type { CoinPackId, CoinTransaction } from '~/types/payment'
 import { COIN_TX_TYPE_NAMES } from '~/composables/useCoin'
 import { formatPrice } from '~/composables/usePaymentFlow'
@@ -71,6 +71,16 @@ const txLoading = ref(false)
 const nextSkip = ref<number | null>(0)
 const hasMore = computed(() => nextSkip.value !== null)
 
+function transactionTitle(tx: CoinTransaction): string {
+  const source = tx.meta?.source
+  const rewardName = typeof tx.meta?.rewardName === 'string' ? tx.meta.rewardName : ''
+  if (source === 'admin_reward' && rewardName)
+    return rewardName
+  if (source === 'admin_reward_correction' && rewardName)
+    return `${rewardName}纠正`
+  return COIN_TX_TYPE_NAMES[tx.type]
+}
+
 async function loadTransactions(reset = false) {
   if (txLoading.value)
     return
@@ -88,6 +98,32 @@ async function loadTransactions(reset = false) {
   }
   finally {
     txLoading.value = false
+  }
+}
+
+// 奖励历史（云币 + 会员统一来源）
+const rewards = ref<RewardHistoryItem[]>([])
+const rewardLoading = ref(false)
+const rewardNextSkip = ref<number | null>(0)
+const rewardHasMore = computed(() => rewardNextSkip.value !== null)
+
+async function loadRewards(reset = false) {
+  if (rewardLoading.value)
+    return
+  if (reset) {
+    rewards.value = []
+    rewardNextSkip.value = 0
+  }
+  if (rewardNextSkip.value === null)
+    return
+  rewardLoading.value = true
+  try {
+    const { items, nextSkip } = await coin.listRewardHistory({ skip: rewardNextSkip.value, limit: 20 })
+    rewards.value.push(...items)
+    rewardNextSkip.value = nextSkip
+  }
+  finally {
+    rewardLoading.value = false
   }
 }
 
@@ -197,7 +233,7 @@ onMounted(async () => {
     // 先兜底对账：把支付成功却卡在 pending（轮询窗口已关 / 回调漏达）的订单补发，
     // 再刷新余额与流水，避免「付了款余额不变」。
     const { paid } = await coin.reconcileOrders()
-    await Promise.all([coin.refresh(), loadTransactions(true), loadOrders(true)])
+    await Promise.all([coin.refresh(), loadTransactions(true), loadOrders(true), loadRewards(true)])
     if (paid > 0)
       useToast().add({ title: '已为你补发到账', description: `${paid} 笔支付已确认入账`, color: 'success' })
   }
@@ -304,6 +340,46 @@ onMounted(async () => {
 
       <!-- 每日登录奖励：连续签到日历（登录后自动领取，日历为状态展示 + 手动兜底） -->
       <SignInCalendar />
+
+      <!-- 运营奖励来源 -->
+      <section v-if="rewards.length || rewardLoading" class="space-y-4">
+        <h2 class="text-lg font-semibold">
+          奖励记录
+        </h2>
+        <div class="ylf-surface divide-y divide-default overflow-hidden rounded-2xl">
+          <div v-for="reward in rewards" :key="reward.grantId" class="flex items-center justify-between gap-3 px-4 py-3">
+            <div class="flex min-w-0 items-center gap-3">
+              <span class="ylf-member-mark flex size-9 shrink-0 items-center justify-center rounded-xl">
+                <UIcon name="i-lucide-gift" class="size-4" />
+              </span>
+              <div class="min-w-0 space-y-0.5">
+                <div class="flex items-center gap-2">
+                  <span class="truncate font-medium">{{ reward.rewardName }}</span>
+                  <UBadge v-if="reward.status !== 'completed'" color="warning" variant="subtle" size="sm">
+                    {{ reward.status === 'corrected' ? '已纠正' : '纠正待复核' }}
+                  </UBadge>
+                </div>
+                <div class="text-xs text-muted">
+                  {{ formatDate(reward.creditedAt) }}
+                </div>
+              </div>
+            </div>
+            <div class="shrink-0 text-right text-sm">
+              <div v-if="reward.coinAmount" class="font-medium text-success">
+                +{{ reward.coinAmount }} 云币
+              </div>
+              <div v-if="reward.membershipDays" class="font-medium text-primary">
+                会员 +{{ reward.membershipDays }} 天
+              </div>
+            </div>
+          </div>
+        </div>
+        <div v-if="rewardHasMore" class="text-center">
+          <UButton variant="outline" color="neutral" size="sm" :loading="rewardLoading" @click="loadRewards()">
+            加载更多
+          </UButton>
+        </div>
+      </section>
 
       <!-- 充值 -->
       <section class="space-y-4">
@@ -447,7 +523,7 @@ onMounted(async () => {
               </span>
               <div class="min-w-0 space-y-0.5">
                 <div class="flex items-center gap-2">
-                  <span class="font-medium">{{ COIN_TX_TYPE_NAMES[tx.type] }}</span>
+                  <span class="font-medium">{{ transactionTitle(tx) }}</span>
                   <UBadge v-if="tx.appId" color="neutral" variant="subtle" size="sm">
                     {{ tx.appId }}
                   </UBadge>

@@ -59,24 +59,52 @@ function fmt(ts: number) {
           还没有通知
         </div>
         <div v-else class="max-h-[60vh] space-y-1 overflow-y-auto">
-          <NuxtLink
+          <template
             v-for="item in items"
             :key="item.id"
-            :to="item.actor.login ? `/u/${item.actor.login}` : `/u/${item.actor.userId}`"
-            class="flex items-center gap-3 rounded-2xl p-2.5 transition-colors hover:bg-elevated/60"
-            :class="item.read ? '' : 'bg-primary/5'"
-            @click="open = false"
           >
-            <MemberAvatar :src="item.actor.avatar" :alt="displayUserName(item.actor.nickname)" size="md" />
-            <div class="min-w-0 flex-1">
-              <p class="text-sm text-highlighted">
-                <span class="font-medium">{{ displayUserName(item.actor.nickname) }}</span>
-                <span class="text-muted"> 关注了你</span>
-              </p>
-              <span class="text-xs text-muted">{{ fmt(item.createdAt) }}</span>
-            </div>
-            <UIcon name="i-lucide-user-plus" class="shrink-0 text-muted" />
-          </NuxtLink>
+            <NuxtLink
+              v-if="item.type === 'follow'"
+              :to="item.actor.login ? `/u/${item.actor.login}` : `/u/${item.actor.userId}`"
+              class="flex items-center gap-3 rounded-2xl p-2.5 transition-colors hover:bg-elevated/60"
+              :class="item.read ? '' : 'bg-primary/5'"
+              @click="open = false"
+            >
+              <MemberAvatar :src="item.actor.avatar" :alt="displayUserName(item.actor.nickname)" size="md" />
+              <div class="min-w-0 flex-1">
+                <p class="text-sm text-highlighted">
+                  <span class="font-medium">{{ displayUserName(item.actor.nickname) }}</span>
+                  <span class="text-muted"> 关注了你</span>
+                </p>
+                <span class="text-xs text-muted">{{ fmt(item.createdAt) }}</span>
+              </div>
+              <UIcon name="i-lucide-user-plus" class="shrink-0 text-muted" />
+            </NuxtLink>
+
+            <NuxtLink
+              v-else
+              to="/wallet"
+              class="flex items-center gap-3 rounded-2xl p-2.5 transition-colors hover:bg-elevated/60"
+              :class="item.read ? '' : 'bg-primary/5'"
+              @click="open = false"
+            >
+              <span class="ylf-member-mark flex size-10 shrink-0 items-center justify-center rounded-full">
+                <UIcon name="i-lucide-gift" class="size-5" />
+              </span>
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-sm font-medium text-highlighted">
+                  {{ item.reward.rewardName }}
+                </p>
+                <p class="text-xs text-muted">
+                  <span v-if="item.reward.coinAmount">+{{ item.reward.coinAmount }} 云币</span>
+                  <span v-if="item.reward.coinAmount && item.reward.membershipDays"> · </span>
+                  <span v-if="item.reward.membershipDays">会员 +{{ item.reward.membershipDays }} 天</span>
+                  <span> · {{ fmt(item.createdAt) }}</span>
+                </p>
+              </div>
+              <UIcon name="i-lucide-chevron-right" class="shrink-0 text-muted" />
+            </NuxtLink>
+          </template>
 
           <div v-if="nextSkip !== null" class="pt-2 text-center">
             <UButton :loading="loading" label="加载更多" color="neutral" variant="ghost" size="xs" @click="loadMore" />

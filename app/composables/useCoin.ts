@@ -22,6 +22,26 @@ export interface OrderSummary {
   paidAt: number | null
 }
 
+export interface RewardHistoryItem {
+  grantId: string
+  rewardName: string
+  coinAmount: number
+  membershipDays: number
+  status: 'completed' | 'corrected' | 'correction_pending_review'
+  creditedAt: number
+  correction: null | {
+    correctedAt: number
+    coin?: { requested: number, recovered: number, shortfall: number, balanceAfter: number }
+    membership?: {
+      status: 'completed' | 'manual_review_required'
+      requestedDays: number
+      recoveredDays: number
+      expireBefore: number | null
+      expireAfter: number | null
+    }
+  }
+}
+
 /**
  * 平台账户 composable（云币余额 + 会员状态 + 流水）。
  *
@@ -145,6 +165,20 @@ export function useCoin() {
     return res.result as { items: OrderSummary[], nextSkip: number | null }
   }
 
+  /** 运营奖励历史（云币与会员统一来源记录）。 */
+  async function listRewardHistory(params: { skip?: number, limit?: number } = {}): Promise<{
+    items: RewardHistoryItem[]
+    nextSkip: number | null
+  }> {
+    if (!app)
+      return { items: [], nextSkip: null }
+    const res = await app.callFunction({
+      name: 'account-api',
+      data: { action: 'listRewardHistory', skip: params.skip ?? 0, limit: params.limit ?? 20 },
+    })
+    return res.result as { items: RewardHistoryItem[], nextSkip: number | null }
+  }
+
   // 用户变化时自动刷新
   watch(
     () => user.value?.id,
@@ -171,5 +205,6 @@ export function useCoin() {
     reconcileOrders,
     listTransactions,
     listOrders,
+    listRewardHistory,
   }
 }

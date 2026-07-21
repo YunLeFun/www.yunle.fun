@@ -8,11 +8,43 @@
 
 'use strict'
 
+const crypto = require('node:crypto')
+
 const { assertUserId, fetchProfilesByIds, readProfileDoc } = require('./profiles')
 
 const USER_NOTIFICATIONS_COLLECTION = 'user_notifications'
 /** 未读数上限（超出按此值显示 99+，避免全表扫描） */
 const UNREAD_CAP = 99
+
+function rewardNotificationId(grantId) {
+  return crypto
+    .createHash('sha256')
+    .update(JSON.stringify(['reward_notification', grantId]))
+    .digest('hex')
+    .slice(0, 24)
+}
+
+/** 写入一条幂等的奖励到账通知；同一 grantId 重放不会产生重复通知。 */
+async function createRewardNotification(db, {
+  userId,
+  grantId,
+  rewardName,
+  coinAmount,
+  membershipDays,
+  now = Date.now(),
+}) {
+  const uid = assertUserId(userId)
+  await db.collection(USER_NOTIFICATIONS_COLLECTION).doc(rewardNotificationId(grantId)).set({
+    userId: uid,
+    type: 'reward',
+    rewardName,
+    coinAmount,
+    membershipDays,
+    grantId,
+    read: false,
+    createdAt: now,
+  })
+}
 
 /**
  * 写一条关注通知（被关注者 userId 收到，来自 actorId）。失败由调用方吞掉，不阻断关注主流程。
@@ -79,9 +111,23 @@ async function listNotifications(db, { userId, skip = 0, limit = 20 }) {
     .limit(n)
     .get()
   const rows = Array.isArray(data) ? data : []
-  const profiles = await fetchProfilesByIds(db, [...new Set(rows.map(r => r.actorId))])
+  const profiles = await fetchProfilesByIds(db, [...new Set(rows.filter(r => r.type === 'follow').map(r => r.actorId))])
 
   const items = rows.map((r) => {
+    if (r.type === 'reward') {
+      return {
+        id: r._id,
+        type: 'reward',
+        read: !!r.read,
+        createdAt: r.createdAt,
+        reward: {
+          grantId: r.grantId,
+          rewardName: r.rewardName,
+          coinAmount: r.coinAmount || 0,
+          membershipDays: r.membershipDays || 0,
+        },
+      }
+    }
     const p = profiles.get(r.actorId)
     return {
       id: r._id,
@@ -131,6 +177,7 @@ async function markRead(db, { userId, ids, now = Date.now() }) {
 module.exports = {
   USER_NOTIFICATIONS_COLLECTION,
   createFollowNotification,
+  createRewardNotification,
   getUnreadCount,
   listNotifications,
   markRead,

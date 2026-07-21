@@ -7,6 +7,7 @@ const process = require('node:process')
 const { getAccountSnapshot } = require('./account')
 const { assertAppId, assertDeductCoinInput } = require('./lib/validation')
 const { creditCoin, deductCoin } = require('./lib/wallet')
+const { correctReward, grantReward } = require('./rewards')
 const { SyntheticAccountError, classifyAccountIdentity, isSecureServiceToken } = require('./synthetic')
 
 /** 单笔管理员调账的云币绝对值上限（防误操作 / 防滥用的资损护栏） */
@@ -82,6 +83,16 @@ async function handleGetAccountForUser(targetDb, event, options = {}) {
   assertInternalServiceToken(event?.serviceToken, options.expectedToken)
   const userId = assertUserId(event?.userId)
   return getAccountSnapshot(targetDb, userId, options.now || Date.now())
+}
+
+async function handleAdminGrantReward(targetDb, event, options = {}) {
+  assertInternalServiceToken(event?.serviceToken, options.expectedToken)
+  return grantReward(targetDb, { ...event, now: options.now ?? Date.now() })
+}
+
+async function handleAdminCorrectReward(targetDb, event, options = {}) {
+  assertInternalServiceToken(event?.serviceToken, options.expectedToken)
+  return correctReward(targetDb, { ...event, now: options.now ?? Date.now() })
 }
 
 /**
@@ -242,5 +253,7 @@ module.exports = {
   handleDeductCoinForUser,
   handleGetAccountForUser,
   handleAdminAdjustCoin,
+  handleAdminCorrectReward,
+  handleAdminGrantReward,
   assertSyntheticReset,
 }

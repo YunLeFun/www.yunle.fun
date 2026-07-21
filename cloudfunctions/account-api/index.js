@@ -24,6 +24,8 @@
  *   - deductCoinForUser 内部服务按指定 userId 扣云币（需 ACCOUNT_API_INTERNAL_TOKEN）
  *   - getAccountForUser 内部服务按指定 userId 读账户全貌（需 ACCOUNT_API_INTERNAL_TOKEN）
  *   - adminAdjustCoin   管理员人工调账（增/减，需 ACCOUNT_API_INTERNAL_TOKEN）
+ *   - adminGrantReward  owner 按稳定 grantId 发放内测奖励（需 ACCOUNT_API_INTERNAL_TOKEN）
+ *   - adminCorrectReward owner 创建受控奖励纠正（需 ACCOUNT_API_INTERNAL_TOKEN）
  *   - prepareSyntheticBaseline Broker 在受管身份禁用态初始化/恢复钱包基线（需 TEST_BROKER_ACCOUNT_API_TOKEN）
  *   - backfillDefaultNicknames 运维回填存量空/手机号昵称为「云游者_xxxx」（需 ACCOUNT_API_INTERNAL_TOKEN，幂等/分批/dryRun）
  *   - listTransactions  云币流水分页（需登录）
@@ -49,6 +51,8 @@ const {
   assertInternalServiceToken,
   assertUserId,
   handleAdminAdjustCoin,
+  handleAdminCorrectReward,
+  handleAdminGrantReward,
   handleDeductCoinForUser,
   handleGetAccountForUser,
 } = require('./internal')
@@ -60,6 +64,7 @@ const {
 const { getUnreadCount, listNotifications, markRead } = require('./notifications')
 const { listUserOrders } = require('./orders-query')
 const { backfillDefaultNicknames, getProfile, upsertMyProfile } = require('./profiles')
+const { listRewardHistory } = require('./rewards')
 const { getSignInHistory, getSignInStatus, signIn } = require('./signin')
 const {
   SyntheticAccountError,
@@ -151,6 +156,10 @@ async function dispatch(event) {
       return await handleGetAccountForUser(db, event)
     case 'adminAdjustCoin':
       return await handleAdminAdjustCoin(db, event)
+    case 'adminGrantReward':
+      return await handleAdminGrantReward(db, event)
+    case 'adminCorrectReward':
+      return await handleAdminCorrectReward(db, event)
     case 'backfillDefaultNicknames':
       // 运维一次性回填存量空 / 手机号昵称为「云游者_xxxx」，复用内部服务令牌鉴权
       assertInternalServiceToken(event?.serviceToken)
@@ -173,6 +182,7 @@ async function dispatch(event) {
     case 'getMembership':
     case 'deductCoin':
     case 'listTransactions':
+    case 'listRewardHistory':
     case 'listOrders':
     case 'requestAccountDeletion':
     case 'uploadAvatar':
@@ -200,6 +210,8 @@ async function dispatch(event) {
           return await handleDeductCoin(uid, event)
         case 'listTransactions':
           return await handleListTransactions(uid, event)
+        case 'listRewardHistory':
+          return await listRewardHistory(db, { userId: uid, skip: event.skip, limit: event.limit })
         case 'listOrders':
           return await listUserOrders(db, { userId: uid, skip: event.skip, limit: event.limit })
         case 'requestAccountDeletion':
@@ -281,6 +293,8 @@ exports._private = {
   assertInternalServiceToken,
   assertUserId,
   handleAdminAdjustCoin,
+  handleAdminCorrectReward,
+  handleAdminGrantReward,
   handleDeductCoinForUser,
   handleSyntheticDeductCoinForUser,
   handleGetAccountForUser,

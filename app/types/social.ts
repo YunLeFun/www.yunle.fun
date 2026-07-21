@@ -94,8 +94,8 @@ export interface FeedResult {
   nextSkip: number | null
 }
 
-/** 站内通知项（MVP：关注通知） */
-export interface NotificationItem {
+/** 关注通知 */
+export interface FollowNotificationItem {
   id: string
   type: 'follow'
   read: boolean
@@ -107,6 +107,22 @@ export interface NotificationItem {
     avatar: string | null
   }
 }
+
+/** 奖励到账通知（仅公开友好字段） */
+export interface RewardNotificationItem {
+  id: string
+  type: 'reward'
+  read: boolean
+  createdAt: number
+  reward: {
+    grantId: string
+    rewardName: string
+    coinAmount: number
+    membershipDays: number
+  }
+}
+
+export type NotificationItem = FollowNotificationItem | RewardNotificationItem
 
 /** 通知列表分页结果 */
 export interface NotificationListResult {
