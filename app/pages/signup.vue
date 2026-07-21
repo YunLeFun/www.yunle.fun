@@ -9,7 +9,7 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: '注册 - 云乐坊',
+  title: '注册',
   description: '注册云乐坊账号，开始您的旅程',
 })
 

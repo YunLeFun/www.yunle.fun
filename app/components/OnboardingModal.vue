@@ -87,8 +87,8 @@ function handleAvatarChange(e: Event) {
 async function handleCropConfirm(croppedFile: File) {
   try {
     uploading.value = true
-    const { url } = await uploadAvatar(croppedFile)
-    form.avatar = url
+    const { fileID } = await uploadAvatar(croppedFile)
+    form.avatar = fileID
   }
   catch (err: unknown) {
     toast.add({
@@ -159,7 +159,7 @@ async function save() {
           <!-- 头像 -->
           <div class="flex items-center gap-4">
             <div class="relative group">
-              <UAvatar
+              <MemberAvatar
                 :src="form.avatar || user?.avatar || undefined"
                 :alt="form.nickname || 'User'"
                 size="2xl"

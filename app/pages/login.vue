@@ -12,7 +12,7 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: '登录 - 云乐坊',
+  title: '登录',
   description: '登录您的云乐坊账号',
 })
 

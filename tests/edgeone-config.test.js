@@ -22,6 +22,11 @@ describe('edgeOne production configuration', () => {
     expect(headers['X-Frame-Options']).toBe('DENY')
     expect(headers['Referrer-Policy']).toBe('strict-origin-when-cross-origin')
     expect(headers['Permissions-Policy']).toBe('camera=(), microphone=(), geolocation=()')
+    expect(headers['Content-Security-Policy']).toContain('default-src \'self\'')
+    expect(headers['Content-Security-Policy']).toContain('frame-ancestors \'none\'')
+    expect(headers['Content-Security-Policy']).toContain('object-src \'none\'')
+    expect(headers['Content-Security-Policy']).toContain('https://*.api.tcloudbasegateway.com')
+    expect(headers['Content-Security-Policy']).toContain('https://fonts.loli.net')
   })
 
   it('permanently redirects the apex domain to www', () => {

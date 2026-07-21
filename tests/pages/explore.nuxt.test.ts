@@ -9,10 +9,15 @@ import ExplorePage from '../../app/pages/explore.vue'
 
 const h = vi.hoisted(() => ({
   getOfficialApps: vi.fn(),
+  auth: {} as Record<string, unknown>,
 }))
 
 mockNuxtImport('useApps', () => () => ({
   getOfficialApps: h.getOfficialApps,
+}))
+
+vi.mock('~/composables/auth/useAuthSession', () => ({
+  useTcbAuthSession: () => h.auth,
 }))
 
 function makeApp(slug: string, name: string): AppRecord {
@@ -40,6 +45,34 @@ describe('explore page', () => {
   beforeEach(() => {
     h.getOfficialApps.mockReset()
     h.getOfficialApps.mockResolvedValue(apps)
+    h.auth = {
+      authReady: ref(false),
+      checkAuthStatus: vi.fn().mockResolvedValue(undefined),
+    }
+  })
+
+  it('waits for the CloudBase session bootstrap before querying public apps', async () => {
+    let finishBootstrap!: () => void
+    const checkAuthStatus = vi.fn(() => new Promise<void>((resolve) => {
+      finishBootstrap = resolve
+    }))
+    h.auth = {
+      authReady: ref(false),
+      checkAuthStatus,
+    }
+
+    const wrapper = await mountSuspended(ExplorePage)
+    await nextTick()
+
+    expect(checkAuthStatus).toHaveBeenCalledTimes(1)
+    expect(h.getOfficialApps).not.toHaveBeenCalled()
+
+    finishBootstrap()
+    await flushPromises()
+    await nextTick()
+
+    expect(h.getOfficialApps).toHaveBeenCalledTimes(1)
+    expect(wrapper.get('[data-testid="cloud-island-ai-sfc"]').exists()).toBe(true)
   })
 
   it('loads public apps and shares filtering between the cloud and grid', async () => {

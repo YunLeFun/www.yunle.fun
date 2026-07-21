@@ -4,6 +4,7 @@
  */
 import type { TcbRawUser, User } from './types'
 import { isAnonymousSession } from '@yunlefun/sso'
+import { normalizeAvatarSource } from '~/utils/avatar'
 import { getErrorMessage, mapCloudbaseUser } from './types'
 import { useServerSession } from './useServerSession'
 
@@ -77,6 +78,14 @@ export function useTcbAuthCore() {
 
       // 立即就绪：头像 / 昵称等展示字段无需等待网络，先填充登录态
       user.value = mapCloudbaseUser(rawUser)
+      if (user.value) {
+        user.value = {
+          ...user.value,
+          // 新资料保存 fileID；旧资料若保存了已过期的 CloudBase 临时 URL，
+          // 则在登录恢复时还原为 fileID，随后由展示层实时换取可访问 URL。
+          avatar: normalizeAvatarSource(user.value.avatar, String(config.public.cloudbaseEnvId || '')),
+        }
+      }
 
       if (user.value) {
         // 手机 OTP 默认昵称＝完整手机号（PII 且不体面）。首次登录检测到裸手机号昵称，

@@ -1,158 +1,96 @@
-title: 云乐坊 [开发者平台]{class="ylf-gradient-text"}
-description: 为开发者提供强大的工具和资源，快速构建、发布和管理你的云端应用。
-headline: 🚀 开发者平台
+title: 云乐坊 [应用生态]{class="ylf-gradient-text"}
+description: 先把官方应用与跨应用体验做好，再逐步开放第三方接入。
+headline: ☁️ 应用生态
 seo:
-  title: 开发者平台 - 云乐坊
-  description: 强大的开发工具，丰富的 API 文档，助你快速构建云端应用
+  title: 云乐坊应用生态
+  description: 了解云乐坊官方应用、开发者文档与第三方接入开放状态
 navigation: false
 notice:
-  title: 开发者平台建设中
-  description: 以下功能正在开发，暂未上线，敬请期待 🚧 目前仅上架官方开发的应用。
+  title: 第三方自助发布尚未开放
+  description: 当前优先打磨和上架云乐坊官方应用；开发者套餐、在线 IDE 与自助部署平台均不在近期计划内。
 hero:
   links:
-    - label: 快速开始
-      icon: i-lucide-rocket
+    - label: 浏览官方应用
+      icon: i-lucide-compass
       trailing: true
-      to: /docs
+      to: /explore
       size: xl
-    - label: 查看文档
+    - label: 查看开发者文档
       icon: i-lucide-book-open
       size: xl
       color: neutral
       variant: outline
       class: ylf-gradient-border
-      to: /docs
+      to: https://docs.yunle.fun
+      target: _blank
 sections:
-  - title: 完整的开发工具链
-    description: 从代码编写到应用部署，我们提供全流程的开发工具支持，让你专注于创造价值。
-    headline: 🧰 开发工具链
-    id: tools
-    orientation: horizontal
+  - title: 当前阶段，先把第一方应用做好
+    description: 云乐坊正在验证应用图谱、统一账号、会员与云币等跨应用体验。第三方接入会在边界和流程稳定后再逐步开放。
+    headline: 当前重点
+    orientation: vertical
     features:
-      - name: 云端 IDE
-        description: 基于浏览器的集成开发环境，随时随地编写代码，内置智能代码补全和调试工具。
-        icon: i-lucide-code
-      - name: API 管理
-        description: 完善的 API 文档和管理工具，支持 RESTful 和 GraphQL，快速集成第三方服务。
-        icon: i-lucide-puzzle
-      - name: 实时协作
-        description: 与团队成员实时协作开发，代码审查、评论和版本控制一应俱全。
-        icon: i-lucide-users
-  - title: 强大的云服务支持
-    description: 利用我们的云基础设施，轻松部署和扩展你的应用，专注于业务逻辑而非基础设施管理。
-    headline: ☁️ 云服务支持
-    orientation: horizontal
-    reverse: true
-    features:
-      - name: 自动部署
-        description: 集成 CI/CD 流程，代码提交即自动部署，支持灰度发布和回滚机制。
-        icon: i-lucide-rocket
-      - name: 弹性扩展
-        description: 自动根据流量调整资源配置，确保应用始终保持最佳性能。
-        icon: i-lucide-trending-up
-      - name: 全球加速
-        description: CDN 加速和边缘计算支持，为全球用户提供极速访问体验。
-        icon: i-lucide-globe
+      - name: 官方应用优先
+        description: 先持续打磨云乐坊自研应用，确保每个入口都真实可用。
+        icon: i-lucide-badge-check
+      - name: 统一账号体验
+        description: 让支持接入的应用复用同一套登录、安全设置与用户身份。
+        icon: i-lucide-key-round
+      - name: 开放边界先文档化
+        description: 将应用接入、账号、支付与 SSO 的现有规范集中公开，减少模糊承诺。
+        icon: i-lucide-file-check-2
 features:
-  headline: ⚡ 专属特性
-  title: 开发者专属特性
-  description: 我们为开发者提供了一系列强大的工具和服务，帮助你更高效地构建应用。
+  headline: 已公开内容
+  title: 现在可以了解什么
+  description: 开发者文档记录已经明确的接入边界，不代表第三方自助发布已经开放。
   items:
-    - title: SDK & 组件库
-      description: 提供多语言 SDK 和丰富的 UI 组件库，加速开发进程，减少重复工作。
-      icon: i-lucide-package
-    - title: 数据分析
-      description: 实时监控应用性能和用户行为，提供详细的数据分析报告和可视化图表。
-      icon: i-lucide-bar-chart
-    - title: 安全保障
-      description: 企业级安全防护，包括 DDoS 防护、数据加密和安全审计，保护你的应用和用户数据。
-      icon: i-lucide-shield
-    - title: 版本管理
-      description: Git 集成，支持多分支开发，轻松管理代码版本和发布流程。
-      icon: i-lucide-git-branch
-    - title: 应用市场
-      description: 一键发布应用到云乐坊应用市场，让更多用户发现和使用你的作品。
-      icon: i-lucide-store
-    - title: 开发者社区
-      description: 活跃的开发者社区，分享经验、解决问题，与其他开发者共同成长。
-      icon: i-lucide-message-circle
+    - title: 应用接入
+      description: 了解应用信息、审核规范与接入准备。
+      icon: i-lucide-blocks
+      to: https://docs.yunle.fun/app/
+      target: _blank
+    - title: 统一账号与 SSO
+      description: 查看跨应用登录流程、安全边界与授权说明。
+      icon: i-lucide-shield-check
+      to: https://docs.yunle.fun/account/sso
+      target: _blank
+    - title: 账号与支付
+      description: 了解云币、会员及平台账户能力的公开约定。
+      icon: i-lucide-wallet-cards
+      to: https://docs.yunle.fun/account/
+      target: _blank
 resources:
-  headline: 开发资源
-  title: 丰富的文档和示例
-  description: 从入门教程到高级技巧，我们提供全面的开发资源
+  headline: 继续了解
+  title: 从真实可用的入口开始
+  description: 浏览已经上线的应用，或阅读公开文档与项目源码。
   items:
-    - title: API 文档
-      description: 详细的 API 参考文档，包含请求示例和响应说明。
-      icon: i-lucide-book
-      to: /docs
-    - title: 快速开始
-      description: 从零开始，10 分钟搭建你的第一个云端应用。
-      icon: i-lucide-play-circle
-      to: /docs/getting-started
-    - title: 示例项目
-      description: 浏览完整的示例项目，学习最佳实践和设计模式。
-      icon: i-lucide-code-2
+    - title: 云端应用图谱
+      description: 查看目前已经公开的云乐坊官方应用。
+      icon: i-lucide-cloud-sun
+      to: /explore
+    - title: 开发者文档
+      description: 应用接入、账号、支付与 SSO 的统一文档入口。
+      icon: i-lucide-book-open
+      to: https://docs.yunle.fun
+      target: _blank
+    - title: GitHub
+      description: 浏览云乐坊公开项目与代码仓库。
+      icon: i-ri-github-fill
       to: https://github.com/YunLeFun
       target: _blank
-    - title: 视频教程
-      description: 跟随视频教程，直观学习开发技巧和平台功能。
-      icon: i-lucide-video
-      to: /docs
-pricing:
-  headline: 定价方案
-  title: 适合各种规模的开发需求
-  description: 从个人开发者到企业团队，我们都有合适的方案
-  items:
-    - title: 免费版
-      description: 适合个人开发者和小型项目
-      price: ¥0
-      period: /月
-      features:
-        - 5 个应用项目
-        - 1GB 存储空间
-        - 基础 API 调用
-        - 社区支持
-      cta:
-        label: 开始使用
-        to: /signup
-    - title: 专业版
-      description: 适合专业开发者和中小团队
-      price: ¥99
-      period: /月
-      highlight: true
-      features:
-        - 无限应用项目
-        - 50GB 存储空间
-        - 高级 API 调用
-        - 优先技术支持
-        - 自定义域名
-        - 团队协作功能
-      cta:
-        label: 立即订阅
-        to: /pricing
-    - title: 企业版
-      description: 适合大型团队和企业级应用
-      price: 联系我们
-      period: ''
-      features:
-        - 一切专业版功能
-        - 无限存储空间
-        - 专属技术顾问
-        - SLA 保障
-        - 私有化部署选项
-        - 定制化服务
-      cta:
-        label: 联系销售
-        to: /docs/contact
+    - title: 联系我们
+      description: 需要交流接入需求时，通过官方渠道联系我们。
+      icon: i-lucide-message-circle
+      to: /docs/contact
 cta:
-  title: 准备开始你的开发之旅了吗？
-  description: 立即注册云乐坊开发者平台，开始构建你的下一个伟大应用！
+  title: 先看看已经上线的应用
+  description: 从真实体验出发，了解云乐坊正在构建怎样的应用生态。
   links:
-    - label: 免费注册
-      to: /signup
+    - label: 浏览应用
+      to: /explore
       trailingIcon: i-lucide-arrow-right
-    - label: 查看文档
-      to: /docs
+    - label: 阅读开发者文档
+      to: https://docs.yunle.fun
+      target: _blank
       variant: outline
       class: ylf-gradient-border
       icon: i-lucide-book-open

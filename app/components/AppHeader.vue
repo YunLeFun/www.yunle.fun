@@ -27,7 +27,12 @@ const items = computed(() => [
 </script>
 
 <template>
-  <UHeader>
+  <UHeader
+    :menu="{
+      title: '主导航',
+      description: '浏览云乐坊的主要页面和账号入口',
+    }"
+  >
     <template #left>
       <div class="flex gap-2 items-center justify-center">
         <NuxtLink to="/">

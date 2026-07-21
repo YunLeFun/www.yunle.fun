@@ -46,6 +46,7 @@ export function useAvatarUpload() {
     })
     if (!isAvatarUploadResult(res.result))
       throw new Error('头像上传失败')
+    rememberAvatarUrl(res.result.fileID, res.result.url)
     return res.result
   }
 

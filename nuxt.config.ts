@@ -6,9 +6,11 @@ import yaml from '@rollup/plugin-yaml'
 export default defineNuxtConfig({
   modules: [
     '@nuxt/eslint',
+    // UI 必须先于 MDC 注册，让带完整排版主题的 Prose* 组件接管 Markdown 标签。
+    // 若顺序反过来，MDC 自带的无样式组件会抢先注册，文档标题/列表/表格退化为浏览器默认样式。
+    '@nuxt/ui',
     // Markdown 渲染（替代 @nuxt/content，见 docs/nuxt-content-removal.md）
     '@nuxtjs/mdc',
-    '@nuxt/ui',
     '@vueuse/nuxt',
     // 双层会话迁移：用 nuxt-auth-utils 封 sealed httpOnly cookie 作持久会话（见 docs/cookie-session-migration.md）
     'nuxt-auth-utils',
@@ -115,6 +117,7 @@ export default defineNuxtConfig({
     '/changelog': { prerender: true },
     '/developer': { prerender: true },
     '/explore': { prerender: true },
+    '/download': { prerender: true },
     // 账号 / 交互 / OAuth / 数据驱动页：纯客户端渲染。
     // CloudBase 登录态只在客户端（localStorage），SSR 只会渲染未登录骨架并闪烁；这些页也无 SEO 需求。
     '/profile': { ssr: false },
@@ -124,6 +127,7 @@ export default defineNuxtConfig({
     '/signup': { ssr: false },
     '/link': { ssr: false },
     '/auth/**': { ssr: false },
+    '/apps/download': { redirect: { to: '/download', statusCode: 301 } },
     '/apps/**': { ssr: false },
     // 公开用户主页：SSR（SEO / 分享 OG），数据经 server route 代理 getProfile；关系 / 应用等客户端补
     '/u/**': { ssr: true },
@@ -173,7 +177,7 @@ export default defineNuxtConfig({
     prerender: {
       // 显式列出内容页 + 关 crawlLinks（不爬 /apps、/wallet 等重的账号页），配合 build 脚本调高的 Node 堆避免预渲染 OOM。
       crawlLinks: false,
-      routes: ['/', '/pricing', '/blog', '/blog/yunle-fun', '/changelog', '/developer', '/explore', '/docs/getting-started', '/docs/getting-started/usage', '/docs/privacy-policy', '/docs/terms-of-service', '/docs/contact', '/docs/sitemap'],
+      routes: ['/', '/pricing', '/blog', '/blog/yunle-fun', '/changelog', '/developer', '/explore', '/download', '/docs/getting-started', '/docs/getting-started/usage', '/docs/privacy-policy', '/docs/terms-of-service', '/docs/contact', '/docs/sitemap'],
       failOnError: false,
     },
   },
@@ -222,6 +226,7 @@ export default defineNuxtConfig({
     clientBundle: {
       // Nuxt UI has internal default icons that project-source scanning cannot see.
       icons: [
+        'lucide:hash',
         'lucide:menu',
         'lucide:moon',
         'lucide:sun',

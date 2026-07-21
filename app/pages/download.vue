@@ -17,7 +17,8 @@ const platforms = ref<{
   icon: string
   description: string
   version: string
-  link: string
+  link?: string
+  actionLabel: string
   color: 'primary' | 'secondary' | 'success' | 'info' | 'warning' | 'error' | 'neutral'
   requirements: string
   isWeb: boolean
@@ -26,8 +27,8 @@ const platforms = ref<{
     name: 'iOS',
     icon: 'i-ri-apple-fill',
     description: 'iPhone 和 iPad',
-    version: '最新版本 2.0.0',
-    link: '#',
+    version: '正在开发中',
+    actionLabel: '暂未开放',
     color: 'neutral',
     requirements: 'iOS 14.0 或更高版本',
     isWeb: false,
@@ -36,8 +37,8 @@ const platforms = ref<{
     name: 'Android',
     icon: 'i-ri-android-fill',
     description: 'Android 设备',
-    version: '最新版本 2.0.0',
-    link: '#',
+    version: '正在开发中',
+    actionLabel: '暂未开放',
     color: 'success',
     requirements: 'Android 8.0 或更高版本',
     isWeb: false,
@@ -47,7 +48,8 @@ const platforms = ref<{
     icon: 'i-lucide-globe',
     description: '网页版',
     version: '无需下载',
-    link: '#',
+    link: 'https://apps.yunle.fun/',
+    actionLabel: '在线访问',
     color: 'primary',
     requirements: '现代浏览器',
     isWeb: true,
@@ -102,7 +104,7 @@ const faqItems = ref([
 <template>
   <div>
     <!-- Downloads Section -->
-    <UPageSection
+    <UPageHero
       title="下载应用"
       description="选择适合您设备的版本，立即开始使用"
       class="pt-12 md:pt-16"
@@ -130,18 +132,21 @@ const faqItems = ref([
               </div>
               <UButton
                 :to="platform.link"
+                :target="platform.isWeb ? '_blank' : undefined"
+                :rel="platform.isWeb ? 'noopener noreferrer' : undefined"
+                :disabled="!platform.link"
                 :color="platform.color"
                 variant="solid"
                 block
                 :icon="platform.isWeb ? 'i-lucide-external-link' : 'i-lucide-download'"
               >
-                {{ platform.isWeb ? '在线访问' : '下载' }}
+                {{ platform.actionLabel }}
               </UButton>
             </div>
           </template>
         </UPageCard>
       </UPageGrid>
-    </UPageSection>
+    </UPageHero>
 
     <USeparator />
 

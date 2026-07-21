@@ -22,7 +22,7 @@ export const homePage = {
         color: 'neutral' as const,
         variant: 'outline' as const,
         class: 'ylf-gradient-border',
-        to: '/apps/download',
+        to: '/download',
       },
     ],
   },

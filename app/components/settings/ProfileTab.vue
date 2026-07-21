@@ -79,10 +79,11 @@ async function handleCropConfirm(croppedFile: File) {
     uploadProgress.value = 0
 
     uploadProgress.value = 20
-    const { url } = await uploadAvatar(croppedFile)
+    const { fileID } = await uploadAvatar(croppedFile)
     uploadProgress.value = 100
 
-    form.avatar = url
+    // 用户资料持久化稳定 fileID；展示时由 MemberAvatar 换取新的临时 URL。
+    form.avatar = fileID
     toast.add({ title: '上传成功', description: '头像已上传，点击保存生效', color: 'success' })
   }
   catch (err: unknown) {
@@ -251,7 +252,7 @@ async function save() {
       <!-- 头像 -->
       <div class="flex items-center gap-6 mb-6">
         <div class="relative group">
-          <UAvatar
+          <MemberAvatar
             :src="editing ? form.avatar || undefined : user?.avatar || undefined"
             :alt="user?.nickname || user?.login || 'User'"
             size="3xl"

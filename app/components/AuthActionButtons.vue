@@ -10,6 +10,15 @@
     <UButton
       to="/login"
       icon="i-ri-login-box-line"
+      aria-label="登录"
+      color="neutral"
+      variant="ghost"
+      class="lg:hidden"
+    />
+    <UButton
+      to="/signup"
+      icon="i-lucide-user-plus"
+      aria-label="注册"
       color="neutral"
       variant="ghost"
       class="lg:hidden"

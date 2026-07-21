@@ -7,7 +7,7 @@
  */
 type AvatarSize = '3xs' | '2xs' | 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl'
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   src?: string | null
   alt?: string
   size?: AvatarSize
@@ -19,6 +19,8 @@ withDefaults(defineProps<{
   isMember: false,
   ringClass: 'ring-(color:--ui-bg)',
 })
+
+const resolvedSrc = useAvatarUrl(() => props.src)
 
 const CORNER: Record<AvatarSize, string> = {
   '3xs': 'size-2 -right-0.5 -bottom-0.5',
@@ -47,7 +49,7 @@ const ICON: Record<AvatarSize, string> = {
 <template>
   <div class="relative inline-flex shrink-0">
     <UAvatar
-      :src="src || undefined"
+      :src="resolvedSrc"
       :alt="alt"
       :size="size"
     />

@@ -7,6 +7,7 @@ const PUBLIC_AUTH_ROUTE_EXACT = [
   '/auth/callback',
   '/pricing',
   '/explore',
+  '/download',
 ]
 
 const PUBLIC_AUTH_ROUTE_PREFIXES = [

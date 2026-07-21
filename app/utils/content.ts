@@ -9,6 +9,29 @@ import { parseMarkdown } from '@nuxtjs/mdc/runtime'
 
 type RawMap = Record<string, string>
 
+interface DocHeroLink {
+  label: string
+  to: string
+  icon?: string
+  color?: 'primary' | 'neutral'
+  variant?: 'solid' | 'outline' | 'soft' | 'subtle' | 'ghost' | 'link'
+}
+
+interface DocHeroStep {
+  label: string
+  description: string
+  to: string
+}
+
+interface DocHero {
+  eyebrow?: string
+  title: string
+  titleAccent?: string
+  description?: string
+  links?: DocHeroLink[]
+  steps?: DocHeroStep[]
+}
+
 const docsRaw = import.meta.glob('../../content/1.docs/**/*.md', { query: '?raw', import: 'default', eager: true }) as RawMap
 const blogRaw = import.meta.glob('../../content/3.blog/*.md', { query: '?raw', import: 'default', eager: true }) as RawMap
 const changelogRaw = import.meta.glob('../../content/4.changelog/*.md', { query: '?raw', import: 'default', eager: true }) as RawMap
@@ -17,6 +40,7 @@ export interface MdContent {
   title?: string
   description?: string
   seo?: { title?: string, description?: string }
+  hero?: DocHero
   date?: string
   image?: { src: string } | string
   authors?: { name: string, to?: string, avatar?: { src: string } }[]

@@ -37,7 +37,7 @@ const featureIconColors = [
       </template>
 
       <template #title>
-        云乐坊 <span class="ylf-gradient-text">开发者平台</span>
+        云乐坊 <span class="ylf-gradient-text">应用生态</span>
       </template>
     </UPageHero>
 
@@ -66,11 +66,6 @@ const featureIconColors = [
       <template #headline>
         <YlfEyebrow :label="section.headline" />
       </template>
-
-      <MarketingPreview
-        kind="developer"
-        :index="index"
-      />
     </UPageSection>
 
     <UPageSection
@@ -107,59 +102,6 @@ const featureIconColors = [
           v-bind="resource"
           variant="subtle"
         />
-      </UPageGrid>
-    </UPageSection>
-
-    <UPageSection
-      id="pricing"
-      :headline="page.pricing.headline"
-      :title="page.pricing.title"
-      :description="page.pricing.description"
-    >
-      <UPageGrid
-        :ui="{ base: 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' }"
-      >
-        <UPageCard
-          v-for="(plan, index) in page.pricing.items"
-          :key="index"
-          :title="plan.title"
-          :description="plan.description"
-          :class="plan.highlight ? 'ring-2 ring-primary' : ''"
-          class="flex flex-col"
-        >
-          <template #header>
-            <div class="flex gap-1 items-baseline">
-              <span class="text-3xl font-bold">{{ plan.price }}</span>
-              <span
-                v-if="plan.period"
-                class="text-muted"
-              >{{ plan.period }}</span>
-            </div>
-          </template>
-
-          <ul class="mb-6 flex-1 space-y-3">
-            <li
-              v-for="(feature, idx) in plan.features"
-              :key="idx"
-              class="flex gap-2 items-center"
-            >
-              <UIcon
-                name="i-lucide-check"
-                class="text-primary shrink-0"
-              />
-              <span class="text-sm">{{ feature }}</span>
-            </li>
-          </ul>
-
-          <template #footer>
-            <UButton
-              v-bind="plan.cta"
-              :color="plan.highlight ? 'primary' : 'neutral'"
-              :variant="plan.highlight ? 'solid' : 'outline'"
-              block
-            />
-          </template>
-        </UPageCard>
       </UPageGrid>
     </UPageSection>
 

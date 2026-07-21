@@ -4,6 +4,7 @@ import { computed, onMounted, shallowRef, useTemplateRef } from 'vue'
 import AppDiscoveryGrid from '~/components/apps/AppDiscoveryGrid.vue'
 import AppDiscoveryToolbar from '~/components/apps/AppDiscoveryToolbar.vue'
 import AppExplorerHero from '~/components/apps/AppExplorerHero.vue'
+import { useTcbAuthSession } from '~/composables/auth/useAuthSession'
 import { useAppExplorer } from '~/composables/useAppExplorer'
 
 const apps = shallowRef<AppRecord[]>([])
@@ -11,6 +12,7 @@ const loading = shallowRef(true)
 const error = shallowRef<string | null>(null)
 const gridSection = useTemplateRef<HTMLElement>('gridSection')
 const { getOfficialApps } = useApps()
+const { authReady, checkAuthStatus } = useTcbAuthSession()
 const {
   query,
   selectedCategory,
@@ -34,6 +36,9 @@ async function loadApps() {
   error.value = null
 
   try {
+    if (!authReady.value)
+      await checkAuthStatus()
+
     const result = await getOfficialApps()
     apps.value = result.filter(app => app.isPublic)
   }
