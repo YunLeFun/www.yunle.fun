@@ -148,4 +148,4 @@ SSO_ALLOW_LEGACY_DIRECT_TICKET=false
 - fragment 在消费后从地址栏和 history 中移除。
 - SSO payload、数据库文档、日志和应用 cookie 中都不存在 refresh token。
 - Consumer 最终只保留 host-only opaque session；设备撤销即时生效。
-- 生产白名单不存在通配符；`sso-security-sweeper` 无公网调用权限且定时清理成功。
+- 生产白名单只包含精确 HTTPS origin，或在全部子域由同一可信团队治理时使用受限的 `https://*.yunle.fun`；不得使用其他形式的通配符；`sso-security-sweeper` 无公网调用权限且定时清理成功。
