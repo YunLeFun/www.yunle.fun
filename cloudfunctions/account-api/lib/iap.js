@@ -11,12 +11,14 @@
 
 'use strict'
 
+const { resolveBillingAnchor } = require('./membership')
 const {
   findOrderByOutTradeNo,
   grantOrderEntitlement,
   markOrderPaid,
   MEMBERSHIPS_COLLECTION,
   ORDERS_COLLECTION,
+  readMembership,
 } = require('./orders')
 const { COIN_PACKS, getIapProduct } = require('./plans')
 const { clawbackCoin } = require('./wallet')
@@ -58,6 +60,9 @@ async function grantIapTransaction(db, { userId, payload, environment, now }) {
   const transactionId = String(payload.transactionId)
   const outTradeNo = `${IAP_OUT_TRADE_NO_PREFIX}${transactionId}`
   const product = getIapProduct(payload.productId)
+  const providerPurchasedAt = product.orderType === 'membership' ? payload.purchaseDate : null
+  if (product.orderType === 'membership' && !Number.isFinite(providerPurchasedAt))
+    throw new Error('Apple 会员交易缺少 purchaseDate')
 
   let order = await findOrderByOutTradeNo(db, outTradeNo)
   // 防串号：同一笔 Apple 交易只能由首个绑定的账号领取
@@ -80,6 +85,7 @@ async function grantIapTransaction(db, { userId, payload, environment, now }) {
         price: payload.price ?? null,
         currency: payload.currency || '',
         originalTransactionId: String(payload.originalTransactionId || transactionId),
+        purchaseDate: Number.isFinite(payload.purchaseDate) ? payload.purchaseDate : null,
       },
       createdAt: now,
       updatedAt: now,
@@ -88,6 +94,7 @@ async function grantIapTransaction(db, { userId, payload, environment, now }) {
       base.level = product.level
       base.planId = product.level
       base.billingCycle = product.billingCycle
+      base.providerPurchasedAt = providerPurchasedAt
     }
     else {
       base.packId = product.packId
@@ -107,7 +114,11 @@ async function grantIapTransaction(db, { userId, payload, environment, now }) {
   if (updated === 0)
     return { granted: false, alreadyProcessed: true, outTradeNo }
 
-  const grant = await grantOrderEntitlement(db, { order: { ...order, status: 'paid' }, now })
+  const grant = await grantOrderEntitlement(db, {
+    order: { ...order, status: 'paid' },
+    now,
+    entitlementAt: providerPurchasedAt || now,
+  })
   return { granted: true, grant, outTradeNo }
 }
 
@@ -115,7 +126,8 @@ async function grantIapTransaction(db, { userId, payload, environment, now }) {
  * 处理 Apple 退款 / 撤销通知（REFUND / REVOKE）。
  *
  *   - 订单标记 refunded（conditional update，幂等）
- *   - 会员订单：首次转移时立即失效（expireAt = now）
+ *   - 会员订单：仅当发放快照仍匹配当前会员时回滚该笔权益；存在后续购买、状态变化或
+ *     缺少快照时保留当前会员并标记人工复核，避免误清空叠加权益
  *   - 云币订单：自动追回未消费余额，扣到零封顶（clawbackCoin 按 refId 幂等），
  *     余额不足的差额即平台资损，记日志供人工对账。
  *     订单已是 refunded 时仍重放追回（幂等），补偿「标记成功但追回中断」的窗口。
@@ -124,7 +136,7 @@ async function grantIapTransaction(db, { userId, payload, environment, now }) {
  * @param {object} input
  * @param {object} input.payload Apple 交易 payload（须已通过 Server API 回查确认）
  * @param {number} input.now
- * @returns {Promise<{ handled: boolean, orderType?: string, outTradeNo: string, clawed?: number }>}
+ * @returns {Promise<{ handled: boolean, orderType?: string, outTradeNo: string, clawed?: number, entitlementReverted?: boolean, manualReviewRequired?: boolean }>}
  */
 async function handleIapRefund(db, { payload, now }) {
   const transactionId = String(payload.transactionId)
@@ -146,14 +158,90 @@ async function handleIapRefund(db, { payload, now }) {
     return { handled: false, orderType: order.orderType, outTradeNo }
 
   if (order.orderType === 'membership') {
-    if (updated > 0) {
-      // 会员立即失效（仅首次转移时执行，避免重复通知误伤其后新购的会员）
-      await db
-        .collection(MEMBERSHIPS_COLLECTION)
-        .where({ userId: order.userId })
-        .update({ expireAt: now, updatedAt: now })
+    // 终态不重放，避免重复通知误回滚其后的新购会员。
+    if (order.refundEntitlementStatus === 'reverted')
+      return { handled: false, orderType: order.orderType, outTradeNo }
+    if (order.refundEntitlementStatus === 'manual_review_required') {
+      return {
+        handled: false,
+        orderType: order.orderType,
+        outTradeNo,
+        manualReviewRequired: true,
+      }
     }
-    return { handled: updated > 0, orderType: order.orderType, outTradeNo }
+
+    // 首次 paid -> refunded 与「订单已改为 refunded、权益回滚未执行」
+    // 的重试共用同一条幂等补偿路径。
+    const membership = await readMembership(db, order.userId)
+    const grant = order.membershipGrant
+    if (
+      !membership
+      || !grant
+      || membership.lastOrderId !== outTradeNo
+      || membership.expireAt !== grant.expireAfter
+    ) {
+      await db
+        .collection(ORDERS_COLLECTION)
+        .where({ outTradeNo })
+        .update({ refundEntitlementStatus: 'manual_review_required', updatedAt: now })
+      return {
+        handled: true,
+        orderType: order.orderType,
+        outTradeNo,
+        manualReviewRequired: true,
+      }
+    }
+
+    const expireAt = Number.isFinite(grant.expireBefore) ? grant.expireBefore : now
+    const fallbackAnchor = resolveBillingAnchor({ base: expireAt })
+    const rollback = {
+      expireAt,
+      billingAnchorDay: Number.isInteger(grant.billingAnchorDayBefore)
+        ? grant.billingAnchorDayBefore
+        : fallbackAnchor.billingAnchorDay,
+      billingAnchorIsMonthEnd: typeof grant.billingAnchorIsMonthEndBefore === 'boolean'
+        ? grant.billingAnchorIsMonthEndBefore
+        : fallbackAnchor.billingAnchorIsMonthEnd,
+      activeCycle: grant.activeCycleBefore || 'refunded',
+      lastOrderId: grant.lastOrderIdBefore || null,
+      updatedAt: now,
+    }
+    if (grant.planIdBefore)
+      rollback.planId = grant.planIdBefore
+    if (grant.levelBefore)
+      rollback.level = grant.levelBefore
+
+    const rollbackResult = await db
+      .collection(MEMBERSHIPS_COLLECTION)
+      .where({
+        _id: membership._id,
+        lastOrderId: outTradeNo,
+        expireAt: grant.expireAfter,
+      })
+      .update(rollback)
+    const reverted = rollbackResult?.updated ?? rollbackResult?.modifiedCount ?? 0
+    if (reverted === 0) {
+      await db
+        .collection(ORDERS_COLLECTION)
+        .where({ outTradeNo })
+        .update({ refundEntitlementStatus: 'manual_review_required', updatedAt: now })
+      return {
+        handled: true,
+        orderType: order.orderType,
+        outTradeNo,
+        manualReviewRequired: true,
+      }
+    }
+    await db
+      .collection(ORDERS_COLLECTION)
+      .where({ outTradeNo })
+      .update({ refundEntitlementStatus: 'reverted', updatedAt: now })
+    return {
+      handled: true,
+      orderType: order.orderType,
+      outTradeNo,
+      entitlementReverted: true,
+    }
   }
 
   if (!Number.isInteger(order.coinAmount) || order.coinAmount <= 0) {

@@ -1,5 +1,5 @@
 /**
- * 套餐价格 & 会员时长配置。
+ * 套餐价格与支付商品配置。
  *
  * 此模块为业务真相源（source of truth），前端 `app/types/payment.ts` 应保持同步。
  *
@@ -48,12 +48,6 @@ const IAP_PRODUCTS = Object.freeze({
   'fun.yunle.apps.member_year': Object.freeze({ orderType: 'membership', level: 'basic', billingCycle: 'year' }),
 })
 
-/** 各计费周期对应的会员有效期天数 */
-const CYCLE_DURATION_DAYS = Object.freeze({
-  month: 31,
-  year: 366,
-})
-
 const DAY_MS = 86_400_000
 
 /**
@@ -72,19 +66,6 @@ function getPlanAmount(planId, cycle) {
   if (typeof amount !== 'number')
     throw new Error(`无效计费周期: ${cycle}`)
   return amount
-}
-
-/**
- * 返回某计费周期对应的毫秒数
- *
- * @param {string} cycle
- * @returns {number}
- */
-function getCycleDurationMs(cycle) {
-  const days = CYCLE_DURATION_DAYS[cycle]
-  if (typeof days !== 'number')
-    throw new Error(`无效计费周期: ${cycle}`)
-  return days * DAY_MS
 }
 
 /**
@@ -151,12 +132,10 @@ module.exports = {
   COIN_CUSTOM_MIN,
   COIN_CUSTOM_MAX,
   IAP_PRODUCTS,
-  CYCLE_DURATION_DAYS,
   DAY_MS,
   getPlanAmount,
   getMembershipAmount,
   getCoinPack,
   getCustomCoinPlan,
-  getCycleDurationMs,
   getIapProduct,
 }

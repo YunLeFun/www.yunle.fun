@@ -337,7 +337,7 @@ https://yunlefun-8g7ybcxc7345c490.service.tcloudbase.com/wxpay-notify
 1. 在 wxpay-order 设 `WX_ALLOW_TEST_ORDER=true`（控制台 → 云函数 → wxpay-order → 环境变量）
 2. **登录后** 打开 `/test/pay`，用 native 方式下 0.01 元订单，微信扫码完成支付
 3. 查 `orders` 集合：该订单 `status: paid`、`transactionId` 有值、`userId` 为你的 CloudBase uid（**不是** openid）
-4. 查 `user_memberships` 集合：你的 uid 多一条记录，`expireAt ≈ paidAt + 31 天`
+4. 查 `user_memberships` 集合：你的 uid 多一条记录，`expireAt` 按 Asia/Shanghai 自然月从 `paidAt` 顺延
 5. 前端 `useMembership().isActive` 应为 `true`
 
 ### ⚠️ 测试完成后务必关闭
@@ -454,11 +454,22 @@ tcb fn deploy --all -e yunlefun-8g7ybcxc7345c490
   "planId": "basic",
   "activeCycle": "month", // 或 "year"
   "expireAt": 1735689600000, // 毫秒时间戳
+  "billingAnchorDay": 31, // Asia/Shanghai 账单日
+  "billingAnchorIsMonthEnd": true, // 首次开通是否发生在月末
   "lastOrderId": "YLF1735689000000abcdef1234567890",
   "createdAt": 1735689000000,
   "updatedAt": 1735689600000
 }
 ```
+
+月付按 Asia/Shanghai 自然月、年付按自然年计算。月末开通由
+`billingAnchorIsMonthEnd` 保持月末策略；非月末日期在短月份临时取月末，后续恢复
+`billingAnchorDay`。IAP 会员以 Apple 签名交易的 `purchaseDate` 起算。固定天数运营奖励会在
+调整到期时间后同步重置账单锚点。
+
+IAP 会员退款只在发放快照与当前最后一笔订单一致时回滚该订单增加的时长；存在后续购买、
+会员状态已变化或缺少可靠快照时，订单会标记 `manual_review_required`，不会直接清空用户的
+全部会员权益。
 
 安全规则：用户只能读取自己的订单与会员（`auth.uid == doc.userId`），写入由云函数完成。
 

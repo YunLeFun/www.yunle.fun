@@ -5,6 +5,7 @@ import {
   handleIapRefund,
   priceToFen,
 } from '../../cloudfunctions/wxpay-order/lib/iap.js'
+import { computeNewExpireAt } from '../../cloudfunctions/wxpay-order/lib/membership.js'
 import { creditCoin, deductCoin } from '../../cloudfunctions/wxpay-order/lib/wallet.js'
 import { makeFakeDb } from '../_fixtures/wxpay.mjs'
 
@@ -30,6 +31,7 @@ function memberPayload(overrides = {}) {
     bundleId: 'fun.yunle.apps',
     price: 12000,
     currency: 'CNY',
+    purchaseDate: NOW,
     ...overrides,
   }
 }
@@ -100,6 +102,26 @@ describe('grantIapTransaction - 云币', () => {
 })
 
 describe('grantIapTransaction - 会员', () => {
+  it('恢复购买时按 Apple purchaseDate 起算，而不是按补单处理时间起算', async () => {
+    const purchaseDate = Date.parse('2026-01-31T23:59:00+08:00')
+    const processedAt = Date.parse('2026-02-01T00:01:00+08:00')
+    const db = makeFakeDb()
+
+    await grantIapTransaction(db, {
+      userId: 'u1',
+      payload: memberPayload({ purchaseDate }),
+      environment: 'Production',
+      now: processedAt,
+    })
+
+    expect(db._store.orders[0]).toMatchObject({
+      paidAt: processedAt,
+      providerPurchasedAt: purchaseDate,
+    })
+    expect(db._store.user_memberships[0].expireAt)
+      .toBe(Date.parse('2026-02-28T23:59:00+08:00'))
+  })
+
   it('首次发放：开通月度会员', async () => {
     const db = makeFakeDb()
     const result = await grantIapTransaction(db, {
@@ -118,8 +140,7 @@ describe('grantIapTransaction - 会员', () => {
 
     const membership = db._store.user_memberships[0]
     expect(membership.userId).toBe('u1')
-    // 月度 = 31 天
-    expect(membership.expireAt).toBe(NOW + 31 * 86_400_000)
+    expect(membership.expireAt).toBe(computeNewExpireAt({ current: null, cycle: 'month', now: NOW }))
   })
 
   it('重复调用幂等：到期日不叠加', async () => {
@@ -127,12 +148,60 @@ describe('grantIapTransaction - 会员', () => {
     const input = { userId: 'u1', payload: memberPayload(), environment: 'Production', now: NOW }
     await grantIapTransaction(db, input)
     await grantIapTransaction(db, input)
-    expect(db._store.user_memberships[0].expireAt).toBe(NOW + 31 * 86_400_000)
+    expect(db._store.user_memberships[0].expireAt)
+      .toBe(computeNewExpireAt({ current: null, cycle: 'month', now: NOW }))
   })
 })
 
 describe('handleIapRefund', () => {
-  it('会员订单退款：订单标 refunded + 会员立即失效', async () => {
+  it('退款较早会员订单时，不清空其后续购买的会员时长', async () => {
+    const db = makeFakeDb()
+    await grantIapTransaction(db, {
+      userId: 'u1',
+      payload: memberPayload(),
+      environment: 'Production',
+      now: NOW,
+    })
+    await grantIapTransaction(db, {
+      userId: 'u1',
+      payload: memberPayload({ transactionId: '30002', originalTransactionId: '30002', purchaseDate: NOW + 1 }),
+      environment: 'Production',
+      now: NOW + 1,
+    })
+    const expireAfterSecondPurchase = db._store.user_memberships[0].expireAt
+
+    const result = await handleIapRefund(db, { payload: memberPayload(), now: NOW + 1000 })
+
+    expect(result).toMatchObject({ handled: true, manualReviewRequired: true })
+    expect(db._store.user_memberships[0].expireAt).toBe(expireAfterSecondPurchase)
+  })
+
+  it('退款最后一笔会员订单时，只回退该订单增加的周期', async () => {
+    const db = makeFakeDb()
+    await grantIapTransaction(db, {
+      userId: 'u1',
+      payload: memberPayload(),
+      environment: 'Production',
+      now: NOW,
+    })
+    const expireAfterFirstPurchase = db._store.user_memberships[0].expireAt
+    await grantIapTransaction(db, {
+      userId: 'u1',
+      payload: memberPayload({ transactionId: '30002', originalTransactionId: '30002', purchaseDate: NOW + 1 }),
+      environment: 'Production',
+      now: NOW + 1,
+    })
+
+    const result = await handleIapRefund(db, {
+      payload: memberPayload({ transactionId: '30002', originalTransactionId: '30002', purchaseDate: NOW + 1 }),
+      now: NOW + 1000,
+    })
+
+    expect(result).toMatchObject({ handled: true, entitlementReverted: true })
+    expect(db._store.user_memberships[0].expireAt).toBe(expireAfterFirstPurchase)
+  })
+
+  it('单笔会员订单退款：订单标 refunded 并撤销该笔权益', async () => {
     const db = makeFakeDb()
     await grantIapTransaction(db, { userId: 'u1', payload: memberPayload(), environment: 'Production', now: NOW })
 
@@ -194,6 +263,20 @@ describe('handleIapRefund', () => {
     expect(result.handled).toBe(false)
     expect(result.clawed).toBe(100)
     expect(db._store.user_wallet[0].balance).toBe(0)
+  })
+
+  it('会员订单已标 refunded 但回滚中断：重试通知补偿撤销权益', async () => {
+    const db = makeFakeDb()
+    await grantIapTransaction(db, { userId: 'u1', payload: memberPayload(), environment: 'Production', now: NOW })
+    // 模拟首轮在 conditional update 后崩溃：订单已 refunded，但会员权益仍在。
+    db._store.orders[0].status = 'refunded'
+
+    const retryAt = NOW + 1000
+    const result = await handleIapRefund(db, { payload: memberPayload(), now: retryAt })
+
+    expect(result).toMatchObject({ handled: true, entitlementReverted: true })
+    expect(db._store.user_memberships[0].expireAt).toBe(retryAt)
+    expect(db._store.orders[0].refundEntitlementStatus).toBe('reverted')
   })
 
   it('会员订单重复退款通知：不重复失效（保护其后新购会员）', async () => {

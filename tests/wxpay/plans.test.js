@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  CYCLE_DURATION_DAYS,
-  DAY_MS,
-  getCycleDurationMs,
   getPlanAmount,
   PLAN_PRICES,
 } from '../../cloudfunctions/wxpay-order/lib/plans.js'
@@ -35,19 +32,5 @@ describe('getPlanAmount', () => {
 
   it('未知周期抛错', () => {
     expect(() => getPlanAmount('basic', 'week')).toThrow(/无效计费周期/)
-  })
-})
-
-describe('getCycleDurationMs', () => {
-  it('月付 = 31 天毫秒数', () => {
-    expect(getCycleDurationMs('month')).toBe(CYCLE_DURATION_DAYS.month * DAY_MS)
-  })
-
-  it('年付 = 366 天毫秒数', () => {
-    expect(getCycleDurationMs('year')).toBe(CYCLE_DURATION_DAYS.year * DAY_MS)
-  })
-
-  it('未知周期抛错', () => {
-    expect(() => getCycleDurationMs('week')).toThrow(/无效计费周期/)
   })
 })

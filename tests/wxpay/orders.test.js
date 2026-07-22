@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import { computeNewExpireAt } from '../../cloudfunctions/wxpay-order/lib/membership.js'
 import {
   activateMembership,
   findOrderByOutTradeNo,
@@ -14,6 +15,10 @@ import { DAY_MS } from '../../cloudfunctions/wxpay-order/lib/plans.js'
 import { makeFakeDb } from '../_fixtures/wxpay.mjs'
 
 const NOW = 1_700_000_000_000
+
+function shanghai(value) {
+  return Date.parse(`${value}+08:00`)
+}
 
 describe('findOrderByOutTradeNo', () => {
   it('找到返回对象副本', async () => {
@@ -69,13 +74,14 @@ describe('activateMembership', () => {
       now: NOW,
       outTradeNo: 'YLFABC',
     })
-    expect(r.expireAt).toBe(NOW + 31 * DAY_MS)
+    expect(r.expireAt).toBe(computeNewExpireAt({ current: null, cycle: 'month', now: NOW }))
     expect(db._store[MEMBERSHIPS_COLLECTION]).toHaveLength(1)
     expect(db._store[MEMBERSHIPS_COLLECTION][0]).toMatchObject({
       _id: 'u1',
       userId: 'u1',
       planId: 'basic',
       activeCycle: 'month',
+      billingAnchorDay: 15,
       lastOrderId: 'YLFABC',
       createdAt: NOW,
       updatedAt: NOW,
@@ -102,7 +108,7 @@ describe('activateMembership', () => {
       now: NOW,
       outTradeNo: 'YLF2',
     })
-    expect(r.expireAt).toBe(existingExpire + 366 * DAY_MS)
+    expect(r.expireAt).toBe(computeNewExpireAt({ current: existingExpire, cycle: 'year', now: NOW }))
     expect(db._store[MEMBERSHIPS_COLLECTION]).toHaveLength(1) // 仍只有 1 条
     expect(db._store[MEMBERSHIPS_COLLECTION][0].activeCycle).toBe('year')
   })
@@ -124,7 +130,69 @@ describe('activateMembership', () => {
       now: NOW,
       outTradeNo: 'YLF3',
     })
-    expect(r.expireAt).toBe(NOW + 31 * DAY_MS)
+    expect(r.expireAt).toBe(computeNewExpireAt({ current: null, cycle: 'month', now: NOW }))
+  })
+
+  it('月末连续续费：持久化原账单日并在后续月份恢复', async () => {
+    const jan31 = shanghai('2026-01-31T00:30:00.000')
+    const db = makeFakeDb({ [MEMBERSHIPS_COLLECTION]: [] })
+
+    const first = await activateMembership(db, {
+      userId: 'u1',
+      planId: 'basic',
+      cycle: 'month',
+      now: jan31,
+      outTradeNo: 'YLF-JAN',
+    })
+    const second = await activateMembership(db, {
+      userId: 'u1',
+      planId: 'basic',
+      cycle: 'month',
+      now: shanghai('2026-02-01T00:00:00.000'),
+      outTradeNo: 'YLF-FEB',
+    })
+
+    expect(first).toMatchObject({
+      expireAt: shanghai('2026-02-28T00:30:00.000'),
+      billingAnchorDay: 31,
+    })
+    expect(second).toMatchObject({
+      expireAt: shanghai('2026-03-31T00:30:00.000'),
+      billingAnchorDay: 31,
+    })
+    expect(db._store[MEMBERSHIPS_COLLECTION][0]).toMatchObject({
+      expireAt: second.expireAt,
+      billingAnchorDay: 31,
+      lastOrderId: 'YLF-FEB',
+    })
+  })
+
+  it('非月末锚点落入二月月末后，下一期仍恢复原日号', async () => {
+    const jan30 = shanghai('2026-01-30T10:00:00.000')
+    const db = makeFakeDb({ [MEMBERSHIPS_COLLECTION]: [] })
+
+    const first = await activateMembership(db, {
+      userId: 'u1',
+      planId: 'basic',
+      cycle: 'month',
+      now: jan30,
+      outTradeNo: 'YLF-JAN30',
+    })
+    const second = await activateMembership(db, {
+      userId: 'u1',
+      planId: 'basic',
+      cycle: 'month',
+      now: shanghai('2026-02-01T00:00:00.000'),
+      outTradeNo: 'YLF-FEB30',
+    })
+
+    expect(first.expireAt).toBe(shanghai('2026-02-28T10:00:00.000'))
+    expect(second).toMatchObject({
+      expireAt: shanghai('2026-03-30T10:00:00.000'),
+      billingAnchorDay: 30,
+      billingAnchorIsMonthEnd: false,
+    })
+    expect(db._store[MEMBERSHIPS_COLLECTION][0].billingAnchorIsMonthEnd).toBe(false)
   })
 
   it('legacy auto-id 会员记录会迁移为 _id 等于 uid 的规范记录', async () => {
@@ -150,12 +218,14 @@ describe('activateMembership', () => {
     })
     const canonical = await readMembership(db, 'u1')
 
-    expect(r.expireAt).toBe(existingExpire + 31 * DAY_MS)
+    const expectedExpire = computeNewExpireAt({ current: existingExpire, cycle: 'month', now: NOW })
+    expect(r.expireAt).toBe(expectedExpire)
     expect(canonical).toMatchObject({
       _id: 'u1',
       userId: 'u1',
       lastOrderId: 'YLF-LEGACY',
-      expireAt: existingExpire + 31 * DAY_MS,
+      expireAt: expectedExpire,
+      billingAnchorDay: 27,
     })
     expect(db._store[MEMBERSHIPS_COLLECTION].filter(item => item.userId === 'u1')).toHaveLength(2)
   })
@@ -204,8 +274,12 @@ describe('activateMembership — 并发安全（CAS 重试）', () => {
       outTradeNo: 'YLF9',
     })
     expect(updateCalls).toBe(2)
-    // 第二次读到并发写入后的 NOW+36d，再累加本单的 31d —— 没有覆盖别人的写入
-    expect(r.expireAt).toBe(NOW + 36 * DAY_MS + 31 * DAY_MS)
+    // 第二次读到并发写入后的到期日，再顺延一个自然月 —— 没有覆盖别人的写入
+    expect(r.expireAt).toBe(computeNewExpireAt({
+      current: NOW + 36 * DAY_MS,
+      cycle: 'month',
+      now: NOW,
+    }))
   })
 
   it('新用户 insert 撞唯一索引时回退到 update', async () => {
@@ -238,8 +312,12 @@ describe('activateMembership — 并发安全（CAS 重试）', () => {
       outTradeNo: 'YLF10',
     })
     expect(addCalls).toBe(1)
-    // 回退 update：基于并发插入的 NOW+31d 再 +366d
-    expect(r.expireAt).toBe(NOW + 31 * DAY_MS + 366 * DAY_MS)
+    // 回退 update：基于并发插入的到期日再顺延一个自然年
+    expect(r.expireAt).toBe(computeNewExpireAt({
+      current: NOW + 31 * DAY_MS,
+      cycle: 'year',
+      now: NOW,
+    }))
   })
 
   it('持续冲突超过最大重试次数则抛错', async () => {
@@ -308,7 +386,7 @@ describe('activateMembership — 订单幂等（lastOrderId）', () => {
       now: NOW,
       outTradeNo: 'YLF-NEW',
     })
-    expect(r.expireAt).toBe(existingExpire + 31 * DAY_MS)
+    expect(r.expireAt).toBe(computeNewExpireAt({ current: existingExpire, cycle: 'month', now: NOW }))
   })
 })
 
@@ -348,6 +426,33 @@ describe('grantOrderEntitlement — 幂等与 grantedAt 回写', () => {
     expect(db._store[ORDERS_COLLECTION][0].grantedAt).toBe(NOW)
   })
 
+  it('对账补发 IAP 会员时按 Apple 购买时间起算，而不按处理时间起算', async () => {
+    const providerPurchasedAt = shanghai('2026-01-31T23:59:00.000')
+    const reconciledAt = shanghai('2026-02-02T12:00:00.000')
+    const db = makeFakeDb({
+      [ORDERS_COLLECTION]: [{
+        _id: 'iap-o1',
+        outTradeNo: 'iap_30001',
+        userId: 'u1',
+        orderType: 'membership',
+        payType: 'iap',
+        level: 'basic',
+        billingCycle: 'month',
+        providerPurchasedAt,
+        status: 'paid',
+      }],
+      [MEMBERSHIPS_COLLECTION]: [],
+    })
+
+    await grantOrderEntitlement(db, {
+      order: db._store[ORDERS_COLLECTION][0],
+      now: reconciledAt,
+    })
+
+    expect(db._store[MEMBERSHIPS_COLLECTION][0].expireAt)
+      .toBe(shanghai('2026-02-28T23:59:00.000'))
+  })
+
   it('对账重入（订单已带 grantedAt）不重复续期', async () => {
     const db = makeFakeDb({
       [ORDERS_COLLECTION]: [{
@@ -370,6 +475,15 @@ describe('grantOrderEntitlement — 幂等与 grantedAt 回写', () => {
 
   it('grantedAt 回写丢失时，底层 lastOrderId 幂等仍防重复续期', async () => {
     const db = makeFakeDb({
+      [ORDERS_COLLECTION]: [{
+        _id: 'o1',
+        outTradeNo: 'YLF4',
+        userId: 'u1',
+        orderType: 'membership',
+        level: 'basic',
+        billingCycle: 'month',
+        status: 'paid',
+      }],
       [MEMBERSHIPS_COLLECTION]: [{
         _id: 'u1',
         userId: 'u1',
@@ -380,17 +494,12 @@ describe('grantOrderEntitlement — 幂等与 grantedAt 回写', () => {
       }],
     })
     const r = await grantOrderEntitlement(db, {
-      order: {
-        outTradeNo: 'YLF4', // 与 lastOrderId 相同；注意无 grantedAt（模拟回写丢失 / 对账重入）
-        userId: 'u1',
-        orderType: 'membership',
-        level: 'basic',
-        billingCycle: 'month',
-      },
+      order: db._store[ORDERS_COLLECTION][0], // 与 lastOrderId 相同；注意无 grantedAt（模拟回写丢失 / 对账重入）
       now: NOW + 10 * DAY_MS,
     })
     expect(r.expireAt).toBe(NOW + 31 * DAY_MS)
     expect(db._store[MEMBERSHIPS_COLLECTION][0].expireAt).toBe(NOW + 31 * DAY_MS)
+    expect(db._store[ORDERS_COLLECTION][0].membershipGrant).toBeUndefined()
   })
 })
 

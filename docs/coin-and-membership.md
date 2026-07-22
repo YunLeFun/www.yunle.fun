@@ -100,6 +100,8 @@
   "level": "basic", // 会员等级，预留多档（basic / pro …）
   "activeCycle": "month", // month | year
   "expireAt": 1738367600000, // 毫秒时间戳
+  "billingAnchorDay": 31, // Asia/Shanghai 账单日
+  "billingAnchorIsMonthEnd": true, // 首次开通是否发生在月末
   "lastOrderId": "YLF…",
   "createdAt": 1735689000000,
   "updatedAt": 1735689600000
@@ -110,6 +112,18 @@
 
 > 迁移：现有文档的 `planId: "basic"` 语义等同于 `level: "basic"`。可在读取层做兼容
 > （`level ?? planId`），无需一次性刷数据。详见 [§7](#7-迁移方案)。
+
+#### 会员计费周期规则
+
+- 月付按 **Asia/Shanghai 自然月**顺延，年付按 **自然年**顺延；时间戳仍以 UTC 毫秒存储。
+- 正常情况取下月或次年同日、同一时间；首次开通发生在月末时，后续周期始终取目标月份月末。
+- 非月末账单日由 `billingAnchorDay` 保留；目标月份没有对应日期时临时取该月最后一天，后续月份恢复原账单日。例如
+  `1 月 30 日 -> 2 月 28/29 日 -> 3 月 30 日`。
+- `billingAnchorIsMonthEnd` 明确记录月末策略。例如 `4 月 30 日 -> 5 月 31 日 -> 6 月 30 日`。
+- 有效会员提前续费时从当前 `expireAt` 顺延；已过期会员从本次支付时间重新起算并重置账单锚点。微信订单使用支付确认时间，IAP 会员订单使用 Apple 签名交易中的 `purchaseDate`。
+- 历史会员两个账单锚点字段都缺失时，首次续费从现有 `expireAt` 推导并补写；已有 `billingAnchorDay` 但缺少月末标记的记录继续沿用“指定日 + 短月截断”策略，不修改已经发放的到期时间。
+- 运营活动明确写“赠送 N 天”的会员奖励仍按固定天数发放，不属于月付或年付套餐；奖励到账后以新的到期时间重置账单锚点，避免后续付费续期回跳到奖励前的日期。
+- IAP 会员退款仅在该订单仍是当前最后一次会员变更、且发放快照匹配时回滚该笔权益；存在后续购买或缺少可靠快照时保留当前会员并标记人工复核，避免误清空叠加权益。
 
 ### 3.4 `orders` — 订单（沿用现状，加字段）
 
@@ -145,7 +159,7 @@ const COIN_PACKS = {
 
 // 会员套餐：level -> { month, year }（分）
 const MEMBERSHIP_PRICES = {
-  basic: { month: 990, year: 9990 },
+  basic: { month: 1000, year: 10000 }, // 10 元 / 100 元
 }
 ```
 

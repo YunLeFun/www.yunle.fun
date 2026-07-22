@@ -12,6 +12,7 @@
 import crypto from 'node:crypto'
 import { beforeEach, describe, expect, it } from 'vitest'
 
+import { computeNewExpireAt } from '../../cloudfunctions/wxpay-order/lib/membership.js'
 import { handleNotify } from '../../cloudfunctions/wxpay-order/lib/notify-handler.js'
 import { MEMBERSHIPS_COLLECTION, ORDERS_COLLECTION } from '../../cloudfunctions/wxpay-order/lib/orders.js'
 import { DAY_MS } from '../../cloudfunctions/wxpay-order/lib/plans.js'
@@ -104,7 +105,7 @@ describe('handleNotify — 成功路径', () => {
       planId: 'basic',
       activeCycle: 'month',
     })
-    expect(ms[0].expireAt).toBe(config.now() + 31 * DAY_MS)
+    expect(ms[0].expireAt).toBe(computeNewExpireAt({ current: null, cycle: 'month', now: config.now() }))
   })
 
   it('幂等：第二次回调不会双倍开通会员', async () => {
@@ -359,7 +360,7 @@ describe('handleNotify — 续费场景', () => {
     const res = await handleNotify({ event, db, config })
     expect(res.statusCode).toBe(200)
     const membership = findMembership(db, 'user-1')
-    expect(membership.expireAt).toBe(existing + 366 * DAY_MS)
+    expect(membership.expireAt).toBe(computeNewExpireAt({ current: existing, cycle: 'year', now: NOW }))
     expect(membership.activeCycle).toBe('year')
   })
 })

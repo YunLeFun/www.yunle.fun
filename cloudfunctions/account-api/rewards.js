@@ -4,6 +4,7 @@
 
 const crypto = require('node:crypto')
 
+const { resolveBillingAnchor } = require('./lib/membership')
 const { MEMBERSHIPS_COLLECTION, readMembership } = require('./lib/orders')
 const { clawbackCoin, creditCoin } = require('./lib/wallet')
 const { createRewardNotification } = require('./notifications')
@@ -151,6 +152,7 @@ async function grantMembershipReward(db, input) {
       level: membership?.level || membership?.planId || 'basic',
       activeCycle: membership?.activeCycle || 'reward',
       expireAt: expireAfter,
+      ...resolveBillingAnchor({ base: expireAfter }),
       lastRewardGrantId: input.grantId,
       ...(membership ? {} : { createdAt: input.now }),
       updatedAt: input.now,
@@ -235,6 +237,7 @@ async function correctMembershipReward(db, original, correctionInput) {
     const expireAfter = currentExpireAt - remainingMs
     await membershipRef.update({
       expireAt: expireAfter,
+      ...resolveBillingAnchor({ base: expireAfter }),
       lastRewardCorrectionId: correctionInput.correctionId,
       updatedAt: correctionInput.now,
     })

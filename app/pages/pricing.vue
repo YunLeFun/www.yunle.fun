@@ -79,8 +79,8 @@ const billingPlans = computed(() => {
       cycle: 'month' as BillingCycle,
       price: plan.price.month,
       billingCycle: '/月',
-      sub: '随时可取消',
-      label: '立即订阅',
+      sub: '按自然月生效 · 单次购买',
+      label: '立即购买',
     },
     {
       ...basePlan,
@@ -88,8 +88,8 @@ const billingPlans = computed(() => {
       cycle: 'year' as BillingCycle,
       price: plan.price.year,
       billingCycle: '/年',
-      sub: '省 ¥20 · 立减两个月',
-      label: '立即订阅',
+      sub: '按自然年生效 · 单次购买',
+      label: '立即购买',
       highlight: true,
     },
   ]

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
+import { computeNewExpireAt } from '../../cloudfunctions/wxpay-order/lib/membership.js'
 import { grantOrderEntitlement, MEMBERSHIPS_COLLECTION } from '../../cloudfunctions/wxpay-order/lib/orders.js'
-import { DAY_MS } from '../../cloudfunctions/wxpay-order/lib/plans.js'
 import {
   clawbackCoin,
   COIN_TX_COLLECTION,
@@ -294,14 +294,19 @@ describe('grantOrderEntitlement', () => {
     }
     await grantOrderEntitlement(db, { order, now: NOW })
     const m = db._store[MEMBERSHIPS_COLLECTION][0]
-    expect(m).toMatchObject({ userId: 'u1', expireAt: NOW + 31 * DAY_MS })
+    expect(m).toMatchObject({
+      userId: 'u1',
+      expireAt: computeNewExpireAt({ current: null, cycle: 'month', now: NOW }),
+    })
   })
 
   it('无 orderType 的历史订单：按 membership 处理（用 planId）', async () => {
     const db = makeFakeDb({})
     const order = { userId: 'u1', planId: 'basic', billingCycle: 'year', outTradeNo: 'YLF_OLD' }
     await grantOrderEntitlement(db, { order, now: NOW })
-    expect(db._store[MEMBERSHIPS_COLLECTION][0]).toMatchObject({ expireAt: NOW + 366 * DAY_MS })
+    expect(db._store[MEMBERSHIPS_COLLECTION][0]).toMatchObject({
+      expireAt: computeNewExpireAt({ current: null, cycle: 'year', now: NOW }),
+    })
   })
 
   it('recharge_coin 缺 coinAmount 抛错', async () => {

@@ -9,7 +9,7 @@
 
 'use strict'
 
-const { computeNewExpireAt } = require('./membership')
+const { computeNewMembershipPeriod, resolveBillingAnchor } = require('./membership')
 const { creditCoin } = require('./wallet')
 
 const ORDERS_COLLECTION = 'orders'
@@ -123,13 +123,17 @@ async function markOrderPaid(db, { outTradeNo, transactionId, now }) {
  * @param {object} input
  * @param {string} input.outTradeNo
  * @param {number} input.now
+ * @param {object|null} [input.membershipGrant]
  * @returns {Promise<{ updated: number }>} updated=1 表示已写入 grantedAt
  */
-async function markOrderGranted(db, { outTradeNo, now }) {
+async function markOrderGranted(db, { outTradeNo, now, membershipGrant }) {
+  const updates = { grantedAt: now, updatedAt: now }
+  if (membershipGrant)
+    updates.membershipGrant = membershipGrant
   const result = await db
     .collection(ORDERS_COLLECTION)
     .where({ outTradeNo })
-    .update({ grantedAt: now, updatedAt: now })
+    .update(updates)
   const updated = result?.updated ?? result?.modifiedCount ?? 0
   return { updated }
 }
@@ -153,7 +157,7 @@ async function markOrderGranted(db, { outTradeNo, now }) {
  * @param {string} input.cycle 'month' | 'year'
  * @param {number} input.now
  * @param {string} input.outTradeNo 用于日志
- * @returns {Promise<{ planId: string, cycle: string, expireAt: number }>}
+ * @returns {Promise<{ planId: string, cycle: string, expireAt: number, billingAnchorDay: number, billingAnchorIsMonthEnd: boolean }>}
  */
 async function activateMembership(db, { userId, planId, cycle, now, outTradeNo }) {
   if (!userId)
@@ -170,6 +174,13 @@ async function activateMembership(db, { userId, planId, cycle, now, outTradeNo }
     // 幂等：本订单已开通过（lastOrderId 命中）→ 直接返回，避免补偿/重试重复续期。
     // 与云币发放的 refId 幂等对齐，使「paid 但未发放」的补发、回调重放都能安全重入。
     if (existing && outTradeNo && existing.lastOrderId === outTradeNo) {
+      const anchor = Number.isFinite(existing.expireAt)
+        ? resolveBillingAnchor({
+            billingAnchorDay: existing.billingAnchorDay,
+            billingAnchorIsMonthEnd: existing.billingAnchorIsMonthEnd,
+            base: existing.expireAt,
+          })
+        : {}
       if (existing._id !== userId) {
         try {
           await createCanonicalMembership(db, userId, {
@@ -177,6 +188,7 @@ async function activateMembership(db, { userId, planId, cycle, now, outTradeNo }
             planId: existing.planId || planId,
             activeCycle: existing.activeCycle || cycle,
             expireAt: existing.expireAt,
+            ...anchor,
             lastOrderId: outTradeNo,
             updatedAt: existing.updatedAt || now,
           }, existing, now)
@@ -190,19 +202,38 @@ async function activateMembership(db, { userId, planId, cycle, now, outTradeNo }
         planId: existing.planId || planId,
         cycle: existing.activeCycle || cycle,
         expireAt: existing.expireAt,
+        ...anchor,
       }
     }
 
-    const newExpireAt = computeNewExpireAt({
+    const period = computeNewMembershipPeriod({
       current: existing?.expireAt,
       cycle,
       now,
+      billingAnchorDay: existing?.billingAnchorDay,
+      billingAnchorIsMonthEnd: existing?.billingAnchorIsMonthEnd,
     })
+    const { expireAt: newExpireAt, billingAnchorDay, billingAnchorIsMonthEnd } = period
+    const membershipBefore = existing
+      ? {
+          expireAt: Number.isFinite(existing.expireAt) ? existing.expireAt : null,
+          billingAnchorDay: Number.isInteger(existing.billingAnchorDay) ? existing.billingAnchorDay : null,
+          billingAnchorIsMonthEnd: typeof existing.billingAnchorIsMonthEnd === 'boolean'
+            ? existing.billingAnchorIsMonthEnd
+            : null,
+          activeCycle: existing.activeCycle || null,
+          planId: existing.planId || null,
+          level: existing.level || null,
+          lastOrderId: existing.lastOrderId || null,
+        }
+      : null
     const payload = {
       userId,
       planId,
       activeCycle: cycle,
       expireAt: newExpireAt,
+      billingAnchorDay,
+      billingAnchorIsMonthEnd,
       lastOrderId: outTradeNo,
       updatedAt: now,
     }
@@ -211,7 +242,14 @@ async function activateMembership(db, { userId, planId, cycle, now, outTradeNo }
       if (existing._id !== userId) {
         try {
           await createCanonicalMembership(db, userId, payload, existing, now)
-          return { planId, cycle, expireAt: newExpireAt }
+          return {
+            planId,
+            cycle,
+            expireAt: newExpireAt,
+            billingAnchorDay,
+            billingAnchorIsMonthEnd,
+            membershipBefore,
+          }
         }
         catch (err) {
           // 规范文档可能刚被并发请求创建，重读后走规范 update 分支
@@ -226,8 +264,16 @@ async function activateMembership(db, { userId, planId, cycle, now, outTradeNo }
         .where({ _id: userId, expireAt: existing.expireAt })
         .update(payload)
       const updated = result?.updated ?? result?.modifiedCount ?? 0
-      if (updated > 0)
-        return { planId, cycle, expireAt: newExpireAt }
+      if (updated > 0) {
+        return {
+          planId,
+          cycle,
+          expireAt: newExpireAt,
+          billingAnchorDay,
+          billingAnchorIsMonthEnd,
+          membershipBefore,
+        }
+      }
       // 被并发改写，重读重试
       continue
     }
@@ -236,7 +282,14 @@ async function activateMembership(db, { userId, planId, cycle, now, outTradeNo }
       await db
         .collection(MEMBERSHIPS_COLLECTION)
         .add({ _id: userId, ...payload, createdAt: now })
-      return { planId, cycle, expireAt: newExpireAt }
+      return {
+        planId,
+        cycle,
+        expireAt: newExpireAt,
+        billingAnchorDay,
+        billingAnchorIsMonthEnd,
+        membershipBefore,
+      }
     }
     catch (err) {
       // 并发 insert 撞唯一索引：重读后走 update 分支
@@ -257,10 +310,11 @@ async function activateMembership(db, { userId, planId, cycle, now, outTradeNo }
  * @param {object} input
  * @param {object} input.order 已 paid 的订单文档
  * @param {number} input.now
+ * @param {number} [input.entitlementAt] 权益周期起算依据；IAP 会员缺省为渠道购买时间，其他为 now
  * @returns {Promise<object>} 发放结果（会员到期信息或云币余额）
  * @throws orderType 未知或发放失败
  */
-async function grantOrderEntitlement(db, { order, now }) {
+async function grantOrderEntitlement(db, { order, now, entitlementAt }) {
   // 幂等：订单已发放过（grantedAt 命中）→ 跳过。与底层发放幂等（会员 lastOrderId /
   // 云币 refId）构成双保险，让回调重放、对账补发都能安全重入。
   if (order.grantedAt)
@@ -268,17 +322,39 @@ async function grantOrderEntitlement(db, { order, now }) {
 
   // 兼容历史订单：无 orderType 视为会员订单
   const orderType = order.orderType || 'membership'
+  const resolvedEntitlementAt = Number.isFinite(entitlementAt)
+    ? entitlementAt
+    : orderType === 'membership' && order.payType === 'iap' && Number.isFinite(order.providerPurchasedAt)
+      ? order.providerPurchasedAt
+      : now
 
   let result
+  let membershipGrant = null
   if (orderType === 'membership') {
-    result = await activateMembership(db, {
+    const activation = await activateMembership(db, {
       userId: order.userId,
       // 兼容 level（新）与 planId（旧）
       planId: order.level || order.planId,
       cycle: order.billingCycle,
-      now,
+      now: resolvedEntitlementAt,
       outTradeNo: order.outTradeNo,
     })
+    const { membershipBefore, ...publicResult } = activation
+    result = publicResult
+    // lastOrderId 幂等命中代表权益已在更早的调用中发放，此时无法可靠重建购买前状态。
+    // 不伪造退款快照；若后续退款，安全策略会保留当前会员并转人工复核。
+    if (membershipBefore !== undefined) {
+      membershipGrant = {
+        expireBefore: membershipBefore?.expireAt ?? null,
+        expireAfter: activation.expireAt,
+        billingAnchorDayBefore: membershipBefore?.billingAnchorDay ?? null,
+        billingAnchorIsMonthEndBefore: membershipBefore?.billingAnchorIsMonthEnd ?? null,
+        activeCycleBefore: membershipBefore?.activeCycle ?? null,
+        planIdBefore: membershipBefore?.planId ?? null,
+        levelBefore: membershipBefore?.level ?? null,
+        lastOrderIdBefore: membershipBefore?.lastOrderId ?? null,
+      }
+    }
   }
   else if (orderType === 'recharge_coin') {
     if (!Number.isInteger(order.coinAmount) || order.coinAmount <= 0)
@@ -300,7 +376,7 @@ async function grantOrderEntitlement(db, { order, now }) {
   // 发放成功 → 回写 grantedAt，供自愈对账跳过已发放订单。
   // 回写失败不抛错：底层发放幂等，下次重入不会重复发放。
   try {
-    await markOrderGranted(db, { outTradeNo: order.outTradeNo, now })
+    await markOrderGranted(db, { outTradeNo: order.outTradeNo, now, membershipGrant })
   }
   catch (err) {
     console.error('[orders] grantedAt 回写失败（权益已发放，不影响）:', order.outTradeNo, err.message)

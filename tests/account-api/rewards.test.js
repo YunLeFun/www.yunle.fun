@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { handleAdminGrantReward } from '../../cloudfunctions/account-api/internal.js'
-import { MEMBERSHIPS_COLLECTION } from '../../cloudfunctions/account-api/lib/orders.js'
+import { activateMembership, MEMBERSHIPS_COLLECTION } from '../../cloudfunctions/account-api/lib/orders.js'
 import { COIN_TX_COLLECTION, deductCoin, WALLET_COLLECTION } from '../../cloudfunctions/account-api/lib/wallet.js'
 import { listNotifications, USER_NOTIFICATIONS_COLLECTION } from '../../cloudfunctions/account-api/notifications.js'
 import { USER_PROFILES_COLLECTION } from '../../cloudfunctions/account-api/profiles.js'
@@ -111,6 +111,47 @@ describe('账户奖励发放', () => {
     expect(second.membership.expireAfter).toBe(NOW + 70 * day)
     expect(db._store[MEMBERSHIPS_COLLECTION][0].expireAt).toBe(NOW + 70 * day)
     expect(db._store[MEMBERSHIP_ENTITLEMENT_TRANSACTIONS_COLLECTION]).toHaveLength(2)
+  })
+
+  it('固定天数奖励后，下一次月付从奖励后的实际到期日顺延', async () => {
+    const purchaseAt = Date.parse('2026-01-15T10:00:00+08:00')
+    const expireBefore = Date.parse('2026-02-15T10:00:00+08:00')
+    const expireAfterReward = Date.parse('2026-03-17T10:00:00+08:00')
+    const expireAfterRenewal = Date.parse('2026-04-17T10:00:00+08:00')
+    const db = realUserDb({
+      [MEMBERSHIPS_COLLECTION]: [{
+        _id: 'u1',
+        userId: 'u1',
+        level: 'basic',
+        activeCycle: 'month',
+        expireAt: expireBefore,
+        billingAnchorDay: 15,
+        billingAnchorIsMonthEnd: false,
+        createdAt: purchaseAt,
+        updatedAt: purchaseAt,
+      }],
+    })
+
+    await grantReward(db, rewardInput({
+      coinAmount: 0,
+      membershipDays: 30,
+      now: purchaseAt + 1,
+    }))
+    const afterReward = db._store[MEMBERSHIPS_COLLECTION][0]
+    expect(afterReward).toMatchObject({
+      expireAt: expireAfterReward,
+      billingAnchorDay: 17,
+      billingAnchorIsMonthEnd: false,
+    })
+
+    const renewed = await activateMembership(db, {
+      userId: 'u1',
+      planId: 'basic',
+      cycle: 'month',
+      now: purchaseAt + 2,
+      outTradeNo: 'YLF-AFTER-REWARD',
+    })
+    expect(renewed.expireAt).toBe(expireAfterRenewal)
   })
 
   it('拒绝非固定奖励额度、受管测试身份和已注销账户', async () => {

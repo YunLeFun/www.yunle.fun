@@ -122,6 +122,10 @@ function handleClose() {
                 </span>
               </div>
             </div>
+            <div class="flex items-center justify-between">
+              <span class="text-muted">有效期</span>
+              <span class="text-sm">{{ isYearly ? '按自然年顺延' : '按自然月顺延' }}</span>
+            </div>
             <USeparator />
             <div class="flex items-center justify-between">
               <span class="text-muted">支付金额</span>

@@ -37,3 +37,16 @@ describe('content 会员价与 PLAN_PRICES 同步', () => {
     })
   }
 })
+
+describe('会员购买文案与非自动续订模式一致', () => {
+  const content = readFileSync(resolve(ROOT, 'content/2.pricing.yml'), 'utf8')
+  const page = readFileSync(resolve(ROOT, 'app/pages/pricing.vue'), 'utf8')
+
+  it('明确单次购买且不会自动续费', () => {
+    expect(content).toMatch(/不会自动续费/)
+    expect(content).not.toMatch(/如何取消订阅/)
+    expect(page).toMatch(/单次购买/)
+    expect(page).toMatch(/立即购买/)
+    expect(page).not.toMatch(/随时可取消|立即订阅/)
+  })
+})
