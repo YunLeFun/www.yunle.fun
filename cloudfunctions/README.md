@@ -6,22 +6,24 @@
 
 ## 云函数列表
 
-| 云函数                     | 用途                                                                                                     | 调用方式               | 超时 |
-| -------------------------- | -------------------------------------------------------------------------------------------------------- | ---------------------- | ---- |
-| `wxpay-order`              | 创建支付订单（会员 / 云币充值）+ 查询订单 + 对账自愈                                                     | SDK `callFunction`     | 30s  |
-| `wxpay-notify`             | 接收微信支付异步回调通知                                                                                 | HTTP 访问服务          | 10s  |
-| `account-api`              | 平台账户中心：账户 / 云币 / 会员 / 奖励 / 签到 / 投币 / 关注·粉丝                                        | SDK `callFunction`     | 10s  |
-| `user-storage-api`         | 通用用户云空间：共享 quota / 上传预留 / 确认 / 文件索引 / 下载 / 删除 / app-kind policy                  | SDK `callFunction`     | 10s  |
-| `ai-gateway`               | 通用「登录计费 + 受控 AI 生成」网关：验登录 + 按 `appId` 服务端计价 + 管理员身份调 AI + `bizId` 幂等扣费 | 登录态 `/v1/functions` | 30s  |
-| `iap-order`                | Apple 内购（IAP）凭据校验 + 权益发放                                                                     | SDK `callFunction`     | 30s  |
-| `appstore-notify`          | 接收 App Store Server Notifications V2（退款 / 撤销自动处理）                                            | HTTP 访问服务          | 30s  |
-| `desktop-auth`             | 桌面 / 本地应用登录授权（设备授权码 + Ed25519 离线 entitlement）                                         | SDK + HTTP 双入口      | 10s  |
-| `shortlink-resolve`        | 短链只读解析：按 `(domain, slug)` 读 `short_links` 返回跳转目标，供 EdgeOne 跳转函数回源                 | HTTP 访问服务          | 10s  |
-| `shortlink-stat`           | 短链点击统计：接收 EdgeOne 跳转函数上报，分片 CAS 累加到 `shortlink_stats`；admin 经 SDK 读              | HTTP（写）+ SDK（读）  | 10s  |
-| `sso-ticket`               | 签发/消费绑定 origin+nonce 的一次性 SSO 授权码，并在同源 HTTPS 响应中铸 CloudBase ticket                 | SDK + HTTP 双入口      | 10s  |
-| `sso-security-sweeper`     | 清理过期 SSO 授权码审计记录与持久化限流窗口；不持有签票私钥                                              | timer，禁止直接调用    | 30s  |
-| `session-security-sweeper` | 将到期的 Drive/CMS opaque session 置为 expired，并清理超过 90 天的终态记录                               | timer，禁止直接调用    | 30s  |
-| `github-api`               | 多用户 GitHub App 仓库连接 / 列举 / 校验（含私有仓库），短期 installation token 不落库                   | SDK + HTTP 双入口      | 10s  |
+| 云函数                       | 用途                                                                                                     | 调用方式               | 超时 |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------- | ---------------------- | ---- |
+| `wxpay-order`                | 创建支付订单（会员 / 云币充值）+ 查询订单 + 对账自愈                                                     | SDK `callFunction`     | 30s  |
+| `wxpay-notify`               | 接收微信支付异步回调通知                                                                                 | HTTP 访问服务          | 10s  |
+| `account-api`                | 平台账户中心：账户 / 云币 / 会员 / 奖励 / 签到 / 投币 / 关注·粉丝 / 注销冷静期                           | SDK `callFunction`     | 10s  |
+| `account-deletion-sweeper`   | 每小时完成已满 30 天冷静期的业务清理并删除 CloudBase Auth 身份                                           | 定时触发（私有）       | 30s  |
+| `account-lifecycle-notifier` | 每 5 分钟发送注销申请、提醒、完成、延迟及运维事务邮件                                                    | 定时触发（私有）       | 30s  |
+| `user-storage-api`           | 通用用户云空间：共享 quota / 上传预留 / 确认 / 文件索引 / 下载 / 删除 / app-kind policy                  | SDK `callFunction`     | 10s  |
+| `ai-gateway`                 | 通用「登录计费 + 受控 AI 生成」网关：验登录 + 按 `appId` 服务端计价 + 管理员身份调 AI + `bizId` 幂等扣费 | 登录态 `/v1/functions` | 30s  |
+| `iap-order`                  | Apple 内购（IAP）凭据校验 + 权益发放                                                                     | SDK `callFunction`     | 30s  |
+| `appstore-notify`            | 接收 App Store Server Notifications V2（退款 / 撤销自动处理）                                            | HTTP 访问服务          | 30s  |
+| `desktop-auth`               | 桌面 / 本地应用登录授权（设备授权码 + Ed25519 离线 entitlement）                                         | SDK + HTTP 双入口      | 10s  |
+| `shortlink-resolve`          | 短链只读解析：按 `(domain, slug)` 读 `short_links` 返回跳转目标，供 EdgeOne 跳转函数回源                 | HTTP 访问服务          | 10s  |
+| `shortlink-stat`             | 短链点击统计：接收 EdgeOne 跳转函数上报，分片 CAS 累加到 `shortlink_stats`；admin 经 SDK 读              | HTTP（写）+ SDK（读）  | 10s  |
+| `sso-ticket`                 | 签发/消费绑定 origin+nonce 的一次性 SSO 授权码，并在同源 HTTPS 响应中铸 CloudBase ticket                 | SDK + HTTP 双入口      | 10s  |
+| `sso-security-sweeper`       | 清理过期 SSO 授权码审计记录与持久化限流窗口；不持有签票私钥                                              | timer，禁止直接调用    | 30s  |
+| `session-security-sweeper`   | 将到期的 Drive/CMS opaque session 置为 expired，并清理超过 90 天的终态记录                               | timer，禁止直接调用    | 30s  |
+| `github-api`                 | 多用户 GitHub App 仓库连接 / 列举 / 校验（含私有仓库），短期 installation token 不落库                   | SDK + HTTP 双入口      | 10s  |
 
 > 云币 + 跨应用会员的整体设计见 [`docs/coin-and-membership.md`](../docs/coin-and-membership.md)。
 > 其中 5 个支付 / 账户函数共享同一份 `lib/`：权威源在 `cloudfunctions/wxpay-order/lib`，`pnpm sync:wxpay-lib` 同步到
@@ -58,9 +60,31 @@
 
 ### account-api 环境变量
 
-| 变量名                       | 说明                                                                                                                                                                  | 获取方式                         |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| `ACCOUNT_API_INTERNAL_TOKEN` | 内部服务调用 `deductCoinForUser` / `adminAdjustCoin` / `adminGrantReward` / `adminCorrectReward` 时校验用的共享密钥；调用方（其它云函数、admin 后台）需配置同一个值。 | 使用随机长字符串，勿暴露给前端。 |
+| 变量名                       | 说明                                                                                                                                                                                              | 获取方式                         |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| `ACCOUNT_API_INTERNAL_TOKEN` | 内部服务调用 `deductCoinForUser` / `adminAdjustCoin` / `adminGrantReward` / `adminCorrectReward` / `finalizeAccountDeletion` 时校验用的共享密钥；调用方（其它云函数、admin 后台）需配置同一个值。 | 使用随机长字符串，勿暴露给前端。 |
+
+### account-deletion-sweeper 环境变量与权限
+
+| 变量名                       | 说明                                                                                      | 获取方式                                        |
+| ---------------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `ACCOUNT_API_INTERNAL_TOKEN` | 到期后转调 `account-api.finalizeAccountDeletion`，必须与 `account-api` 配置完全相同的值。 | 复用 `account-api` 的随机长字符串，不生成新值。 |
+
+### account-lifecycle-notifier 环境变量与权限
+
+| 变量名                         | 说明                                                                      |
+| ------------------------------ | ------------------------------------------------------------------------- |
+| `CLOUDFLARE_EMAIL_ACCOUNT_ID`  | 云乐坊所在 Cloudflare Account ID。                                        |
+| `CLOUDFLARE_EMAIL_API_TOKEN`   | 只授予 Email Sending 所需权限的专用 API Token；不得复用前端或提交到 Git。 |
+| `ACCOUNT_LIFECYCLE_FROM_EMAIL` | 发件地址，生产默认 `noreply@yunle.fun`。                                  |
+| `ACCOUNT_LIFECYCLE_FROM_NAME`  | 发件人名称，生产默认“云乐坊”。                                            |
+| `ACCOUNT_LIFECYCLE_REPLY_TO`   | 回复地址，生产默认 `kf@yunle.fun`。                                       |
+| `ACCOUNT_LIFECYCLE_OPS_EMAIL`  | 清理连续失败后的内部运维告警收件地址。                                    |
+
+该函数必须禁止客户端直接调用。发送失败不会阻断注销状态机；网络、429 和 5xx 最多自动尝试 3 次。
+
+定时函数使用 SCF 运行身份的临时密钥调用 CloudBase Manager User API。运行身份必须具备当前环境的
+`DescribeUserList`、`ModifyUser`、`DeleteUsers` 权限；函数本身 `aclRule.invoke=false`，只能由每小时定时器触发。
 
 ### ai-gateway 环境变量
 
@@ -517,7 +541,7 @@ IAP 会员退款只在发放快照与当前最后一笔订单一致时回滚该�
 
 admin owner 通过私有服务令牌调用 `account-api`：
 
-- `adminGrantReward`：按稳定 `grantId` 发放固定的 100 云币和/或 30 天会员；会员从 `max(当前时间, 当前到期时间)` 顺延，不覆盖已有付费时长。
+- `adminGrantReward`：按稳定 `grantId` 发放固定档位的 100 / 1000 云币和/或 30 / 90 / 365 天会员；会员从 `max(当前时间, 当前到期时间)` 顺延，不覆盖已有付费时长。
 - `adminCorrectReward`：创建不可变的关联纠正记录；云币余额不允许为负，无法追回的部分记为差额；会员仅在当前到期时间仍与原奖励结果完全一致时自动纠正，否则返回 `manual_review_required`。
 - `listRewardHistory`：登录用户查询自己的友好奖励名称、到账内容和到账时间，不返回 operator、内部原因或审批信息。
 
@@ -631,7 +655,11 @@ admin 自身另使用 `reward_campaigns` 和 `reward_grant_items` 保存批次�
 
 ```text
 // user_profiles（一个用户一条，_id = uid）
-{ _id, login, nickname, avatar, description, followersCount, followingCount, version, createdAt, updatedAt }
+{
+  _id, login, nickname, avatar, description, followersCount, followingCount,
+  deletionStatus?, deletionRequestedAt?, deletionScheduledAt?, deletedAt?, authDeletedAt?,
+  version, createdAt, updatedAt
+}
 
 // user_follows（一条关注关系）
 { followerId, followingId, createdAt }
@@ -639,6 +667,19 @@ admin 自身另使用 `reward_campaigns` 和 `reward_grant_items` 保存批次�
 
 安全规则：两者均 **ADMINONLY**（仅云函数读写）。关注 / 取关、资料同步、关系与资料读取都经 `account-api`，
 前端不直读这两个集合（公开主页的资料与关系也走云函数返回），无需放开客户端读权限。
+
+账号注销采用 30 天冷静期：申请只写 `pending` 状态，期间账号业务能力立即冻结，但可在精确截止时间前明确撤回；到期任务先封禁 Auth 用户，
+再清除公开资料、关注、通知、GitHub App 安装映射、桌面设备 / SSO 授权码等核心身份派生数据，最后硬删
+CloudBase Auth 用户以释放用户名、手机、邮箱和第三方登录绑定。订单、钱包、云币流水等对账数据继续依法留存。
+定时任务按现有 `_id` 索引分页扫描，不要求为 `deletionScheduledAt` 先行新增生产索引；旧版只有 `deletedAt`
+而没有新状态字段的半注销记录返回 `attention_required`，必须人工核对，不会被任务自动硬删。
+
+以下集合均承载账号限制、审计或临时联系方式，必须设为 **ADMINONLY**，禁止浏览器直接读写：
+
+- `account_restrictions`：当前业务封禁状态与用户可见原因；
+- `account_restriction_audit`：封禁、解封和自动到期的不可变审计；
+- `account_lifecycle_notifications`：确定性、可重试的事务邮件任务；
+- `account_lifecycle_contacts`：仅在注销流程内缓存认证邮箱，撤回或完成后删除。
 
 ### 通知：`user_notifications`（需新建）
 

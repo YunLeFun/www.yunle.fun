@@ -30,7 +30,10 @@
  *   - backfillDefaultNicknames 运维回填存量空/手机号昵称为「云游者_xxxx」（需 ACCOUNT_API_INTERNAL_TOKEN，幂等/分批/dryRun）
  *   - listTransactions  云币流水分页（需登录）
  *   - listOrders        我的订单历史分页（需登录，会员 / 云币充值订单）
- *   - requestAccountDeletion 软注销：脱敏资料 / 解除关注 / 删通知 + 标记 deletedAt（需登录，保留财务记录）
+ *   - requestAccountDeletion 申请注销并进入 30 天冷静期（需登录）
+ *   - getAccountDeletionStatus 查询冷静期 / 清理状态（需登录）
+ *   - cancelAccountDeletion 冷静期内撤回注销（需登录）
+ *   - finalizeAccountDeletion 到期清理业务资料（需 ACCOUNT_API_INTERNAL_TOKEN）
  *   - uploadAvatar      后端受控上传头像到 CloudBase Storage（需登录，限制 2 MiB）
  *
  * 主入口只做"参数解析 + 鉴权 + 路由"，纯逻辑委托给 lib/（与 wxpay-order 共享同一份 lib）。
@@ -43,7 +46,13 @@
 const cloudbase = require('@cloudbase/node-sdk')
 
 const { getAccountSnapshot, readMembership } = require('./account')
-const { requestAccountDeletion } = require('./account-deletion')
+const {
+  cancelAccountDeletion,
+  finalizeAccountDeletion,
+  getAccountDeletionStatus,
+  requestAccountDeletion,
+} = require('./account-deletion')
+const { dispatchAuthenticatedAction } = require('./account-routing')
 const { uploadAvatar } = require('./avatars')
 const { getFollowingFeed } = require('./feed')
 const { followUser, getRelation, listFollowers, listFollowing, unfollowUser } = require('./follows')
@@ -51,9 +60,13 @@ const {
   assertInternalServiceToken,
   assertUserId,
   handleAdminAdjustCoin,
+  handleAdminBanAccount,
   handleAdminCorrectReward,
   handleAdminGrantReward,
+  handleAdminUnbanAccount,
   handleDeductCoinForUser,
+  handleExpireAccountRestrictions,
+  handleGetAccountAccessForUser,
   handleGetAccountForUser,
 } = require('./internal')
 const { assertDeductCoinInput } = require('./lib/validation')
@@ -154,8 +167,16 @@ async function dispatch(event) {
       return await handleDeductCoinForUser(db, event)
     case 'getAccountForUser':
       return await handleGetAccountForUser(db, event)
+    case 'getAccountAccessForUser':
+      return await handleGetAccountAccessForUser(db, event)
     case 'adminAdjustCoin':
       return await handleAdminAdjustCoin(db, event)
+    case 'adminBanAccount':
+      return await handleAdminBanAccount(db, event)
+    case 'adminUnbanAccount':
+      return await handleAdminUnbanAccount(db, event)
+    case 'expireAccountRestrictions':
+      return await handleExpireAccountRestrictions(db, event)
     case 'adminGrantReward':
       return await handleAdminGrantReward(db, event)
     case 'adminCorrectReward':
@@ -164,6 +185,9 @@ async function dispatch(event) {
       // 运维一次性回填存量空 / 手机号昵称为「云游者_xxxx」，复用内部服务令牌鉴权
       assertInternalServiceToken(event?.serviceToken)
       return await backfillDefaultNicknames(db, { cursor: event.cursor, limit: event.limit, dryRun: event.dryRun, now: Date.now() })
+    case 'finalizeAccountDeletion':
+      assertInternalServiceToken(event?.serviceToken)
+      return await finalizeAccountDeletion(db, { userId: event.userId, now: Date.now() })
       // 公开只读：应用支持榜 / 单应用支持详情（支持详情用可选 uid 标记 tippedByMe）
     case 'getTipLeaderboard':
       return await getTipLeaderboard(db, { limit: event.limit })
@@ -185,6 +209,9 @@ async function dispatch(event) {
     case 'listRewardHistory':
     case 'listOrders':
     case 'requestAccountDeletion':
+    case 'getAccountAccessStatus':
+    case 'getAccountDeletionStatus':
+    case 'cancelAccountDeletion':
     case 'uploadAvatar':
     case 'signIn':
     case 'getSignInStatus':
@@ -201,48 +228,37 @@ async function dispatch(event) {
       if (!uid)
         throw new Error('请先登录')
       await guardSyntheticSessionAction(db, uid, action)
-      switch (action) {
-        case 'getAccount':
-          return await handleGetAccount(uid)
-        case 'getMembership':
-          return await handleGetMembership(uid)
-        case 'deductCoin':
-          return await handleDeductCoin(uid, event)
-        case 'listTransactions':
-          return await handleListTransactions(uid, event)
-        case 'listRewardHistory':
-          return await listRewardHistory(db, { userId: uid, skip: event.skip, limit: event.limit })
-        case 'listOrders':
-          return await listUserOrders(db, { userId: uid, skip: event.skip, limit: event.limit })
-        case 'requestAccountDeletion':
-          return await requestAccountDeletion(db, { userId: uid, now: Date.now() })
-        case 'uploadAvatar':
-          return await uploadAvatar(app, { userId: uid, avatar: event.avatar, now: Date.now() })
-        case 'signIn':
-          return await signIn(db, { userId: uid, now: Date.now() })
-        case 'getSignInStatus':
-          return await getSignInStatus(db, { userId: uid, now: Date.now() })
-        case 'getSignInHistory':
-          return await getSignInHistory(db, { userId: uid, now: Date.now() })
-        case 'tip':
-          return await tip(db, { userId: uid, appId: event.appId, now: Date.now() })
-        case 'followUser':
-          return await followUser(db, { followerId: uid, followingId: event.targetId, now: Date.now() })
-        case 'unfollowUser':
-          return await unfollowUser(db, { followerId: uid, followingId: event.targetId, now: Date.now() })
-        case 'upsertMyProfile':
-          return await upsertMyProfile(db, { userId: uid, profile: event.profile, now: Date.now() })
-        case 'getFollowingFeed':
-          return await getFollowingFeed(db, { userId: uid, skip: event.skip, limit: event.limit })
-        case 'getUnreadCount':
-          return await getUnreadCount(db, { userId: uid })
-        case 'listNotifications':
-          return await listNotifications(db, { userId: uid, skip: event.skip, limit: event.limit })
-        case 'markNotificationsRead':
-          return await markRead(db, { userId: uid, ids: event.ids, now: Date.now() })
-      }
+      const now = Date.now()
+      return await dispatchAuthenticatedAction(db, {
+        userId: uid,
+        action,
+        now,
+        handlers: {
+          getAccount: () => handleGetAccount(uid),
+          getMembership: () => handleGetMembership(uid),
+          deductCoin: () => handleDeductCoin(uid, event),
+          listTransactions: () => handleListTransactions(uid, event),
+          listRewardHistory: () => listRewardHistory(db, { userId: uid, skip: event.skip, limit: event.limit }),
+          listOrders: () => listUserOrders(db, { userId: uid, skip: event.skip, limit: event.limit }),
+          requestAccountDeletion: () => requestAccountDeletion(db, { userId: uid, now }),
+          getAccountDeletionStatus: () => getAccountDeletionStatus(db, { userId: uid, now }),
+          cancelAccountDeletion: () => cancelAccountDeletion(db, { userId: uid, now }),
+          uploadAvatar: () => uploadAvatar(app, { userId: uid, avatar: event.avatar, now }),
+          signIn: () => signIn(db, { userId: uid, now }),
+          getSignInStatus: () => getSignInStatus(db, { userId: uid, now }),
+          getSignInHistory: () => getSignInHistory(db, { userId: uid, now }),
+          tip: () => tip(db, { userId: uid, appId: event.appId, now }),
+          followUser: () => followUser(db, { followerId: uid, followingId: event.targetId, now }),
+          unfollowUser: () => unfollowUser(db, { followerId: uid, followingId: event.targetId, now }),
+          upsertMyProfile: () => upsertMyProfile(db, { userId: uid, profile: event.profile, now }),
+          getFollowingFeed: () => getFollowingFeed(db, { userId: uid, skip: event.skip, limit: event.limit }),
+          getUnreadCount: () => getUnreadCount(db, { userId: uid }),
+          listNotifications: () => listNotifications(db, { userId: uid, skip: event.skip, limit: event.limit }),
+          markNotificationsRead: () => markRead(db, { userId: uid, ids: event.ids, now }),
+        },
+      })
     }
-    // eslint-disable-next-line no-fallthrough
+
     default:
       throw new Error(`未知 action: ${action}`)
   }
@@ -293,9 +309,13 @@ exports._private = {
   assertInternalServiceToken,
   assertUserId,
   handleAdminAdjustCoin,
+  handleAdminBanAccount,
   handleAdminCorrectReward,
   handleAdminGrantReward,
+  handleAdminUnbanAccount,
   handleDeductCoinForUser,
   handleSyntheticDeductCoinForUser,
   handleGetAccountForUser,
+  handleGetAccountAccessForUser,
+  handleExpireAccountRestrictions,
 }

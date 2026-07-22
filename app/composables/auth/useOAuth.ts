@@ -1,7 +1,7 @@
 /**
  * OAuth 登录和第三方身份绑定/解绑
  */
-import { getErrorMessage } from './types'
+import { getAuthErrorPresentation, getErrorMessage } from './types'
 
 export function useTcbOAuth(core: ReturnType<typeof import('./useAuthCore').useTcbAuthCore>) {
   const { auth, router, toast, loading, error, fetchUser } = core
@@ -25,14 +25,15 @@ export function useTcbOAuth(core: ReturnType<typeof import('./useAuthCore').useT
         options: { redirectTo: callbackUrl },
       })
       if (oauthError)
-        throw new Error(oauthError.message || 'OAuth 登录失败')
+        throw oauthError
       // SDK 会自动执行 window.location.assign 跳转到授权页面
     }
     catch (err: unknown) {
       console.error(`OAuth 登录失败 (${provider}):`, err)
       loading.value = false
-      error.value = getErrorMessage(err)
-      toast.add({ title: '登录失败', description: getErrorMessage(err) || '请稍后重试', color: 'error' })
+      const presentation = getAuthErrorPresentation(err)
+      error.value = presentation.description
+      toast.add({ title: presentation.title, description: presentation.description || '请稍后重试', color: 'error' })
       throw err
     }
   }

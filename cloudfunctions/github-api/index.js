@@ -12,7 +12,9 @@
  */
 'use strict'
 
+const process = require('node:process')
 const cloudbase = require('@cloudbase/node-sdk')
+const { assertActiveAccountForUid } = require('./account-access')
 
 const {
   exchangeUserToken,
@@ -26,6 +28,14 @@ const { deleteInstallation, getInstallation, upsertInstallation } = require('./l
 
 const app = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV })
 const db = app.database()
+const callAccountApi = data => app.callFunction({ name: 'account-api', data }).then(r => r.result)
+
+function assertActiveAccount(uid) {
+  return assertActiveAccountForUid(callAccountApi, {
+    serviceToken: process.env.ACCOUNT_API_INTERNAL_TOKEN || '',
+    userId: uid,
+  })
+}
 
 const ANON_UIDS = new Set(['', 'anon'])
 function getCallerUid() {
@@ -123,6 +133,7 @@ async function dispatch(event) {
   const uid = getCallerUid()
   if (!uid)
     throw new Error('请先登录')
+  await assertActiveAccount(uid)
   switch (event.action) {
     case 'getConnection':
       return getConnection(uid)
@@ -150,6 +161,7 @@ async function handleInstallCallback(query) {
 
   const { stateSecret } = loadRuntime()
   const { uid, origin } = verifyState({ state, secret: stateSecret })
+  await assertActiveAccount(uid)
 
   // 用 user token 校验该 installation 确属本次授权用户，
   // 防止有人用自己的 state + 他人的 installation_id 冒领他人安装。

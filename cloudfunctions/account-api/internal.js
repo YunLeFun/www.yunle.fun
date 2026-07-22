@@ -5,6 +5,8 @@ const crypto = require('node:crypto')
 const process = require('node:process')
 
 const { getAccountSnapshot } = require('./account')
+const { assertAccountActionAllowed, getAccountAccess } = require('./account-access')
+const { banAccount, expireAccountRestrictions, unbanAccount } = require('./account-restrictions')
 const { assertAppId, assertDeductCoinInput } = require('./lib/validation')
 const { creditCoin, deductCoin } = require('./lib/wallet')
 const { correctReward, grantReward } = require('./rewards')
@@ -47,6 +49,11 @@ function assertUserId(userId) {
 async function handleDeductCoinForUser(targetDb, event, options = {}) {
   assertInternalServiceToken(event?.serviceToken, options.expectedToken)
   const userId = assertUserId(event?.userId)
+  await assertAccountActionAllowed(targetDb, {
+    userId,
+    action: 'deductCoinForUser',
+    now: options.now || Date.now(),
+  })
   const classification = await classifyAccountIdentity(targetDb, userId)
   if (classification.synthetic) {
     throw new SyntheticAccountError(
@@ -66,6 +73,13 @@ async function handleDeductCoinForUser(targetDb, event, options = {}) {
     now: options.now || Date.now(),
   })
   return { balance, deduped: !!deduped }
+}
+
+/** 内部服务读取账号访问状态；响应只含允许向账号本人公开的字段。 */
+async function handleGetAccountAccessForUser(targetDb, event, options = {}) {
+  assertInternalServiceToken(event?.serviceToken, options.expectedToken)
+  const userId = assertUserId(event?.userId)
+  return getAccountAccess(targetDb, { userId, now: options.now || Date.now() })
 }
 
 /**
@@ -93,6 +107,24 @@ async function handleAdminGrantReward(targetDb, event, options = {}) {
 async function handleAdminCorrectReward(targetDb, event, options = {}) {
   assertInternalServiceToken(event?.serviceToken, options.expectedToken)
   return correctReward(targetDb, { ...event, now: options.now ?? Date.now() })
+}
+
+async function handleAdminBanAccount(targetDb, event, options = {}) {
+  assertInternalServiceToken(event?.serviceToken, options.expectedToken)
+  return banAccount(targetDb, { ...event, now: options.now ?? Date.now() })
+}
+
+async function handleAdminUnbanAccount(targetDb, event, options = {}) {
+  assertInternalServiceToken(event?.serviceToken, options.expectedToken)
+  return unbanAccount(targetDb, { ...event, now: options.now ?? Date.now() })
+}
+
+async function handleExpireAccountRestrictions(targetDb, event, options = {}) {
+  assertInternalServiceToken(event?.serviceToken, options.expectedToken)
+  return expireAccountRestrictions(targetDb, {
+    now: options.now ?? Date.now(),
+    limit: event?.limit,
+  })
 }
 
 /**
@@ -251,9 +283,13 @@ module.exports = {
   assertUserId,
   assertAdminAdjustInput,
   handleDeductCoinForUser,
+  handleGetAccountAccessForUser,
   handleGetAccountForUser,
   handleAdminAdjustCoin,
+  handleAdminBanAccount,
   handleAdminCorrectReward,
   handleAdminGrantReward,
+  handleAdminUnbanAccount,
+  handleExpireAccountRestrictions,
   assertSyntheticReset,
 }

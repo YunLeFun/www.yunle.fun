@@ -32,6 +32,7 @@ const { Buffer } = require('node:buffer')
 const { createHash } = require('node:crypto')
 const process = require('node:process')
 const cloudbase = require('@cloudbase/node-sdk')
+const { assertActiveAccountForUid } = require('./account-access')
 const { isAnonUid, isValidTicketUid, normalizePrivateKey } = require('./mint')
 const { createSsoClientRegistry } = require('./sso-client-registry')
 const ssoClientRegistrySnapshot = require('./sso-client-registry.snapshot')
@@ -56,6 +57,14 @@ const contextApp = cloudbase.init({ env: ENV })
 const db = contextApp.database()
 const ssoCodeStore = createSsoCodeStore(db)
 const ssoRateLimiter = createSsoRateLimiter(db)
+const callAccountApi = data => contextApp.callFunction({ name: 'account-api', data }).then(r => r.result)
+
+function assertActiveAccount(uid) {
+  return assertActiveAccountForUid(callAccountApi, {
+    serviceToken: process.env.ACCOUNT_API_INTERNAL_TOKEN || '',
+    userId: uid,
+  })
+}
 
 // 签发票据用的 app（需自定义登录私钥）。惰性构建并缓存；未配置时缓存 null 以便优雅降级。
 let cachedSignAuth
@@ -182,6 +191,7 @@ async function mintLegacyCaller(clientAddress = 'unknown') {
   const uid = currentCallerUid()
   if (!isValidTicketUid(uid))
     return { ok: false, reason: 'not_authenticated' }
+  await assertActiveAccount(uid)
   const limits = securityLimits()
   await Promise.all([
     ssoRateLimiter.consume({ scope: 'legacy-user', key: uid, limit: limits.issuePerUser, windowMs: 60_000 }),
@@ -196,6 +206,7 @@ async function issueSsoCode(payload, clientAddress = 'unknown') {
   const uid = currentCallerUid()
   if (!isValidTicketUid(uid))
     return { ok: false, reason: 'not_authenticated' }
+  await assertActiveAccount(uid)
   const request = validateIssueRequest(payload, { ...ssoRequestOptions(), actorUid: uid })
   const limits = securityLimits()
   await Promise.all([
@@ -224,6 +235,7 @@ async function exchangeSsoCode(payload, requestOrigin, clientAddress = 'unknown'
     ssoRateLimiter.consume({ scope: 'exchange-origin', key: requestOrigin, limit: limits.exchangePerOrigin, windowMs: 60_000 }),
   ])
   const { uid } = await ssoCodeStore.consume(request)
+  await assertActiveAccount(uid)
   auditSecurity('sso_code_consumed', {
     subject: auditId(uid),
     clientId: request.clientId,
@@ -381,6 +393,10 @@ exports.main = async function main(event) {
       result = { ok: false, reason: error.reason }
       auditSecurity('sso_request_rejected', { reason: error.reason, origin: requestOrigin || undefined })
     }
+    else if (typeof error?.code === 'string' && error.code.startsWith('account_')) {
+      result = { ok: false, reason: error.code }
+      auditSecurity('sso_request_rejected', { reason: error.code, origin: requestOrigin || undefined })
+    }
     else {
       console.error('[sso-ticket] request failed:', error && error.message)
       result = { ok: false, reason: 'error' }
@@ -393,7 +409,7 @@ exports.main = async function main(event) {
       ? 200
       : ['invalid_request', 'client_required', 'subject_not_allowed', 'pkce_required'].includes(result.reason)
           ? 400
-          : ['client_unknown', 'client_disabled', 'origin_not_allowed', 'return_url_not_allowed', 'environment_mismatch', 'developer_required', 'client_binding_invalid', 'code_binding_invalid', 'pkce_invalid', 'forbidden'].includes(result.reason)
+          : ['client_unknown', 'client_disabled', 'origin_not_allowed', 'return_url_not_allowed', 'environment_mismatch', 'developer_required', 'client_binding_invalid', 'code_binding_invalid', 'pkce_invalid', 'forbidden', 'account_banned', 'account_deletion_pending', 'account_deletion_finalizing', 'account_access_unavailable'].includes(result.reason)
               ? 403
               : result.reason === 'rate_limited'
                 ? 429

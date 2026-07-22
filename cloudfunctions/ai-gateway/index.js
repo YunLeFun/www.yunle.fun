@@ -22,7 +22,7 @@
 const process = require('node:process')
 const cloudbase = require('@cloudbase/node-sdk')
 
-const { deductCoinForUid, deductSyntheticCoinForUid, getAccountForUid } = require('./lib/account-proxy')
+const { assertActiveAccountForUid, deductCoinForUid, deductSyntheticCoinForUid, getAccountForUid } = require('./lib/account-proxy')
 const { APP_REGISTRY, messageLimitsForApp } = require('./lib/app-registry')
 const { verifyAppRequest, verifyRateLimitRequest } = require('./lib/attestation')
 const {
@@ -128,6 +128,18 @@ async function handleChat(event) {
   }
 
   const uid = getCallerUid()
+  if (uid) {
+    try {
+      await assertActiveAccountForUid(callAccountApi, { serviceToken, userId: uid })
+    }
+    catch (error) {
+      return {
+        ok: false,
+        code: error.code || 'account_access_unavailable',
+        message: '账号当前不可使用 AI 服务。',
+      }
+    }
+  }
 
   if (appCfg.billing === 'daily_quota') {
     const signingSecret = process.env[appCfg.signingSecretEnv] || ''
@@ -333,6 +345,8 @@ function resultHttpStatus(result) {
   if (result?.code === 'unauthorized')
     return 401
   if (result?.code === 'forbidden' || result?.code?.includes('forbidden') || result?.code === 'lease_capability_invalid')
+    return 403
+  if (typeof result?.code === 'string' && result.code.startsWith('account_'))
     return 403
   if (result?.code === 'bad_request' || result?.code === 'unknown_app')
     return 400

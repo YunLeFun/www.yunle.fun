@@ -21,7 +21,7 @@ const crypto = require('node:crypto')
 const process = require('node:process')
 const cloudbase = require('@cloudbase/node-sdk')
 
-const { deductCoinForUid, getAccountForUid } = require('./lib/account-proxy')
+const { assertActiveAccountForUid, deductCoinForUid, getAccountForUid } = require('./lib/account-proxy')
 const { randomToken } = require('./lib/crypto')
 const {
   approveDevice,
@@ -128,6 +128,7 @@ function getCallerUid() {
 /** 拉最新账户快照并签发 entitlement（poll-approve 与 refresh 共用） */
 async function buildEntitlement({ uid, appId, deviceId, scope, now }) {
   const rt = loadRuntime()
+  await assertActiveAccountForUid(callAccountApi, { serviceToken: rt.internalToken, userId: uid })
   const account = await getAccountForUid(callAccountApi, { serviceToken: rt.internalToken, userId: uid })
   const entitlement = signEntitlement({
     privateKey: rt.privateKey,
@@ -168,6 +169,7 @@ async function handleGetAccount(event, now) {
   const payload = verifyEntitlement(event.entitlement, { publicKeys: rt.publicKeys, now })
   if (isAnonUid(payload.sub))
     throw new Error('该 entitlement 无账号，请登录后再用')
+  await assertActiveAccountForUid(callAccountApi, { serviceToken: rt.internalToken, userId: payload.sub })
   return getAccountForUid(callAccountApi, { serviceToken: rt.internalToken, userId: payload.sub })
 }
 
@@ -178,6 +180,7 @@ async function handleDeductCoin(event, now) {
     throw new Error('该 entitlement 无账号，请登录后再用')
   if (!Array.isArray(payload.scope) || !payload.scope.includes('coin'))
     throw new Error('entitlement 无 coin 权限')
+  await assertActiveAccountForUid(callAccountApi, { serviceToken: rt.internalToken, userId: payload.sub })
   const amount = assertAmount(event.amount)
   const bizId = assertBizId(event.bizId)
   return deductCoinForUid(callAccountApi, {
@@ -214,27 +217,38 @@ async function dispatch(event, now) {
 
     // ── 授权页 / 个人中心（SDK callFunction，需登录态）──
     case 'describeDevice': {
-      if (!getCallerUid())
+      const uid = getCallerUid()
+      if (!uid)
         throw new Error('请先登录')
+      await assertActiveAccountForUid(callAccountApi, { serviceToken: rt.internalToken, userId: uid })
       return describeDevice(db, event, { now })
     }
-    case 'approveDevice':
-      return approveDevice(db, { userCode: event.userCode, uid: getCallerUid() }, { now })
-    case 'denyDevice': {
-      if (!getCallerUid())
+    case 'approveDevice': {
+      const uid = getCallerUid()
+      if (!uid)
         throw new Error('请先登录')
+      await assertActiveAccountForUid(callAccountApi, { serviceToken: rt.internalToken, userId: uid })
+      return approveDevice(db, { userCode: event.userCode, uid }, { now })
+    }
+    case 'denyDevice': {
+      const uid = getCallerUid()
+      if (!uid)
+        throw new Error('请先登录')
+      await assertActiveAccountForUid(callAccountApi, { serviceToken: rt.internalToken, userId: uid })
       return denyDevice(db, event, { now })
     }
     case 'listDevices': {
       const uid = getCallerUid()
       if (!uid)
         throw new Error('请先登录')
+      await assertActiveAccountForUid(callAccountApi, { serviceToken: rt.internalToken, userId: uid })
       return { devices: await listDevices(db, { uid }) }
     }
     case 'revokeDevice': {
       const uid = getCallerUid()
       if (!uid)
         throw new Error('请先登录')
+      await assertActiveAccountForUid(callAccountApi, { serviceToken: rt.internalToken, userId: uid })
       return revokeDevice(db, { uid, appId: event.appId, deviceId: event.deviceId }, { now })
     }
     default:
@@ -254,6 +268,8 @@ function httpResponse(statusCode, obj) {
 }
 function statusForError(err) {
   const code = err && err.code
+  if (typeof code === 'string' && code.startsWith('account_'))
+    return 403
   if (code === 'revoked' || code === 'expired')
     return 401
   const msg = (err && err.message) || ''

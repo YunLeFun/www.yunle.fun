@@ -31,6 +31,21 @@ describe('upsertMyProfile', () => {
     expect(res).toMatchObject({ nickname: 'Alice 2', followersCount: 5 })
   })
 
+  it('已进入最终注销清理的资料不能被登录同步重新写活', async () => {
+    const db = makeFakeDb({
+      [USER_PROFILES_COLLECTION]: [
+        { _id: 'u1', login: null, nickname: '已注销用户', deletedAt: NOW, version: 1 },
+      ],
+    })
+
+    await expect(upsertMyProfile(db, {
+      userId: 'u1',
+      profile: { login: 'alice', nickname: 'Alice' },
+      now: NOW + 1,
+    })).rejects.toThrow(/已注销/)
+    expect(db._store[USER_PROFILES_COLLECTION][0]).toMatchObject({ login: null, nickname: '已注销用户' })
+  })
+
   it('会员更新公开资料后仍返回真实会员标记', async () => {
     const db = makeFakeDb({
       [USER_PROFILES_COLLECTION]: [

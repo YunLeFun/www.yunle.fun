@@ -130,3 +130,60 @@ export function getErrorMessage(err: unknown): string {
   }
   return ERROR_MESSAGE_MAP[raw] || raw
 }
+
+export interface AuthErrorPresentation {
+  title: string
+  description: string
+  code: string | null
+}
+
+function getErrorCode(err: unknown, message: string): string | null {
+  if (err && typeof err === 'object') {
+    const source = err as Record<string, unknown>
+    const code = source.code || source.error
+    if (typeof code === 'string' && code)
+      return code
+  }
+  if (/user_blocked|该用户被停用|用户被停用|账号.*停用/i.test(message))
+    return 'user_blocked'
+  return null
+}
+
+/** 登录入口统一使用的安全错误提示，不向用户暴露风控规则或内部异常。 */
+export function getAuthErrorPresentation(err: unknown): AuthErrorPresentation {
+  const message = getErrorMessage(err)
+  const code = getErrorCode(err, message)
+  if (code === 'user_blocked') {
+    return {
+      title: '账号已暂停登录',
+      description: '该账号当前已被封禁，无法继续登录。若你曾申请注销，系统可能正在完成账号清理；如有疑问，请联系客服。',
+      code,
+    }
+  }
+  if (code === 'account_deletion_pending') {
+    return {
+      title: '账号正在注销冷静期',
+      description: '请前往账号状态页，在截止时间前明确恢复账号后继续使用。',
+      code,
+    }
+  }
+  if (code === 'account_deletion_finalizing') {
+    return {
+      title: '账号正在完成注销',
+      description: '注销已超过可恢复截止时间，系统正在完成账号清理。',
+      code,
+    }
+  }
+  if (code === 'account_banned') {
+    return {
+      title: '账号已被封禁',
+      description: '请查看账号状态页了解公开原因、期限和申诉方式。',
+      code,
+    }
+  }
+  return {
+    title: '登录失败',
+    description: message,
+    code,
+  }
+}

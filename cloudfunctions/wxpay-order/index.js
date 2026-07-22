@@ -13,6 +13,7 @@
 
 const process = require('node:process')
 const cloudbase = require('@cloudbase/node-sdk')
+const { assertActiveAccountForUid } = require('./account-access')
 
 const { generateNonceStr, generateOutTradeNo } = require('./lib/crypto')
 const { generateJsapiPayParams } = require('./lib/jsapi')
@@ -33,6 +34,14 @@ const { queryTransactionByOutTradeNo, wxpayRequest } = require('./lib/wxpay-clie
 
 const app = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV })
 const db = app.database()
+const callAccountApi = data => app.callFunction({ name: 'account-api', data }).then(r => r.result)
+
+function assertActiveAccount(uid) {
+  return assertActiveAccountForUid(callAccountApi, {
+    serviceToken: process.env.ACCOUNT_API_INTERNAL_TOKEN || '',
+    userId: uid,
+  })
+}
 
 /** 必要环境变量校验（运行时） */
 function loadConfig() {
@@ -196,6 +205,7 @@ async function handleCreateOrder(event) {
   const uid = getCallerUid()
   if (!uid)
     throw new Error('请先登录后再下单')
+  await assertActiveAccount(uid)
 
   const { payType, wxOpenid, amount, description, orderFields } = resolveOrderPlan(event)
   const cfg = loadConfig()
@@ -251,6 +261,7 @@ async function handleCreateTestOrder(event) {
   const uid = getCallerUid()
   if (!uid)
     throw new Error('请先登录后再下单')
+  await assertActiveAccount(uid)
 
   const cfg = loadConfig()
   if (!cfg.allowTestOrder)

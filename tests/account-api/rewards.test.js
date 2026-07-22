@@ -80,7 +80,7 @@ describe('账户奖励发放', () => {
     expect(db._store[USER_NOTIFICATIONS_COLLECTION]).toHaveLength(1)
   })
 
-  it('会员奖励从现有到期时间顺延 30 天且不同批次持续叠加', async () => {
+  it('会员奖励支持 30、90、365 天档位并从现有到期时间持续顺延', async () => {
     const day = 86_400_000
     const db = realUserDb({
       [MEMBERSHIPS_COLLECTION]: [{
@@ -99,8 +99,15 @@ describe('账户奖励发放', () => {
       grantId: 'grant_second_beta_u1',
       campaignId: 'campaign_second_beta',
       coinAmount: 0,
-      membershipDays: 30,
+      membershipDays: 90,
       now: NOW + 2,
+    }))
+    const third = await grantReward(db, rewardInput({
+      grantId: 'grant_year_beta_u1',
+      campaignId: 'campaign_year_beta',
+      coinAmount: 0,
+      membershipDays: 365,
+      now: NOW + 3,
     }))
 
     expect(first.membership).toEqual({
@@ -108,9 +115,10 @@ describe('账户奖励发放', () => {
       expireBefore: NOW + 10 * day,
       expireAfter: NOW + 40 * day,
     })
-    expect(second.membership.expireAfter).toBe(NOW + 70 * day)
-    expect(db._store[MEMBERSHIPS_COLLECTION][0].expireAt).toBe(NOW + 70 * day)
-    expect(db._store[MEMBERSHIP_ENTITLEMENT_TRANSACTIONS_COLLECTION]).toHaveLength(2)
+    expect(second.membership.expireAfter).toBe(NOW + 130 * day)
+    expect(third.membership.expireAfter).toBe(NOW + 495 * day)
+    expect(db._store[MEMBERSHIPS_COLLECTION][0].expireAt).toBe(NOW + 495 * day)
+    expect(db._store[MEMBERSHIP_ENTITLEMENT_TRANSACTIONS_COLLECTION]).toHaveLength(3)
   })
 
   it('固定天数奖励后，下一次月付从奖励后的实际到期日顺延', async () => {
@@ -154,10 +162,16 @@ describe('账户奖励发放', () => {
     expect(renewed.expireAt).toBe(expireAfterRenewal)
   })
 
-  it('拒绝非固定奖励额度、受管测试身份和已注销账户', async () => {
+  it('支持 1000 云币并拒绝白名单外额度、受管测试身份和已注销账户', async () => {
+    const largeReward = await grantReward(realUserDb(), rewardInput({ coinAmount: 1000 }))
+    expect(largeReward.coin).toMatchObject({ amount: 1000, balanceAfter: 1000 })
+
     await expect(grantReward(realUserDb(), rewardInput({ coinAmount: 101 })))
       .rejects
-      .toThrow(/固定为 100/)
+      .toThrow(/仅支持 100、1000/)
+    await expect(grantReward(realUserDb(), rewardInput({ coinAmount: 0, membershipDays: 180 })))
+      .rejects
+      .toThrow(/仅支持 30、90、365 天/)
 
     const syntheticDb = realUserDb({
       test_identities: [{ _id: 'test-1', uid: 'u1', synthetic: true }],

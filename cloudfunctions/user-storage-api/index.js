@@ -7,7 +7,9 @@
 
 'use strict'
 
+const process = require('node:process')
 const cloudbase = require('@cloudbase/node-sdk')
+const { assertActiveAccountForUid } = require('./account-access')
 
 const {
   deleteStorageFile,
@@ -21,6 +23,7 @@ const {
 
 const app = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV })
 const db = app.database()
+const callAccountApi = data => app.callFunction({ name: 'account-api', data }).then(r => r.result)
 
 const ANON_UIDS = new Set(['', 'anon'])
 
@@ -44,6 +47,10 @@ async function dispatch(event, deps = {}) {
   const userId = deps.userId || getCallerUid(cloudbaseApp)
   if (!userId)
     throw new Error('请先登录')
+  await assertActiveAccountForUid(deps.callAccountApi || callAccountApi, {
+    serviceToken: deps.serviceToken ?? process.env.ACCOUNT_API_INTERNAL_TOKEN ?? '',
+    userId,
+  })
 
   switch (action) {
     case 'getStorageQuota':

@@ -62,10 +62,48 @@ describe('cloudBase test identity deployment manifest', () => {
     })
   })
 
+  it('runs due account deletion hourly without a public invocation surface', () => {
+    expect(functions.get('account-deletion-sweeper')).toMatchObject({
+      aclRule: { invoke: false },
+      timeout: 30,
+      installDependency: true,
+      envVariables: { ACCOUNT_API_INTERNAL_TOKEN: '{{env.ACCOUNT_API_INTERNAL_TOKEN}}' },
+      triggers: [{ name: 'accountDeletionSweepHourly', type: 'timer', config: '0 30 * * * * *' }],
+    })
+  })
+
+  it('sends lifecycle email from a private five-minute timer with secret placeholders', () => {
+    expect(functions.get('account-lifecycle-notifier')).toMatchObject({
+      aclRule: { invoke: false },
+      timeout: 30,
+      installDependency: true,
+      envVariables: {
+        CLOUDFLARE_EMAIL_ACCOUNT_ID: '{{env.CLOUDFLARE_EMAIL_ACCOUNT_ID}}',
+        CLOUDFLARE_EMAIL_API_TOKEN: '{{env.CLOUDFLARE_EMAIL_API_TOKEN}}',
+        ACCOUNT_LIFECYCLE_FROM_EMAIL: 'noreply@yunle.fun',
+        ACCOUNT_LIFECYCLE_FROM_NAME: '云乐坊',
+        ACCOUNT_LIFECYCLE_REPLY_TO: 'kf@yunle.fun',
+        ACCOUNT_LIFECYCLE_OPS_EMAIL: '{{env.ACCOUNT_LIFECYCLE_OPS_EMAIL}}',
+      },
+      triggers: [{ name: 'accountLifecycleNotifyEveryFiveMinutes', type: 'timer', config: '0 */5 * * * * *' }],
+    })
+  })
+
   it('requires CloudBase authentication on browser-callable business functions', () => {
     expect(functions.get('sso-ticket').aclRule).toEqual({ invoke: 'auth != null' })
     expect(functions.get('account-api').aclRule).toEqual({ invoke: 'auth != null' })
     expect(functions.get('ai-gateway').aclRule).toEqual({ invoke: 'auth != null' })
+  })
+
+  it('configures the private account access token on every restricted business function', () => {
+    for (const name of ['ai-gateway', 'desktop-auth', 'github-api', 'iap-order', 'sso-ticket', 'user-storage-api', 'wxpay-order']) {
+      expect(functions.get(name)?.envVariables, `${name} 缺少统一账号状态鉴权配置`).toMatchObject({
+        ACCOUNT_API_INTERNAL_TOKEN: '{{env.ACCOUNT_API_INTERNAL_TOKEN}}',
+      })
+    }
+    // 支付/退款异步回调不依赖用户登录状态，必须继续完成资金对账。
+    expect(functions.get('wxpay-notify')?.envVariables).not.toHaveProperty('ACCOUNT_API_INTERNAL_TOKEN')
+    expect(functions.get('appstore-notify')?.envVariables).not.toHaveProperty('ACCOUNT_API_INTERNAL_TOKEN')
   })
 
   it('does not treat CloudBase anonymous sessions as authenticated users', () => {

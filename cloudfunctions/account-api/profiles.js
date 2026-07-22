@@ -199,6 +199,10 @@ async function upsertMyProfile(db, { userId, profile, now = Date.now() }) {
   const existing = await readProfileDoc(db, uid)
 
   if (existing) {
+    // 旧版软注销只改 user_profiles、未删 Auth，导致用户再次登录后把资料写活，
+    // 但 GitHub / 手机等认证绑定仍被旧 uid 占用。最终注销一旦开始，禁止任何资料复活。
+    if (existing.deletedAt)
+      throw new Error('账号已注销，不能再更新公开资料')
     await db.collection(USER_PROFILES_COLLECTION).doc(uid).update({ ...fields, updatedAt: now })
   }
   else {

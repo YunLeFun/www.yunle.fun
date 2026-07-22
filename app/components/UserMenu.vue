@@ -8,6 +8,24 @@ import { maskPhone } from '~/utils/mask'
  */
 const { user, authStatus, authReady, logout, checkAuthStatus } = useTcbAuthSession()
 const { isActive: isMember, refresh: refreshMembership } = useMembership()
+const toast = useToast()
+
+async function copyUid() {
+  if (!user.value?.id)
+    return
+  try {
+    await navigator.clipboard.writeText(user.value.id)
+    toast.add({
+      title: '已复制 UID',
+      description: '可直接粘贴发送给工作人员',
+      icon: 'i-lucide-check',
+      color: 'success',
+    })
+  }
+  catch {
+    toast.add({ title: '复制失败', description: '请前往账户设置查看完整 UID', color: 'error' })
+  }
+}
 
 onMounted(async () => {
   // 公开路由下中间件不校验，这里兜底恢复登录态；authReady 已完成则跳过
@@ -28,6 +46,10 @@ const items = computed(() => [
     label: '个人中心',
     icon: 'i-lucide-user',
     to: '/profile',
+  }, {
+    label: '复制我的 UID',
+    icon: 'i-lucide-copy',
+    onSelect: copyUid,
   }, {
     label: '我的钱包',
     icon: 'i-lucide-wallet',

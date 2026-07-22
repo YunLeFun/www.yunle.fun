@@ -14,6 +14,7 @@
       "handler": "index.main",
       "installDependency": true,
       "envVariables": {
+        "ACCOUNT_API_INTERNAL_TOKEN": "{{env.ACCOUNT_API_INTERNAL_TOKEN}}",
         "WX_MCH_ID": "",
         "WX_SERIAL_NO": "",
         "WX_PRIVATE_KEY": "",
@@ -52,11 +53,59 @@
       }
     },
     {
+      "name": "account-deletion-sweeper",
+      "timeout": 30,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true,
+      "aclRule": {
+        "invoke": false
+      },
+      "envVariables": {
+        "ACCOUNT_API_INTERNAL_TOKEN": "{{env.ACCOUNT_API_INTERNAL_TOKEN}}"
+      },
+      "triggers": [
+        {
+          "name": "accountDeletionSweepHourly",
+          "type": "timer",
+          "config": "0 30 * * * * *"
+        }
+      ]
+    },
+    {
+      "name": "account-lifecycle-notifier",
+      "timeout": 30,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true,
+      "aclRule": {
+        "invoke": false
+      },
+      "envVariables": {
+        "CLOUDFLARE_EMAIL_ACCOUNT_ID": "{{env.CLOUDFLARE_EMAIL_ACCOUNT_ID}}",
+        "CLOUDFLARE_EMAIL_API_TOKEN": "{{env.CLOUDFLARE_EMAIL_API_TOKEN}}",
+        "ACCOUNT_LIFECYCLE_FROM_EMAIL": "noreply@yunle.fun",
+        "ACCOUNT_LIFECYCLE_FROM_NAME": "云乐坊",
+        "ACCOUNT_LIFECYCLE_REPLY_TO": "kf@yunle.fun",
+        "ACCOUNT_LIFECYCLE_OPS_EMAIL": "{{env.ACCOUNT_LIFECYCLE_OPS_EMAIL}}"
+      },
+      "triggers": [
+        {
+          "name": "accountLifecycleNotifyEveryFiveMinutes",
+          "type": "timer",
+          "config": "0 */5 * * * * *"
+        }
+      ]
+    },
+    {
       "name": "user-storage-api",
       "timeout": 10,
       "runtime": "Nodejs18.15",
       "handler": "index.main",
-      "installDependency": true
+      "installDependency": true,
+      "envVariables": {
+        "ACCOUNT_API_INTERNAL_TOKEN": "{{env.ACCOUNT_API_INTERNAL_TOKEN}}"
+      }
     },
     {
       "name": "ai-gateway",
@@ -113,7 +162,8 @@
         "SSO_EXCHANGE_PER_IP_PER_MINUTE": "{{env.SSO_EXCHANGE_PER_IP_PER_MINUTE}}",
         "SSO_EXCHANGE_PER_ORIGIN_PER_MINUTE": "{{env.SSO_EXCHANGE_PER_ORIGIN_PER_MINUTE}}",
         "TEST_BROKER_INTERNAL_TOKEN": "{{env.TEST_BROKER_INTERNAL_TOKEN}}",
-        "TEST_TICKET_ESCROW_KEY": "{{env.TEST_TICKET_ESCROW_KEY}}"
+        "TEST_TICKET_ESCROW_KEY": "{{env.TEST_TICKET_ESCROW_KEY}}",
+        "ACCOUNT_API_INTERNAL_TOKEN": "{{env.ACCOUNT_API_INTERNAL_TOKEN}}"
       }
     },
     {
@@ -177,6 +227,7 @@
       "handler": "index.main",
       "installDependency": true,
       "envVariables": {
+        "ACCOUNT_API_INTERNAL_TOKEN": "{{env.ACCOUNT_API_INTERNAL_TOKEN}}",
         "APPSTORE_ISSUER_ID": "",
         "APPSTORE_KEY_ID": "",
         "APPSTORE_PRIVATE_KEY": "",
@@ -219,6 +270,7 @@
       "handler": "index.main",
       "installDependency": true,
       "envVariables": {
+        "ACCOUNT_API_INTERNAL_TOKEN": "{{env.ACCOUNT_API_INTERNAL_TOKEN}}",
         "GITHUB_APP_ID": "{{env.GITHUB_APP_ID}}",
         "GITHUB_APP_SLUG": "{{env.GITHUB_APP_SLUG}}",
         "GITHUB_APP_PRIVATE_KEY": "{{env.GITHUB_APP_PRIVATE_KEY}}",

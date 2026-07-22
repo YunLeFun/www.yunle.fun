@@ -2,7 +2,7 @@
  * 密码认证（登录、修改、重置）和邮箱绑定
  */
 import type { TcbBindVerificationData, TcbResetPasswordData } from './types'
-import { getErrorMessage } from './types'
+import { getAuthErrorPresentation, getErrorMessage } from './types'
 
 export function useTcbPassword(core: ReturnType<typeof import('./useAuthCore').useTcbAuthCore>) {
   const { auth, router, toast, loading, error, user, fetchUser } = core
@@ -13,7 +13,7 @@ export function useTcbPassword(core: ReturnType<typeof import('./useAuthCore').u
       error.value = null
       const { data, error: signInError } = await auth.signInWithPassword(params)
       if (signInError)
-        throw new Error(signInError.message || '密码登录失败')
+        throw signInError
       await fetchUser()
       toast.add({ title: '登录成功', description: '欢迎回来！', color: 'success' })
       const redirect = router.currentRoute.value.query.redirect as string
@@ -22,8 +22,9 @@ export function useTcbPassword(core: ReturnType<typeof import('./useAuthCore').u
     }
     catch (err: unknown) {
       console.error('密码登录失败:', err)
-      error.value = getErrorMessage(err)
-      toast.add({ title: '登录失败', description: getErrorMessage(err) || '用户名/邮箱/手机号或密码错误', color: 'error' })
+      const presentation = getAuthErrorPresentation(err)
+      error.value = presentation.description
+      toast.add({ title: presentation.title, description: presentation.description || '用户名/邮箱/手机号或密码错误', color: 'error' })
       throw err
     }
     finally {

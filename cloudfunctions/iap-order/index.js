@@ -23,12 +23,14 @@
 
 const process = require('node:process')
 const cloudbase = require('@cloudbase/node-sdk')
+const { assertActiveAccountForUid } = require('./account-access')
 
 const { assertGrantablePayload, createAppStoreService } = require('./lib/appstore')
 const { grantIapTransaction } = require('./lib/iap')
 
 const app = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV })
 const db = app.database()
+const callAccountApi = data => app.callFunction({ name: 'account-api', data }).then(r => r.result)
 
 /** 单次 restore 最多处理的交易数 */
 const RESTORE_MAX_TRANSACTIONS = 10
@@ -129,6 +131,10 @@ exports.main = async (event) => {
     const uid = getCallerUid()
     if (!uid)
       throw new Error('请先登录')
+    await assertActiveAccountForUid(callAccountApi, {
+      serviceToken: process.env.ACCOUNT_API_INTERNAL_TOKEN || '',
+      userId: uid,
+    })
 
     switch (action) {
       case 'verifyPurchase':

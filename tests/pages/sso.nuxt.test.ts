@@ -2,7 +2,7 @@
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import { flushPromises } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import SsoPage from '../../app/pages/auth/sso.vue'
 
 const h = vi.hoisted(() => ({
@@ -11,9 +11,15 @@ const h = vi.hoisted(() => ({
 
 mockNuxtImport('useCloudbase', () => () => h.s.cloudbase)
 mockNuxtImport('navigateTo', () => (...args: unknown[]) => h.s.navigateTo(...args))
+mockNuxtImport('useAccountAccess', () => () => h.s.accountAccess)
 
 vi.mock('~/composables/auth/useAuthSession', () => ({
-  useTcbAuthSession: () => h.s.authSession,
+  useTcbAuthSession: () => h.s.authSession ?? {
+    authReady: { value: true },
+    isAuthenticated: { value: false },
+    user: { value: null },
+    checkAuthStatus: async () => undefined,
+  },
 }))
 
 describe('sso bridge', () => {
@@ -24,6 +30,10 @@ describe('sso bridge', () => {
 
     h.s.callOrder = callOrder
     h.s.navigateTo = vi.fn()
+    h.s.accountAccess = {
+      access: ref({ state: 'active', restricted: false }),
+      refresh: vi.fn(async () => undefined),
+    }
     h.s.cloudbase = {
       auth: {
         getSession: vi.fn(async () => {
@@ -45,6 +55,8 @@ describe('sso bridge', () => {
     h.s.authSession = {
       authReady,
       authStatus,
+      isAuthenticated: computed(() => authStatus.value === 'authenticated'),
+      user: ref({ id: 'user-1' }),
       checkAuthStatus: vi.fn(async () => {
         callOrder.push('restore-session')
         authReady.value = true

@@ -17,6 +17,7 @@ export function useTcbAuthCore() {
   const router = useRouter()
   const toast = useToast()
   const { upsertMyProfile } = useUserProfile()
+  const { refresh: refreshAccountAccess, clear: clearAccountAccess } = useAccountAccess()
   // 双层会话编排（开关 cookieSession 开启时生效，见 docs/cookie-session-migration.md）
   const cookieSession = config.public.cookieSession as boolean
   const { setServerSession, bootstrapFromCookie, clearServerSession } = useServerSession()
@@ -37,6 +38,7 @@ export function useTcbAuthCore() {
   const clearAuth = () => {
     user.value = null
     error.value = null
+    clearAccountAccess()
   }
 
   /**
@@ -88,6 +90,10 @@ export function useTcbAuthCore() {
       }
 
       if (user.value) {
+        const accountAccess = await refreshAccountAccess(user.value.id, true)
+        if (accountAccess.restricted)
+          return user.value
+
         // 手机 OTP 默认昵称＝完整手机号（PII 且不体面）。首次登录检测到裸手机号昵称，
         // 换成品牌默认名（如「云游者_k7m2」）并写回 CloudBase auth，从源头根治。
         // 幂等：写回后昵称不再是手机号，下次登录不再触发；写回失败则下次按同一 uid 生成同名，无害。
