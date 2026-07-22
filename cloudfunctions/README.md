@@ -26,7 +26,7 @@
 > 云币 + 跨应用会员的整体设计见 [`docs/coin-and-membership.md`](../docs/coin-and-membership.md)。
 > 其中 5 个支付 / 账户函数共享同一份 `lib/`：权威源在 `cloudfunctions/wxpay-order/lib`，`pnpm sync:wxpay-lib` 同步到
 > `wxpay-notify` / `account-api` / `iap-order` / `appstore-notify`；`account-api` 无需任何 `WX_*` 环境变量。
-> `desktop-auth`、`ai-gateway`、`github-api` 各有独立 `lib/`（不共用 wxpay lib），`sso-ticket` 仅用 `mint.js` 纯函数模块；均不在同步范围内。
+> `desktop-auth`、`ai-gateway`、`github-api` 各有独立 `lib/`（不共用 wxpay lib）；`sso-ticket` 也使用独立的签票、Client Registry、授权码存储与请求校验模块。这些模块均不在同步范围内。
 
 ## 环境变量配置
 
@@ -126,10 +126,13 @@
 | ------------------------------------ | ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `SSO_TICKET_PRIVATE_KEY_ID`          | 是   | 自定义登录私钥 ID（`private_key_id`）。CloudBase 控制台 → 登录授权 → 自定义登录 → 下载私钥获取                                                                   |
 | `SSO_TICKET_PRIVATE_KEY`             | 是   | 自定义登录私钥 PEM（`private_key`）；env 注入建议用 `\n` 转义或 base64。未配置私钥时函数返回 `{ ok:false, reason:'not_configured' }`，桥接页据此回退（向后兼容） |
-| `SSO_ALLOWED_ORIGINS`                | 是   | 允许签发与兑换授权码的第一方 HTTPS origin；支持受限 `https://*.example.com`，且应与主站页面配置一致                                                              |
-| `SSO_ALLOWED_RETURN_ORIGINS`         | 是   | 允许 redirect returnUrl 的 HTTPS origin；支持同样的受限子域通配符                                                                                                |
+| `SSO_ISSUER_ENVIRONMENT`             | 是   | `production` 或 `development`；由部署注入，绝不信任请求参数                                                                                                      |
+| `SSO_LOCAL_DEVELOPER_USER_IDS`       | 否   | 可使用 managed-local 注册项的 CloudBase UID，逗号分隔                                                                                                            |
+| `SSO_ALLOW_PRODUCTION_LOCAL_CLIENTS` | 否   | break-glass；仅在显式为 `true` 且 UID 命中上项时允许生产 issuer 服务精确本地注册，默认 `false`                                                                   |
+| `SSO_ALLOW_LEGACY_ORIGIN_CLIENTS`    | 否   | v2 → v3 迁移 Adapter；默认兼容，所有 Consumer 发送 `client_id` 后设 `false`                                                                                      |
+| `SSO_ALLOWED_ORIGINS`                | 否   | 仅旧 origin-only Consumer 的迁移规则；新客户端必须进入版本化 Registry                                                                                            |
+| `SSO_ALLOWED_RETURN_ORIGINS`         | 否   | 仅旧 origin-only Consumer 的迁移回跳规则                                                                                                                         |
 | `SSO_ALLOWED_TARGET_ORIGINS`         | 否   | 仅供 v1 → v2 零停机迁移回退；新部署必须使用上面两个变量，迁移完成后删除                                                                                          |
-| `SSO_ALLOW_LOCAL_TARGET_ORIGINS`     | 否   | 仅本地联调允许 loopback HTTP；生产必须为 `false`                                                                                                                 |
 | `SSO_TICKET_REFRESH_SEC`             | 否   | 票据派生会话的可续期时长（秒），默认 30 天                                                                                                                       |
 | `SSO_ISSUE_PER_USER_PER_MINUTE`      | 否   | 每用户、每目标 origin 的签发上限，默认 10                                                                                                                        |
 | `SSO_ISSUE_PER_IP_PER_MINUTE`        | 否   | 每 IP 的签发上限，默认 30                                                                                                                                        |
@@ -138,8 +141,8 @@
 
 `sso-ticket` 的用户 SSO 是两步授权码流程，私钥始终只在本函数 env：
 
-- **签发**（已认证 SDK `action='issueSsoCode'`）：uid 只从调用上下文派生；授权码绑定 origin、return URL、nonce 和 S256 PKCE challenge。
-- **兑换**（HTTPS `action='exchangeSsoCode'`）：校验 PKCE verifier 后事务性消费授权码，回显已校验的具体 Origin，仅返回短暂 custom ticket。
+- **签发**（已认证 SDK `action='issueSsoCode'`）：uid 只从调用上下文派生；Client Registry 校验 `client_id`、issuer environment、精确 Origin/redirect URI 和开发者门禁；授权码绑定策略版本与 S256 PKCE challenge。
+- **兑换**（HTTPS `action='exchangeSsoCode'`）：Registry 与授权码绑定再次校验后事务性消费，回显已校验的具体 Origin，仅返回短暂 custom ticket。
 - **迁移兼容**：`SSO_ALLOW_LEGACY_DIRECT_TICKET=true` 时，旧桥接页可暂时通过无 action 的已认证 SDK 调用为当前调用者本人签票；不接受 HTTP/uid。完成 v2 发布后立即设回 `false`。
 - 任何调用者选择 `uid`/`subject` 的输入都拒绝；主站 session 和 refresh token 不跨 origin。
 - `sso_login_codes` 与 `sso_security_limits` 均为 server-only；独立 `sso-security-sweeper` 每小时清理，且 `aclRule.invoke=false`。

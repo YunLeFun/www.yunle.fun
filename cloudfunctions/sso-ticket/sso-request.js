@@ -96,14 +96,68 @@ function assertNoCallerSelectedSubject(payload) {
   }
 }
 
+function legacyClientGrant(origin, options) {
+  if (!isAllowedOrigin(origin, options.originRules, options.allowLocal))
+    throw new SsoRequestError('origin_not_allowed', 'target origin is not allowed')
+  return {
+    clientId: 'legacy-origin',
+    issuerEnvironment: options.issuerEnvironment || 'production',
+    clientEnvironment: 'legacy',
+    origin,
+    policyVersion: 'legacy-origin-v2',
+    ruleId: 'legacy-origin',
+  }
+}
+
+function authorizeRequestClient(input, options) {
+  if (options.clientRegistry) {
+    if (!input.clientId && options.allowLegacyOriginClients !== true)
+      throw new SsoRequestError('client_required', 'registered SSO client is required')
+    try {
+      return options.clientRegistry.authorize(input)
+    }
+    catch (error) {
+      const canUseLegacy = !input.clientId
+        && error?.reason === 'client_unknown'
+        && options.allowLegacyOriginClients === true
+      if (!canUseLegacy)
+        throw new SsoRequestError(error?.reason || 'registry_unavailable', error?.message || 'SSO client registry unavailable')
+    }
+  }
+  else if (input.clientId) {
+    // Transitional test/custom adapters that have not installed the registry yet still
+    // authenticate by their exact legacy origin rules.
+    return legacyClientGrant(input.origin, options)
+  }
+
+  const legacyAllowed = !options.clientRegistry || options.allowLegacyOriginClients === true
+  if (!legacyAllowed)
+    throw new SsoRequestError('client_required', 'registered SSO client is required')
+  return legacyClientGrant(input.origin, options)
+}
+
+function isAllowedRequestOrigin(origin, options) {
+  if (options.clientRegistry) {
+    try {
+      options.clientRegistry.authorize({ phase: 'cors', origin })
+      return true
+    }
+    catch (error) {
+      if (error?.reason !== 'client_unknown')
+        return false
+    }
+  }
+  return (!options.clientRegistry || options.allowLegacyOriginClients === true)
+    && isAllowedOrigin(origin, options.originRules, options.allowLocal)
+}
+
 function validateIssueRequest(payload, options) {
   assertNoCallerSelectedSubject(payload)
   const mode = payload?.mode
   if (mode !== 'redirect' && mode !== 'interactive' && mode !== 'silent')
     throw new SsoRequestError('invalid_request', 'invalid SSO mode')
   const targetOrigin = typeof payload.targetOrigin === 'string' ? payload.targetOrigin : ''
-  if (!isAllowedOrigin(targetOrigin, options.originRules, options.allowLocal))
-    throw new SsoRequestError('origin_not_allowed', 'target origin is not allowed')
+  const clientId = typeof payload.clientId === 'string' ? payload.clientId : ''
   const nonce = typeof payload.nonce === 'string' && NONCE_RE.test(payload.nonce) ? payload.nonce : ''
   if (!nonce)
     throw new SsoRequestError('invalid_request', 'invalid SSO nonce')
@@ -116,7 +170,7 @@ function validateIssueRequest(payload, options) {
   if (mode === 'redirect') {
     try {
       const parsed = new URL(typeof payload.returnUrl === 'string' ? payload.returnUrl : '')
-      if (parsed.origin !== targetOrigin || !isAllowedOrigin(parsed.origin, options.returnOriginRules, options.allowLocal))
+      if (parsed.origin !== targetOrigin)
         throw new Error('origin mismatch')
       returnUrl = parsed.toString()
     }
@@ -124,13 +178,30 @@ function validateIssueRequest(payload, options) {
       throw new SsoRequestError('return_url_not_allowed', 'return URL must match target origin')
     }
   }
-  return { mode, targetOrigin, nonce, returnUrl, codeChallenge }
+  const grant = authorizeRequestClient({
+    phase: 'issue',
+    clientId,
+    origin: targetOrigin,
+    returnUrl,
+    actorUid: options.actorUid,
+  }, options)
+  if (!options.clientRegistry
+    && returnUrl
+    && !isAllowedOrigin(new URL(returnUrl).origin, options.returnOriginRules, options.allowLocal)) {
+    throw new SsoRequestError('return_url_not_allowed', 'return URL is not allowed')
+  }
+  if (grant.clientId === 'legacy-origin'
+    && returnUrl
+    && !isAllowedOrigin(new URL(returnUrl).origin, options.returnOriginRules, options.allowLocal)) {
+    throw new SsoRequestError('return_url_not_allowed', 'return URL is not allowed')
+  }
+  return { mode, targetOrigin, nonce, returnUrl, codeChallenge, ...grant }
 }
 
 function validateExchangeRequest(payload, requestOrigin, options) {
   assertNoCallerSelectedSubject(payload)
-  if (!isAllowedOrigin(requestOrigin, options.originRules, options.allowLocal))
-    throw new SsoRequestError('origin_not_allowed', 'request origin is not allowed')
+  const clientId = typeof payload?.clientId === 'string' ? payload.clientId : ''
+  const grant = authorizeRequestClient({ phase: 'exchange', clientId, origin: requestOrigin }, options)
   const code = typeof payload?.code === 'string' && CODE_RE.test(payload.code) ? payload.code : ''
   const nonce = typeof payload?.nonce === 'string' && NONCE_RE.test(payload.nonce) ? payload.nonce : ''
   const codeVerifier = typeof payload?.codeVerifier === 'string' && PKCE_VERIFIER_RE.test(payload.codeVerifier)
@@ -138,7 +209,7 @@ function validateExchangeRequest(payload, requestOrigin, options) {
     : ''
   if (!code || !nonce || !codeVerifier)
     throw new SsoRequestError('invalid_request', 'invalid code exchange request')
-  return { code, nonce, codeVerifier, requestOrigin }
+  return { code, nonce, codeVerifier, requestOrigin, ...grant }
 }
 
 module.exports = {
@@ -149,7 +220,9 @@ module.exports = {
   SUBJECT_FIELDS,
   SsoRequestError,
   assertNoCallerSelectedSubject,
+  authorizeRequestClient,
   isAllowedOrigin,
+  isAllowedRequestOrigin,
   readAllowedOriginRules,
   validateExchangeRequest,
   validateIssueRequest,

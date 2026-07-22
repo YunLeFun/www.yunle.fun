@@ -64,12 +64,20 @@ function fixture() {
 
 const VERIFIER = 'v'.repeat(64)
 const CHALLENGE = codeChallenge(VERIFIER)
+const CLIENT_BINDING = {
+  clientId: 'drive-web',
+  issuerEnvironment: 'production',
+  clientEnvironment: 'production',
+  policyVersion: 'test-policy-v1',
+  ruleId: 'drive-production',
+}
 
 describe('sso one-time authorization-code store', () => {
   it('persists only a SHA-256 identifier and safe binding metadata', async () => {
     const { code, database, store } = fixture()
     await store.issue({
       uid: 'user_1234',
+      ...CLIENT_BINDING,
       targetOrigin: 'https://drive.yunle.fun',
       nonce: 'n'.repeat(32),
       codeChallenge: CHALLENGE,
@@ -78,20 +86,22 @@ describe('sso one-time authorization-code store', () => {
     expect(database.documents.has(codeId(code))).toBe(true)
     expect(database.documents.has(code)).toBe(false)
     expect(JSON.stringify([...database.documents.values()])).not.toContain(code)
+    expect([...database.documents.values()][0]).toMatchObject(CLIENT_BINDING)
   })
 
   it('allows exactly one concurrent consume for the bound origin and nonce', async () => {
     const { code, store } = fixture()
     await store.issue({
       uid: 'user_1234',
+      ...CLIENT_BINDING,
       targetOrigin: 'https://drive.yunle.fun',
       nonce: 'n'.repeat(32),
       codeChallenge: CHALLENGE,
       mode: 'redirect',
     })
     const attempts = await Promise.allSettled([
-      store.consume({ code, requestOrigin: 'https://drive.yunle.fun', nonce: 'n'.repeat(32), codeVerifier: VERIFIER }),
-      store.consume({ code, requestOrigin: 'https://drive.yunle.fun', nonce: 'n'.repeat(32), codeVerifier: VERIFIER }),
+      store.consume({ code, ...CLIENT_BINDING, requestOrigin: 'https://drive.yunle.fun', nonce: 'n'.repeat(32), codeVerifier: VERIFIER }),
+      store.consume({ code, ...CLIENT_BINDING, requestOrigin: 'https://drive.yunle.fun', nonce: 'n'.repeat(32), codeVerifier: VERIFIER }),
     ])
     expect(attempts.filter(result => result.status === 'fulfilled')).toHaveLength(1)
     const rejected = attempts.find(result => result.status === 'rejected')
@@ -103,21 +113,24 @@ describe('sso one-time authorization-code store', () => {
     const { code, store, advance } = fixture()
     await store.issue({
       uid: 'user_1234',
+      ...CLIENT_BINDING,
       targetOrigin: 'https://drive.yunle.fun',
       nonce: 'n'.repeat(32),
       codeChallenge: CHALLENGE,
       mode: 'redirect',
     })
-    await expect(store.consume({ code, requestOrigin: 'https://cms.example.com', nonce: 'n'.repeat(32), codeVerifier: VERIFIER })).rejects.toMatchObject({ reason: 'code_binding_invalid' })
-    await expect(store.consume({ code, requestOrigin: 'https://drive.yunle.fun', nonce: 'n'.repeat(32), codeVerifier: 'x'.repeat(64) })).rejects.toMatchObject({ reason: 'pkce_invalid' })
+    await expect(store.consume({ code, ...CLIENT_BINDING, requestOrigin: 'https://cms.example.com', nonce: 'n'.repeat(32), codeVerifier: VERIFIER })).rejects.toMatchObject({ reason: 'code_binding_invalid' })
+    await expect(store.consume({ code, ...CLIENT_BINDING, clientId: 'cms-web', requestOrigin: 'https://drive.yunle.fun', nonce: 'n'.repeat(32), codeVerifier: VERIFIER })).rejects.toMatchObject({ reason: 'client_binding_invalid' })
+    await expect(store.consume({ code, ...CLIENT_BINDING, requestOrigin: 'https://drive.yunle.fun', nonce: 'n'.repeat(32), codeVerifier: 'x'.repeat(64) })).rejects.toMatchObject({ reason: 'pkce_invalid' })
     advance(10_000)
-    await expect(store.consume({ code, requestOrigin: 'https://drive.yunle.fun', nonce: 'n'.repeat(32), codeVerifier: VERIFIER })).rejects.toMatchObject({ reason: 'code_expired' })
+    await expect(store.consume({ code, ...CLIENT_BINDING, requestOrigin: 'https://drive.yunle.fun', nonce: 'n'.repeat(32), codeVerifier: VERIFIER })).rejects.toMatchObject({ reason: 'code_expired' })
   })
 
   it('fails closed when the SDK reports a zero-document consume update', async () => {
     const { code, database, store } = fixture()
     await store.issue({
       uid: 'user_1234',
+      ...CLIENT_BINDING,
       targetOrigin: 'https://drive.yunle.fun',
       nonce: 'n'.repeat(32),
       codeChallenge: CHALLENGE,
@@ -132,10 +145,35 @@ describe('sso one-time authorization-code store', () => {
     })
     await expect(store.consume({
       code,
+      ...CLIENT_BINDING,
       requestOrigin: 'https://drive.yunle.fun',
       nonce: 'n'.repeat(32),
       codeVerifier: VERIFIER,
     })).rejects.toMatchObject({ reason: 'code_conflict' })
+  })
+
+  it('consumes an in-flight schema v2 code during the bounded rollout window', async () => {
+    const { code, database, store } = fixture()
+    database.documents.set(codeId(code), {
+      recordType: 'sso_login_code',
+      schemaVersion: 2,
+      uid: 'user_1234',
+      targetOrigin: 'https://drive.yunle.fun',
+      nonce: 'n'.repeat(32),
+      codeChallenge: CHALLENGE,
+      mode: 'redirect',
+      status: 'issued',
+      createdAt: 1_000,
+      expiresAt: 11_000,
+      version: 1,
+    })
+    await expect(store.consume({
+      code,
+      ...CLIENT_BINDING,
+      requestOrigin: 'https://drive.yunle.fun',
+      nonce: 'n'.repeat(32),
+      codeVerifier: VERIFIER,
+    })).resolves.toEqual({ uid: 'user_1234' })
   })
 
   it('exports a server-only expiry index manifest', () => {

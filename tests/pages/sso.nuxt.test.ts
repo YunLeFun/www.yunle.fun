@@ -56,7 +56,7 @@ describe('sso bridge', () => {
   it('restores the server-backed CloudBase session before issuing an SSO code', async () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     await mountSuspended(SsoPage, {
-      route: `/auth/sso?mode=silent&targetOrigin=${encodeURIComponent('https://cms.yunle.fun')}&nonce=1234567890abcdef1234567890abcdef&codeChallenge=${'a'.repeat(43)}&codeChallengeMethod=S256`,
+      route: `/auth/sso?client_id=cms-web&mode=silent&targetOrigin=${encodeURIComponent('https://cms.yunle.fun')}&nonce=1234567890abcdef1234567890abcdef&codeChallenge=${'a'.repeat(43)}&codeChallengeMethod=S256`,
       global: {
         stubs: {
           UIcon: { template: '<span />' },
@@ -67,6 +67,10 @@ describe('sso bridge', () => {
 
     expect(h.s.authSession.checkAuthStatus).toHaveBeenCalledTimes(1)
     expect(h.s.callOrder).toEqual(['restore-session', 'get-session', 'issue-code'])
+    expect(h.s.cloudbase.app.callFunction).toHaveBeenCalledWith({
+      name: 'sso-ticket',
+      data: expect.objectContaining({ action: 'issueSsoCode', clientId: 'cms-web' }),
+    })
     expect(errorSpy).not.toHaveBeenCalled()
   })
 
@@ -125,5 +129,24 @@ describe('sso bridge', () => {
     })
     expect(h.s.cloudbase.auth.getSession).not.toHaveBeenCalled()
     expect(errorSpy).not.toHaveBeenCalled()
+  })
+
+  it('does not redirect to a return URL rejected by the authoritative registry', async () => {
+    h.s.functionResponse = { ok: false, reason: 'origin_not_allowed' }
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const wrapper = await mountSuspended(SsoPage, {
+      route: `/auth/sso?client_id=cms-web&mode=redirect&targetOrigin=${encodeURIComponent('https://evil.example')}&nonce=1234567890abcdef1234567890abcdef&codeChallenge=${'a'.repeat(43)}&codeChallengeMethod=S256&returnUrl=${encodeURIComponent('https://evil.example/')}`,
+      global: {
+        stubs: {
+          UIcon: { template: '<span />' },
+        },
+      },
+    })
+    await flushPromises()
+
+    expect(h.s.cloudbase.app.callFunction).toHaveBeenCalledTimes(1)
+    expect(wrapper.text()).toContain('SSO 请求未获授权')
+    expect(h.s.navigateTo).not.toHaveBeenCalled()
+    expect(errorSpy).toHaveBeenCalledTimes(1)
   })
 })

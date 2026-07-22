@@ -14,8 +14,11 @@
  *   - SSO_TICKET_PRIVATE_KEY_ID    私钥 ID（private_key_id）
  *   - SSO_TICKET_PRIVATE_KEY       私钥 PEM（private_key）；env 注入建议用 `\n` 转义或 base64
  *   - SSO_TICKET_REFRESH_SEC       可选，票据派生会话的可续期时长（秒），默认 30 天
- *   - SSO_ALLOWED_ORIGINS          允许签发/兑换授权码的 HTTPS origin；支持受限 `https://*.example.com`
- *   - SSO_ALLOWED_RETURN_ORIGINS   允许 redirect returnUrl 的独立 HTTPS origin 规则
+ *   - SSO_ISSUER_ENVIRONMENT       production | development；由部署决定
+ *   - SSO_LOCAL_DEVELOPER_USER_IDS managed-local 注册允许的开发者 uid
+ *   - SSO_ALLOW_PRODUCTION_LOCAL_CLIENTS break-glass；生产默认 false
+ *   - SSO_ALLOW_LEGACY_ORIGIN_CLIENTS    v2 origin-only 迁移 Adapter
+ *   - SSO_ALLOWED_ORIGINS / SSO_ALLOWED_RETURN_ORIGINS 仅旧 Consumer 迁移规则
  *   - SSO_ALLOW_LEGACY_DIRECT_TICKET 仅迁移期设为 `true`；允许旧桥接页通过已认证 SDK 调用
  *                                     为当前调用者本人签票。消费者切换到授权码后立即设为 `false`
  *   - TEST_BROKER_INTERNAL_TOKEN   测试身份 Broker 专用 token（不得与其它内部 token 共用）
@@ -30,12 +33,14 @@ const { createHash } = require('node:crypto')
 const process = require('node:process')
 const cloudbase = require('@cloudbase/node-sdk')
 const { isAnonUid, isValidTicketUid, normalizePrivateKey } = require('./mint')
+const { createSsoClientRegistry } = require('./sso-client-registry')
+const ssoClientRegistrySnapshot = require('./sso-client-registry.snapshot')
 const { createSsoCodeStore, SsoCodeStoreError } = require('./sso-code-store')
 const { createSsoRateLimiter, SsoRateLimitError } = require('./sso-rate-limit')
 const {
   SsoRequestError,
   assertNoCallerSelectedSubject,
-  isAllowedOrigin,
+  isAllowedRequestOrigin,
   readAllowedOriginRules,
   validateExchangeRequest,
   validateIssueRequest,
@@ -110,14 +115,40 @@ function currentCallerUid() {
   return uid
 }
 
+let cachedClientRegistry
+let cachedClientRegistryKey = ''
+function getSsoClientRegistry() {
+  const issuerEnvironment = process.env.SSO_ISSUER_ENVIRONMENT === 'development' ? 'development' : 'production'
+  const developerUserIds = process.env.SSO_LOCAL_DEVELOPER_USER_IDS || ''
+  const allowProductionLocalClients = process.env.SSO_ALLOW_PRODUCTION_LOCAL_CLIENTS === 'true'
+  const key = JSON.stringify({ issuerEnvironment, developerUserIds, allowProductionLocalClients })
+  if (!cachedClientRegistry || cachedClientRegistryKey !== key) {
+    cachedClientRegistry = createSsoClientRegistry(ssoClientRegistrySnapshot, {
+      issuerEnvironment,
+      developerUserIds,
+      allowProductionLocalClients,
+    })
+    cachedClientRegistryKey = key
+  }
+  return { registry: cachedClientRegistry, issuerEnvironment }
+}
+
 function ssoRequestOptions() {
   const legacyRules = readAllowedOriginRules(process.env.SSO_ALLOWED_TARGET_ORIGINS)
   const originRules = readAllowedOriginRules(process.env.SSO_ALLOWED_ORIGINS)
   const returnOriginRules = readAllowedOriginRules(process.env.SSO_ALLOWED_RETURN_ORIGINS)
+  const { registry, issuerEnvironment } = getSsoClientRegistry()
   return {
+    clientRegistry: registry,
+    issuerEnvironment,
+    // Migration adapter for clients not yet carrying client_id. Set false after all
+    // first-party clients are represented in the versioned registry.
+    allowLegacyOriginClients: process.env.SSO_ALLOW_LEGACY_ORIGIN_CLIENTS !== 'false',
     originRules: originRules.length ? originRules : legacyRules,
     returnOriginRules: returnOriginRules.length ? returnOriginRules : originRules.length ? originRules : legacyRules,
-    allowLocal: process.env.SSO_ALLOW_LOCAL_TARGET_ORIGINS === 'true',
+    // Web SSO never allows broad HTTP loopback. Managed local clients use exact
+    // HTTPS *.yunle.localhost registrations in the Client Registry.
+    allowLocal: false,
   }
 }
 
@@ -162,17 +193,25 @@ async function mintLegacyCaller(clientAddress = 'unknown') {
 
 // 路径 1：已认证调用者上下文签发一次性授权码，uid 只从运行时上下文取得。
 async function issueSsoCode(payload, clientAddress = 'unknown') {
-  const request = validateIssueRequest(payload, ssoRequestOptions())
   const uid = currentCallerUid()
   if (!isValidTicketUid(uid))
     return { ok: false, reason: 'not_authenticated' }
+  const request = validateIssueRequest(payload, { ...ssoRequestOptions(), actorUid: uid })
   const limits = securityLimits()
   await Promise.all([
-    ssoRateLimiter.consume({ scope: 'issue-user', key: `${uid}\0${request.targetOrigin}`, limit: limits.issuePerUser, windowMs: 60_000 }),
+    ssoRateLimiter.consume({ scope: 'issue-user', key: `${uid}\0${request.clientId}\0${request.targetOrigin}`, limit: limits.issuePerUser, windowMs: 60_000 }),
     ssoRateLimiter.consume({ scope: 'issue-ip', key: clientAddress, limit: limits.issuePerIp, windowMs: 60_000 }),
   ])
   const issued = await ssoCodeStore.issue({ uid, ...request })
-  auditSecurity('sso_code_issued', { subject: auditId(uid), origin: request.targetOrigin })
+  auditSecurity('sso_code_issued', {
+    subject: auditId(uid),
+    clientId: request.clientId,
+    issuerEnvironment: request.issuerEnvironment,
+    clientEnvironment: request.clientEnvironment,
+    origin: request.targetOrigin,
+    policyVersion: request.policyVersion,
+    ruleId: request.ruleId,
+  })
   return { ok: true, code: issued.code, expiresAt: issued.expiresAt }
 }
 
@@ -185,7 +224,15 @@ async function exchangeSsoCode(payload, requestOrigin, clientAddress = 'unknown'
     ssoRateLimiter.consume({ scope: 'exchange-origin', key: requestOrigin, limit: limits.exchangePerOrigin, windowMs: 60_000 }),
   ])
   const { uid } = await ssoCodeStore.consume(request)
-  auditSecurity('sso_code_consumed', { subject: auditId(uid), origin: requestOrigin })
+  auditSecurity('sso_code_consumed', {
+    subject: auditId(uid),
+    clientId: request.clientId,
+    issuerEnvironment: request.issuerEnvironment,
+    clientEnvironment: request.clientEnvironment,
+    origin: requestOrigin,
+    policyVersion: request.policyVersion,
+    ruleId: request.ruleId,
+  })
   return mintTicket(uid)
 }
 
@@ -295,7 +342,7 @@ exports.main = async function main(event) {
     : ''
   if (isHttp && event.httpMethod === 'OPTIONS') {
     const options = ssoRequestOptions()
-    const allowed = isAllowedOrigin(requestOrigin, options.originRules, options.allowLocal)
+    const allowed = isAllowedRequestOrigin(requestOrigin, options)
     return allowed
       ? { statusCode: 204, headers: corsHeaders(requestOrigin), body: '' }
       : httpJson(403, { ok: false, reason: 'origin_not_allowed' })
@@ -344,19 +391,19 @@ exports.main = async function main(event) {
     ? testLeaseHttpStatus(result)
     : result.ok
       ? 200
-      : ['invalid_request', 'subject_not_allowed', 'pkce_required'].includes(result.reason)
+      : ['invalid_request', 'client_required', 'subject_not_allowed', 'pkce_required'].includes(result.reason)
           ? 400
-          : ['origin_not_allowed', 'code_binding_invalid', 'pkce_invalid', 'forbidden'].includes(result.reason)
+          : ['client_unknown', 'client_disabled', 'origin_not_allowed', 'return_url_not_allowed', 'environment_mismatch', 'developer_required', 'client_binding_invalid', 'code_binding_invalid', 'pkce_invalid', 'forbidden'].includes(result.reason)
               ? 403
               : result.reason === 'rate_limited'
                 ? 429
                 : ['code_used'].includes(result.reason)
                     ? 409
-                    : ['not_configured', 'error'].includes(result.reason)
+                    : ['not_configured', 'registry_invalid', 'registry_unavailable', 'error'].includes(result.reason)
                         ? 503
                         : 401
   const responseOrigin = payload?.action === 'exchangeSsoCode'
-    && isAllowedOrigin(requestOrigin, ssoRequestOptions().originRules, ssoRequestOptions().allowLocal)
+    && isAllowedRequestOrigin(requestOrigin, ssoRequestOptions())
     ? requestOrigin
     : ''
   return isHttp ? httpJson(status, result, responseOrigin) : result

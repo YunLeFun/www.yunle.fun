@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { SsoResultMessage } from '@yunlefun/sso/protocol'
 import {
-  encodeSsoRedirectResult,
+  firstQueryValue,
   isAnonymousSession,
   readSsoMode,
   readSsoNonce,
@@ -11,7 +11,6 @@ import {
   SSO_RESULT_TYPE,
 } from '@yunlefun/sso/protocol'
 import { useTcbAuthSession } from '~/composables/auth/useAuthSession'
-import { createSsoTargetRules, isAllowedSsoTargetOrigin } from '~/utils/ssoTargetOrigins'
 
 /**
  * Lightweight SSO bridge for YunLeFun sub-apps.
@@ -29,21 +28,16 @@ useSeoMeta({
   robots: 'noindex,nofollow',
 })
 
+useHead({
+  meta: [{ name: 'referrer', content: 'no-referrer' }],
+})
+
 const route = useRoute()
 const router = useRouter()
 const { app, auth } = useCloudbase()
 const { authReady, authStatus, checkAuthStatus } = useTcbAuthSession()
 const config = useRuntimeConfig()
-
-function isEnabled(value: unknown): boolean {
-  return value === true || value === 'true'
-}
-
-const allowedTargetRules = createSsoTargetRules(config.public.ssoAllowedTargetOrigins, {
-  allowLocal: isEnabled(config.public.ssoAllowLocalTargetOrigins),
-})
-const allowLocalTargets = isEnabled(config.public.ssoAllowLocalTargetOrigins)
-const allowLegacyRedirect = isEnabled(config.public.ssoAllowLegacyRedirect)
+const allowLegacyRedirect = config.public.ssoAllowLegacyRedirect === true
 
 const status = shallowRef<'checking' | 'success' | 'error'>('checking')
 const message = shallowRef('正在同步云乐坊账号...')
@@ -65,8 +59,9 @@ function readSsoTicketResult(response: unknown): SsoTicketResult {
     : record as SsoTicketResult
 }
 
-function isAllowedTarget(origin: string): boolean {
-  return isAllowedSsoTargetOrigin(origin, allowedTargetRules)
+function readSsoClientId(raw: unknown): string {
+  const value = firstQueryValue(raw).trim()
+  return /^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$/.test(value) ? value : ''
 }
 
 function postToRequester(targetOrigin: string, payload: SsoResultMessage): void {
@@ -89,21 +84,9 @@ function postToRequester(targetOrigin: string, payload: SsoResultMessage): void 
 }
 
 function postInvalidRequest(targetOrigin: string, nonce: string): void {
-  if (targetOrigin && isAllowedTarget(targetOrigin) && nonce) {
-    postToRequester(targetOrigin, {
-      type: SSO_RESULT_TYPE,
-      ok: false,
-      nonce,
-      reason: 'invalid_request',
-    })
-    return
-  }
-  // 扩展排查信息：指明具体哪个参数非法（最常见是子站来源未加入白名单），便于接入时定位
   const problems: string[] = []
   if (!targetOrigin)
     problems.push('targetOrigin 缺失或格式非法')
-  else if (!isAllowedTarget(targetOrigin))
-    problems.push(`来源 ${targetOrigin} 不在 SSO 白名单（请在 NUXT_PUBLIC_SSO_ALLOWED_TARGET_ORIGINS 中添加）`)
   if (!nonce)
     problems.push('nonce 缺失')
   const detail = problems.join('；') || '未知原因'
@@ -121,6 +104,7 @@ function currentSsoPath(): string {
  * 子站以同一 origin + nonce 原子兑换，CloudBase ticket 不进入跨站 URL/postMessage。
  */
 async function issueSsoCode(input: {
+  clientId?: string
   mode: 'silent' | 'interactive' | 'redirect'
   targetOrigin: string
   returnUrl?: string
@@ -169,13 +153,36 @@ function encodeLegacyRedirectTicket(nonce: string, ticket: string): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
+/**
+ * v3 redirect response with an RFC 9207-style issuer identifier. Kept local until
+ * the coordinated @yunlefun/sso release is installed in this repository.
+ */
+function encodeRegistryRedirectResult(payload: {
+  nonce: string
+  ok: boolean
+  code?: string
+  reason?: 'error'
+}): string {
+  const bytes = new TextEncoder().encode(JSON.stringify({
+    nonce: payload.nonce,
+    ok: payload.ok,
+    iss: window.location.origin,
+    ...(payload.code ? { code: payload.code } : {}),
+    ...(payload.reason ? { reason: payload.reason } : {}),
+  }))
+  let binary = ''
+  for (const byte of bytes)
+    binary += String.fromCharCode(byte)
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
 onMounted(async () => {
   const mode = readSsoMode(route.query.mode)
-  // Compatibility cast keeps this repository buildable during the coordinated @yunlefun/sso rollout.
-  const targetOrigin = (readSsoTargetOrigin as (raw: unknown, options?: { allowHttpLocalhost?: boolean }) => string)(
-    route.query.targetOrigin,
-    { allowHttpLocalhost: allowLocalTargets },
-  )
+  // Kept local until @yunlefun/sso with readSsoClientId is published; the cloud
+  // function remains the authoritative registry and validates the same value again.
+  const clientIdRaw = firstQueryValue(route.query.client_id)
+  const clientId = readSsoClientId(clientIdRaw)
+  const targetOrigin = readSsoTargetOrigin(route.query.targetOrigin)
   const nonce = readSsoNonce(route.query.nonce)
   const codeChallengeRaw = Array.isArray(route.query.codeChallenge) ? route.query.codeChallenge[0] : route.query.codeChallenge
   const codeChallengeMethodRaw = Array.isArray(route.query.codeChallengeMethod) ? route.query.codeChallengeMethod[0] : route.query.codeChallengeMethod
@@ -188,23 +195,21 @@ onMounted(async () => {
     && !codeChallengeRaw
     && !codeChallengeMethodRaw
 
-  // redirect 模式（顶层重定向，抗存储分区）：回跳地址必须存在且其 origin 在白名单内
-  // ——否则就是开放重定向漏洞。非 redirect 模式不需要 returnUrl。
+  // redirect 模式（顶层重定向，抗存储分区）：回跳地址必须存在且与 targetOrigin 同源。
+  // 精确 redirect URI 授权由 sso-ticket Registry 裁决；非 redirect 模式不需要 returnUrl。
   const returnUrl = mode === 'redirect'
-    ? (readSsoReturnUrl as (raw: unknown, options?: { allowHttpLocalhost?: boolean }) => string)(
-        route.query.returnUrl,
-        { allowHttpLocalhost: allowLocalTargets },
-      )
+    ? readSsoReturnUrl(route.query.returnUrl)
     : ''
   const returnOk = mode !== 'redirect'
-    || (!!returnUrl && new URL(returnUrl).origin === targetOrigin && isAllowedTarget(targetOrigin))
+    || (!!returnUrl && new URL(returnUrl).origin === targetOrigin)
 
   const hasPkce = !!codeChallenge && codeChallengeMethod === 'S256'
-  if (!targetOrigin || !nonce || (!hasPkce && !legacyRedirect) || !isAllowedTarget(targetOrigin) || !returnOk) {
+  if ((clientIdRaw && !clientId) || !targetOrigin || !nonce || (!hasPkce && !legacyRedirect) || !returnOk) {
     postInvalidRequest(targetOrigin, nonce)
     return
   }
 
+  let authorizationIssued = false
   try {
     // /auth/sso is intentionally public, so the global auth middleware does not
     // restore the in-memory CloudBase SDK session on a fresh page load. Restore
@@ -247,6 +252,7 @@ onMounted(async () => {
       if (!hasPkce)
         throw new Error('pkce_required')
       const code = await issueSsoCode({
+        ...(clientId ? { clientId } : {}),
         mode,
         targetOrigin,
         nonce,
@@ -254,12 +260,10 @@ onMounted(async () => {
         codeChallengeMethod: 'S256',
         ...(returnUrl ? { returnUrl } : {}),
       })
+      authorizationIssued = true
 
       if (mode === 'redirect') {
-        // Compatibility cast is removed once @yunlefun/sso >= 0.4.0 is installed here.
-        redirectBack(returnUrl, encodeSsoRedirectResult(
-          { nonce, ok: true, code } as Parameters<typeof encodeSsoRedirectResult>[0] & { code: string },
-        ))
+        redirectBack(returnUrl, encodeRegistryRedirectResult({ nonce, ok: true, code }))
         return
       }
 
@@ -288,16 +292,12 @@ onMounted(async () => {
   }
   catch (err) {
     console.error('[sso] session bridge failed:', err)
-    if (mode === 'redirect' && returnUrl) {
-      redirectBack(returnUrl, encodeSsoRedirectResult({ nonce, ok: false, reason: 'error' }))
+    if (authorizationIssued && mode === 'redirect' && returnUrl) {
+      redirectBack(returnUrl, encodeRegistryRedirectResult({ nonce, ok: false, reason: 'error' }))
       return
     }
-    postToRequester(targetOrigin, {
-      type: SSO_RESULT_TYPE,
-      ok: false,
-      nonce,
-      reason: 'not_authenticated',
-    })
+    status.value = 'error'
+    message.value = 'SSO 请求未获授权，请检查客户端注册或稍后重试。'
   }
 })
 </script>

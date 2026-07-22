@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
+import { createSsoClientRegistry } from '../../cloudfunctions/sso-ticket/sso-client-registry.js'
+import snapshot from '../../cloudfunctions/sso-ticket/sso-client-registry.snapshot.js'
 import {
   isAllowedOrigin,
+  isAllowedRequestOrigin,
   readAllowedOriginRules,
   SsoRequestError,
   validateExchangeRequest,
@@ -43,7 +46,7 @@ describe('sso-ticket request validation', () => {
       nonce: NONCE,
       codeChallenge: CHALLENGE,
       codeChallengeMethod: 'S256',
-    }, options)).toEqual({
+    }, options)).toMatchObject({
       mode: 'redirect',
       targetOrigin: 'https://drive.yunle.fun',
       returnUrl: 'https://drive.yunle.fun/callback?x=1',
@@ -77,7 +80,7 @@ describe('sso-ticket request validation', () => {
   })
 
   it('binds exchange to an allowlisted request Origin and a strong nonce', () => {
-    expect(validateExchangeRequest({ code: CODE, nonce: NONCE, codeVerifier: VERIFIER }, 'https://drive.yunle.fun', options)).toEqual({
+    expect(validateExchangeRequest({ code: CODE, nonce: NONCE, codeVerifier: VERIFIER }, 'https://drive.yunle.fun', options)).toMatchObject({
       code: CODE,
       nonce: NONCE,
       codeVerifier: VERIFIER,
@@ -106,5 +109,88 @@ describe('sso-ticket request validation', () => {
       returnUrl: 'https://drive.yunle.fun/callback',
       nonce: NONCE,
     }, options)).toThrow(/PKCE/)
+  })
+
+  it('authorizes client_id through the registry and binds the grant to exchange', () => {
+    const clientRegistry = createSsoClientRegistry(snapshot, { issuerEnvironment: 'production' })
+    const registryOptions = {
+      ...options,
+      clientRegistry,
+      issuerEnvironment: 'production',
+      allowLegacyOriginClients: false,
+      actorUid: 'developer-1',
+    }
+    const issue = validateIssueRequest({
+      clientId: 'cms-web',
+      mode: 'redirect',
+      targetOrigin: 'https://cms.yunle.fun',
+      returnUrl: 'https://cms.yunle.fun/',
+      nonce: NONCE,
+      codeChallenge: CHALLENGE,
+      codeChallengeMethod: 'S256',
+    }, registryOptions)
+    expect(issue).toMatchObject({
+      clientId: 'cms-web',
+      issuerEnvironment: 'production',
+      clientEnvironment: 'production',
+      policyVersion: '2026-07-22.1',
+      ruleId: 'cms-production',
+    })
+    expect(validateExchangeRequest({ clientId: 'cms-web', code: CODE, nonce: NONCE, codeVerifier: VERIFIER }, 'https://cms.yunle.fun', registryOptions)).toMatchObject({
+      clientId: 'cms-web',
+      policyVersion: issue.policyVersion,
+      ruleId: issue.ruleId,
+    })
+  })
+
+  it('uses the registry as the CORS authority and refuses a client/origin mismatch', () => {
+    const clientRegistry = createSsoClientRegistry(snapshot, { issuerEnvironment: 'production' })
+    const registryOptions = { ...options, clientRegistry, allowLegacyOriginClients: false }
+    expect(isAllowedRequestOrigin('https://cms.yunle.fun', registryOptions)).toBe(true)
+    expect(isAllowedRequestOrigin('https://drive.yunle.fun', registryOptions)).toBe(false)
+    expect(() => validateExchangeRequest({ clientId: 'cms-web', code: CODE, nonce: NONCE, codeVerifier: VERIFIER }, 'https://drive.yunle.fun', registryOptions)).toThrow(/not registered/)
+  })
+
+  it('requires client_id on issue and exchange after the legacy adapter is disabled', () => {
+    const clientRegistry = createSsoClientRegistry(snapshot, { issuerEnvironment: 'production' })
+    const registryOptions = { ...options, clientRegistry, allowLegacyOriginClients: false }
+    const issue = {
+      mode: 'redirect',
+      targetOrigin: 'https://cms.yunle.fun',
+      returnUrl: 'https://cms.yunle.fun/',
+      nonce: NONCE,
+      codeChallenge: CHALLENGE,
+      codeChallengeMethod: 'S256',
+    }
+
+    for (const action of [
+      () => validateIssueRequest(issue, registryOptions),
+      () => validateExchangeRequest({ code: CODE, nonce: NONCE, codeVerifier: VERIFIER }, 'https://cms.yunle.fun', registryOptions),
+    ]) {
+      try {
+        action()
+        throw new Error('expected client_required')
+      }
+      catch (error) {
+        expect(error).toBeInstanceOf(SsoRequestError)
+        expect(error.reason).toBe('client_required')
+      }
+    }
+  })
+
+  it('does not let the legacy adapter bypass a known registry environment denial', () => {
+    const clientRegistry = createSsoClientRegistry(snapshot, {
+      issuerEnvironment: 'production',
+      developerUserIds: 'developer-1',
+    })
+    const localLegacyRules = readAllowedOriginRules('https://cms.yunle.localhost:3443')
+    const registryOptions = {
+      clientRegistry,
+      allowLegacyOriginClients: true,
+      originRules: localLegacyRules,
+      returnOriginRules: localLegacyRules,
+    }
+    expect(isAllowedRequestOrigin('https://cms.yunle.localhost:3443', registryOptions)).toBe(false)
+    expect(() => validateExchangeRequest({ code: CODE, nonce: NONCE, codeVerifier: VERIFIER }, 'https://cms.yunle.localhost:3443', registryOptions)).toThrow(/production issuer/)
   })
 })

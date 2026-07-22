@@ -6,7 +6,7 @@ const { Buffer } = require('node:buffer')
 const { createHash, randomBytes, timingSafeEqual } = require('node:crypto')
 
 const SSO_LOGIN_CODE_COLLECTION = 'sso_login_codes'
-const SSO_LOGIN_CODE_SCHEMA_VERSION = 2
+const SSO_LOGIN_CODE_SCHEMA_VERSION = 3
 const DEFAULT_CODE_TTL_MS = 60_000
 
 const SSO_LOGIN_CODE_COLLECTION_MANIFEST = {
@@ -106,6 +106,17 @@ function createSsoCodeStore(database, options = {}) {
 
   return {
     async issue(input) {
+      if (typeof input.clientId !== 'string'
+        || !input.clientId
+        || !['production', 'development'].includes(input.issuerEnvironment)
+        || typeof input.clientEnvironment !== 'string'
+        || !input.clientEnvironment
+        || typeof input.policyVersion !== 'string'
+        || !input.policyVersion
+        || typeof input.ruleId !== 'string'
+        || !input.ruleId) {
+        throw new SsoCodeStoreError('client_binding_invalid', 'authorization code client binding is invalid')
+      }
       const code = randomCode()
       if (!/^[\w-]{43}$/.test(code))
         throw new SsoCodeStoreError('entropy_failure', 'authorization code source returned an invalid value')
@@ -118,9 +129,15 @@ function createSsoCodeStore(database, options = {}) {
           recordType: 'sso_login_code',
           schemaVersion: SSO_LOGIN_CODE_SCHEMA_VERSION,
           uid: input.uid,
+          clientId: input.clientId,
+          issuerEnvironment: input.issuerEnvironment,
+          clientEnvironment: input.clientEnvironment,
           targetOrigin: input.targetOrigin,
+          redirectUri: input.returnUrl || '',
           nonce: input.nonce,
           codeChallenge: input.codeChallenge,
+          policyVersion: input.policyVersion,
+          ruleId: input.ruleId,
           mode: input.mode,
           status: 'issued',
           createdAt: issuedAt,
@@ -139,7 +156,7 @@ function createSsoCodeStore(database, options = {}) {
         const record = await readDocument(transaction, id)
         if (!record)
           throw new SsoCodeStoreError('code_invalid', 'authorization code does not exist')
-        if (record.recordType !== 'sso_login_code' || record.schemaVersion !== SSO_LOGIN_CODE_SCHEMA_VERSION)
+        if (record.recordType !== 'sso_login_code' || ![2, SSO_LOGIN_CODE_SCHEMA_VERSION].includes(record.schemaVersion))
           throw new SsoCodeStoreError('code_invalid', 'authorization code record is invalid')
         if (record.status !== 'issued')
           throw new SsoCodeStoreError('code_used', 'authorization code has already been consumed')
@@ -147,6 +164,14 @@ function createSsoCodeStore(database, options = {}) {
           throw new SsoCodeStoreError('code_expired', 'authorization code has expired')
         if (record.targetOrigin !== input.requestOrigin || record.nonce !== input.nonce)
           throw new SsoCodeStoreError('code_binding_invalid', 'authorization code binding does not match')
+        if (record.schemaVersion === SSO_LOGIN_CODE_SCHEMA_VERSION
+          && (record.clientId !== input.clientId
+            || record.issuerEnvironment !== input.issuerEnvironment
+            || record.clientEnvironment !== input.clientEnvironment
+            || record.policyVersion !== input.policyVersion
+            || record.ruleId !== input.ruleId)) {
+          throw new SsoCodeStoreError('client_binding_invalid', 'authorization code client binding does not match')
+        }
         if (!equalBinding(record.codeChallenge, codeChallenge(input.codeVerifier)))
           throw new SsoCodeStoreError('pkce_invalid', 'PKCE verifier does not match')
         if (typeof record.uid !== 'string' || !record.uid)
