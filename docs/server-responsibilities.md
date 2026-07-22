@@ -51,8 +51,11 @@
 - **公开用户主页 `/u/[login]` 已启用 SSR**（2026-06，为 SEO / 分享 OG）：资料经 `server/api/profile`
   代理 `account-api` 的 **HTTP 访问服务**（公开 action `getProfile`，无登录态、不下发任何 CloudBase 密钥）。
   生效三步：① EdgeOne 构建命令切 `pnpm build`（Nitro；首页等 `prerender` 页仍构建期静态，性能不受影响）；
-  ② 控制台给 `account-api` 绑定 HTTP 访问路径；③ 填环境变量 `NUXT_ACCOUNT_API_HTTP_URL`。
-  未配置时 `/u` 自动退化为客户端渲染（功能正常，仅无 SSR SEO），不阻断现有静态部署。
+  ② 控制台给 `account-api` 绑定 HTTP 访问路径；③ 生产默认使用只读入口
+  `https://api.yunle.fun/account-api`，本地 / 预发通过 `NUXT_ACCOUNT_API_HTTP_URL` 覆盖到对应环境。
+  `/u/[identifier]` 统一由服务端按 `login → userId` 解析；公开资料不依赖浏览器登录态。
+  代理只有在上游明确返回空资料时才返回 404，配置缺失 / 上游故障分别返回 503 / 502，
+  页面不得把临时故障展示成“用户不存在”。
 - OAuth 回调（`/auth/callback`）是纯客户端逻辑（CloudBase Web SDK），与 server 能力无关，
   不要迁到 server 端。
 - 跨站 SSO 桥接页（`/auth/sso`）只验证当前 CloudBase session，并通过服务端签发绑定

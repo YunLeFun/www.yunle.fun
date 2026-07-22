@@ -13,26 +13,41 @@ definePageMeta({ layout: 'default' })
 
 const route = useRoute()
 const { user } = useTcbAuth()
-const { getProfile } = useUserProfile()
 const { getRelation } = useFollow()
 const { getUserApps } = useApps()
 
 const loginParam = computed(() => String(route.params.login || ''))
 
-// SSR：经 server route 代理取公开资料（用于 SEO / 分享 OG 与首屏 HTML）。
-// 未配置 CloudBase HTTP 访问时返回 null，由客户端用 SDK 兜底拉取（功能不受影响，仅无 SSR SEO）。
-const { data: ssrProfile, refresh: refreshSsr } = await useFetch<UserProfile | null>('/api/profile', {
-  query: { login: loginParam },
-  watch: false,
+// 公开资料统一经同源 server route 读取：SSR、访客刷新与 SPA 跳转共用同一条无登录态依赖的链路。
+// identifier 在服务端按 login → uid 解析；只有明确的 404 才表示用户不存在。
+const {
+  data: profileData,
+  status: profileStatus,
+  error: profileError,
+  refresh: refreshProfile,
+} = await useFetch<UserProfile>('/api/profile', {
+  query: { identifier: loginParam },
 })
 
-const profile = ref<UserProfile | null>(ssrProfile.value ?? null)
+const profile = computed(() => profileData.value ?? null)
 const relation = ref<FollowRelation | null>(null)
 const userApps = ref<AppRecord[]>([])
-const loading = ref(!ssrProfile.value)
-const appsLoading = ref(true)
+const appsLoading = ref(false)
 /** 粉丝数随 FollowButton 乐观变化 */
-const followersCount = ref(ssrProfile.value?.followersCount ?? 0)
+const followersCount = ref(profile.value?.followersCount ?? 0)
+
+const loading = computed(() => profileStatus.value === 'pending')
+const profileNotFound = computed(() =>
+  profileError.value?.statusCode === 404 || profileError.value?.status === 404,
+)
+const profileUnavailable = computed(() =>
+  (!profileNotFound.value && profileStatus.value === 'error')
+  || (profileStatus.value === 'success' && !profile.value),
+)
+
+async function retryProfile() {
+  await refreshProfile()
+}
 
 const isSelf = computed(() => !!user.value && !!profile.value && user.value.id === profile.value.userId)
 const displayName = computed(() => displayUserName(profile.value?.nickname, profile.value?.login || '云乐坊用户'))
@@ -42,45 +57,55 @@ useSeoMeta({
   description: computed(() => profile.value?.description || '云乐坊用户主页'),
 })
 
+let appsRequestId = 0
 async function loadApps(login: string | null) {
+  const requestId = ++appsRequestId
+  if (!login) {
+    userApps.value = []
+    appsLoading.value = false
+    return
+  }
+
   appsLoading.value = true
   try {
-    userApps.value = login ? await getUserApps(login) : []
+    const apps = await getUserApps(login)
+    if (requestId === appsRequestId)
+      userApps.value = apps
   }
   catch {
-    userApps.value = []
+    if (requestId === appsRequestId)
+      userApps.value = []
   }
   finally {
-    appsLoading.value = false
+    if (requestId === appsRequestId)
+      appsLoading.value = false
   }
 }
 
-/** 解析资料（优先 SSR 结果，缺失则客户端 SDK 兜底）并加载关系 / 应用 */
-async function resolve() {
-  loading.value = true
+watch(profile, (nextProfile) => {
+  followersCount.value = nextProfile?.followersCount ?? 0
+  void loadApps(nextProfile?.login ?? null)
+}, { immediate: true })
+
+// 关系接口需要登录态。公开路由刷新时 user 会在 cookie → CloudBase session 恢复完成后置位，
+// 监听 user 而不是 onMounted 立即请求，避免 memory-only token 启动窗口内的 403。
+let relationRequestId = 0
+watch([() => profile.value?.userId, () => user.value?.id], async ([targetId, viewerId]) => {
+  const requestId = ++relationRequestId
   relation.value = null
-  try {
-    let p = ssrProfile.value
-    if (!p)
-      p = (await getProfile({ login: loginParam.value })) || (await getProfile({ userId: loginParam.value }))
-    profile.value = p
-    if (!p)
-      return
-    followersCount.value = p.followersCount
-    loadApps(p.login)
-    if (user.value && user.value.id !== p.userId)
-      relation.value = await getRelation(p.userId)
-  }
-  finally {
-    loading.value = false
-  }
-}
+  if (!targetId || !viewerId || targetId === viewerId)
+    return
 
-onMounted(resolve)
-watch(loginParam, async () => {
-  await refreshSsr()
-  await resolve()
-})
+  try {
+    const nextRelation = await getRelation(targetId)
+    if (requestId === relationRequestId)
+      relation.value = nextRelation
+  }
+  catch {
+    if (requestId === relationRequestId)
+      relation.value = null
+  }
+}, { immediate: true })
 
 function onFollowChange(following: boolean) {
   followersCount.value = Math.max(0, followersCount.value + (following ? 1 : -1))
@@ -101,7 +126,18 @@ function openList(type: 'following' | 'followers') {
       <UIcon name="i-lucide-loader-2" class="animate-spin text-3xl text-muted" />
     </div>
 
-    <div v-else-if="!profile" class="ylf-empty-state rounded-3xl px-4 py-20 text-center">
+    <div v-else-if="profileUnavailable" class="ylf-empty-state rounded-3xl px-4 py-20 text-center">
+      <UIcon name="i-lucide-cloud-off" class="mb-4 text-5xl text-muted" />
+      <p class="mb-2 text-lg text-muted">
+        暂时无法加载用户资料
+      </p>
+      <p class="mb-5 text-sm text-dimmed">
+        请检查网络后重试
+      </p>
+      <UButton label="重新加载" icon="i-lucide-refresh-cw" color="neutral" variant="outline" @click="retryProfile" />
+    </div>
+
+    <div v-else-if="profileNotFound" class="ylf-empty-state rounded-3xl px-4 py-20 text-center">
       <UIcon name="i-lucide-user-x" class="mb-4 text-5xl text-muted" />
       <p class="mb-4 text-lg text-muted">
         用户不存在
@@ -109,7 +145,7 @@ function openList(type: 'following' | 'followers') {
       <UButton to="/" label="返回首页" icon="i-lucide-arrow-left" color="neutral" variant="outline" />
     </div>
 
-    <div v-else class="mx-auto max-w-3xl space-y-6">
+    <div v-else-if="profile" class="mx-auto max-w-3xl space-y-6">
       <!-- 晴空 hero -->
       <SkyHero>
         <div class="flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
@@ -118,6 +154,7 @@ function openList(type: 'following' | 'followers') {
               :src="profile.avatar"
               :alt="displayName"
               size="3xl"
+              :is-member="profile.isMember"
               ring-class="ring-white/60"
             />
             <div class="min-w-0 text-white">

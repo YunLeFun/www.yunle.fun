@@ -2,6 +2,8 @@ import type { Plugin } from 'vite'
 import process from 'node:process'
 import yaml from '@rollup/plugin-yaml'
 
+const DEFAULT_ACCOUNT_API_HTTP_URL = 'https://api.yunle.fun/account-api'
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   modules: [
@@ -62,9 +64,9 @@ export default defineNuxtConfig({
   },
 
   runtimeConfig: {
-    // CloudBase account-api 的 HTTP 访问服务地址（server 端 SSR 代理 getProfile 用；
-    // 未配置则 /u 主页退化为客户端渲染，不影响功能仅影响 SEO）
-    accountApiHttpUrl: process.env.NUXT_ACCOUNT_API_HTTP_URL || '',
+    // CloudBase account-api 的公开 HTTP 访问地址（server 端 SSR 代理 getProfile 用）。
+    // 官方生产域名是安全的只读默认值；本地/预发可用环境变量覆盖到对应环境。
+    accountApiHttpUrl: process.env.NUXT_ACCOUNT_API_HTTP_URL || DEFAULT_ACCOUNT_API_HTTP_URL,
     // nuxt-auth-utils sealed httpOnly cookie 会话（见 docs/cookie-session-migration.md · Phase 5）。
     // password 由 NUXT_SESSION_PASSWORD env 注入（≥32 字符）；以下显式收口 cookie flags。
     session: {
