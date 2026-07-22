@@ -165,9 +165,10 @@ async function fetchViewerFollowing(db, viewerId, ids) {
  * @param {number} input.skip
  * @param {number} input.limit
  * @param {string} [input.privacyField] 隐私字段名（hideFollowing/hideFollowers），owner 开启且非本人查看则拒绝
+ * @param {number} [input.now]
  * @returns {Promise<{ items: Array, nextSkip: number|null, hidden?: boolean }>} 列表与下一页游标
  */
-async function listRelations(db, { matchField, idField, ownerId, viewerId, skip, limit, privacyField }) {
+async function listRelations(db, { matchField, idField, ownerId, viewerId, skip, limit, privacyField, now = Date.now() }) {
   // 隐私：owner 隐藏该列表且查看者非本人 → 拒绝（计数仍公开，仅列表不可见）
   if (privacyField && viewerId !== ownerId) {
     const owner = await readProfileDoc(db, ownerId)
@@ -187,7 +188,7 @@ async function listRelations(db, { matchField, idField, ownerId, viewerId, skip,
   const ids = rows.map(r => r[idField])
 
   const [profiles, viewerFollowing] = await Promise.all([
-    fetchProfilesByIds(db, ids),
+    fetchProfilesByIds(db, ids, now),
     fetchViewerFollowing(db, viewerId, ids),
   ])
 
@@ -201,6 +202,7 @@ async function listRelations(db, { matchField, idField, ownerId, viewerId, skip,
       avatar: p?.avatar || null,
       followersCount: p?.followersCount || 0,
       followingCount: p?.followingCount || 0,
+      isMember: p?.isMember === true,
       isFollowing: viewerFollowing.has(uid),
       followedAt: r.createdAt,
     }
@@ -217,9 +219,10 @@ async function listRelations(db, { matchField, idField, ownerId, viewerId, skip,
  * @param {string} [input.viewerId]
  * @param {number} [input.skip]
  * @param {number} [input.limit]
+ * @param {number} [input.now]
  * @returns {Promise<{ items: Array, nextSkip: number|null }>} 关注列表
  */
-async function listFollowing(db, { userId, viewerId, skip = 0, limit = 20 }) {
+async function listFollowing(db, { userId, viewerId, skip = 0, limit = 20, now = Date.now() }) {
   return listRelations(db, {
     matchField: 'followerId',
     idField: 'followingId',
@@ -228,6 +231,7 @@ async function listFollowing(db, { userId, viewerId, skip = 0, limit = 20 }) {
     skip,
     limit,
     privacyField: 'hideFollowing',
+    now,
   })
 }
 
@@ -240,9 +244,10 @@ async function listFollowing(db, { userId, viewerId, skip = 0, limit = 20 }) {
  * @param {string} [input.viewerId]
  * @param {number} [input.skip]
  * @param {number} [input.limit]
+ * @param {number} [input.now]
  * @returns {Promise<{ items: Array, nextSkip: number|null }>} 粉丝列表
  */
-async function listFollowers(db, { userId, viewerId, skip = 0, limit = 20 }) {
+async function listFollowers(db, { userId, viewerId, skip = 0, limit = 20, now = Date.now() }) {
   return listRelations(db, {
     matchField: 'followingId',
     idField: 'followerId',
@@ -251,6 +256,7 @@ async function listFollowers(db, { userId, viewerId, skip = 0, limit = 20 }) {
     skip,
     limit,
     privacyField: 'hideFollowers',
+    now,
   })
 }
 

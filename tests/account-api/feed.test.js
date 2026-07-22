@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { getFollowingFeed } from '../../cloudfunctions/account-api/feed.js'
 import { USER_FOLLOWS_COLLECTION } from '../../cloudfunctions/account-api/follows.js'
+import { MEMBERSHIPS_COLLECTION } from '../../cloudfunctions/account-api/lib/orders.js'
 import { USER_PROFILES_COLLECTION } from '../../cloudfunctions/account-api/profiles.js'
 import { makeFakeDb } from '../_fixtures/wxpay.mjs'
 
@@ -36,6 +37,19 @@ describe('关注动态 getFollowingFeed', () => {
     expect(items[0]).toMatchObject({ type: 'app', slug: 'app-carol' })
     expect(items[0].owner).toMatchObject({ userId: 'u3', login: 'carol', nickname: 'Carol', avatar: 'carol.png' })
     expect(nextSkip).toBeNull()
+  })
+
+  it('批量标记动态作者的当前会员状态', async () => {
+    const db = seed()
+    db._store[MEMBERSHIPS_COLLECTION] = [
+      { _id: 'u2', userId: 'u2', expireAt: NOW + 1 },
+      { _id: 'u3', userId: 'u3', expireAt: NOW - 1 },
+    ]
+
+    const { items } = await getFollowingFeed(db, { userId: 'u1', now: NOW })
+
+    expect(items.find(item => item.owner.userId === 'u2')?.owner.isMember).toBe(true)
+    expect(items.find(item => item.owner.userId === 'u3')?.owner.isMember).toBe(false)
   })
 
   it('无关注返回空', async () => {

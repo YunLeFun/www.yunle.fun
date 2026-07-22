@@ -85,4 +85,22 @@ describe('memberAvatar', () => {
     expect(h.getTempFileURL).not.toHaveBeenCalled()
     expect(wrapper.get('[data-testid="avatar"]').attributes('data-src')).toBe(url)
   })
+
+  it('exposes an active membership marker to pointer and keyboard users', async () => {
+    const wrapper = await mountSuspended(MemberAvatar, {
+      props: { alt: 'Member', isMember: true },
+      shallow: true,
+      global: {
+        stubs: {
+          UAvatar: true,
+          UIcon: true,
+        },
+      },
+    })
+
+    const marker = wrapper.get('[aria-label="云乐坊会员"]')
+    expect(marker.attributes('title')).toBe('云乐坊会员')
+    expect(marker.attributes('role')).toBe('img')
+    expect(marker.attributes('tabindex')).toBe('0')
+  })
 })

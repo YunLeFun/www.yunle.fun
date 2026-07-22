@@ -14,6 +14,8 @@
 'use strict'
 
 const { generateDefaultNickname } = require('./displayName')
+const { isMembershipActive } = require('./lib/membership')
+const { MEMBERSHIPS_COLLECTION } = require('./lib/orders')
 
 const USER_PROFILES_COLLECTION = 'user_profiles'
 
@@ -92,7 +94,7 @@ function pickProfileFields(input) {
 }
 
 /** 公开资料投影（对外只暴露这些字段） */
-function toPublicProfile(doc, userId) {
+function toPublicProfile(doc, userId, isMember = false) {
   return {
     userId,
     login: doc?.login || null,
@@ -105,7 +107,57 @@ function toPublicProfile(doc, userId) {
     hideFollowing: !!doc?.hideFollowing,
     // 通知偏好：缺省视为开启（仅显式 false 才关闭）
     notifyOnFollow: doc?.notifyOnFollow !== false,
+    isMember: !!isMember,
   }
+}
+
+/**
+ * 批量计算公开会员标记。规范 `_id == uid` 文档优先；仅存在历史 userId 文档时，
+ * 只要任一记录仍有效即视为会员。查询失败统一降级为空 Map，不影响公开资料主链路。
+ */
+async function fetchPublicMembershipsByIds(db, ids, now = Date.now()) {
+  const normalizedIds = [...new Set((Array.isArray(ids) ? ids : [])
+    .filter(id => typeof id === 'string' && id))]
+  const statuses = new Map()
+  if (!normalizedIds.length)
+    return statuses
+
+  try {
+    const idSet = new Set(normalizedIds)
+    const legacyLimit = Math.min(normalizedIds.length * 10, 1000)
+    const [canonicalResult, legacyResult] = await Promise.all([
+      db
+        .collection(MEMBERSHIPS_COLLECTION)
+        .where({ _id: db.command.in(normalizedIds) })
+        .limit(normalizedIds.length)
+        .get(),
+      db
+        .collection(MEMBERSHIPS_COLLECTION)
+        .where({ userId: db.command.in(normalizedIds) })
+        .limit(legacyLimit)
+        .get(),
+    ])
+
+    for (const membership of (Array.isArray(legacyResult?.data) ? legacyResult.data : [])) {
+      if (idSet.has(membership?.userId) && isMembershipActive(membership.expireAt, now))
+        statuses.set(membership.userId, true)
+    }
+    // 规范文档是最终真相源，覆盖可能残留的历史记录。
+    for (const membership of (Array.isArray(canonicalResult?.data) ? canonicalResult.data : [])) {
+      if (idSet.has(membership?._id))
+        statuses.set(membership._id, isMembershipActive(membership.expireAt, now))
+    }
+  }
+  catch (error) {
+    console.error('[profiles] 公开会员状态批量读取失败，降级隐藏角标:', error)
+    return new Map()
+  }
+  return statuses
+}
+
+async function projectPublicProfile(db, doc, userId, now) {
+  const memberships = await fetchPublicMembershipsByIds(db, [userId], now)
+  return toPublicProfile(doc, userId, memberships.get(userId) === true)
 }
 
 /** 读单个 profile 文档（按 uid 主键），不存在返回 null。兼容 doc().get() 返回数组 / 对象两种形态 */
@@ -159,7 +211,7 @@ async function upsertMyProfile(db, { userId, profile, now = Date.now() }) {
   }
 
   const after = await readProfileDoc(db, uid)
-  return toPublicProfile(after, uid)
+  return projectPublicProfile(db, after, uid, now)
 }
 
 /**
@@ -169,13 +221,14 @@ async function upsertMyProfile(db, { userId, profile, now = Date.now() }) {
  * @param {object} [input]
  * @param {string} [input.userId] uid（优先）
  * @param {string} [input.login] 用户名
+ * @param {number} [input.now]
  * @returns {Promise<object|null>} 公开资料，不存在返回 null
  */
-async function getProfile(db, { userId, login } = {}) {
+async function getProfile(db, { userId, login, now = Date.now() } = {}) {
   if (userId) {
     const uid = assertUserId(userId)
     const doc = await readProfileDoc(db, uid)
-    return doc ? toPublicProfile(doc, uid) : null
+    return doc ? projectPublicProfile(db, doc, uid, now) : null
   }
   if (login && typeof login === 'string') {
     const { data } = await db
@@ -184,7 +237,7 @@ async function getProfile(db, { userId, login } = {}) {
       .limit(1)
       .get()
     const doc = Array.isArray(data) && data.length > 0 ? data[0] : null
-    return doc ? toPublicProfile(doc, doc._id) : null
+    return doc ? projectPublicProfile(db, doc, doc._id, now) : null
   }
   return null
 }
@@ -239,19 +292,23 @@ async function bumpFollowCount(db, { userId, field, delta, now = Date.now() }) {
  *
  * @param {object} db
  * @param {string[]} ids
+ * @param {number} [now]
  * @returns {Promise<Map<string, object>>} uid → 资料文档
  */
-async function fetchProfilesByIds(db, ids) {
+async function fetchProfilesByIds(db, ids, now = Date.now()) {
   const map = new Map()
   if (!Array.isArray(ids) || !ids.length)
     return map
-  const { data } = await db
-    .collection(USER_PROFILES_COLLECTION)
-    .where({ _id: db.command.in(ids) })
-    .limit(ids.length)
-    .get()
+  const [{ data }, memberships] = await Promise.all([
+    db
+      .collection(USER_PROFILES_COLLECTION)
+      .where({ _id: db.command.in(ids) })
+      .limit(ids.length)
+      .get(),
+    fetchPublicMembershipsByIds(db, ids, now),
+  ])
   for (const p of (Array.isArray(data) ? data : []))
-    map.set(p._id, p)
+    map.set(p._id, { ...p, isMember: memberships.get(p._id) === true })
   return map
 }
 

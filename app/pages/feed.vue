@@ -72,7 +72,12 @@ function formatTime(ts: number) {
             :to="item.owner.login ? `/u/${item.owner.login}` : `/u/${item.owner.userId}`"
             class="mb-3 flex items-center gap-2.5"
           >
-            <MemberAvatar :src="item.owner.avatar" :alt="displayUserName(item.owner.nickname)" size="sm" />
+            <MemberAvatar
+              :src="item.owner.avatar"
+              :alt="displayUserName(item.owner.nickname)"
+              :is-member="item.owner.isMember"
+              size="sm"
+            />
             <span class="text-sm font-medium text-highlighted">{{ displayUserName(item.owner.nickname) }}</span>
             <span class="text-xs text-muted">发布了应用 · {{ formatTime(item.updatedAt) }}</span>
           </NuxtLink>

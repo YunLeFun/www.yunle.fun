@@ -85,7 +85,12 @@ watch(() => [props.userId, props.type], () => {
               class="flex min-w-0 flex-1 items-center gap-3"
               @click="open = false"
             >
-              <MemberAvatar :src="item.avatar" :alt="displayUserName(item.nickname)" size="md" />
+              <MemberAvatar
+                :src="item.avatar"
+                :alt="displayUserName(item.nickname)"
+                :is-member="item.isMember"
+                size="md"
+              />
               <div class="min-w-0">
                 <span class="block truncate text-sm font-medium text-highlighted">{{ displayUserName(item.nickname) }}</span>
                 <span v-if="item.login" class="block truncate text-xs text-muted">@{{ item.login }}</span>

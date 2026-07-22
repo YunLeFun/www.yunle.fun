@@ -97,9 +97,10 @@ async function getUnreadCount(db, { userId }) {
  * @param {string} input.userId
  * @param {number} [input.skip]
  * @param {number} [input.limit]
+ * @param {number} [input.now]
  * @returns {Promise<{ items: Array, nextSkip: number|null }>} 通知列表与下一页游标
  */
-async function listNotifications(db, { userId, skip = 0, limit = 20 }) {
+async function listNotifications(db, { userId, skip = 0, limit = 20, now = Date.now() }) {
   const uid = assertUserId(userId)
   const n = Math.min(Math.max(Number(limit) || 20, 1), 50)
   const s = Math.max(Number(skip) || 0, 0)
@@ -111,7 +112,7 @@ async function listNotifications(db, { userId, skip = 0, limit = 20 }) {
     .limit(n)
     .get()
   const rows = Array.isArray(data) ? data : []
-  const profiles = await fetchProfilesByIds(db, [...new Set(rows.filter(r => r.type === 'follow').map(r => r.actorId))])
+  const profiles = await fetchProfilesByIds(db, [...new Set(rows.filter(r => r.type === 'follow').map(r => r.actorId))], now)
 
   const items = rows.map((r) => {
     if (r.type === 'reward') {
@@ -139,6 +140,7 @@ async function listNotifications(db, { userId, skip = 0, limit = 20 }) {
         login: p?.login || null,
         nickname: p?.nickname || '',
         avatar: p?.avatar || null,
+        isMember: p?.isMember === true,
       },
     }
   })

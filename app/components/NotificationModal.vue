@@ -70,7 +70,12 @@ function fmt(ts: number) {
               :class="item.read ? '' : 'bg-primary/5'"
               @click="open = false"
             >
-              <MemberAvatar :src="item.actor.avatar" :alt="displayUserName(item.actor.nickname)" size="md" />
+              <MemberAvatar
+                :src="item.actor.avatar"
+                :alt="displayUserName(item.actor.nickname)"
+                :is-member="item.actor.isMember"
+                size="md"
+              />
               <div class="min-w-0 flex-1">
                 <p class="text-sm text-highlighted">
                   <span class="font-medium">{{ displayUserName(item.actor.nickname) }}</span>

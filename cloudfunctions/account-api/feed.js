@@ -23,9 +23,10 @@ const MAX_FOLLOWING_FANOUT = 200
  * @param {string} input.userId 当前登录者
  * @param {number} [input.skip]
  * @param {number} [input.limit]
+ * @param {number} [input.now]
  * @returns {Promise<{ items: Array, nextSkip: number|null }>} feed 列表与下一页游标
  */
-async function getFollowingFeed(db, { userId, skip = 0, limit = 20 }) {
+async function getFollowingFeed(db, { userId, skip = 0, limit = 20, now = Date.now() }) {
   const uid = assertUserId(userId)
   const n = Math.min(Math.max(Number(limit) || 20, 1), 50)
   const s = Math.max(Number(skip) || 0, 0)
@@ -51,7 +52,7 @@ async function getFollowingFeed(db, { userId, skip = 0, limit = 20 }) {
   const rows = Array.isArray(apps) ? apps : []
 
   // 3. join 作者资料（头像 / 昵称；ownerLogin 兜底）
-  const profiles = await fetchProfilesByIds(db, [...new Set(rows.map(a => a.ownerId))])
+  const profiles = await fetchProfilesByIds(db, [...new Set(rows.map(a => a.ownerId))], now)
 
   const items = rows.map((a) => {
     const p = profiles.get(a.ownerId)
@@ -67,6 +68,7 @@ async function getFollowingFeed(db, { userId, skip = 0, limit = 20 }) {
         login: p?.login || a.ownerLogin || null,
         nickname: p?.nickname || '',
         avatar: p?.avatar || null,
+        isMember: p?.isMember === true,
       },
       createdAt: a.createdAt,
       updatedAt: a.updatedAt,

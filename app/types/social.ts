@@ -20,6 +20,8 @@ export interface UserProfile {
   hideFollowing: boolean
   /** 是否接收「被关注」通知（缺省视为开启） */
   notifyOnFollow: boolean
+  /** 当前是否为有效会员（公开身份标记，不包含等级或到期时间） */
+  isMember: boolean
 }
 
 /** 本人可同步的资料字段（白名单，不含计数） */
@@ -56,6 +58,8 @@ export interface FollowListItem {
   avatar: string | null
   followersCount: number
   followingCount: number
+  /** 当前是否为有效会员 */
+  isMember: boolean
   /** 当前登录者是否已关注此人 */
   isFollowing: boolean
   followedAt: number
@@ -83,6 +87,7 @@ export interface FeedItem {
     login: string | null
     nickname: string
     avatar: string | null
+    isMember: boolean
   }
   createdAt: number
   updatedAt: number
@@ -105,6 +110,7 @@ export interface FollowNotificationItem {
     login: string | null
     nickname: string
     avatar: string | null
+    isMember: boolean
   }
 }
 

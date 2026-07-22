@@ -55,10 +55,12 @@ const ICON: Record<AvatarSize, string> = {
     />
     <span
       v-if="isMember"
-      class="ylf-member-mark absolute flex items-center justify-center rounded-full ring-2"
+      class="ylf-member-mark absolute flex items-center justify-center rounded-full ring-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       :class="[CORNER[size], ringClass]"
       title="云乐坊会员"
       aria-label="云乐坊会员"
+      role="img"
+      tabindex="0"
     >
       <UIcon name="i-lucide-cloud" :class="ICON[size]" />
     </span>

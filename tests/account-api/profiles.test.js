@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
+import { MEMBERSHIPS_COLLECTION } from '../../cloudfunctions/account-api/lib/orders.js'
 import {
   bumpFollowCount,
   getProfile,
@@ -28,6 +29,25 @@ describe('upsertMyProfile', () => {
     db._store[USER_PROFILES_COLLECTION][0].followersCount = 5 // 模拟已有粉丝
     const res = await upsertMyProfile(db, { userId: 'u1', profile: { nickname: 'Alice 2' }, now: NOW + 1 })
     expect(res).toMatchObject({ nickname: 'Alice 2', followersCount: 5 })
+  })
+
+  it('会员更新公开资料后仍返回真实会员标记', async () => {
+    const db = makeFakeDb({
+      [USER_PROFILES_COLLECTION]: [
+        { _id: 'u1', login: 'alice', nickname: 'Alice', followersCount: 0, followingCount: 0, version: 1 },
+      ],
+      [MEMBERSHIPS_COLLECTION]: [
+        { _id: 'u1', userId: 'u1', expireAt: NOW + 1 },
+      ],
+    })
+
+    const result = await upsertMyProfile(db, {
+      userId: 'u1',
+      profile: { nickname: 'Alice 2' },
+      now: NOW,
+    })
+
+    expect(result).toMatchObject({ nickname: 'Alice 2', isMember: true })
   })
 
   it('计数字段无法被本人 upsert 篡改', async () => {
@@ -69,6 +89,48 @@ describe('upsertMyProfile', () => {
 })
 
 describe('getProfile', () => {
+  it('公开资料仅标记当前有效会员，不暴露会员明细', async () => {
+    const db = makeFakeDb({
+      [USER_PROFILES_COLLECTION]: [
+        { _id: 'u1', login: 'alice', nickname: 'Alice' },
+      ],
+      [MEMBERSHIPS_COLLECTION]: [
+        { _id: 'u1', userId: 'u1', level: 'basic', expireAt: NOW + 1 },
+      ],
+    })
+
+    const result = await getProfile(db, { userId: 'u1', now: NOW })
+
+    expect(result).toMatchObject({ userId: 'u1', isMember: true })
+    expect(result).not.toHaveProperty('level')
+    expect(result).not.toHaveProperty('expireAt')
+  })
+
+  it('会员状态读取失败时保留公开资料并隐藏角标', async () => {
+    const db = makeFakeDb({
+      [USER_PROFILES_COLLECTION]: [
+        { _id: 'u1', login: 'alice', nickname: 'Alice' },
+      ],
+    })
+    const collection = db.collection
+    db.collection = (name) => {
+      if (name === MEMBERSHIPS_COLLECTION) {
+        return {
+          doc: () => ({ get: async () => { throw new Error('membership unavailable') } }),
+        }
+      }
+      return collection(name)
+    }
+    const log = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+    await expect(getProfile(db, { userId: 'u1', now: NOW })).resolves.toMatchObject({
+      userId: 'u1',
+      isMember: false,
+    })
+    expect(log).toHaveBeenCalledOnce()
+    log.mockRestore()
+  })
+
   it('按 uid 读取', async () => {
     const db = makeFakeDb()
     await upsertMyProfile(db, { userId: 'u1', profile: { login: 'alice', nickname: 'Alice' }, now: NOW })

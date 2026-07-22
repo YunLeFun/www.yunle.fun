@@ -8,6 +8,7 @@ import {
   unfollowUser,
   USER_FOLLOWS_COLLECTION,
 } from '../../cloudfunctions/account-api/follows.js'
+import { MEMBERSHIPS_COLLECTION } from '../../cloudfunctions/account-api/lib/orders.js'
 import { USER_PROFILES_COLLECTION } from '../../cloudfunctions/account-api/profiles.js'
 import { makeFakeDb } from '../_fixtures/wxpay.mjs'
 
@@ -116,6 +117,19 @@ describe('列表 listFollowing / listFollowers', () => {
     expect(items.map(i => i.userId)).toEqual(['u3', 'u2']) // u3 后关注，倒序在前
     expect(items[0]).toMatchObject({ userId: 'u3', login: 'carol', nickname: 'Carol' })
     expect(nextSkip).toBeNull()
+  })
+
+  it('listFollowing 批量标记有效会员并排除已到期会员', async () => {
+    const db = await seedFollows()
+    db._store[MEMBERSHIPS_COLLECTION] = [
+      { _id: 'u2', userId: 'u2', expireAt: NOW - 1 },
+      { _id: 'u3', userId: 'u3', expireAt: NOW + 1 },
+    ]
+
+    const { items } = await listFollowing(db, { userId: 'u1', now: NOW })
+
+    expect(items.find(item => item.userId === 'u3')).toMatchObject({ isMember: true })
+    expect(items.find(item => item.userId === 'u2')).toMatchObject({ isMember: false })
   })
 
   it('listFollowers join 资料', async () => {

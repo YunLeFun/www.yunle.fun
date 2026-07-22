@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { followUser } from '../../cloudfunctions/account-api/follows.js'
+import { MEMBERSHIPS_COLLECTION } from '../../cloudfunctions/account-api/lib/orders.js'
 import {
   createFollowNotification,
   getUnreadCount,
@@ -30,6 +31,18 @@ describe('关注通知', () => {
     expect(items).toHaveLength(1)
     expect(items[0]).toMatchObject({ type: 'follow', read: false })
     expect(items[0].actor).toMatchObject({ userId: 'u2', login: 'bob', nickname: 'Bob' })
+  })
+
+  it('批量标记通知触发者的当前会员状态', async () => {
+    const db = seed()
+    db._store[MEMBERSHIPS_COLLECTION] = [
+      { _id: 'u2', userId: 'u2', expireAt: NOW + 1 },
+    ]
+    await followUser(db, { followerId: 'u2', followingId: 'u1', now: NOW })
+
+    const { items } = await listNotifications(db, { userId: 'u1', now: NOW })
+
+    expect(items[0].actor).toMatchObject({ userId: 'u2', isMember: true })
   })
 
   it('重复关注不重复通知', async () => {
