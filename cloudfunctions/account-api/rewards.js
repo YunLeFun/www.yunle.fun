@@ -13,8 +13,8 @@ const { classifyAccountIdentity } = require('./synthetic')
 const REWARD_OPERATIONS_COLLECTION = 'reward_operations'
 const REWARD_CORRECTIONS_COLLECTION = 'reward_corrections'
 const MEMBERSHIP_ENTITLEMENT_TRANSACTIONS_COLLECTION = 'membership_entitlement_transactions'
-const FIXED_COIN_REWARD = 100
-const FIXED_MEMBERSHIP_DAYS = 30
+const COIN_REWARD_AMOUNTS = Object.freeze([100, 1000])
+const MEMBERSHIP_REWARD_DAYS = Object.freeze([30, 90, 365])
 const DAY_MS = 86_400_000
 
 function stableId(namespace, value) {
@@ -54,10 +54,10 @@ function normalizeRewardInput(input) {
     throw new Error('rewardName 长度必须为 1-80 个字符')
   const coinAmount = Number(input.coinAmount) || 0
   const membershipDays = Number(input.membershipDays) || 0
-  if (coinAmount !== 0 && coinAmount !== FIXED_COIN_REWARD)
-    throw new Error(`云币奖励固定为 ${FIXED_COIN_REWARD}`)
-  if (membershipDays !== 0 && membershipDays !== FIXED_MEMBERSHIP_DAYS)
-    throw new Error(`会员奖励固定为 ${FIXED_MEMBERSHIP_DAYS} 天`)
+  if (coinAmount !== 0 && !COIN_REWARD_AMOUNTS.includes(coinAmount))
+    throw new Error('云币奖励仅支持 100、1000')
+  if (membershipDays !== 0 && !MEMBERSHIP_REWARD_DAYS.includes(membershipDays))
+    throw new Error('会员奖励仅支持 30、90、365 天')
   if (!coinAmount && !membershipDays)
     throw new Error('至少选择一项奖励')
   const operator = typeof input.operator === 'string' ? input.operator.trim() : ''
@@ -478,8 +478,8 @@ async function listRewardHistory(db, { userId, skip = 0, limit = 20 }) {
 }
 
 module.exports = {
-  FIXED_COIN_REWARD,
-  FIXED_MEMBERSHIP_DAYS,
+  COIN_REWARD_AMOUNTS,
+  MEMBERSHIP_REWARD_DAYS,
   MEMBERSHIP_ENTITLEMENT_TRANSACTIONS_COLLECTION,
   REWARD_CORRECTIONS_COLLECTION,
   REWARD_OPERATIONS_COLLECTION,
