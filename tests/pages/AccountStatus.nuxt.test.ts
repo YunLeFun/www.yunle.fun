@@ -16,19 +16,32 @@ mockNuxtImport('useTcbAuth', () => () => ({ user: h.s.user, logout: h.s.logout }
 mockNuxtImport('navigateTo', () => h.navigateTo)
 
 const stubs = {
-  UAlert: { props: ['title', 'description'], template: '<div>{{ title }} {{ description }}<slot /></div>' },
-  UBadge: { props: ['label'], template: '<span>{{ label }}</span>' },
-  UButton: {
-    props: ['label', 'disabled', 'loading', 'to'],
+  Alert: { template: '<aside><slot /></aside>' },
+  AlertDescription: { template: '<p><slot /></p>' },
+  AlertTitle: { template: '<strong><slot /></strong>' },
+  Button: {
+    props: ['disabled'],
     emits: ['click'],
-    template: '<button type="button" :disabled="disabled || loading" @click="$emit(\'click\')">{{ label }}<slot /></button>',
+    template: '<button type="button" :disabled="disabled" @click="$emit(\'click\')"><slot /></button>',
   },
-  UIcon: true,
-  UModal: {
+  Card: { template: '<section><slot /></section>' },
+  CardContent: { template: '<div><slot /></div>' },
+  CardDescription: { template: '<p><slot /></p>' },
+  CardFooter: { template: '<footer><slot /></footer>' },
+  CardHeader: { template: '<header><slot /></header>' },
+  CardTitle: { template: '<div><slot /></div>' },
+  Dialog: {
     props: ['open'],
-    template: '<div v-if="open"><slot name="content" /></div>',
+    template: '<div v-if="open"><slot /></div>',
   },
-  UPageCard: { template: '<section><slot /></section>' },
+  DialogClose: { template: '<div><slot /></div>' },
+  DialogContent: { template: '<section><slot /></section>' },
+  DialogDescription: { template: '<p><slot /></p>' },
+  DialogFooter: { template: '<footer><slot /></footer>' },
+  DialogHeader: { template: '<header><slot /></header>' },
+  DialogTitle: { template: '<h2><slot /></h2>' },
+  NuxtLink: { template: '<a><slot /></a>' },
+  Spinner: true,
 }
 
 describe('account status page', () => {

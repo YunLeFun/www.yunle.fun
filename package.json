@@ -10,6 +10,8 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare && node scripts/setup-hooks.mjs",
+    "pretest": "pnpm build:authorization-core",
+    "pretest:watch": "pnpm build:authorization-core",
     "lint": "eslint .",
     "typecheck": "nuxt typecheck",
     "test": "vitest run",
