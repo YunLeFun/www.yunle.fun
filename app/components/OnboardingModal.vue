@@ -23,6 +23,9 @@ const avatarInput = ref<HTMLInputElement | null>(null)
 const uploading = ref(false)
 const showCropper = ref(false)
 const cropFile = ref<File | null>(null)
+const avatarActionLabel = computed(() =>
+  form.avatar || user.value?.avatar ? '更换头像' : '上传头像',
+)
 const AVATAR_MAX_SIZE = 10 * 1024 * 1024
 const AVATAR_ACCEPT = 'image/jpeg,image/png,image/gif,image/webp'
 
@@ -117,7 +120,10 @@ async function save() {
       updateData.avatar_url = form.avatar
 
     if (Object.keys(updateData).length > 0) {
-      await auth.updateUser(updateData)
+      const { error: updateError } = await auth.updateUser(updateData)
+      if (updateError)
+        throw updateError
+
       await fetchUser()
       // 同步到公开资料表（关注 / 粉丝等展示）
       await upsertMyProfile({ nickname, avatar: form.avatar || user.value?.avatar || null }).catch(() => {})
@@ -158,7 +164,7 @@ async function save() {
 
           <!-- 头像 -->
           <div class="flex items-center gap-4">
-            <div class="relative group">
+            <div class="relative">
               <MemberAvatar
                 :src="form.avatar || user?.avatar || undefined"
                 :alt="form.nickname || 'User'"
@@ -166,13 +172,16 @@ async function save() {
               />
               <button
                 type="button"
-                class="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                :class="{ 'opacity-100': uploading }"
+                :aria-label="avatarActionLabel"
+                :title="avatarActionLabel"
+                class="absolute inset-0 rounded-full transition-colors hover:bg-foreground/10 focus-visible:bg-foreground/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                 :disabled="uploading"
                 @click="triggerAvatarUpload"
               >
-                <UIcon v-if="!uploading" name="i-lucide-camera" class="text-white text-lg" />
-                <UIcon v-else name="i-lucide-loader-circle" class="text-white text-lg animate-spin" />
+                <span class="absolute -bottom-1 -right-1 flex size-7 items-center justify-center rounded-full bg-primary text-white shadow-md ring-2 ring-(color:--ui-bg)">
+                  <UIcon v-if="!uploading" name="i-lucide-camera" class="size-3.5" />
+                  <UIcon v-else name="i-lucide-loader-circle" class="size-3.5 animate-spin" />
+                </span>
               </button>
               <input
                 ref="avatarInput"
@@ -183,7 +192,7 @@ async function save() {
               >
             </div>
             <div class="text-xs text-dimmed">
-              点击头像上传（可选）<br>
+              {{ avatarActionLabel }}（可选）<br>
               支持裁剪为正方形并自动压缩
             </div>
           </div>

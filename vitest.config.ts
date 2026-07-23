@@ -8,6 +8,8 @@ export default defineVitestConfig({
     include: ['tests/**/*.test.{js,ts,mjs}'],
     environment: 'node',
     globals: false,
+    // Nuxt 组件环境需要各自初始化应用；限制 worker 避免大量并发转换抢占 CPU 后触发 5s 假超时。
+    maxWorkers: 4,
     coverage: {
       provider: 'v8',
       include: [

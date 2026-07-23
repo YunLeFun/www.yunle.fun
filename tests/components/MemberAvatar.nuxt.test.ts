@@ -26,19 +26,11 @@ describe('memberAvatar', () => {
 
     const wrapper = await mountSuspended(MemberAvatar, {
       props: { src: fileID, alt: 'User' },
-      global: {
-        stubs: {
-          UAvatar: {
-            props: ['src', 'alt', 'size'],
-            template: '<img data-testid="avatar" :data-src="src" :alt="alt">',
-          },
-        },
-      },
     })
     await flushPromises()
 
     expect(h.getTempFileURL).toHaveBeenCalledWith({ fileList: [fileID] })
-    expect(wrapper.get('[data-testid="avatar"]').attributes('data-src')).toBe(freshUrl)
+    expect(wrapper.get('img[role="img"]').attributes('src')).toBe(freshUrl)
   })
 
   it('refreshes a legacy signed CloudBase avatar URL', async () => {
@@ -52,50 +44,28 @@ describe('memberAvatar', () => {
 
     const wrapper = await mountSuspended(MemberAvatar, {
       props: { src: legacyUrl, alt: 'Legacy User' },
-      global: {
-        stubs: {
-          UAvatar: {
-            props: ['src', 'alt', 'size'],
-            template: '<img data-testid="avatar" :data-src="src" :alt="alt">',
-          },
-        },
-      },
     })
     await flushPromises()
 
     expect(h.getTempFileURL).toHaveBeenCalledWith({ fileList: [fileID] })
-    expect(wrapper.get('[data-testid="avatar"]').attributes('data-src')).toBe(freshUrl)
+    expect(wrapper.get('img[role="img"]').attributes('src')).toBe(freshUrl)
   })
 
   it('renders third-party avatar URLs without sending them to CloudBase', async () => {
     const url = 'https://avatars.githubusercontent.com/u/1?v=4'
     const wrapper = await mountSuspended(MemberAvatar, {
       props: { src: url, alt: 'GitHub User' },
-      global: {
-        stubs: {
-          UAvatar: {
-            props: ['src', 'alt', 'size'],
-            template: '<img data-testid="avatar" :data-src="src" :alt="alt">',
-          },
-        },
-      },
     })
     await flushPromises()
 
     expect(h.getTempFileURL).not.toHaveBeenCalled()
-    expect(wrapper.get('[data-testid="avatar"]').attributes('data-src')).toBe(url)
+    expect(wrapper.get('img[role="img"]').attributes('src')).toBe(url)
   })
 
   it('exposes an active membership marker to pointer and keyboard users', async () => {
     const wrapper = await mountSuspended(MemberAvatar, {
       props: { alt: 'Member', isMember: true },
       shallow: true,
-      global: {
-        stubs: {
-          UAvatar: true,
-          UIcon: true,
-        },
-      },
     })
 
     const marker = wrapper.get('[aria-label="云乐坊会员"]')

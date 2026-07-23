@@ -158,7 +158,7 @@ function formatAppDate(ts: number) {
               </div>
             </div>
             <UButton
-              to="/settings"
+              to="/settings?edit=profile"
               label="编辑资料"
               icon="i-lucide-pencil"
               size="lg"

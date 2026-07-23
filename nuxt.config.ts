@@ -23,6 +23,15 @@ export default defineNuxtConfig({
   // 账号 / 交互 / OAuth / 数据驱动页靠 CloudBase 客户端登录态，走 client-only。两类策略都在 routeRules 声明。
   ssr: true,
 
+  // shadcn-vue 组件由业务代码显式导入；避免 Nuxt 把目录中的 barrel 与同名 Vue 文件重复注册。
+  components: {
+    dirs: [{
+      path: '~/components',
+      pathPrefix: true,
+      ignore: ['ui/**'],
+    }],
+  },
+
   devtools: {
     enabled: process.env.NODE_ENV === 'development',
   },

@@ -1,5 +1,60 @@
 <script setup lang="ts">
 import type { UpdateUserReq } from '@cloudbase/auth'
+import {
+  ArrowRightIcon,
+  AtSignIcon,
+  CameraIcon,
+  CheckIcon,
+  EyeOffIcon,
+  IdCardIcon,
+  ImageUpIcon,
+  InfoIcon,
+  MarsIcon,
+  PencilIcon,
+  ShieldCheckIcon,
+  UserRoundIcon,
+  VenusIcon,
+} from '@lucide/vue'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from '@/components/ui/field'
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from '@/components/ui/input-group'
+import { Separator } from '@/components/ui/separator'
+import { Spinner } from '@/components/ui/spinner'
+import { Textarea } from '@/components/ui/textarea'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+
+const props = withDefaults(defineProps<{
+  startEditing?: boolean
+}>(), {
+  startEditing: false,
+})
+
+const emit = defineEmits<{
+  editFinished: []
+}>()
 
 const RE_USERNAME_START = /^[a-z]/i
 
@@ -16,20 +71,46 @@ const form = reactive({
   gender: '' as '' | 'MALE' | 'FEMALE',
 })
 
+const NICKNAME_MAX_LENGTH = 32
 const DESCRIPTION_MAX_LENGTH = 200
 
 const genderOptions = [
-  { label: '保密', value: '', icon: '🔒' },
-  { label: '男', value: 'MALE', icon: '♂' },
-  { label: '女', value: 'FEMALE', icon: '♀' },
+  { label: '保密', value: 'PRIVATE', icon: EyeOffIcon },
+  { label: '男', value: 'MALE', icon: MarsIcon },
+  { label: '女', value: 'FEMALE', icon: VenusIcon },
 ]
 
-const genderLabel = computed(() => {
-  const opt = genderOptions.find(o => o.value === (user.value?.gender || ''))
-  if (!opt || !opt.value)
-    return '保密'
-  return `${opt.icon} ${opt.label}`
+const genderSelection = computed({
+  get: () => form.gender || 'PRIVATE',
+  set: (value: string) => {
+    form.gender = value === 'PRIVATE' ? '' : value as 'MALE' | 'FEMALE'
+  },
 })
+
+const nicknameError = computed(() => {
+  const nickname = form.nickname.trim()
+  if (!nickname)
+    return '请输入昵称'
+  if (Array.from(nickname).length > NICKNAME_MAX_LENGTH)
+    return `昵称不能超过 ${NICKNAME_MAX_LENGTH} 个字符`
+  return ''
+})
+
+const genderValue = computed(() => user.value?.gender || 'PRIVATE')
+
+const genderLabel = computed(() => {
+  const opt = genderOptions.find(o => o.value === genderValue.value)
+  return opt?.label || '保密'
+})
+
+const normalizedNickname = computed(() => form.nickname.trim())
+
+const hasChanges = computed(() =>
+  normalizedNickname.value !== (user.value?.nickname || '')
+  || form.avatar !== (user.value?.avatar || '')
+  || form.description !== (user.value?.description || '')
+  || form.gender !== (user.value?.gender || ''),
+)
 
 // 头像上传相关
 const avatarInput = ref<HTMLInputElement | null>(null)
@@ -39,6 +120,9 @@ const uploadProgress = ref(0)
 // 裁剪弹窗相关
 const showCropper = ref(false)
 const cropFile = ref<File | null>(null)
+const avatarActionLabel = computed(() =>
+  form.avatar || user.value?.avatar ? '更换头像' : '上传头像',
+)
 
 const AVATAR_MAX_SIZE = 10 * 1024 * 1024 // 原图限制放宽到 10MB（裁剪后会压缩）
 const AVATAR_ACCEPT = 'image/jpeg,image/png,image/gif,image/webp'
@@ -61,8 +145,8 @@ function handleAvatarChange(e: Event) {
   }
 
   // 校验文件类型
-  if (!file.type.startsWith('image/')) {
-    toast.add({ title: '格式错误', description: '请选择图片文件', color: 'error' })
+  if (!AVATAR_ACCEPT.split(',').includes(file.type)) {
+    toast.add({ title: '格式错误', description: '仅支持 JPG、PNG、GIF 或 WebP 图片', color: 'error' })
     input.value = ''
     return
   }
@@ -161,35 +245,50 @@ async function confirmSetUsername() {
   }
 }
 
-watch(user, (u) => {
-  if (u) {
-    form.nickname = u.nickname || ''
-    form.avatar = u.avatar || ''
-    form.description = u.description || ''
-    form.gender = u.gender || ''
-  }
-}, { immediate: true })
-
-function startEdit() {
+function resetForm() {
   form.nickname = user.value?.nickname || ''
   form.avatar = user.value?.avatar || ''
   form.description = user.value?.description || ''
   form.gender = user.value?.gender || ''
+}
+
+watch(user, (u) => {
+  if (u)
+    resetForm()
+}, { immediate: true })
+
+function startEdit() {
+  resetForm()
   editing.value = true
 }
 
 function cancelEdit() {
+  resetForm()
   editing.value = false
+  emit('editFinished')
 }
 
+watch(() => props.startEditing, (requested) => {
+  if (requested && !editing.value) {
+    startEdit()
+  }
+  else if (!requested && editing.value) {
+    resetForm()
+    editing.value = false
+  }
+}, { immediate: true })
+
 async function save() {
+  if (saving.value || nicknameError.value)
+    return
+
   try {
     saving.value = true
     const { auth } = useCloudbase()
     const updateData: UpdateUserReq = {}
 
-    if (form.nickname !== (user.value?.nickname || '')) {
-      updateData.nickname = form.nickname
+    if (normalizedNickname.value !== (user.value?.nickname || '')) {
+      updateData.nickname = normalizedNickname.value
     }
     if (form.avatar !== (user.value?.avatar || '')) {
       updateData.avatar_url = form.avatar
@@ -203,12 +302,17 @@ async function save() {
 
     if (Object.keys(updateData).length === 0) {
       editing.value = false
+      emit('editFinished')
       return
     }
 
-    await auth.updateUser(updateData)
+    const { error: updateError } = await auth.updateUser(updateData)
+    if (updateError)
+      throw updateError
+
     await fetchUser()
     editing.value = false
+    emit('editFinished')
 
     toast.add({
       title: '保存成功',
@@ -232,241 +336,406 @@ async function save() {
 </script>
 
 <template>
-  <div class="space-y-6">
-    <UPageCard class="p-6">
-      <div class="flex items-center justify-between mb-6">
-        <h3 class="text-lg font-semibold">
-          个人资料
-        </h3>
-        <UButton
-          v-if="!editing"
-          label="编辑"
-          icon="i-lucide-pencil"
-          color="primary"
-          variant="subtle"
-          size="sm"
-          @click="startEdit"
-        />
-      </div>
+  <div class="flex flex-col gap-6">
+    <form
+      v-if="editing"
+      aria-label="编辑个人资料"
+      class="ylf-profile-editor overflow-hidden rounded-[1.75rem]"
+      @submit.prevent="save"
+    >
+      <header class="ylf-profile-editor__divider flex items-start justify-between gap-4 border-b px-5 py-5 sm:px-7 sm:py-6">
+        <div class="flex min-w-0 items-start gap-3">
+          <span class="ylf-icon-tile mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl">
+            <IdCardIcon />
+          </span>
+          <div>
+            <h2 class="font-heading text-lg font-semibold text-foreground">
+              公开资料
+            </h2>
+            <p class="mt-1 text-sm leading-6 text-muted-foreground">
+              保存后会同步显示在你的个人主页和社区内容中
+            </p>
+          </div>
+        </div>
+        <Badge variant="secondary" class="shrink-0 text-primary">
+          编辑中
+        </Badge>
+      </header>
 
-      <!-- 头像 -->
-      <div class="flex items-center gap-6 mb-6">
-        <div class="relative group">
-          <MemberAvatar
-            :src="editing ? form.avatar || undefined : user?.avatar || undefined"
-            :alt="user?.nickname || user?.login || 'User'"
-            size="3xl"
-          />
-          <!-- 编辑态：上传遮罩 -->
-          <button
-            v-if="editing"
+      <div class="grid lg:grid-cols-[15rem_minmax(0,1fr)]">
+        <aside class="ylf-profile-editor__avatar ylf-profile-editor__divider flex flex-col items-center border-b px-6 py-8 text-center lg:border-r lg:border-b-0">
+          <div class="relative">
+            <MemberAvatar
+              :src="form.avatar || undefined"
+              :alt="user?.nickname || user?.login || 'User'"
+              size="3xl"
+              ring-class="ring-(color:--ylf-surface)"
+            />
+            <button
+              type="button"
+              :aria-label="avatarActionLabel"
+              :title="avatarActionLabel"
+              class="absolute inset-0 rounded-full transition-colors duration-150 hover:bg-foreground/5 focus-visible:bg-foreground/5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+              :disabled="uploading"
+              @click="triggerAvatarUpload"
+            >
+              <span class="absolute -right-1 -bottom-1 flex size-9 items-center justify-center rounded-full border-2 border-card bg-primary text-primary-foreground shadow-sm">
+                <CameraIcon v-if="!uploading" />
+                <span v-else class="text-[10px] font-semibold tabular-nums">{{ uploadProgress }}%</span>
+              </span>
+            </button>
+            <input
+              ref="avatarInput"
+              type="file"
+              :accept="AVATAR_ACCEPT"
+              class="hidden"
+              @change="handleAvatarChange"
+            >
+          </div>
+
+          <Button
+            variant="outline"
             type="button"
-            class="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-            :class="{ 'opacity-100': uploading }"
+            class="mt-5"
             :disabled="uploading"
             @click="triggerAvatarUpload"
           >
-            <UIcon
-              v-if="!uploading"
-              name="i-lucide-camera"
-              class="text-white text-xl"
-            />
-            <span v-else class="text-white text-xs font-medium">{{ uploadProgress }}%</span>
-          </button>
-          <input
-            ref="avatarInput"
-            type="file"
-            :accept="AVATAR_ACCEPT"
-            class="hidden"
-            @change="handleAvatarChange"
-          >
-        </div>
-        <div v-if="editing" class="flex-1 space-y-2">
-          <p class="text-sm text-muted">
-            点击头像上传图片，支持裁剪为正方形并自动压缩
+            <Spinner v-if="uploading" data-icon="inline-start" />
+            <ImageUpIcon v-else data-icon="inline-start" />
+            {{ uploading ? `上传中 ${uploadProgress}%` : avatarActionLabel }}
+          </Button>
+          <p class="mt-3 text-xs leading-5 text-muted-foreground">
+            JPG、PNG、GIF 或 WebP<br>
+            图片大小不超过 10MB
           </p>
-          <UButton
-            label="选择图片"
-            icon="i-lucide-upload"
-            color="neutral"
-            variant="outline"
-            size="xs"
-            :loading="uploading"
-            @click="triggerAvatarUpload"
-          />
+        </aside>
+
+        <div class="min-w-0 px-5 py-6 sm:px-7 sm:py-8">
+          <FieldGroup class="gap-7">
+            <Field :data-invalid="!!nicknameError">
+              <FieldLabel for="profile-nickname">
+                昵称
+              </FieldLabel>
+              <FieldDescription>
+                这是其他人最先看到的名字
+              </FieldDescription>
+              <InputGroup :data-invalid="!!nicknameError">
+                <InputGroupInput
+                  id="profile-nickname"
+                  v-model="form.nickname"
+                  name="nickname"
+                  placeholder="输入您的昵称"
+                  autocomplete="nickname"
+                  :maxlength="NICKNAME_MAX_LENGTH"
+                  :aria-invalid="!!nicknameError"
+                />
+                <InputGroupAddon>
+                  <UserRoundIcon />
+                </InputGroupAddon>
+              </InputGroup>
+              <FieldError v-if="nicknameError">
+                {{ nicknameError }}
+              </FieldError>
+            </Field>
+
+            <Field>
+              <div class="flex items-start justify-between gap-4">
+                <div>
+                  <FieldLabel for="profile-description">
+                    个人介绍
+                  </FieldLabel>
+                  <FieldDescription>
+                    简单介绍一下自己，也可以留空
+                  </FieldDescription>
+                </div>
+                <span class="shrink-0 text-xs tabular-nums text-muted-foreground">
+                  {{ form.description.length }}/{{ DESCRIPTION_MAX_LENGTH }}
+                </span>
+              </div>
+              <Textarea
+                id="profile-description"
+                v-model="form.description"
+                name="description"
+                placeholder="分享你的兴趣、正在做的事……"
+                :maxlength="DESCRIPTION_MAX_LENGTH"
+                :rows="4"
+                class="resize-none"
+              />
+            </Field>
+
+            <FieldSet aria-labelledby="profile-gender-label">
+              <FieldLegend id="profile-gender-label" variant="label">
+                性别
+              </FieldLegend>
+              <FieldDescription>
+                选择是否在公开资料中展示
+              </FieldDescription>
+              <ToggleGroup
+                v-model="genderSelection"
+                type="single"
+                variant="outline"
+                size="lg"
+                :spacing="2"
+                class="grid w-full grid-cols-3"
+                aria-label="性别"
+              >
+                <ToggleGroupItem
+                  v-for="opt in genderOptions"
+                  :key="opt.value"
+                  :value="opt.value"
+                  :aria-label="`性别：${opt.label}`"
+                  class="w-full"
+                >
+                  <component :is="opt.icon" data-icon="inline-start" />
+                  {{ opt.label }}
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </FieldSet>
+
+            <Field>
+              <FieldLabel id="profile-username-label">
+                用户名
+              </FieldLabel>
+              <FieldDescription>
+                用于个人主页地址，设置后不可修改
+              </FieldDescription>
+              <div class="ylf-profile-editor__secondary-row flex min-h-12 items-center justify-between gap-3 rounded-xl border bg-muted/45 px-4 py-2.5">
+                <span v-if="hasUsername" class="min-w-0 truncate font-mono text-sm text-foreground">
+                  @{{ user?.login }}
+                </span>
+                <span v-else class="text-sm text-muted-foreground">尚未设置</span>
+                <Badge
+                  v-if="hasUsername"
+                  variant="secondary"
+                  class="shrink-0"
+                >
+                  不可修改
+                </Badge>
+                <Button
+                  v-else
+                  variant="secondary"
+                  size="sm"
+                  type="button"
+                  class="shrink-0 text-primary"
+                  @click="openUsernameModal"
+                >
+                  <AtSignIcon data-icon="inline-start" />
+                  设置用户名
+                </Button>
+              </div>
+            </Field>
+
+            <NuxtLink
+              to="/settings?tab=security"
+              class="ylf-profile-editor__secondary-row group flex min-h-14 items-center justify-between gap-3 rounded-xl border px-4 py-3 transition-colors duration-150 hover:bg-muted/60"
+            >
+              <span class="flex min-w-0 items-center gap-3">
+                <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                  <ShieldCheckIcon />
+                </span>
+                <span class="min-w-0">
+                  <span class="block text-sm font-medium text-foreground">登录与安全</span>
+                  <span class="mt-0.5 block truncate text-xs text-muted-foreground">手机号、邮箱和密码</span>
+                </span>
+              </span>
+              <span class="flex shrink-0 items-center gap-1 text-sm font-medium text-primary">
+                管理
+                <ArrowRightIcon class="transition-transform duration-150 group-hover:translate-x-0.5" />
+              </span>
+            </NuxtLink>
+          </FieldGroup>
         </div>
       </div>
 
-      <!-- 表单 -->
-      <div class="space-y-4">
-        <UFormField label="昵称">
-          <UInput
-            v-if="editing"
-            v-model="form.nickname"
-            placeholder="输入您的昵称"
-            icon="i-lucide-user"
-            class="w-full"
+      <footer class="ylf-profile-editor__divider flex flex-col-reverse gap-3 border-t bg-muted/35 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
+        <p class="hidden text-xs text-muted-foreground sm:block">
+          只有点击保存后，修改才会生效
+        </p>
+        <div class="grid grid-cols-2 gap-3 sm:flex">
+          <Button
+            variant="ghost"
+            size="lg"
+            type="button"
+            class="sm:min-w-24"
+            @click="cancelEdit"
+          >
+            取消
+          </Button>
+          <Button
+            size="lg"
+            type="submit"
+            class="sm:min-w-30"
+            :disabled="!hasChanges || !!nicknameError || uploading || saving"
+          >
+            <Spinner v-if="saving" data-icon="inline-start" />
+            <CheckIcon v-else data-icon="inline-start" />
+            {{ saving ? '保存中' : '保存修改' }}
+          </Button>
+        </div>
+      </footer>
+    </form>
+
+    <section v-else class="ylf-profile-editor overflow-hidden rounded-[1.75rem]">
+      <header class="ylf-profile-editor__divider flex items-start justify-between gap-4 border-b px-5 py-5 sm:px-7 sm:py-6">
+        <div>
+          <h2 class="font-heading text-lg font-semibold text-foreground">
+            个人资料
+          </h2>
+          <p class="mt-1 text-sm leading-6 text-muted-foreground">
+            管理你在云乐坊公开展示的信息
+          </p>
+        </div>
+        <Button as-child variant="secondary" size="sm" class="shrink-0 text-primary">
+          <NuxtLink to="/settings?edit=profile">
+            <PencilIcon data-icon="inline-start" />
+            编辑
+          </NuxtLink>
+        </Button>
+      </header>
+
+      <div class="px-5 py-6 sm:px-7">
+        <div class="flex items-center gap-4">
+          <MemberAvatar
+            :src="user?.avatar || undefined"
+            :alt="user?.nickname || user?.login || 'User'"
+            size="3xl"
+            ring-class="ring-(color:--ylf-surface)"
           />
-          <p v-else class="text-sm py-2">
-            {{ user?.nickname || '未设置' }}
-          </p>
-        </UFormField>
-
-        <UFormField label="个人简介">
-          <UTextarea
-            v-if="editing"
-            v-model="form.description"
-            placeholder="介绍一下自己吧"
-            :maxlength="DESCRIPTION_MAX_LENGTH"
-            :rows="3"
-            autoresize
-            class="w-full"
-          />
-          <p v-else class="text-sm py-2 whitespace-pre-wrap">
-            {{ user?.description || '未填写' }}
-          </p>
-          <template v-if="editing" #hint>
-            <span class="text-xs text-dimmed">{{ form.description.length }}/{{ DESCRIPTION_MAX_LENGTH }}</span>
-          </template>
-        </UFormField>
-
-        <UFormField label="性别">
-          <div v-if="editing" class="flex gap-2 py-1">
-            <UButton
-              v-for="opt in genderOptions"
-              :key="opt.value"
-              :label="`${opt.icon} ${opt.label}`"
-              size="sm"
-              :color="form.gender === opt.value ? 'primary' : 'neutral'"
-              :variant="form.gender === opt.value ? 'solid' : 'outline'"
-              @click="form.gender = opt.value as '' | 'MALE' | 'FEMALE'"
-            />
-          </div>
-          <p v-else class="text-sm py-2">
-            {{ genderLabel }}
-          </p>
-        </UFormField>
-
-        <UFormField label="用户名">
-          <div class="flex items-center gap-2 py-2">
-            <p v-if="hasUsername" class="text-sm text-muted">
-              @{{ user?.login }}
-              <UBadge label="不可修改" color="neutral" variant="subtle" size="xs" class="ml-1" />
+          <div class="min-w-0">
+            <p class="truncate font-heading font-semibold text-foreground">
+              {{ user?.nickname || '未设置昵称' }}
             </p>
-            <template v-else>
-              <p class="text-sm text-muted">
-                未设置
-              </p>
-              <UButton
-                label="设置用户名"
-                icon="i-lucide-at-sign"
-                color="primary"
-                variant="subtle"
-                size="xs"
-                @click="openUsernameModal"
-              />
-            </template>
+            <p v-if="user?.login" class="mt-1 truncate font-mono text-sm text-muted-foreground">
+              @{{ user.login }}
+            </p>
           </div>
-          <p v-if="!hasUsername" class="text-xs text-dimmed">
-            用户名设置后不可更改，请谨慎选择
-          </p>
-        </UFormField>
+        </div>
 
-        <!-- 登录方式（手机号 / 邮箱 / 密码）统一在「安全设置」管理，此处不再重复展示 -->
+        <dl class="mt-7">
+          <div class="grid gap-1 py-4 sm:grid-cols-[8rem_minmax(0,1fr)] sm:gap-4">
+            <dt class="text-sm text-muted-foreground">
+              个人介绍
+            </dt>
+            <dd class="text-sm leading-6 text-foreground whitespace-pre-wrap">
+              {{ user?.description || '尚未填写' }}
+            </dd>
+          </div>
+          <Separator />
+          <div class="grid gap-1 py-4 sm:grid-cols-[8rem_minmax(0,1fr)] sm:items-center sm:gap-4">
+            <dt class="text-sm text-muted-foreground">
+              性别
+            </dt>
+            <dd class="text-sm text-foreground">
+              {{ genderLabel }}
+            </dd>
+          </div>
+          <Separator />
+          <div class="grid gap-2 py-4 sm:grid-cols-[8rem_minmax(0,1fr)] sm:items-center sm:gap-4">
+            <dt class="text-sm text-muted-foreground">
+              用户名
+            </dt>
+            <dd class="flex items-center justify-between gap-3">
+              <span v-if="hasUsername" class="font-mono text-sm text-foreground">@{{ user?.login }}</span>
+              <template v-else>
+                <span class="text-sm text-muted-foreground">尚未设置</span>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  class="text-primary"
+                  @click="openUsernameModal"
+                >
+                  <AtSignIcon data-icon="inline-start" />
+                  设置用户名
+                </Button>
+              </template>
+            </dd>
+          </div>
+        </dl>
+
         <NuxtLink
           to="/settings?tab=security"
-          class="flex items-center justify-between gap-2 rounded-lg bg-elevated/60 px-3 py-2.5 text-sm transition-colors hover:bg-elevated"
+          class="ylf-profile-editor__secondary-row group mt-5 flex min-h-14 items-center justify-between gap-3 rounded-xl border px-4 py-3 transition-colors duration-150 hover:bg-muted/60"
         >
-          <span class="flex min-w-0 items-center gap-2 text-muted">
-            <UIcon name="i-lucide-shield" class="size-4 shrink-0" />
-            <span class="truncate">手机号、邮箱、密码等登录方式</span>
+          <span class="flex min-w-0 items-center gap-3">
+            <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+              <ShieldCheckIcon />
+            </span>
+            <span class="min-w-0">
+              <span class="block text-sm font-medium text-foreground">登录与安全</span>
+              <span class="mt-0.5 block truncate text-xs text-muted-foreground">手机号、邮箱和密码</span>
+            </span>
           </span>
-          <span class="flex shrink-0 items-center gap-1 text-primary">
-            去管理 <UIcon name="i-lucide-arrow-right" class="size-3.5" />
+          <span class="flex shrink-0 items-center gap-1 text-sm font-medium text-primary">
+            管理
+            <ArrowRightIcon class="transition-transform duration-150 group-hover:translate-x-0.5" />
           </span>
         </NuxtLink>
       </div>
+    </section>
 
-      <!-- 编辑操作按钮 -->
-      <div v-if="editing" class="flex justify-end gap-3 mt-6 pt-4 border-t border-default">
-        <UButton
-          label="取消"
-          color="neutral"
-          variant="outline"
-          @click="cancelEdit"
-        />
-        <UButton
-          label="保存"
-          color="primary"
-          icon="i-lucide-check"
-          :loading="saving"
-          @click="save"
-        />
-      </div>
-    </UPageCard>
+    <Dialog v-model:open="showUsernameModal">
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>设置用户名</DialogTitle>
+          <DialogDescription>
+            用户名将用于你的个人主页地址
+          </DialogDescription>
+        </DialogHeader>
 
-    <!-- 设置用户名弹窗 -->
-    <UModal v-model:open="showUsernameModal">
-      <template #content>
-        <UCard>
-          <template #header>
-            <div class="flex items-center justify-between">
-              <h3 class="text-lg font-semibold">
-                设置用户名
-              </h3>
-            </div>
-          </template>
+        <div class="flex flex-col gap-5 px-6 pb-6">
+          <Alert>
+            <InfoIcon />
+            <AlertTitle>用户名设置后不可更改</AlertTitle>
+            <AlertDescription>
+              请仔细确认拼写，保存后将无法自行修改。
+            </AlertDescription>
+          </Alert>
 
-          <div class="space-y-4">
-            <UAlert
-              icon="i-lucide-info"
-              color="warning"
-              title="用户名设置后不可更改"
-              description="请仔细确认您的用户名，一旦设置将无法修改。"
-            />
-
-            <UFormField label="用户名" :error="usernameError">
-              <UInput
+          <Field :data-invalid="!!usernameError">
+            <FieldLabel for="profile-username-input">
+              用户名
+            </FieldLabel>
+            <InputGroup :data-invalid="!!usernameError">
+              <InputGroupInput
+                id="profile-username-input"
                 v-model="usernameInput"
                 placeholder="请输入用户名"
-                icon="i-lucide-at-sign"
-                class="w-full"
+                autocomplete="username"
+                :aria-invalid="!!usernameError"
                 @input="onUsernameInputChange"
-              >
-                <template #leading>
-                  <span class="text-dimmed text-sm">@</span>
-                </template>
-              </UInput>
-            </UFormField>
-
-            <div class="text-xs text-dimmed space-y-1">
+              />
+              <InputGroupAddon>
+                <AtSignIcon />
+              </InputGroupAddon>
+            </InputGroup>
+            <FieldError v-if="usernameError">
+              {{ usernameError }}
+            </FieldError>
+            <div class="flex flex-col gap-1 text-xs text-muted-foreground">
               <p>· 3-20 个字符</p>
               <p>· 必须以字母开头</p>
               <p>· 只允许字母、数字、下划线（_）和连字符（-）</p>
             </div>
-          </div>
+          </Field>
+        </div>
 
-          <template #footer>
-            <div class="flex justify-end gap-3">
-              <UButton
-                label="取消"
-                color="neutral"
-                variant="outline"
-                @click="showUsernameModal = false"
-              />
-              <UButton
-                label="确认设置"
-                color="primary"
-                icon="i-lucide-check"
-                :loading="settingUsername"
-                :disabled="!!usernameError || !usernameInput"
-                @click="confirmSetUsername"
-              />
-            </div>
-          </template>
-        </UCard>
-      </template>
-    </UModal>
+        <DialogFooter>
+          <DialogClose as-child>
+            <Button variant="outline">
+              取消
+            </Button>
+          </DialogClose>
+          <Button
+            :disabled="!!usernameError || !usernameInput || settingUsername"
+            @click="confirmSetUsername"
+          >
+            <Spinner v-if="settingUsername" data-icon="inline-start" />
+            <CheckIcon v-else data-icon="inline-start" />
+            {{ settingUsername ? '设置中' : '确认设置' }}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
 
     <!-- 头像裁剪弹窗 -->
     <AvatarCropper
@@ -479,3 +748,37 @@ async function save() {
     />
   </div>
 </template>
+
+<style scoped>
+.ylf-profile-editor {
+  background: var(--card);
+  color: var(--card-foreground);
+  border: 1px solid var(--border);
+  box-shadow: 0 20px 55px -42px color-mix(in srgb, var(--ylf-shadow-color) 32%, transparent);
+}
+
+.ylf-profile-editor__divider {
+  border-color: var(--ylf-border-subtle);
+}
+
+.ylf-profile-editor__secondary-row {
+  border-color: var(--input);
+}
+
+.ylf-profile-editor__secondary-row:hover {
+  border-color: color-mix(in srgb, var(--primary) 32%, var(--input));
+}
+
+.ylf-profile-editor__avatar {
+  background:
+    radial-gradient(circle at 50% 18%, color-mix(in srgb, var(--primary) 9%, transparent), transparent 11rem),
+    color-mix(in srgb, var(--muted) 72%, var(--card));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ylf-profile-editor * {
+    scroll-behavior: auto;
+    transition-duration: 0.01ms !important;
+  }
+}
+</style>
