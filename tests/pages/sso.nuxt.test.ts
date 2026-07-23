@@ -6,35 +6,62 @@ import { computed, ref } from 'vue'
 import SsoPage from '../../app/pages/auth/sso.vue'
 
 const h = vi.hoisted(() => ({
-  s: {} as Record<string, any>,
+  state: {} as Record<string, any>,
 }))
 
-mockNuxtImport('useCloudbase', () => () => h.s.cloudbase)
-mockNuxtImport('navigateTo', () => (...args: unknown[]) => h.s.navigateTo(...args))
-mockNuxtImport('useAccountAccess', () => () => h.s.accountAccess)
+mockNuxtImport('useCloudbase', () => () => h.state.cloudbase)
+mockNuxtImport('navigateTo', () => (...args: unknown[]) => h.state.navigateTo(...args))
+mockNuxtImport('useAccountAccess', () => () => h.state.accountAccess)
 
 vi.mock('~/composables/auth/useAuthSession', () => ({
-  useTcbAuthSession: () => h.s.authSession ?? {
+  useTcbAuthSession: () => h.state.authSession ?? {
     authReady: { value: true },
+    authStatus: { value: 'guest' },
     isAuthenticated: { value: false },
     user: { value: null },
     checkAuthStatus: async () => undefined,
   },
 }))
 
-describe('sso bridge', () => {
+function requestRoute(overrides: Record<string, string> = {}) {
+  const query = new URLSearchParams({
+    client_id: 'cms-web',
+    redirect_uri: 'https://cms.yunle.fun/',
+    scope: 'identity:bootstrap',
+    nonce: 'n'.repeat(43),
+    code_challenge: 'a'.repeat(43),
+    code_challenge_method: 'S256',
+    ...overrides,
+  })
+  return `/auth/sso?${query.toString()}`
+}
+
+async function mount(route = requestRoute()) {
+  const wrapper = await mountSuspended(SsoPage, {
+    route,
+    global: {
+      stubs: {
+        UIcon: { template: '<span />' },
+      },
+    },
+  })
+  await flushPromises()
+  return wrapper
+}
+
+describe('sSO v3 Provider page', () => {
   beforeEach(() => {
     const callOrder: string[] = []
     const authReady = ref(false)
     const authStatus = ref<'pending' | 'authenticated' | 'guest'>('pending')
 
-    h.s.callOrder = callOrder
-    h.s.navigateTo = vi.fn()
-    h.s.accountAccess = {
+    h.state.callOrder = callOrder
+    h.state.navigateTo = vi.fn()
+    h.state.accountAccess = {
       access: ref({ state: 'active', restricted: false }),
       refresh: vi.fn(async () => undefined),
     }
-    h.s.cloudbase = {
+    h.state.cloudbase = {
       auth: {
         getSession: vi.fn(async () => {
           callOrder.push('get-session')
@@ -47,12 +74,12 @@ describe('sso bridge', () => {
       app: {
         callFunction: vi.fn(async () => {
           callOrder.push('issue-code')
-          return h.s.functionResponse
+          return h.state.functionResponse
         }),
       },
     }
-    h.s.functionResponse = { ok: true, code: 'b'.repeat(43) }
-    h.s.authSession = {
+    h.state.functionResponse = { ok: true, code: 'b'.repeat(43) }
+    h.state.authSession = {
       authReady,
       authStatus,
       isAuthenticated: computed(() => authStatus.value === 'authenticated'),
@@ -65,100 +92,84 @@ describe('sso bridge', () => {
     }
   })
 
-  it('restores the server-backed CloudBase session before issuing an SSO code', async () => {
+  it('restores the session, then issues a redirect-only code with every binding', async () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-    await mountSuspended(SsoPage, {
-      route: `/auth/sso?client_id=cms-web&mode=silent&targetOrigin=${encodeURIComponent('https://cms.yunle.fun')}&nonce=1234567890abcdef1234567890abcdef&codeChallenge=${'a'.repeat(43)}&codeChallengeMethod=S256`,
-      global: {
-        stubs: {
-          UIcon: { template: '<span />' },
-        },
-      },
-    })
-    await flushPromises()
+    await mount()
 
-    expect(h.s.authSession.checkAuthStatus).toHaveBeenCalledTimes(1)
-    expect(h.s.callOrder).toEqual(['restore-session', 'get-session', 'issue-code'])
-    expect(h.s.cloudbase.app.callFunction).toHaveBeenCalledWith({
+    expect(h.state.callOrder).toEqual(['restore-session', 'get-session', 'issue-code'])
+    expect(h.state.cloudbase.app.callFunction).toHaveBeenCalledWith({
       name: 'sso-ticket',
-      data: expect.objectContaining({ action: 'issueSsoCode', clientId: 'cms-web' }),
+      data: {
+        action: 'issueSsoCode',
+        clientId: 'cms-web',
+        mode: 'redirect',
+        targetOrigin: 'https://cms.yunle.fun',
+        returnUrl: 'https://cms.yunle.fun/',
+        scope: 'identity:bootstrap',
+        nonce: 'n'.repeat(43),
+        codeChallenge: 'a'.repeat(43),
+        codeChallengeMethod: 'S256',
+      },
     })
     expect(errorSpy).not.toHaveBeenCalled()
   })
 
-  it('keeps compatibility with the legacy callFunction result envelope', async () => {
-    h.s.functionResponse = { result: { ok: true, code: 'c'.repeat(43) } }
+  it('accepts the CloudBase SDK result envelope without changing protocol semantics', async () => {
+    h.state.functionResponse = { result: { ok: true, code: 'c'.repeat(43) } }
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-    await mountSuspended(SsoPage, {
-      route: `/auth/sso?mode=silent&targetOrigin=${encodeURIComponent('https://cms.yunle.fun')}&nonce=1234567890abcdef1234567890abcdef&codeChallenge=${'a'.repeat(43)}&codeChallengeMethod=S256`,
-      global: {
-        stubs: {
-          UIcon: { template: '<span />' },
-        },
-      },
-    })
-    await flushPromises()
-
-    expect(h.s.callOrder).toEqual(['restore-session', 'get-session', 'issue-code'])
+    await mount()
+    expect(h.state.callOrder).toEqual(['restore-session', 'get-session', 'issue-code'])
     expect(errorSpy).not.toHaveBeenCalled()
   })
 
-  it('routes an unauthenticated redirect request through the login page', async () => {
-    h.s.cloudbase.auth.getSession.mockResolvedValue({
-      data: { session: undefined },
-      error: { code: 'unauthenticated', message: 'unauthenticated' },
+  it('routes an unauthenticated valid request through login with the exact request preserved', async () => {
+    h.state.authSession.checkAuthStatus.mockImplementation(async () => {
+      h.state.callOrder.push('restore-session')
+      h.state.authSession.authReady.value = true
+      h.state.authSession.authStatus.value = 'guest'
     })
-    h.s.authSession.checkAuthStatus.mockImplementation(async () => {
-      h.s.callOrder.push('restore-session')
-      h.s.authSession.authReady.value = true
-      h.s.authSession.authStatus.value = 'guest'
-    })
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-    const route = `/auth/sso?mode=redirect&targetOrigin=${encodeURIComponent('https://dao.yunle.fun')}&nonce=1234567890abcdef1234567890abcdef&codeChallenge=${'a'.repeat(43)}&codeChallengeMethod=S256&returnUrl=${encodeURIComponent('https://dao.yunle.fun/')}`
+    const route = requestRoute()
+    await mount(route)
 
-    await mountSuspended(SsoPage, {
-      route,
-      global: {
-        stubs: {
-          UIcon: { template: '<span />' },
-        },
-      },
-    })
-    await flushPromises()
-
-    expect(h.s.navigateTo).toHaveBeenCalledTimes(1)
-    const destination = h.s.navigateTo.mock.calls[0][0]
+    expect(h.state.navigateTo).toHaveBeenCalledTimes(1)
+    const destination = h.state.navigateTo.mock.calls[0][0]
     expect(destination.path).toBe('/login')
-    const preservedRequest = new URL(destination.query.redirect, 'https://www.yunle.fun')
-    expect(preservedRequest.pathname).toBe('/auth/sso')
-    expect(Object.fromEntries(preservedRequest.searchParams)).toEqual({
-      mode: 'redirect',
-      targetOrigin: 'https://dao.yunle.fun',
-      nonce: '1234567890abcdef1234567890abcdef',
-      codeChallenge: 'a'.repeat(43),
-      codeChallengeMethod: 'S256',
-      returnUrl: 'https://dao.yunle.fun/',
+    const preserved = new URL(destination.query.redirect, 'https://www.yunle.fun')
+    expect(preserved.pathname).toBe('/auth/sso')
+    expect(Object.fromEntries(preserved.searchParams)).toEqual({
+      client_id: 'cms-web',
+      redirect_uri: 'https://cms.yunle.fun/',
+      scope: 'identity:bootstrap',
+      nonce: 'n'.repeat(43),
+      code_challenge: 'a'.repeat(43),
+      code_challenge_method: 'S256',
     })
-    expect(h.s.cloudbase.auth.getSession).not.toHaveBeenCalled()
-    expect(errorSpy).not.toHaveBeenCalled()
+    expect(h.state.cloudbase.auth.getSession).not.toHaveBeenCalled()
   })
 
-  it('does not redirect to a return URL rejected by the authoritative registry', async () => {
-    h.s.functionResponse = { ok: false, reason: 'origin_not_allowed' }
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-    const wrapper = await mountSuspended(SsoPage, {
-      route: `/auth/sso?client_id=cms-web&mode=redirect&targetOrigin=${encodeURIComponent('https://evil.example')}&nonce=1234567890abcdef1234567890abcdef&codeChallenge=${'a'.repeat(43)}&codeChallengeMethod=S256&returnUrl=${encodeURIComponent('https://evil.example/')}`,
-      global: {
-        stubs: {
-          UIcon: { template: '<span />' },
-        },
-      },
-    })
-    await flushPromises()
+  it('rejects every legacy, implicit, or scope-less request before calling the function', async () => {
+    for (const route of [
+      '/auth/sso?mode=silent&targetOrigin=https%3A%2F%2Fcms.yunle.fun',
+      requestRoute({ scope: '' }),
+      requestRoute({ client_id: '' }),
+      requestRoute({ code_challenge_method: 'plain' }),
+    ]) {
+      const wrapper = await mount(route)
+      expect(wrapper.text()).toContain('SSO 请求参数无效')
+    }
+    expect(h.state.cloudbase.app.callFunction).not.toHaveBeenCalled()
+  })
 
-    expect(h.s.cloudbase.app.callFunction).toHaveBeenCalledTimes(1)
+  it('never redirects to a callback rejected by the authoritative registry', async () => {
+    h.state.functionResponse = { ok: false, reason: 'origin_not_allowed' }
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const wrapper = await mount(requestRoute({
+      redirect_uri: 'https://evil.example/',
+    }))
+
+    expect(h.state.cloudbase.app.callFunction).toHaveBeenCalledTimes(1)
     expect(wrapper.text()).toContain('SSO 请求未获授权')
-    expect(h.s.navigateTo).not.toHaveBeenCalled()
+    expect(h.state.navigateTo).not.toHaveBeenCalled()
     expect(errorSpy).toHaveBeenCalledTimes(1)
   })
 })

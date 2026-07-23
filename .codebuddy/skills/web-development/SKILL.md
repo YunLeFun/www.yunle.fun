@@ -132,7 +132,7 @@ else {
 - Only use **documented** CloudBase Web SDK methods
 - Before calling any method on `app`, `auth`, `db`, or other SDK objects, **confirm it exists in the official CloudBase Web SDK documentation**
 - If a method or option is **not** mentioned in the official docs (for example some guessed method name), **do NOT invent or use it**
-- For YunLeFun SSO consumers, `signInWithSso(auth, { mode: 'silent' | 'interactive' })` injects the returned session with `auth.setSession`; check `auth.getSession()` before doing user-owned database reads.
+- For YunLeFun SSO consumers, use `startSsoRedirect({ clientId, scope, redirectUri })`, then `consumeSsoRedirect()` and `adoptSsoCode(auth, authorization)`. Never use hidden iframe, popup, session forwarding, `auth.setSession`, or a native host bridge.
 
 ## Authentication Best Practices
 

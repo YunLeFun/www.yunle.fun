@@ -3,6 +3,16 @@ shellEmulator: true
 trustPolicy: no-downgrade
 trustPolicyExclude:
   - chokidar@4.0.3
+packages:
+  - packages/*
+allowBuilds:
+  '@parcel/watcher': set this to true or false
+  better-sqlite3: set this to true or false
+  core-js-pure: set this to true or false
+  esbuild: set this to true or false
+  unrs-resolver: set this to true or false
+  vue-demi: set this to true or false
+
 # 顶传递依赖到已修补版本（仅 fontless 仍引入 esbuild <0.28.1，GHSA-g7r4-m6w7-qqqr）
 overrides:
   fontless>esbuild: ^0.28.1
@@ -30,7 +40,7 @@ catalog:
   '@types/qrcode': ^1.5.6
   '@vue/test-utils': ^2.4.11
   '@vueuse/nuxt': ^14.3.0
-  '@yunlefun/sso': ^0.4.0
+  '@yunlefun/sso': ^0.5.0
   '@yunlefun/types': ^0.2.1
   baseline-browser-mapping: ^2.10.40
   better-sqlite3: ^12.10.0
@@ -57,10 +67,3 @@ ignoredBuiltDependencies:
 onlyBuiltDependencies:
   - better-sqlite3
 trustPolicyIgnoreAfter: 10080
-allowBuilds:
-  '@parcel/watcher': set this to true or false
-  better-sqlite3: set this to true or false
-  core-js-pure: set this to true or false
-  esbuild: set this to true or false
-  unrs-resolver: set this to true or false
-  vue-demi: set this to true or false

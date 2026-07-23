@@ -17,14 +17,7 @@ describe('cloudBase test identity deployment manifest', () => {
       TEST_LEASE_CAPABILITY_SIGNING_KEY: '{{env.TEST_LEASE_CAPABILITY_SIGNING_KEY}}',
     })
     expect(functions.get('sso-ticket').envVariables).toMatchObject({
-      SSO_ISSUER_ENVIRONMENT: '{{env.SSO_ISSUER_ENVIRONMENT}}',
-      SSO_LOCAL_DEVELOPER_USER_IDS: '{{env.SSO_LOCAL_DEVELOPER_USER_IDS}}',
-      SSO_ALLOW_PRODUCTION_LOCAL_CLIENTS: '{{env.SSO_ALLOW_PRODUCTION_LOCAL_CLIENTS}}',
-      SSO_ALLOW_LEGACY_ORIGIN_CLIENTS: '{{env.SSO_ALLOW_LEGACY_ORIGIN_CLIENTS}}',
-      SSO_ALLOWED_ORIGINS: '{{env.SSO_ALLOWED_ORIGINS}}',
-      SSO_ALLOWED_RETURN_ORIGINS: '{{env.SSO_ALLOWED_RETURN_ORIGINS}}',
-      SSO_ALLOWED_TARGET_ORIGINS: '{{env.SSO_ALLOWED_TARGET_ORIGINS}}',
-      SSO_ALLOW_LEGACY_DIRECT_TICKET: '{{env.SSO_ALLOW_LEGACY_DIRECT_TICKET}}',
+      AUTH_ISSUER_ENVIRONMENT: '{{env.AUTH_ISSUER_ENVIRONMENT}}',
       SSO_ISSUE_PER_USER_PER_MINUTE: '{{env.SSO_ISSUE_PER_USER_PER_MINUTE}}',
       SSO_ISSUE_PER_IP_PER_MINUTE: '{{env.SSO_ISSUE_PER_IP_PER_MINUTE}}',
       SSO_EXCHANGE_PER_IP_PER_MINUTE: '{{env.SSO_EXCHANGE_PER_IP_PER_MINUTE}}',
@@ -32,7 +25,18 @@ describe('cloudBase test identity deployment manifest', () => {
       TEST_BROKER_INTERNAL_TOKEN: '{{env.TEST_BROKER_INTERNAL_TOKEN}}',
       TEST_TICKET_ESCROW_KEY: '{{env.TEST_TICKET_ESCROW_KEY}}',
     })
-    expect(functions.get('sso-ticket').envVariables).not.toHaveProperty('SSO_TICKET_INTERNAL_TOKEN')
+    for (const removed of [
+      'SSO_TICKET_INTERNAL_TOKEN',
+      'SSO_LOCAL_DEVELOPER_USER_IDS',
+      'SSO_ALLOW_PRODUCTION_LOCAL_CLIENTS',
+      'SSO_ALLOW_LEGACY_ORIGIN_CLIENTS',
+      'SSO_ALLOWED_ORIGINS',
+      'SSO_ALLOWED_RETURN_ORIGINS',
+      'SSO_ALLOWED_TARGET_ORIGINS',
+      'SSO_ALLOW_LEGACY_DIRECT_TICKET',
+    ]) {
+      expect(functions.get('sso-ticket').envVariables).not.toHaveProperty(removed)
+    }
   })
 
   it('runs the HMAC-authenticated sweep every minute', () => {

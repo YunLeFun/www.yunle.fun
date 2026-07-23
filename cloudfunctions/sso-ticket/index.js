@@ -14,16 +14,10 @@
  *   - SSO_TICKET_PRIVATE_KEY_ID    私钥 ID（private_key_id）
  *   - SSO_TICKET_PRIVATE_KEY       私钥 PEM（private_key）；env 注入建议用 `\n` 转义或 base64
  *   - SSO_TICKET_REFRESH_SEC       可选，票据派生会话的可续期时长（秒），默认 30 天
- *   - SSO_ISSUER_ENVIRONMENT       production | development；由部署决定
- *   - SSO_LOCAL_DEVELOPER_USER_IDS managed-local 注册允许的开发者 uid
- *   - SSO_ALLOW_PRODUCTION_LOCAL_CLIENTS break-glass；生产默认 false
- *   - SSO_ALLOW_LEGACY_ORIGIN_CLIENTS    v2 origin-only 迁移 Adapter
- *   - SSO_ALLOWED_ORIGINS / SSO_ALLOWED_RETURN_ORIGINS 仅旧 Consumer 迁移规则
- *   - SSO_ALLOW_LEGACY_DIRECT_TICKET 仅迁移期设为 `true`；允许旧桥接页通过已认证 SDK 调用
- *                                     为当前调用者本人签票。消费者切换到授权码后立即设为 `false`
+ *   - AUTH_ISSUER_ENVIRONMENT      production | development；由部署决定
  *   - TEST_BROKER_INTERNAL_TOKEN   测试身份 Broker 专用 token（不得与其它内部 token 共用）
  *   - TEST_TICKET_ESCROW_KEY       32 字节标准 base64 AES-GCM key，与 Broker 解密配置一致
- * 未配置私钥时返回 { ok:false, reason:'not_configured' }，桥接页据此回退（向后兼容）。
+ * 未配置私钥时返回 { ok:false, reason:'not_configured' }。
  */
 
 'use strict'
@@ -35,14 +29,12 @@ const cloudbase = require('@cloudbase/node-sdk')
 const { assertActiveAccountForUid } = require('./account-access')
 const { isAnonUid, isValidTicketUid, normalizePrivateKey } = require('./mint')
 const { createSsoClientRegistry } = require('./sso-client-registry')
-const ssoClientRegistrySnapshot = require('./sso-client-registry.snapshot')
 const { createSsoCodeStore, SsoCodeStoreError } = require('./sso-code-store')
 const { createSsoRateLimiter, SsoRateLimitError } = require('./sso-rate-limit')
 const {
   SsoRequestError,
   assertNoCallerSelectedSubject,
   isAllowedRequestOrigin,
-  readAllowedOriginRules,
   validateExchangeRequest,
   validateIssueRequest,
 } = require('./sso-request')
@@ -127,38 +119,16 @@ function currentCallerUid() {
 let cachedClientRegistry
 let cachedClientRegistryKey = ''
 function getSsoClientRegistry() {
-  const issuerEnvironment = process.env.SSO_ISSUER_ENVIRONMENT === 'development' ? 'development' : 'production'
-  const developerUserIds = process.env.SSO_LOCAL_DEVELOPER_USER_IDS || ''
-  const allowProductionLocalClients = process.env.SSO_ALLOW_PRODUCTION_LOCAL_CLIENTS === 'true'
-  const key = JSON.stringify({ issuerEnvironment, developerUserIds, allowProductionLocalClients })
-  if (!cachedClientRegistry || cachedClientRegistryKey !== key) {
-    cachedClientRegistry = createSsoClientRegistry(ssoClientRegistrySnapshot, {
-      issuerEnvironment,
-      developerUserIds,
-      allowProductionLocalClients,
-    })
-    cachedClientRegistryKey = key
+  const issuerEnvironment = process.env.AUTH_ISSUER_ENVIRONMENT === 'development' ? 'development' : 'production'
+  if (!cachedClientRegistry || cachedClientRegistryKey !== issuerEnvironment) {
+    cachedClientRegistry = createSsoClientRegistry({ issuerEnvironment })
+    cachedClientRegistryKey = issuerEnvironment
   }
-  return { registry: cachedClientRegistry, issuerEnvironment }
+  return cachedClientRegistry
 }
 
 function ssoRequestOptions() {
-  const legacyRules = readAllowedOriginRules(process.env.SSO_ALLOWED_TARGET_ORIGINS)
-  const originRules = readAllowedOriginRules(process.env.SSO_ALLOWED_ORIGINS)
-  const returnOriginRules = readAllowedOriginRules(process.env.SSO_ALLOWED_RETURN_ORIGINS)
-  const { registry, issuerEnvironment } = getSsoClientRegistry()
-  return {
-    clientRegistry: registry,
-    issuerEnvironment,
-    // Migration adapter for clients not yet carrying client_id. Set false after all
-    // first-party clients are represented in the versioned registry.
-    allowLegacyOriginClients: process.env.SSO_ALLOW_LEGACY_ORIGIN_CLIENTS !== 'false',
-    originRules: originRules.length ? originRules : legacyRules,
-    returnOriginRules: returnOriginRules.length ? returnOriginRules : originRules.length ? originRules : legacyRules,
-    // Web SSO never allows broad HTTP loopback. Managed local clients use exact
-    // HTTPS *.yunle.localhost registrations in the Client Registry.
-    allowLocal: false,
-  }
+  return { clientRegistry: getSsoClientRegistry() }
 }
 
 function positiveEnvInt(name, fallback, maximum) {
@@ -183,24 +153,6 @@ function auditSecurity(event, details) {
   console.warn('[sso-ticket] security_event', JSON.stringify({ event, ...details }))
 }
 
-// 仅用于 v1 -> v2 的无中断发布窗口。它不接受 action、uid 或 HTTP 调用，且始终从认证上下文取本人 uid。
-// 该开关默认关闭；所有消费者完成授权码迁移后必须保持关闭并在后续版本删除此分支。
-async function mintLegacyCaller(clientAddress = 'unknown') {
-  if (process.env.SSO_ALLOW_LEGACY_DIRECT_TICKET !== 'true')
-    return { ok: false, reason: 'invalid_request' }
-  const uid = currentCallerUid()
-  if (!isValidTicketUid(uid))
-    return { ok: false, reason: 'not_authenticated' }
-  await assertActiveAccount(uid)
-  const limits = securityLimits()
-  await Promise.all([
-    ssoRateLimiter.consume({ scope: 'legacy-user', key: uid, limit: limits.issuePerUser, windowMs: 60_000 }),
-    ssoRateLimiter.consume({ scope: 'legacy-ip', key: clientAddress, limit: limits.issuePerIp, windowMs: 60_000 }),
-  ])
-  auditSecurity('legacy_ticket_issued', { subject: auditId(uid) })
-  return mintTicket(uid)
-}
-
 // 路径 1：已认证调用者上下文签发一次性授权码，uid 只从运行时上下文取得。
 async function issueSsoCode(payload, clientAddress = 'unknown') {
   const uid = currentCallerUid()
@@ -217,11 +169,12 @@ async function issueSsoCode(payload, clientAddress = 'unknown') {
   auditSecurity('sso_code_issued', {
     subject: auditId(uid),
     clientId: request.clientId,
-    issuerEnvironment: request.issuerEnvironment,
-    clientEnvironment: request.clientEnvironment,
+    appId: request.appId,
+    issuer: request.issuer,
+    scopes: request.scopes,
     origin: request.targetOrigin,
     policyVersion: request.policyVersion,
-    ruleId: request.ruleId,
+    registrationFingerprint: request.registrationFingerprint,
   })
   return { ok: true, code: issued.code, expiresAt: issued.expiresAt }
 }
@@ -239,11 +192,12 @@ async function exchangeSsoCode(payload, requestOrigin, clientAddress = 'unknown'
   auditSecurity('sso_code_consumed', {
     subject: auditId(uid),
     clientId: request.clientId,
-    issuerEnvironment: request.issuerEnvironment,
-    clientEnvironment: request.clientEnvironment,
+    appId: request.appId,
+    issuer: request.issuer,
+    scopes: request.scopes,
     origin: requestOrigin,
     policyVersion: request.policyVersion,
-    ruleId: request.ruleId,
+    registrationFingerprint: request.registrationFingerprint,
   })
   return mintTicket(uid)
 }
@@ -321,8 +275,6 @@ function clientAddress(event, isHttp) {
   return String(
     event?.requestContext?.http?.sourceIp
     || event?.requestContext?.identity?.sourceIp
-    || header(event, 'x-real-ip')
-    || header(event, 'x-forwarded-for').split(',')[0]
     || 'unknown',
   ).trim().slice(0, 128)
 }
@@ -383,8 +335,6 @@ exports.main = async function main(event) {
       result = await exchangeSsoCode(payload, requestOrigin, clientAddress(event, true))
     else if (!isHttp && payload && payload.action === 'issueSsoCode')
       result = await issueSsoCode(payload, clientAddress(event, false))
-    else if (!isHttp && payload && !payload.action)
-      result = await mintLegacyCaller(clientAddress(event, false))
     else
       result = { ok: false, reason: 'invalid_request' }
   }
@@ -407,9 +357,9 @@ exports.main = async function main(event) {
     ? testLeaseHttpStatus(result)
     : result.ok
       ? 200
-      : ['invalid_request', 'client_required', 'subject_not_allowed', 'pkce_required'].includes(result.reason)
+      : ['invalid_request', 'invalid_scope', 'client_required', 'subject_not_allowed', 'pkce_required'].includes(result.reason)
           ? 400
-          : ['client_unknown', 'client_disabled', 'origin_not_allowed', 'return_url_not_allowed', 'environment_mismatch', 'developer_required', 'client_binding_invalid', 'code_binding_invalid', 'pkce_invalid', 'forbidden', 'account_banned', 'account_deletion_pending', 'account_deletion_finalizing', 'account_access_unavailable'].includes(result.reason)
+          : ['client_unknown', 'client_unavailable', 'adapter_not_allowed', 'origin_not_allowed', 'return_url_not_allowed', 'client_binding_invalid', 'code_binding_invalid', 'pkce_invalid', 'forbidden', 'account_banned', 'account_deletion_pending', 'account_deletion_finalizing', 'account_access_unavailable'].includes(result.reason)
               ? 403
               : result.reason === 'rate_limited'
                 ? 429
@@ -425,4 +375,4 @@ exports.main = async function main(event) {
   return isHttp ? httpJson(status, result, responseOrigin) : result
 }
 
-exports._private = { exchangeSsoCode, issueSsoCode, mintForTestLease, mintLegacyCaller, mintTicket, testLeaseHttpStatus }
+exports._private = { exchangeSsoCode, issueSsoCode, mintForTestLease, mintTicket, testLeaseHttpStatus }
