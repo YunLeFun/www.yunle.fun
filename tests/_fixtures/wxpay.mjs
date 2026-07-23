@@ -95,7 +95,7 @@ export function makeCallbackEvent({
  *   db.collection(name).doc(id).remove()
  *   db.runTransaction(callback)（串行执行，异常时回滚内存快照）
  *
- * 支持 where 等值匹配的简单条件（无 operator）。
+ * 支持 where 等值匹配、command.in / command.gt 与 db.RegExp 条件。
  */
 export function makeFakeDb(initial = {}) {
   const store = {}
@@ -121,6 +121,9 @@ export function makeFakeDb(initial = {}) {
     // 支持 command.gt：{ __op: 'gt', value }（游标分页用）
     if (cond && typeof cond === 'object' && cond.__op === 'gt')
       return docVal > cond.value
+    // 支持 db.RegExp：{ __op: 'regexp', regexp, options }
+    if (cond && typeof cond === 'object' && cond.__op === 'regexp')
+      return typeof docVal === 'string' && new RegExp(cond.regexp, cond.options).test(docVal)
     return docVal === cond
   }
 
@@ -250,6 +253,7 @@ export function makeFakeDb(initial = {}) {
       in: values => ({ __op: 'in', values }),
       gt: value => ({ __op: 'gt', value }),
     },
+    RegExp: ({ regexp, options = '' }) => ({ __op: 'regexp', regexp, options }),
     collection,
     runTransaction,
   }

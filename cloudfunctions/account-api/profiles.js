@@ -56,6 +56,11 @@ function clampStr(v, max) {
   return v.trim().slice(0, max)
 }
 
+/** 转义数据库正则中的特殊字符，避免公开查询参数改变匹配范围 */
+function escapeRegExp(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 /**
  * 提取「本人可写」的白名单资料字段。计数字段一律忽略（防刷自己粉丝数）。
  * 仅返回「显式传入」的字段，避免把未传字段覆盖为空。
@@ -235,12 +240,35 @@ async function getProfile(db, { userId, login, now = Date.now() } = {}) {
     return doc ? projectPublicProfile(db, doc, uid, now) : null
   }
   if (login && typeof login === 'string') {
-    const { data } = await db
-      .collection(USER_PROFILES_COLLECTION)
-      .where({ login: login.trim() })
+    const normalizedLogin = login.trim()
+    if (!RE_LOGIN.test(normalizedLogin))
+      return null
+
+    const collection = db.collection(USER_PROFILES_COLLECTION)
+    const { data: exactData } = await collection
+      .where({ login: normalizedLogin })
       .limit(1)
       .get()
-    const doc = Array.isArray(data) && data.length > 0 ? data[0] : null
+    let doc = Array.isArray(exactData) && exactData.length > 0 ? exactData[0] : null
+
+    // CloudBase Auth 的用户名唯一性不区分大小写；公开主页查询必须保持相同语义。
+    // 先走精确匹配保留规范 URL 的快速路径，再兼容大小写不同的历史链接。
+    if (!doc) {
+      const { data: caseInsensitiveData } = await db
+        .collection(USER_PROFILES_COLLECTION)
+        .where({
+          login: db.RegExp({
+            regexp: `^${escapeRegExp(normalizedLogin)}$`,
+            options: 'i',
+          }),
+        })
+        .limit(1)
+        .get()
+      doc = Array.isArray(caseInsensitiveData) && caseInsensitiveData.length > 0
+        ? caseInsensitiveData[0]
+        : null
+    }
+
     return doc ? projectPublicProfile(db, doc, doc._id, now) : null
   }
   return null

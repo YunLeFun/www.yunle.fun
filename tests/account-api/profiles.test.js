@@ -158,6 +158,17 @@ describe('getProfile', () => {
     expect(await getProfile(db, { login: 'alice' })).toMatchObject({ userId: 'u1', nickname: 'Alice' })
   })
 
+  it('按 login 读取时不区分大小写', async () => {
+    const db = makeFakeDb()
+    await upsertMyProfile(db, { userId: 'u1', profile: { login: 'yunyoujun', nickname: '云游君' }, now: NOW })
+
+    await expect(getProfile(db, { login: 'YunYouJun' })).resolves.toMatchObject({
+      userId: 'u1',
+      login: 'yunyoujun',
+      nickname: '云游君',
+    })
+  })
+
   it('不存在返回 null', async () => {
     const db = makeFakeDb()
     expect(await getProfile(db, { userId: 'ghost' })).toBeNull()
