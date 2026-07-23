@@ -24,6 +24,10 @@ const stubs = {
     template: '<button type="button" :disabled="disabled || loading" @click="$emit(\'click\')">{{ label }}<slot /></button>',
   },
   UIcon: true,
+  UModal: {
+    props: ['open'],
+    template: '<div v-if="open"><slot name="content" /></div>',
+  },
   UPageCard: { template: '<section><slot /></section>' },
 }
 
@@ -58,6 +62,13 @@ describe('account status page', () => {
     const recover = wrapper.findAll('button').find(button => button.text().includes('恢复账号'))
     expect(recover).toBeTruthy()
     await recover!.trigger('click')
+    await flushPromises()
+    expect(h.s.recoverAccount).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('确认恢复账号')
+
+    const confirm = wrapper.findAll('button').find(button => button.text().includes('确认恢复'))
+    expect(confirm).toBeTruthy()
+    await confirm!.trigger('click')
     await flushPromises()
     expect(h.s.recoverAccount).toHaveBeenCalledOnce()
     expect(h.navigateTo).toHaveBeenCalledWith('/')

@@ -12,7 +12,7 @@
 | `wxpay-notify`               | 接收微信支付异步回调通知                                                                                 | HTTP 访问服务          | 10s  |
 | `account-api`                | 平台账户中心：账户 / 云币 / 会员 / 奖励 / 签到 / 投币 / 关注·粉丝 / 注销冷静期                           | SDK `callFunction`     | 10s  |
 | `account-deletion-sweeper`   | 每小时完成已满 30 天冷静期的业务清理并删除 CloudBase Auth 身份                                           | 定时触发（私有）       | 30s  |
-| `account-lifecycle-notifier` | 每 5 分钟发送注销申请、提醒、完成、延迟及运维事务邮件                                                    | 定时触发（私有）       | 30s  |
+| `account-lifecycle-notifier` | 每 5 分钟通过腾讯云 SES 处理注销申请、提醒、完成、延迟及运维事务邮件，并轮询实际投递状态                 | 定时触发（私有）       | 30s  |
 | `user-storage-api`           | 通用用户云空间：共享 quota / 上传预留 / 确认 / 文件索引 / 下载 / 删除 / app-kind policy                  | SDK `callFunction`     | 10s  |
 | `ai-gateway`                 | 通用「登录计费 + 受控 AI 生成」网关：验登录 + 按 `appId` 服务端计价 + 管理员身份调 AI + `bizId` 幂等扣费 | 登录态 `/v1/functions` | 30s  |
 | `iap-order`                  | Apple 内购（IAP）凭据校验 + 权益发放                                                                     | SDK `callFunction`     | 30s  |
@@ -72,16 +72,28 @@
 
 ### account-lifecycle-notifier 环境变量与权限
 
-| 变量名                         | 说明                                                                      |
-| ------------------------------ | ------------------------------------------------------------------------- |
-| `CLOUDFLARE_EMAIL_ACCOUNT_ID`  | 云乐坊所在 Cloudflare Account ID。                                        |
-| `CLOUDFLARE_EMAIL_API_TOKEN`   | 只授予 Email Sending 所需权限的专用 API Token；不得复用前端或提交到 Git。 |
-| `ACCOUNT_LIFECYCLE_FROM_EMAIL` | 发件地址，生产默认 `noreply@yunle.fun`。                                  |
-| `ACCOUNT_LIFECYCLE_FROM_NAME`  | 发件人名称，生产默认“云乐坊”。                                            |
-| `ACCOUNT_LIFECYCLE_REPLY_TO`   | 回复地址，生产默认 `kf@yunle.fun`。                                       |
-| `ACCOUNT_LIFECYCLE_OPS_EMAIL`  | 清理连续失败后的内部运维告警收件地址。                                    |
+| 变量名                               | 说明                                                                  |
+| ------------------------------------ | --------------------------------------------------------------------- |
+| `ACCOUNT_LIFECYCLE_EMAIL_MODE`       | `dry_run` 只统计待发任务；域名与模板验证完成后才可显式切换为 `live`。 |
+| `ACCOUNT_LIFECYCLE_DAILY_USER_LIMIT` | 每个中国标准时间自然日最多提交的用户事务邮件数，生产固定为 `45`。     |
+| `ACCOUNT_LIFECYCLE_DAILY_OPS_LIMIT`  | 每个中国标准时间自然日保留的运维告警名额，生产固定为 `5`。            |
+| `SES_REGION`                         | 腾讯云 SES 地域，生产使用 `ap-guangzhou`。                            |
+| `SES_FROM_EMAIL`                     | 已验证发件地址，生产使用 `account@notify.yunle.fun`。                 |
+| `SES_FROM_NAME`                      | 发件人名称，生产使用“云乐坊账号安全”。                                |
+| `SES_REPLY_TO`                       | 用户回复地址，生产使用 `kf@yunle.fun`。                               |
+| `SES_OPS_EMAIL`                      | 内部安全与投递告警地址，生产使用 `security@yunle.fun`。               |
+| `SES_TEMPLATE_DELETION_REQUESTED`    | 注销申请 SES 审核模板 ID。                                            |
+| `SES_TEMPLATE_DELETION_REMINDER_7D`  | 提前 7 天提醒 SES 审核模板 ID。                                       |
+| `SES_TEMPLATE_DELETION_REMINDER_1D`  | 提前 1 天提醒 SES 审核模板 ID。                                       |
+| `SES_TEMPLATE_DELETION_COMPLETED`    | 注销完成 SES 审核模板 ID。                                            |
+| `SES_TEMPLATE_DELETION_DELAYED`      | 注销延迟 SES 审核模板 ID。                                            |
+| `SES_TEMPLATE_DELETION_CLEANUP_OPS`  | 内部运维告警 SES 审核模板 ID。                                        |
 
-该函数必须禁止客户端直接调用。发送失败不会阻断注销状态机；网络、429 和 5xx 最多自动尝试 3 次。
+模板源文件和变量契约位于 `account-lifecycle-notifier/template-catalog.js`。函数必须禁止客户端直接调用，并使用
+CloudBase/SCF 运行时临时凭证；运行身份只授予 `ses:SendEmail` 与 `ses:GetSendEmailStatus`。发送失败不会阻断
+注销状态机；临时错误最多尝试 5 次，永久错误直接进入死信。SES 接受请求后先记为 `submitted`，定时查询后再更新为
+`delivered`、`bounced`、`dropped` 或 `complained`。不启用打开/点击追踪，不保存邮件正文和完整收件地址；投递元数据
+30 天后自动删除。
 
 定时函数使用 SCF 运行身份的临时密钥调用 CloudBase Manager User API。运行身份必须具备当前环境的
 `DescribeUserList`、`ModifyUser`、`DeleteUsers` 权限；函数本身 `aclRule.invoke=false`，只能由每小时定时器触发。

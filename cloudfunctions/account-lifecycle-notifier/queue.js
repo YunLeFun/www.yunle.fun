@@ -11,6 +11,18 @@ async function processNotificationJob(job, {
   opsEmail,
   now = Date.now(),
 }) {
+  async function recordFailure(error, fallbackCode, retryableDefault = false) {
+    const failure = {
+      retryable: typeof error?.retryable === 'boolean'
+        ? error.retryable
+        : retryableDefault,
+      code: typeof error?.code === 'string' ? error.code : fallbackCode,
+      attemptCount: Math.max(0, Number(job.attemptCount) || 0) + 1,
+    }
+    await store.markFailed(job._id, now, failure)
+    return { sent: false, ...failure }
+  }
+
   let recipient = null
   try {
     if (job.type === 'deletion_cleanup_ops') {
@@ -25,14 +37,8 @@ async function processNotificationJob(job, {
       }
     }
   }
-  catch {
-    const failure = {
-      retryable: true,
-      status: 0,
-      attemptCount: Math.max(0, Number(job.attemptCount) || 0) + 1,
-    }
-    await store.markFailed(job._id, now, failure)
-    return { sent: false, ...failure }
+  catch (error) {
+    return recordFailure(error, 'RecipientLookupFailed', true)
   }
 
   if (!recipient) {
@@ -40,22 +46,31 @@ async function processNotificationJob(job, {
     return { sent: false, skipped: true }
   }
 
-  const rendered = renderLifecycleEmail(job)
+  let quota
   try {
-    const result = await send({ to: recipient, ...rendered })
-    await store.markSent(job._id, now, result?.id || null)
-    if (job.type === 'deletion_completed' && typeof store.forgetRecipient === 'function')
-      await store.forgetRecipient(job.userId)
-    return { sent: true }
+    quota = await store.reserveQuota(job, now)
   }
   catch (error) {
-    const failure = {
-      retryable: error?.retryable === true,
-      status: Number(error?.status) || 0,
-      attemptCount: Math.max(0, Number(job.attemptCount) || 0) + 1,
-    }
-    await store.markFailed(job._id, now, failure)
-    return { sent: false, ...failure }
+    return recordFailure(error, 'QuotaReservationFailed', true)
+  }
+  if (!quota?.reserved)
+    return { sent: false, deferred: true, quotaBucket: quota?.bucket || 'user' }
+
+  try {
+    const rendered = renderLifecycleEmail(job)
+    const result = await send({
+      id: job._id,
+      type: job.type,
+      to: recipient,
+      ...rendered,
+    })
+    await store.markSubmitted(job._id, now, result?.id || null)
+    if (job.type === 'deletion_completed' && typeof store.finishLifecycleContact === 'function')
+      await store.finishLifecycleContact(job.userId, job.requestedAt, now)
+    return { sent: true, submitted: true, quotaBucket: quota.bucket }
+  }
+  catch (error) {
+    return recordFailure(error, 'UnknownError')
   }
 }
 

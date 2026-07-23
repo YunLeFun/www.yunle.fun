@@ -10,6 +10,7 @@ const { access, loading, refresh, recoverAccount } = useAccountAccess()
 const { user, logout } = useTcbAuth()
 const toast = useToast()
 const recovering = ref(false)
+const showRecoverConfirm = ref(false)
 
 function formatChinaTime(value?: number | null) {
   if (!Number.isFinite(value))
@@ -31,6 +32,7 @@ async function handleRecover() {
   recovering.value = true
   try {
     await recoverAccount()
+    showRecoverConfirm.value = false
     toast.add({
       title: '账号已恢复',
       description: '现有资料、会员、云币和登录绑定保持不变',
@@ -120,7 +122,7 @@ onMounted(() => {
             block
             :loading="recovering"
             :disabled="!access.recoverable || loading"
-            @click="handleRecover"
+            @click="showRecoverConfirm = true"
           />
         </template>
 
@@ -180,5 +182,49 @@ onMounted(() => {
         <UButton label="退出登录" color="neutral" variant="outline" block icon="i-lucide-log-out" @click="logout" />
       </div>
     </UPageCard>
+
+    <UModal v-model:open="showRecoverConfirm">
+      <template #content>
+        <div class="space-y-5 p-6">
+          <div class="flex items-start gap-3">
+            <div class="rounded-full bg-primary-50 p-2 dark:bg-primary-950">
+              <UIcon name="i-lucide-undo-2" class="text-xl text-primary" />
+            </div>
+            <div>
+              <h2 class="font-semibold">
+                确认恢复账号
+              </h2>
+              <p class="text-sm text-muted">
+                恢复后账号功能将重新开放，现有资料、会员、云币和登录绑定保持不变。
+              </p>
+            </div>
+          </div>
+
+          <UAlert
+            title="这不会由登录或邮件链接自动触发"
+            description="只有你在冷静期截止前点击下方确认按钮，系统才会撤销本次注销申请。"
+            color="info"
+            variant="subtle"
+          />
+
+          <div class="flex justify-end gap-3">
+            <UButton
+              label="继续注销"
+              color="neutral"
+              variant="outline"
+              :disabled="recovering"
+              @click="showRecoverConfirm = false"
+            />
+            <UButton
+              label="确认恢复"
+              color="primary"
+              :loading="recovering"
+              :disabled="!access.recoverable || loading"
+              @click="handleRecover"
+            />
+          </div>
+        </div>
+      </template>
+    </UModal>
   </main>
 </template>

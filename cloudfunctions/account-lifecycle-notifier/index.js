@@ -5,10 +5,15 @@
 const process = require('node:process')
 const cloudbase = require('@cloudbase/node-sdk')
 
-const { sendCloudflareEmail } = require('./delivery')
+const { loadEmailConfig } = require('./config')
+const { getTencentEmailStatus, sendTencentEmail } = require('./delivery')
 const { processNotificationJob } = require('./queue')
 const { createRecipientResolver } = require('./recipient')
-const { createNotificationStore, runNotificationSweep } = require('./sweep')
+const {
+  createNotificationStore,
+  runDeliveryStatusSweep,
+  runNotificationSweep,
+} = require('./sweep')
 
 function createManager(envId, context = {}) {
   const managerModule = require('@cloudbase/manager-node')
@@ -21,15 +26,25 @@ function createManager(envId, context = {}) {
   })
 }
 
-function loadEmailConfig(env = process.env) {
-  return {
-    accountId: env.CLOUDFLARE_EMAIL_ACCOUNT_ID || '',
-    apiToken: env.CLOUDFLARE_EMAIL_API_TOKEN || '',
-    fromAddress: env.ACCOUNT_LIFECYCLE_FROM_EMAIL || 'noreply@yunle.fun',
-    fromName: env.ACCOUNT_LIFECYCLE_FROM_NAME || '云乐坊',
-    replyTo: env.ACCOUNT_LIFECYCLE_REPLY_TO || 'kf@yunle.fun',
-    opsEmail: env.ACCOUNT_LIFECYCLE_OPS_EMAIL || '',
+function createSesClient(config, context = {}) {
+  const tencentcloud = require('tencentcloud-sdk-nodejs-ses')
+  const Client = tencentcloud.ses.v20201002.Client
+  const credential = {
+    secretId: context.TENCENTCLOUD_SECRETID || process.env.TENCENTCLOUD_SECRETID,
+    secretKey: context.TENCENTCLOUD_SECRETKEY || process.env.TENCENTCLOUD_SECRETKEY,
+    token: context.TENCENTCLOUD_SESSIONTOKEN || process.env.TENCENTCLOUD_SESSIONTOKEN,
   }
+  if (!credential.secretId || !credential.secretKey)
+    throw new Error('CloudBase 运行时临时凭证不可用')
+  return new Client({
+    credential,
+    region: config.region,
+    profile: {
+      httpProfile: {
+        endpoint: 'ses.tencentcloudapi.com',
+      },
+    },
+  })
 }
 
 exports.main = async function main(_event, context = {}) {
@@ -40,23 +55,51 @@ exports.main = async function main(_event, context = {}) {
 
   const config = loadEmailConfig()
   const app = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV })
-  const store = createNotificationStore(app.database())
+  const store = createNotificationStore(app.database(), {
+    userDailyLimit: config.userDailyLimit,
+    opsDailyLimit: config.opsDailyLimit,
+  })
   const resolveRecipient = createRecipientResolver(createManager(envId, context))
-  const send = message => sendCloudflareEmail(globalThis.fetch, config, message)
   const now = Date.now()
-  const result = await runNotificationSweep({
+  const client = config.mode === 'live' ? createSesClient(config, context) : null
+  const delivery = config.mode === 'live'
+    ? await runDeliveryStatusSweep({
+        store,
+        now,
+        getStatus: query => getTencentEmailStatus(client, query),
+      })
+    : {
+        checked: 0,
+        delivered: 0,
+        pending: 0,
+        failed: 0,
+        alertsQueued: 0,
+        errors: 0,
+      }
+  const notifications = await runNotificationSweep({
     store,
     now,
+    mode: config.mode,
     processJob: job => processNotificationJob(job, {
       store,
-      send,
+      send: message => sendTencentEmail(client, config, message),
       resolveRecipient,
       opsEmail: config.opsEmail,
       now,
     }),
   })
+  const pruned = config.mode === 'live'
+    ? await store.pruneExpired(now)
+    : { notifications: 0, contacts: 0 }
+  const result = {
+    ok: notifications.ok && delivery.errors === 0,
+    mode: config.mode,
+    notifications,
+    delivery,
+    pruned,
+  }
   console.warn('[account-lifecycle-notifier] completed', JSON.stringify(result))
   return result
 }
 
-exports._private = { createManager, loadEmailConfig }
+exports._private = { createManager, createSesClient, loadEmailConfig }
