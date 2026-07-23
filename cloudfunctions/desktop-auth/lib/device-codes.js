@@ -1,187 +1,223 @@
 /**
- * 设备授权码生命周期（OAuth 2.0 Device Authorization Grant 裁剪版，RFC 8628）。
+ * Persistent adapter for the shared device-authorization state machine.
  *
- * 角色分工：本模块只管「设备码」这张短生命周期的状态机（pending→approved/denied→consumed/expired），
- * 不直接 import devices/entitlement——签发 entitlement 与注册设备由 index.js 通过 `onApproved`
- * 回调注入，便于独立单测。db / now 依赖注入，兼容 fake db（仅等值 where）。
+ * Client identity, business attribution and scopes come only from Client
+ * Registry. Device identifiers are RFC 7638 thumbprints of installation keys.
  */
 
 'use strict'
 
-const { generateUserCode, normalizeUserCode, randomToken, sha256hex } = require('./crypto')
+const { createHash, randomBytes } = require('node:crypto')
+const {
+  AuthorizationError,
+  createDeviceGrantMachine,
+} = require('@yunlefun/authorization-core')
+const { generateUserCode, normalizeUserCode } = require('./crypto')
 const {
   CODE_STATUS,
   DEFAULT_DEVICE_CODE_TTL_SEC,
   DEFAULT_POLL_INTERVAL_SEC,
   DEFAULT_VERIFICATION_URL,
   DEVICE_CODES_COLLECTION,
-  assertAppId,
-  assertDeviceId,
-  assertScope,
   isAnonUid,
   normalizeDeviceName,
 } = require('./validation')
 
-/** 取某 userCode 的记录（不存在返回 null） */
+function hash(value) {
+  return createHash('sha256').update(value).digest('hex')
+}
+
+function recordFromResult(result) {
+  if (!result)
+    return null
+  if (Array.isArray(result.data))
+    return result.data[0] || null
+  return result.data && typeof result.data === 'object' ? result.data : null
+}
+
+function createMachine(options = {}) {
+  return createDeviceGrantMachine({
+    generateDeviceCode: options.generateDeviceCode || (() => randomBytes(32).toString('base64url')),
+    generateUserCode: options.generateUserCode || (() => generateUserCode(8).display),
+  })
+}
+
 async function findByUserCode(db, userCode) {
   const normalized = normalizeUserCode(userCode)
   if (!normalized)
     return null
-  const { data } = await db.collection(DEVICE_CODES_COLLECTION).where({ userCode: normalized }).limit(1).get()
-  return Array.isArray(data) && data.length ? data[0] : null
-}
-
-/** 取某 deviceCode 的记录（按哈希比对） */
-async function findByDeviceCode(db, deviceCode) {
-  const { data } = await db
-    .collection(DEVICE_CODES_COLLECTION)
-    .where({ deviceCodeHash: sha256hex(deviceCode) })
+  const result = await db.collection(DEVICE_CODES_COLLECTION)
+    .where({ userCodeHash: hash(normalized) })
     .limit(1)
     .get()
-  return Array.isArray(data) && data.length ? data[0] : null
+  return recordFromResult(result)
 }
 
-function isExpired(doc, now) {
-  return !doc || typeof doc.expireAt !== 'number' || doc.expireAt <= now
+async function findByDeviceCode(db, deviceCode) {
+  if (typeof deviceCode !== 'string' || !deviceCode)
+    return null
+  const result = await db.collection(DEVICE_CODES_COLLECTION).doc(hash(deviceCode)).get()
+  return recordFromResult(result)
 }
 
-/**
- * 申请设备码（设备侧，无需登录）。
- *
- * @returns {Promise<{ deviceCode, userCode, verificationUri, verificationUriComplete, interval, expiresIn }>} 设备码下发结果
- */
+function isExpired(record, now) {
+  return !record || typeof record.expiresAt !== 'number' || record.expiresAt <= now
+}
+
 async function startDeviceAuth(db, input, options = {}) {
-  const appId = assertAppId(input.appId)
-  const deviceId = assertDeviceId(input.deviceId)
-  const scope = assertScope(input.scope)
-  const deviceName = normalizeDeviceName(input.deviceName)
+  if (!options.registry)
+    throw new AuthorizationError('registry_unavailable')
+  if (Object.hasOwn(input || {}, 'appId'))
+    throw new AuthorizationError('invalid_request')
 
-  const now = options.now || Date.now()
-  const ttlSec = options.ttlSec || DEFAULT_DEVICE_CODE_TTL_SEC
-  const interval = options.interval || DEFAULT_POLL_INTERVAL_SEC
+  const authorization = options.registry.authorize({
+    clientId: input?.clientId,
+    scopes: input?.scope,
+  })
+  const now = options.now ?? Date.now()
+  const ttlSec = options.ttlSec ?? DEFAULT_DEVICE_CODE_TTL_SEC
+  const interval = options.interval ?? DEFAULT_POLL_INTERVAL_SEC
   const verificationUri = options.verificationUri || DEFAULT_VERIFICATION_URL
-
-  const deviceCode = randomToken(32)
-  const { display, normalized } = generateUserCode(8)
+  const machine = createMachine(options)
+  const { deviceCode, userCode, record } = machine.start({
+    authorization,
+    devicePublicJwk: input?.devicePublicJwk,
+    deviceName: normalizeDeviceName(input?.deviceName),
+    now,
+    ttlSeconds: ttlSec,
+  })
 
   await db.collection(DEVICE_CODES_COLLECTION).add({
-    deviceCodeHash: sha256hex(deviceCode),
-    userCode: normalized,
-    appId,
-    deviceId,
-    deviceName,
-    scope,
-    status: CODE_STATUS.PENDING,
-    uid: null,
+    _id: record.deviceCodeHash,
+    recordType: 'desktop_device_code',
+    schemaVersion: 1,
+    ...record,
+    consent: authorization.consent,
     interval,
-    createdAt: now,
-    expireAt: now + ttlSec * 1000,
     lastPolledAt: 0,
+    version: 1,
   })
 
   return {
     deviceCode,
-    userCode: display,
+    userCode,
     verificationUri,
-    verificationUriComplete: `${verificationUri}?code=${encodeURIComponent(display)}`,
+    verificationUriComplete: `${verificationUri}?code=${encodeURIComponent(userCode)}`,
     interval,
     expiresIn: ttlSec,
   }
 }
 
-/**
- * 授权页展示用：根据 userCode 返回应用信息（不含敏感字段）。
- */
 async function describeDevice(db, input, options = {}) {
-  const now = options.now || Date.now()
-  const doc = await findByUserCode(db, input.userCode)
-  if (isExpired(doc, now))
-    throw new Error('设备码不存在或已过期')
+  const now = options.now ?? Date.now()
+  const record = await findByUserCode(db, input?.userCode)
+  if (isExpired(record, now))
+    throw new AuthorizationError('device_code_expired')
   return {
-    appId: doc.appId,
-    deviceName: doc.deviceName,
-    scope: doc.scope,
-    status: doc.status,
-    expireAt: doc.expireAt,
+    issuer: record.issuer,
+    clientId: record.clientId,
+    appId: record.appId,
+    displayName: record.displayName,
+    deviceName: record.deviceName,
+    scope: record.scopes,
+    consent: record.consent,
+    status: record.status,
+    expireAt: record.expiresAt,
   }
 }
 
-/**
- * 用户在已登录浏览器里点「授权」：把设备码绑定到当前 uid。
- */
 async function approveDevice(db, input, options = {}) {
-  const now = options.now || Date.now()
-  const uid = input.uid
-  if (isAnonUid(uid))
-    throw new Error('请先登录')
+  const now = options.now ?? Date.now()
+  if (isAnonUid(input?.uid))
+    throw new AuthorizationError('login_required')
+  const found = await findByUserCode(db, input?.userCode)
+  if (isExpired(found, now))
+    throw new AuthorizationError('device_code_expired')
 
-  const doc = await findByUserCode(db, input.userCode)
-  if (isExpired(doc, now))
-    throw new Error('设备码不存在或已过期')
-  if (doc.status === CODE_STATUS.CONSUMED)
-    throw new Error('该设备码已被使用')
-  if (doc.status !== CODE_STATUS.PENDING && doc.status !== CODE_STATUS.DENIED)
-    throw new Error('设备码状态不可授权')
-
-  await db
-    .collection(DEVICE_CODES_COLLECTION)
-    .where({ deviceCodeHash: doc.deviceCodeHash })
-    .update({ status: CODE_STATUS.APPROVED, uid, approvedAt: now })
+  const machine = createMachine(options)
+  await db.runTransaction(async (transaction) => {
+    const current = recordFromResult(
+      await transaction.collection(DEVICE_CODES_COLLECTION).doc(found._id).get(),
+    )
+    if (!current)
+      throw new AuthorizationError('device_code_expired')
+    const next = machine.approve(current, { subject: input.uid, now })
+    await transaction.collection(DEVICE_CODES_COLLECTION).doc(found._id).set({
+      ...next,
+      version: Number(current.version || 0) + 1,
+    })
+  })
   return { ok: true }
 }
 
-/** 用户点「拒绝」。 */
 async function denyDevice(db, input, options = {}) {
-  const now = options.now || Date.now()
-  const doc = await findByUserCode(db, input.userCode)
-  if (isExpired(doc, now))
-    throw new Error('设备码不存在或已过期')
-  if (doc.status === CODE_STATUS.PENDING || doc.status === CODE_STATUS.APPROVED) {
-    await db
-      .collection(DEVICE_CODES_COLLECTION)
-      .where({ deviceCodeHash: doc.deviceCodeHash })
-      .update({ status: CODE_STATUS.DENIED, deniedAt: now })
-  }
+  const now = options.now ?? Date.now()
+  const found = await findByUserCode(db, input?.userCode)
+  if (isExpired(found, now))
+    throw new AuthorizationError('device_code_expired')
+  await db.runTransaction(async (transaction) => {
+    const current = recordFromResult(
+      await transaction.collection(DEVICE_CODES_COLLECTION).doc(found._id).get(),
+    )
+    if (!current || current.status !== CODE_STATUS.PENDING)
+      throw new AuthorizationError('device_code_not_pending')
+    await transaction.collection(DEVICE_CODES_COLLECTION).doc(found._id).update({
+      status: CODE_STATUS.DENIED,
+      deniedAt: now,
+      version: Number(current.version || 0) + 1,
+    })
+  })
   return { ok: true }
 }
 
-/**
- * 设备轮询取凭证。
- *
- * `options.onApproved` 由 index.js 注入：授权通过后注册设备 + 签发 entitlement + 拉账户快照，
- * 形如 `async (doc) => ({ entitlement, deviceRefreshToken, account })`。
- *
- * @returns {Promise<{ status: string, entitlement?: string, deviceRefreshToken?: string, account?: object }>} 轮询结果（pending/slow_down/denied/expired/approved）
- */
 async function pollDeviceToken(db, input, options = {}) {
-  const now = options.now || Date.now()
-  const deviceCode = input.deviceCode
-  const deviceId = input.deviceId
-  if (!deviceCode || !deviceId)
-    return { status: CODE_STATUS.EXPIRED }
+  const now = options.now ?? Date.now()
+  const deviceCode = input?.deviceCode
+  const proofJkt = input?.proofJkt
+  if (!deviceCode || !proofJkt)
+    throw new AuthorizationError('invalid_request')
 
-  const doc = await findByDeviceCode(db, deviceCode)
-  // 不存在 / 设备绑定不符 / 已过期：一律按 expired 返回，不泄露细节
-  if (!doc || doc.deviceId !== deviceId || isExpired(doc, now))
-    return { status: CODE_STATUS.EXPIRED }
+  const id = hash(deviceCode)
+  const machine = createMachine(options)
+  return db.runTransaction(async (transaction) => {
+    const record = recordFromResult(
+      await transaction.collection(DEVICE_CODES_COLLECTION).doc(id).get(),
+    )
+    if (!record || isExpired(record, now))
+      return { status: CODE_STATUS.EXPIRED }
+    if (record.deviceJkt !== proofJkt)
+      throw new AuthorizationError('device_code_binding_invalid')
 
-  // 轮询节流：快于 interval 的一半即回 slow_down（不更新 lastPolledAt，避免被刷）
-  const interval = (doc.interval || DEFAULT_POLL_INTERVAL_SEC) * 1000
-  if (doc.lastPolledAt && now - doc.lastPolledAt < interval / 2)
-    return { status: 'slow_down', interval: doc.interval }
-  await db.collection(DEVICE_CODES_COLLECTION).where({ deviceCodeHash: doc.deviceCodeHash }).update({ lastPolledAt: now })
+    const interval = (record.interval || DEFAULT_POLL_INTERVAL_SEC) * 1000
+    if (record.lastPolledAt && now - record.lastPolledAt < interval / 2)
+      return { status: 'slow_down', interval: record.interval }
+    await transaction.collection(DEVICE_CODES_COLLECTION).doc(id).update({
+      lastPolledAt: now,
+      version: Number(record.version || 0) + 1,
+    })
 
-  if (doc.status === CODE_STATUS.DENIED)
-    return { status: CODE_STATUS.DENIED }
-  if (doc.status === CODE_STATUS.CONSUMED)
-    return { status: CODE_STATUS.EXPIRED } // 一次性：已消费的码不再发凭证
-  if (doc.status !== CODE_STATUS.APPROVED)
-    return { status: CODE_STATUS.PENDING }
+    if (record.status === CODE_STATUS.DENIED)
+      return { status: CODE_STATUS.DENIED }
+    if (record.status === CODE_STATUS.CONSUMED)
+      return { status: CODE_STATUS.EXPIRED }
+    if (record.status !== CODE_STATUS.APPROVED)
+      return { status: CODE_STATUS.PENDING }
 
-  // approved：先标记 consumed（一次性），再签发——即便签发后客户端没收到，也不会重复发码
-  await db.collection(DEVICE_CODES_COLLECTION).where({ deviceCodeHash: doc.deviceCodeHash }).update({ status: CODE_STATUS.CONSUMED, consumedAt: now })
-  const issued = await options.onApproved(doc)
-  return { status: CODE_STATUS.APPROVED, ...issued }
+    if (options.registry)
+      options.registry.reauthorize(record)
+    const transition = machine.consume(record, { deviceCode, proofJkt, now })
+    const issued = await options.issueGrant(transaction, transition.grant, record)
+    await transaction.collection(DEVICE_CODES_COLLECTION).doc(id).set({
+      ...transition.next,
+      consent: record.consent,
+      interval: record.interval,
+      lastPolledAt: now,
+      recordType: record.recordType,
+      schemaVersion: record.schemaVersion,
+      version: Number(record.version || 0) + 2,
+    })
+    return { status: CODE_STATUS.APPROVED, grant: transition.grant, ...issued }
+  })
 }
 
 module.exports = {

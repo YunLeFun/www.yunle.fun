@@ -18,6 +18,8 @@ import { dirname, resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
+import { buildCloudFunctionArtifact } from './build-cloud-function.mjs'
+
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 function stripQuotes(value) {
@@ -63,7 +65,8 @@ if (!envId)
 
 for (const name of functions) {
   console.log(`\n--- deploy ${name} (env ${envId}) ---`)
-  const result = spawnSync('tcb', ['fn', 'deploy', name, '--envId', envId, '--force'], {
+  const artifact = buildCloudFunctionArtifact(name)
+  const result = spawnSync('tcb', ['fn', 'deploy', name, '--dir', artifact, '--envId', envId, '--force'], {
     cwd: ROOT,
     stdio: 'inherit',
     env: process.env,

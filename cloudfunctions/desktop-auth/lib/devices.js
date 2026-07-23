@@ -1,141 +1,198 @@
-/**
- * 已授权设备注册表 + entitlement 刷新（轮换 + 重用检测）。
- *
- * 最佳实践（OAuth 原生客户端）：
- *   - deviceRefreshToken 只存哈希、长效、每次刷新**轮换**。
- *   - **重用检测**：保留「上一枚已轮换出的 token」哈希；若它被再次使用，
- *     判定为泄露/被盗，**吊销整台设备**（refresh token rotation with reuse detection）。
- *
- * 不直接 import entitlement/account——签发由 index.js 通过 `buildEntitlement` 回调注入，便于单测。
- */
+/** Persistent adapter for proof-bound refresh-token grant families. */
 
 'use strict'
 
-const { randomToken, sha256hex, timingSafeEqualHex } = require('./crypto')
-const { DEFAULT_REFRESH_TTL_SEC, DEVICES_COLLECTION } = require('./validation')
+const { createHash, randomBytes, randomUUID } = require('node:crypto')
+const {
+  AuthorizationError,
+  createRefreshGrantMachine,
+} = require('@yunlefun/authorization-core')
+const {
+  DEFAULT_REFRESH_ABSOLUTE_TTL_SEC,
+  DEFAULT_REFRESH_IDLE_TTL_SEC,
+  DEVICES_COLLECTION,
+  REFRESH_TOKENS_COLLECTION,
+} = require('./validation')
 
-/**
- * 注册（或重置）一台设备，签发新的 deviceRefreshToken（明文仅此一次返回）。
- *
- * @returns {Promise<{ refreshToken: string }>} 新签发的 refreshToken 明文
- */
-async function registerDevice(db, { uid, appId, deviceId, deviceName, scope }, options = {}) {
-  const now = options.now || Date.now()
-  const refreshTtlSec = options.refreshTtlSec || DEFAULT_REFRESH_TTL_SEC
-  const refreshToken = randomToken(32)
-  const patch = {
-    uid,
-    appId,
-    deviceId,
-    deviceName: deviceName || '',
-    scope: scope || [],
-    refreshTokenHash: sha256hex(refreshToken),
-    prevRefreshTokenHash: null,
-    refreshExpireAt: now + refreshTtlSec * 1000,
-    lastSeenAt: now,
-    revokedAt: null,
-  }
-
-  const { data } = await db.collection(DEVICES_COLLECTION).where({ uid, appId, deviceId }).limit(1).get()
-  if (Array.isArray(data) && data.length) {
-    await db.collection(DEVICES_COLLECTION).where({ uid, appId, deviceId }).update(patch)
-  }
-  else {
-    await db.collection(DEVICES_COLLECTION).add({ createdAt: now, ...patch })
-  }
-  return { refreshToken }
+function hash(value) {
+  return createHash('sha256').update(value).digest('hex')
 }
 
-/**
- * 用 deviceRefreshToken 刷新 entitlement：校验 → 轮换 → 重新签发。
- *
- * `options.buildEntitlement` 由 index.js 注入：
- * `async ({ uid, appId, deviceId, scope, now }) => ({ entitlement, account })`。
- *
- * @returns {Promise<{ entitlement: string, deviceRefreshToken: string, account: object }>} 新 entitlement + 轮换后的 refreshToken + 最新账户快照
- */
-async function refreshEntitlement(db, { deviceRefreshToken, deviceId }, options = {}) {
-  const now = options.now || Date.now()
-  const refreshTtlSec = options.refreshTtlSec || DEFAULT_REFRESH_TTL_SEC
-  if (!deviceRefreshToken || !deviceId)
-    throw new Error('refresh 参数缺失')
+function recordFromResult(result) {
+  if (!result)
+    return null
+  if (Array.isArray(result.data))
+    return result.data[0] || null
+  return result.data && typeof result.data === 'object' ? result.data : null
+}
 
-  const presentedHash = sha256hex(deviceRefreshToken)
-  const { data } = await db.collection(DEVICES_COLLECTION).where({ deviceId }).get()
-  const candidates = Array.isArray(data) ? data : []
+function deviceDocumentId({ subject, clientId, deviceId }) {
+  return hash(`${subject}\u0000${clientId}\u0000${deviceId}`)
+}
 
-  // 1) 命中「上一枚已轮换出的 token」→ 重用检测：吊销整台设备
-  const reused = candidates.find(d => d.prevRefreshTokenHash && timingSafeEqualHex(presentedHash, d.prevRefreshTokenHash))
-  if (reused) {
-    await db.collection(DEVICES_COLLECTION).where({ uid: reused.uid, appId: reused.appId, deviceId }).update({ revokedAt: now, refreshTokenHash: null, prevRefreshTokenHash: null })
-    const err = new Error('refresh token 重用，设备已吊销，请重新登录')
-    err.code = 'revoked'
-    throw err
-  }
-
-  // 2) 命中当前 token
-  const device = candidates.find(d => d.refreshTokenHash && timingSafeEqualHex(presentedHash, d.refreshTokenHash))
-  if (!device) {
-    const err = new Error('refresh token 无效')
-    err.code = 'invalid_grant'
-    throw err
-  }
-  if (device.revokedAt) {
-    const err = new Error('设备已被吊销，请重新登录')
-    err.code = 'revoked'
-    throw err
-  }
-  if (typeof device.refreshExpireAt === 'number' && device.refreshExpireAt <= now) {
-    const err = new Error('登录已过期，请重新登录')
-    err.code = 'expired'
-    throw err
-  }
-
-  // 3) 轮换 token（旧的存进 prev 供下次重用检测）+ 滑动续期
-  const nextToken = randomToken(32)
-  await db.collection(DEVICES_COLLECTION).where({ uid: device.uid, appId: device.appId, deviceId }).update({
-    prevRefreshTokenHash: device.refreshTokenHash,
-    refreshTokenHash: sha256hex(nextToken),
-    refreshExpireAt: now + refreshTtlSec * 1000,
-    lastSeenAt: now,
+function machine(options = {}) {
+  return createRefreshGrantMachine({
+    generateToken: options.generateToken || (() => randomBytes(32).toString('base64url')),
+    idleSeconds: options.idleSeconds ?? DEFAULT_REFRESH_IDLE_TTL_SEC,
+    absoluteSeconds: options.absoluteSeconds ?? DEFAULT_REFRESH_ABSOLUTE_TTL_SEC,
   })
+}
 
-  // 4) 重新签发 entitlement（带最新账户快照）
-  const { entitlement, account } = await options.buildEntitlement({
-    uid: device.uid,
-    appId: device.appId,
-    deviceId,
-    scope: device.scope || [],
+async function revokeFamily(database, grantId, now) {
+  await database.collection(REFRESH_TOKENS_COLLECTION)
+    .where({ grantId })
+    .update({ status: 'revoked', revokedAt: now })
+  await database.collection(DEVICES_COLLECTION)
+    .where({ grantId })
+    .update({ status: 'revoked', revokedAt: now })
+}
+
+async function issueDeviceGrant(database, grant, options = {}) {
+  const now = options.now ?? Date.now()
+  const grantId = (options.generateGrantId || randomUUID)()
+  const issued = machine(options).issue({
+    grantId,
+    subject: grant.subject,
+    issuer: grant.issuer,
+    clientId: grant.clientId,
+    appId: grant.appId,
+    scopes: grant.scopes,
+    deviceId: grant.deviceId,
+    deviceJkt: grant.deviceJkt,
+    registrationFingerprint: grant.registrationFingerprint,
     now,
   })
-  return { entitlement, deviceRefreshToken: nextToken, account }
+  const deviceId = deviceDocumentId(grant)
+  const existing = recordFromResult(
+    await database.collection(DEVICES_COLLECTION).doc(deviceId).get(),
+  )
+  if (existing?.grantId)
+    await revokeFamily(database, existing.grantId, now)
+
+  await database.collection(REFRESH_TOKENS_COLLECTION).add({
+    _id: issued.record.tokenHash,
+    recordType: 'desktop_refresh_token',
+    schemaVersion: 1,
+    ...issued.record,
+  })
+  await database.collection(DEVICES_COLLECTION).doc(deviceId).set({
+    recordType: 'desktop_device',
+    schemaVersion: 1,
+    status: 'active',
+    grantId,
+    uid: grant.subject,
+    issuer: grant.issuer,
+    clientId: grant.clientId,
+    appId: grant.appId,
+    scopes: [...grant.scopes],
+    deviceId: grant.deviceId,
+    deviceJkt: grant.deviceJkt,
+    registrationFingerprint: grant.registrationFingerprint,
+    deviceName: options.deviceName || '',
+    createdAt: now,
+    lastSeenAt: now,
+    revokedAt: null,
+  })
+  return { deviceRefreshToken: issued.refreshToken }
 }
 
-/**
- * 吊销设备（个人中心「已登录设备」移除 / 管理员封禁）。
- */
-async function revokeDevice(db, { uid, appId, deviceId }, options = {}) {
-  const now = options.now || Date.now()
-  const { updated, modifiedCount } = await db
-    .collection(DEVICES_COLLECTION)
-    .where({ uid, appId, deviceId })
-    .update({ revokedAt: now, refreshTokenHash: null, prevRefreshTokenHash: null })
-  return { revoked: (updated || modifiedCount || 0) > 0 }
+async function refreshDeviceGrant(db, input, options = {}) {
+  const now = options.now ?? Date.now()
+  if (!input?.deviceRefreshToken || !input?.proofJkt)
+    throw new AuthorizationError('invalid_request')
+  if (!options.registry || typeof options.buildEntitlement !== 'function')
+    throw new AuthorizationError('adapter_unavailable')
+
+  const tokenId = hash(input.deviceRefreshToken)
+  const rotated = await db.runTransaction(async (transaction) => {
+    const record = recordFromResult(
+      await transaction.collection(REFRESH_TOKENS_COLLECTION).doc(tokenId).get(),
+    )
+    if (!record)
+      return { errorCode: 'invalid_grant' }
+    if (record.status === 'used') {
+      await revokeFamily(transaction, record.grantId, now)
+      return { errorCode: 'refresh_reused' }
+    }
+    if (record.status === 'revoked')
+      return { errorCode: 'grant_revoked' }
+
+    options.registry.reauthorize(record)
+    const next = machine(options).rotate(record, {
+      refreshToken: input.deviceRefreshToken,
+      proofJkt: input.proofJkt,
+      now,
+    })
+    await transaction.collection(REFRESH_TOKENS_COLLECTION).doc(tokenId).set({
+      recordType: record.recordType,
+      schemaVersion: record.schemaVersion,
+      ...next.previous,
+    })
+    await transaction.collection(REFRESH_TOKENS_COLLECTION).add({
+      recordType: record.recordType,
+      schemaVersion: record.schemaVersion,
+      ...next.next,
+      _id: next.next.tokenHash,
+    })
+    await transaction.collection(DEVICES_COLLECTION)
+      .where({ grantId: record.grantId })
+      .update({ lastSeenAt: now })
+    return {
+      refreshToken: next.refreshToken,
+      grant: next.next,
+    }
+  })
+
+  if (rotated.errorCode)
+    throw new AuthorizationError(rotated.errorCode)
+  const entitlement = await options.buildEntitlement({
+    subject: rotated.grant.subject,
+    issuer: rotated.grant.issuer,
+    clientId: rotated.grant.clientId,
+    appId: rotated.grant.appId,
+    scopes: rotated.grant.scopes,
+    deviceId: rotated.grant.deviceId,
+    deviceJkt: rotated.grant.deviceJkt,
+    now,
+  })
+  return {
+    deviceRefreshToken: rotated.refreshToken,
+    ...entitlement,
+  }
 }
 
-/**
- * 列出某账号已授权设备（脱敏：不含 token 哈希），供个人中心展示。
- */
+async function revokeDevice(db, { uid, clientId, deviceId }, options = {}) {
+  const now = options.now ?? Date.now()
+  return db.runTransaction(async (transaction) => {
+    const result = await transaction.collection(DEVICES_COLLECTION)
+      .where({ uid, clientId, deviceId })
+      .limit(1)
+      .get()
+    const device = recordFromResult(result)
+    if (!device)
+      return { revoked: false }
+    await revokeFamily(transaction, device.grantId, now)
+    return { revoked: true }
+  })
+}
+
 async function listDevices(db, { uid }) {
   const { data } = await db.collection(DEVICES_COLLECTION).where({ uid }).get()
   return (Array.isArray(data) ? data : [])
-    .filter(d => !d.revokedAt)
-    .map(d => ({ appId: d.appId, deviceId: d.deviceId, deviceName: d.deviceName, createdAt: d.createdAt, lastSeenAt: d.lastSeenAt }))
+    .filter(device => device.status === 'active' && !device.revokedAt)
+    .map(device => ({
+      clientId: device.clientId,
+      appId: device.appId,
+      deviceId: device.deviceId,
+      deviceName: device.deviceName,
+      createdAt: device.createdAt,
+      lastSeenAt: device.lastSeenAt,
+    }))
 }
 
 module.exports = {
-  registerDevice,
-  refreshEntitlement,
+  issueDeviceGrant,
+  refreshDeviceGrant,
   revokeDevice,
   listDevices,
 }

@@ -22,9 +22,10 @@ const USER_NOTIFICATIONS_COLLECTION = 'user_notifications'
 const GITHUB_INSTALLATIONS_COLLECTION = 'github_installations'
 const USER_SIGNIN_STATS_COLLECTION = 'user_signin_stats'
 const IDENTITY_ARTIFACT_QUERIES = [
-  ['desktop_device_codes', 'uid'],
+  ['desktop_device_codes', 'subject'],
   ['desktop_devices', 'uid'],
-  ['sso_login_codes', 'uid'],
+  ['desktop_refresh_tokens', 'subject'],
+  ['sso_login_codes', 'subject'],
   ['ai_usage_daily', 'uid'],
 ]
 const ACCOUNT_DELETION_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000

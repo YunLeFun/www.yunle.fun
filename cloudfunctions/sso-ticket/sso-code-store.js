@@ -2,11 +2,14 @@
 
 'use strict'
 
-const { Buffer } = require('node:buffer')
-const { createHash, randomBytes, timingSafeEqual } = require('node:crypto')
+const { createHash, randomBytes } = require('node:crypto')
+const {
+  AuthorizationError,
+  createWebSsoCodeMachine,
+} = require('@yunlefun/authorization-core')
 
 const SSO_LOGIN_CODE_COLLECTION = 'sso_login_codes'
-const SSO_LOGIN_CODE_SCHEMA_VERSION = 3
+const SSO_LOGIN_CODE_SCHEMA_VERSION = 4
 const DEFAULT_CODE_TTL_MS = 60_000
 
 const SSO_LOGIN_CODE_COLLECTION_MANIFEST = {
@@ -43,12 +46,6 @@ function codeId(code) {
 
 function codeChallenge(codeVerifier) {
   return createHash('sha256').update(codeVerifier, 'ascii').digest('base64url')
-}
-
-function equalBinding(left, right) {
-  if (typeof left !== 'string' || typeof right !== 'string' || left.length !== right.length)
-    return false
-  return timingSafeEqual(Buffer.from(left, 'ascii'), Buffer.from(right, 'ascii'))
 }
 
 function resultDocument(result) {
@@ -103,49 +100,65 @@ function createSsoCodeStore(database, options = {}) {
   const ttlMs = Number.isSafeInteger(options.ttlMs) && options.ttlMs >= 10_000 && options.ttlMs <= 300_000
     ? options.ttlMs
     : DEFAULT_CODE_TTL_MS
+  const codeMachine = createWebSsoCodeMachine({ generateCode: randomCode })
 
   return {
     async issue(input) {
-      if (typeof input.clientId !== 'string'
+      if (!input
+        || typeof input.uid !== 'string'
+        || !input.uid
+        || typeof input.issuer !== 'string'
+        || !input.issuer
+        || typeof input.clientId !== 'string'
         || !input.clientId
-        || !['production', 'development'].includes(input.issuerEnvironment)
-        || typeof input.clientEnvironment !== 'string'
-        || !input.clientEnvironment
+        || typeof input.appId !== 'string'
+        || !input.appId
+        || !Array.isArray(input.scopes)
+        || input.scopes.length === 0
+        || input.scopes.some(scope => typeof scope !== 'string' || !scope)
+        || typeof input.targetOrigin !== 'string'
+        || !input.targetOrigin
+        || typeof input.returnUrl !== 'string'
+        || !input.returnUrl
+        || typeof input.nonce !== 'string'
+        || !input.nonce
+        || typeof input.codeChallenge !== 'string'
+        || !input.codeChallenge
         || typeof input.policyVersion !== 'string'
         || !input.policyVersion
-        || typeof input.ruleId !== 'string'
-        || !input.ruleId) {
+        || typeof input.registrationFingerprint !== 'string'
+        || !input.registrationFingerprint) {
         throw new SsoCodeStoreError('client_binding_invalid', 'authorization code client binding is invalid')
       }
-      const code = randomCode()
+      const issuedAt = now()
+      const { code, record } = codeMachine.issue({
+        subject: input.uid,
+        issuer: input.issuer,
+        clientId: input.clientId,
+        appId: input.appId,
+        scopes: input.scopes,
+        origin: input.targetOrigin,
+        redirectUri: input.returnUrl,
+        nonce: input.nonce,
+        codeChallenge: input.codeChallenge,
+        policyVersion: input.policyVersion,
+        registrationFingerprint: input.registrationFingerprint,
+        now: issuedAt,
+        ttlSeconds: ttlMs / 1000,
+      })
       if (!/^[\w-]{43}$/.test(code))
         throw new SsoCodeStoreError('entropy_failure', 'authorization code source returned an invalid value')
-      const id = codeId(code)
-      const issuedAt = now()
       await database.runTransaction(async (transaction) => {
-        if (await readDocument(transaction, id))
+        if (await readDocument(transaction, record.codeHash))
           throw new SsoCodeStoreError('code_collision', 'authorization code collision')
-        await setDocument(transaction, id, {
+        await setDocument(transaction, record.codeHash, {
           recordType: 'sso_login_code',
           schemaVersion: SSO_LOGIN_CODE_SCHEMA_VERSION,
-          uid: input.uid,
-          clientId: input.clientId,
-          issuerEnvironment: input.issuerEnvironment,
-          clientEnvironment: input.clientEnvironment,
-          targetOrigin: input.targetOrigin,
-          redirectUri: input.returnUrl || '',
-          nonce: input.nonce,
-          codeChallenge: input.codeChallenge,
-          policyVersion: input.policyVersion,
-          ruleId: input.ruleId,
-          mode: input.mode,
-          status: 'issued',
-          createdAt: issuedAt,
-          expiresAt: issuedAt + ttlMs,
+          ...record,
           version: 1,
         })
       })
-      return { code, expiresAt: issuedAt + ttlMs }
+      return { code, expiresAt: record.expiresAt }
     },
 
     async consume(input) {
@@ -156,30 +169,36 @@ function createSsoCodeStore(database, options = {}) {
         const record = await readDocument(transaction, id)
         if (!record)
           throw new SsoCodeStoreError('code_invalid', 'authorization code does not exist')
-        if (record.recordType !== 'sso_login_code' || ![2, SSO_LOGIN_CODE_SCHEMA_VERSION].includes(record.schemaVersion))
+        if (record.recordType !== 'sso_login_code' || record.schemaVersion !== SSO_LOGIN_CODE_SCHEMA_VERSION)
           throw new SsoCodeStoreError('code_invalid', 'authorization code record is invalid')
-        if (record.status !== 'issued')
-          throw new SsoCodeStoreError('code_used', 'authorization code has already been consumed')
-        if (!Number.isSafeInteger(record.expiresAt) || consumedAt >= record.expiresAt)
-          throw new SsoCodeStoreError('code_expired', 'authorization code has expired')
-        if (record.targetOrigin !== input.requestOrigin || record.nonce !== input.nonce)
-          throw new SsoCodeStoreError('code_binding_invalid', 'authorization code binding does not match')
-        if (record.schemaVersion === SSO_LOGIN_CODE_SCHEMA_VERSION
-          && (record.clientId !== input.clientId
-            || record.issuerEnvironment !== input.issuerEnvironment
-            || record.clientEnvironment !== input.clientEnvironment
-            || record.policyVersion !== input.policyVersion
-            || record.ruleId !== input.ruleId)) {
-          throw new SsoCodeStoreError('client_binding_invalid', 'authorization code client binding does not match')
+        let transition
+        try {
+          transition = codeMachine.consume(record, {
+            code: input.code,
+            issuer: input.issuer,
+            clientId: input.clientId,
+            appId: input.appId,
+            scopes: input.scopes,
+            origin: input.requestOrigin,
+            redirectUri: input.redirectUri,
+            nonce: input.nonce,
+            codeVerifier: input.codeVerifier,
+            policyVersion: input.policyVersion,
+            registrationFingerprint: input.registrationFingerprint,
+            now: consumedAt,
+          })
         }
-        if (!equalBinding(record.codeChallenge, codeChallenge(input.codeVerifier)))
-          throw new SsoCodeStoreError('pkce_invalid', 'PKCE verifier does not match')
-        if (typeof record.uid !== 'string' || !record.uid)
+        catch (error) {
+          if (error instanceof AuthorizationError)
+            throw new SsoCodeStoreError(error.code, error.message)
+          throw error
+        }
+        if (typeof transition.subject !== 'string' || !transition.subject)
           throw new SsoCodeStoreError('code_invalid', 'authorization code subject is invalid')
-        uid = record.uid
+        uid = transition.subject
         await updateDocument(transaction, id, {
-          status: 'consumed',
-          consumedAt,
+          status: transition.next.status,
+          consumedAt: transition.next.consumedAt,
           version: Number(record.version || 0) + 1,
         })
       })

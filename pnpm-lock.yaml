@@ -67,8 +67,8 @@ catalogs:
       specifier: ^14.3.0
       version: 14.3.0
     '@yunlefun/sso':
-      specifier: ^0.4.0
-      version: 0.4.0
+      specifier: ^0.5.0
+      version: 0.5.0
     '@yunlefun/types':
       specifier: ^0.2.1
       version: 0.2.1
@@ -140,9 +140,12 @@ importers:
       '@vueuse/nuxt':
         specifier: 'catalog:'
         version: 14.3.0(magicast@0.5.3)(nuxt@4.4.8(@babel/plugin-syntax-jsx@7.29.7(@babel/core@7.29.7))(@babel/plugin-syntax-typescript@7.29.7(@babel/core@7.29.7))(@parcel/watcher@2.5.6)(@types/node@26.0.1)(@vue/compiler-sfc@3.5.39)(better-sqlite3@12.10.0)(cac@6.7.14)(db0@0.3.4(better-sqlite3@12.10.0))(esbuild@0.28.1)(eslint@10.5.0(jiti@2.7.0))(ioredis@5.11.1)(lightningcss@1.32.0)(magicast@0.5.3)(optionator@0.9.4)(rollup-plugin-visualizer@7.0.1(rollup@4.62.2))(rollup@4.62.2)(srvx@0.11.17)(terser@5.48.0)(typescript@5.9.3)(vite@7.3.6(@types/node@26.0.1)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.48.0)(yaml@2.9.0))(vue-tsc@3.3.5(typescript@5.9.3))(yaml@2.9.0))(vue@3.5.39(typescript@5.9.3))
+      '@yunlefun/authorization-core':
+        specifier: workspace:*
+        version: link:packages/authorization-core
       '@yunlefun/sso':
         specifier: 'catalog:'
-        version: 0.4.0
+        version: 0.5.0
       '@yunlefun/types':
         specifier: 'catalog:'
         version: 0.2.1
@@ -225,6 +228,8 @@ importers:
       vue-tsc:
         specifier: 'catalog:'
         version: 3.3.5(typescript@5.9.3)
+
+  packages/authorization-core: {}
 
 packages:
 
@@ -3660,8 +3665,8 @@ packages:
   '@webcontainer/env@1.1.1':
     resolution: {integrity: sha512-6aN99yL695Hi9SuIk1oC88l9o0gmxL1nGWWQ/kNy81HigJ0FoaoTXpytCj6ItzgyCEwA9kF1wixsTuv5cjsgng==}
 
-  '@yunlefun/sso@0.4.0':
-    resolution: {integrity: sha512-taj6FdLWcAXMPqWWrV8hrY+rze9YcbKnmhb1+bHl4vyVVQPtCxVXvtC1uzQ6FbsB5pVRk/tKqO5RUiKxemkQqw==}
+  '@yunlefun/sso@0.5.0':
+    resolution: {integrity: sha512-UwT0hKJX3kcl63dXmAgQLfTQRXPO9h+zMDbIGV3wPU6kO5eiuqTU+XAtPxxTMb/xyxJ/SG2cIVXfhjOxHYpY8A==}
 
   '@yunlefun/types@0.2.1':
     resolution: {integrity: sha512-KwfJo4efOA4yb5652Q6MHwSDd/wr4BsuFm4CPDQCLRQ6xpVmBMamgVmp+y1Ouh4CMhOHOcgGee1etflREG8ECg==}
@@ -11350,7 +11355,7 @@ snapshots:
   '@webcontainer/env@1.1.1':
     optional: true
 
-  '@yunlefun/sso@0.4.0': {}
+  '@yunlefun/sso@0.5.0': {}
 
   '@yunlefun/types@0.2.1': {}
 

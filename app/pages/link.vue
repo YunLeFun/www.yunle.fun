@@ -17,23 +17,27 @@ const { app } = useCloudbase()
 const { user } = useTcbAuth()
 const toast = useToast()
 
-/** appId → 友好展示名（未知则回退展示 appId） */
-const APP_NAMES: Record<string, string> = {
-  skykeeper: 'Skykeeper 自动保存助手',
-}
 /** scope → 人话权限描述 */
 const SCOPE_LABELS: Record<string, string> = {
-  membership: '读取你的会员状态',
-  coin: '查询并消费你的云币',
+  'membership:read': '读取你的会员等级与到期时间',
 }
 
 type Status = 'input' | 'loading' | 'ready' | 'approving' | 'approved' | 'denied' | 'error'
 const status = ref<Status>('loading')
 const codeInput = ref('')
 const message = ref('')
-const device = ref<{ appId: string, deviceName: string, scope: string[], expireAt: number } | null>(null)
+const device = ref<{
+  issuer: string
+  clientId: string
+  appId: string
+  displayName: string
+  deviceName: string
+  scope: string[]
+  consent: 'explicit'
+  expireAt: number
+} | null>(null)
 
-const appName = computed(() => (device.value ? (APP_NAMES[device.value.appId] || device.value.appId) : ''))
+const appName = computed(() => device.value?.displayName || '')
 const displayName = computed(() => user.value?.nickname || user.value?.login || '已登录用户')
 
 /** 调用 desktop-auth 云函数（携带浏览器登录态） */
@@ -150,6 +154,7 @@ onMounted(() => {
         </ul>
         <p class="text-xs text-dimmed">
           授权码：{{ codeInput.toUpperCase() }} · 设备：{{ device?.deviceName || '未命名设备' }}
+          · 客户端：{{ device?.clientId }}
         </p>
       </div>
 
@@ -162,7 +167,7 @@ onMounted(() => {
         </UButton>
       </div>
       <p class="text-xs text-dimmed">
-        基础功能无需登录即可使用；授权仅用于解锁会员 / 云币权益。
+        基础功能无需登录即可使用；此授权只允许应用读取会员权益，不包含云币或其他账号操作。
       </p>
     </template>
 

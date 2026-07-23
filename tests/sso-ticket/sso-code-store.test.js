@@ -66,10 +66,11 @@ const VERIFIER = 'v'.repeat(64)
 const CHALLENGE = codeChallenge(VERIFIER)
 const CLIENT_BINDING = {
   clientId: 'drive-web',
-  issuerEnvironment: 'production',
-  clientEnvironment: 'production',
+  issuer: 'https://www.yunle.fun',
+  appId: 'drive',
+  scopes: ['identity:bootstrap'],
   policyVersion: 'test-policy-v1',
-  ruleId: 'drive-production',
+  registrationFingerprint: 'f'.repeat(64),
 }
 
 describe('sso one-time authorization-code store', () => {
@@ -79,6 +80,7 @@ describe('sso one-time authorization-code store', () => {
       uid: 'user_1234',
       ...CLIENT_BINDING,
       targetOrigin: 'https://drive.yunle.fun',
+      returnUrl: 'https://drive.yunle.fun/',
       nonce: 'n'.repeat(32),
       codeChallenge: CHALLENGE,
       mode: 'redirect',
@@ -95,13 +97,14 @@ describe('sso one-time authorization-code store', () => {
       uid: 'user_1234',
       ...CLIENT_BINDING,
       targetOrigin: 'https://drive.yunle.fun',
+      returnUrl: 'https://drive.yunle.fun/',
       nonce: 'n'.repeat(32),
       codeChallenge: CHALLENGE,
       mode: 'redirect',
     })
     const attempts = await Promise.allSettled([
-      store.consume({ code, ...CLIENT_BINDING, requestOrigin: 'https://drive.yunle.fun', nonce: 'n'.repeat(32), codeVerifier: VERIFIER }),
-      store.consume({ code, ...CLIENT_BINDING, requestOrigin: 'https://drive.yunle.fun', nonce: 'n'.repeat(32), codeVerifier: VERIFIER }),
+      store.consume({ code, ...CLIENT_BINDING, requestOrigin: 'https://drive.yunle.fun', redirectUri: 'https://drive.yunle.fun/', nonce: 'n'.repeat(32), codeVerifier: VERIFIER }),
+      store.consume({ code, ...CLIENT_BINDING, requestOrigin: 'https://drive.yunle.fun', redirectUri: 'https://drive.yunle.fun/', nonce: 'n'.repeat(32), codeVerifier: VERIFIER }),
     ])
     expect(attempts.filter(result => result.status === 'fulfilled')).toHaveLength(1)
     const rejected = attempts.find(result => result.status === 'rejected')
@@ -115,15 +118,16 @@ describe('sso one-time authorization-code store', () => {
       uid: 'user_1234',
       ...CLIENT_BINDING,
       targetOrigin: 'https://drive.yunle.fun',
+      returnUrl: 'https://drive.yunle.fun/',
       nonce: 'n'.repeat(32),
       codeChallenge: CHALLENGE,
       mode: 'redirect',
     })
-    await expect(store.consume({ code, ...CLIENT_BINDING, requestOrigin: 'https://cms.example.com', nonce: 'n'.repeat(32), codeVerifier: VERIFIER })).rejects.toMatchObject({ reason: 'code_binding_invalid' })
-    await expect(store.consume({ code, ...CLIENT_BINDING, clientId: 'cms-web', requestOrigin: 'https://drive.yunle.fun', nonce: 'n'.repeat(32), codeVerifier: VERIFIER })).rejects.toMatchObject({ reason: 'client_binding_invalid' })
-    await expect(store.consume({ code, ...CLIENT_BINDING, requestOrigin: 'https://drive.yunle.fun', nonce: 'n'.repeat(32), codeVerifier: 'x'.repeat(64) })).rejects.toMatchObject({ reason: 'pkce_invalid' })
+    await expect(store.consume({ code, ...CLIENT_BINDING, requestOrigin: 'https://cms.example.com', redirectUri: 'https://drive.yunle.fun/', nonce: 'n'.repeat(32), codeVerifier: VERIFIER })).rejects.toMatchObject({ reason: 'code_binding_invalid' })
+    await expect(store.consume({ code, ...CLIENT_BINDING, clientId: 'cms-web', requestOrigin: 'https://drive.yunle.fun', redirectUri: 'https://drive.yunle.fun/', nonce: 'n'.repeat(32), codeVerifier: VERIFIER })).rejects.toMatchObject({ reason: 'client_binding_invalid' })
+    await expect(store.consume({ code, ...CLIENT_BINDING, requestOrigin: 'https://drive.yunle.fun', redirectUri: 'https://drive.yunle.fun/', nonce: 'n'.repeat(32), codeVerifier: 'x'.repeat(64) })).rejects.toMatchObject({ reason: 'pkce_invalid' })
     advance(10_000)
-    await expect(store.consume({ code, ...CLIENT_BINDING, requestOrigin: 'https://drive.yunle.fun', nonce: 'n'.repeat(32), codeVerifier: VERIFIER })).rejects.toMatchObject({ reason: 'code_expired' })
+    await expect(store.consume({ code, ...CLIENT_BINDING, requestOrigin: 'https://drive.yunle.fun', redirectUri: 'https://drive.yunle.fun/', nonce: 'n'.repeat(32), codeVerifier: VERIFIER })).rejects.toMatchObject({ reason: 'code_expired' })
   })
 
   it('fails closed when the SDK reports a zero-document consume update', async () => {
@@ -132,6 +136,7 @@ describe('sso one-time authorization-code store', () => {
       uid: 'user_1234',
       ...CLIENT_BINDING,
       targetOrigin: 'https://drive.yunle.fun',
+      returnUrl: 'https://drive.yunle.fun/',
       nonce: 'n'.repeat(32),
       codeChallenge: CHALLENGE,
       mode: 'redirect',
@@ -147,23 +152,25 @@ describe('sso one-time authorization-code store', () => {
       code,
       ...CLIENT_BINDING,
       requestOrigin: 'https://drive.yunle.fun',
+      redirectUri: 'https://drive.yunle.fun/',
       nonce: 'n'.repeat(32),
       codeVerifier: VERIFIER,
     })).rejects.toMatchObject({ reason: 'code_conflict' })
   })
 
-  it('consumes an in-flight schema v2 code during the bounded rollout window', async () => {
+  it('rejects obsolete code schemas instead of carrying compatibility paths', async () => {
     const { code, database, store } = fixture()
     database.documents.set(codeId(code), {
       recordType: 'sso_login_code',
       schemaVersion: 2,
-      uid: 'user_1234',
-      targetOrigin: 'https://drive.yunle.fun',
+      subject: 'user_1234',
+      origin: 'https://drive.yunle.fun',
+      redirectUri: 'https://drive.yunle.fun/',
       nonce: 'n'.repeat(32),
       codeChallenge: CHALLENGE,
       mode: 'redirect',
-      status: 'issued',
-      createdAt: 1_000,
+      status: 'pending',
+      issuedAt: 1_000,
       expiresAt: 11_000,
       version: 1,
     })
@@ -171,9 +178,10 @@ describe('sso one-time authorization-code store', () => {
       code,
       ...CLIENT_BINDING,
       requestOrigin: 'https://drive.yunle.fun',
+      redirectUri: 'https://drive.yunle.fun/',
       nonce: 'n'.repeat(32),
       codeVerifier: VERIFIER,
-    })).resolves.toEqual({ uid: 'user_1234' })
+    })).rejects.toMatchObject({ reason: 'code_invalid' })
   })
 
   it('exports a server-only expiry index manifest', () => {

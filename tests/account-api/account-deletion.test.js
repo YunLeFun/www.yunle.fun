@@ -30,9 +30,10 @@ function seed() {
       { _id: 'n2', userId: 'u2', actorId: 'u1', type: 'follow' },
     ],
     github_installations: [{ _id: 'u1', installationId: '123' }],
-    desktop_device_codes: [{ _id: 'dc1', uid: 'u1', status: 'approved' }],
+    desktop_device_codes: [{ _id: 'dc1', subject: 'u1', status: 'approved' }],
     desktop_devices: [{ _id: 'd1', uid: 'u1', refreshTokenHash: 'hash' }],
-    sso_login_codes: [{ _id: 's1', uid: 'u1', status: 'active' }],
+    desktop_refresh_tokens: [{ _id: 'rt1', subject: 'u1', status: 'active' }],
+    sso_login_codes: [{ _id: 's1', subject: 'u1', status: 'active' }],
     ai_usage_daily: [{ _id: 'q1', uid: 'u1', used: 1 }],
     user_signin_stats: [{ _id: 'sign1', userId: 'u1', currentStreak: 7 }],
   }
@@ -117,7 +118,7 @@ describe('account-api 账号注销冷静期', () => {
       deletedAt: dueAt,
       removedFollowing: 1,
       removedFollowers: 1,
-      removedIdentityArtifacts: 6,
+      removedIdentityArtifacts: 7,
     })
     expect(await readDoc(db, USER_PROFILES_COLLECTION, 'u1')).toMatchObject({
       login: null,
@@ -132,7 +133,7 @@ describe('account-api 账号注销冷静期', () => {
     })
     expect(db._store[USER_FOLLOWS_COLLECTION]).toHaveLength(0)
     expect(db._store[USER_NOTIFICATIONS_COLLECTION].filter(item => item.userId === 'u1')).toHaveLength(0)
-    for (const collection of ['github_installations', 'desktop_device_codes', 'desktop_devices', 'sso_login_codes', 'ai_usage_daily', 'user_signin_stats'])
+    for (const collection of ['github_installations', 'desktop_device_codes', 'desktop_devices', 'desktop_refresh_tokens', 'sso_login_codes', 'ai_usage_daily', 'user_signin_stats'])
       expect(db._store[collection], `${collection} 应被清理`).toHaveLength(0)
   })
 

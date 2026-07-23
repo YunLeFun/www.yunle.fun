@@ -36,3 +36,4 @@ logs
 
 # EdgeOne CLI local project linkage
 .edgeone/
+.cloudbase/artifacts/

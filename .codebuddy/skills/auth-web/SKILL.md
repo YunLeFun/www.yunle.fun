@@ -27,14 +27,14 @@ pnpm add @yunlefun/sso @cloudbase/js-sdk
 
 Recommended versions:
 
-- `@yunlefun/sso@^0.3.1`
+- `@yunlefun/sso@^0.5.0`
 - `@cloudbase/js-sdk@^3.6.2`
 
-Use silent SSO on startup and interactive SSO only from a user gesture:
+Use one top-level Authorization Code + PKCE redirect from a user gesture:
 
 ```ts
 import cloudbase from '@cloudbase/js-sdk'
-import { signInWithSso } from '@yunlefun/sso'
+import { adoptSsoCode, consumeSsoRedirect, startSsoRedirect } from '@yunlefun/sso'
 
 const app = cloudbase.init({
   env: 'yunlefun-8g7ybcxc7345c490',
@@ -42,23 +42,24 @@ const app = cloudbase.init({
 })
 const auth = app.auth({ persistence: 'local' })
 
-const { data } = await auth.getSession()
-if (!data?.session || data.session.user?.is_anonymous) {
-  await signInWithSso(auth, {
-    mode: 'silent',
-    ssoOrigin: 'https://www.yunle.fun',
+const authorization = consumeSsoRedirect()
+if (authorization?.ok) {
+  await adoptSsoCode(auth, authorization, {
+    exchangeUrl: 'https://api.yunle.fun/sso-ticket',
   })
 }
 
 async function loginWithYunLeFun() {
-  return signInWithSso(auth, {
-    mode: 'interactive',
+  await startSsoRedirect({
+    clientId: '<registered-web-client-id>',
+    scope: ['identity:bootstrap'],
+    redirectUri: window.location.origin + '/',
     ssoOrigin: 'https://www.yunle.fun',
   })
 }
 ```
 
-SSO only transfers the CloudBase session. Store user-specific application data in CloudBase collections protected by `auth.uid == doc.uid`; do not store business data inside CloudBase Auth user metadata.
+SSO exchanges a hash-only one-time code for a transient custom-login ticket; it never transfers the Provider session or refresh token. The exact client, scope, Origin and redirect URI must be present in the server Client Registry.
 
 ## Prerequisites
 
