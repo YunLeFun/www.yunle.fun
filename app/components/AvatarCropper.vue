@@ -1,4 +1,15 @@
 <script setup lang="ts">
+import { CropIcon, ZoomInIcon, ZoomOutIcon } from '@lucide/vue'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+
 const props = defineProps<{
   file: File | null
   maxSize?: number // 输出最大尺寸（px），默认 512
@@ -51,18 +62,22 @@ const zoomLevel = ref(1)
 const MIN_ZOOM = 0.5
 const MAX_ZOOM = 3
 
-watch(() => props.file, async (file) => {
+watch(() => props.file, (file, _previousFile, onCleanup) => {
   if (!file)
     return
+
   imgLoaded.value = false
   const image = new Image()
+  const objectUrl = URL.createObjectURL(file)
+  onCleanup(() => URL.revokeObjectURL(objectUrl))
+
   image.onload = () => {
     img.value = image
     imgLoaded.value = true
     nextTick(() => initLayout())
   }
-  image.src = URL.createObjectURL(file)
-})
+  image.src = objectUrl
+}, { immediate: true })
 
 watch(open, (v) => {
   if (v && img.value && imgLoaded.value) {
@@ -348,6 +363,31 @@ function onZoom(val: number) {
   draw()
 }
 
+function onCropKeydown(event: KeyboardEvent) {
+  if (!img.value)
+    return
+
+  const step = event.shiftKey ? 10 : 2
+  const minX = renderState.imgX
+  const minY = renderState.imgY
+  const maxX = renderState.imgX + renderState.imgW - crop.size
+  const maxY = renderState.imgY + renderState.imgH - crop.size
+
+  if (event.key === 'ArrowLeft')
+    crop.x = Math.max(minX, crop.x - step)
+  else if (event.key === 'ArrowRight')
+    crop.x = Math.min(maxX, crop.x + step)
+  else if (event.key === 'ArrowUp')
+    crop.y = Math.max(minY, crop.y - step)
+  else if (event.key === 'ArrowDown')
+    crop.y = Math.min(maxY, crop.y + step)
+  else
+    return
+
+  event.preventDefault()
+  draw()
+}
+
 async function confirm() {
   if (!img.value)
     return
@@ -386,6 +426,12 @@ function cancel() {
   open.value = false
 }
 
+function handleOpenChange(value: boolean) {
+  if (!value && open.value)
+    emit('cancel')
+  open.value = value
+}
+
 // 预览尺寸信息
 const previewInfo = computed(() => {
   if (!img.value)
@@ -411,77 +457,68 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <UModal v-model:open="open" :ui="{ content: 'sm:max-w-lg' }">
-    <template #content>
-      <UCard>
-        <template #header>
-          <div class="flex items-center justify-between">
-            <h3 class="text-lg font-semibold">
-              裁剪头像
-            </h3>
-            <UButton
-              icon="i-lucide-x"
-              color="neutral"
-              variant="ghost"
-              size="xs"
-              @click="cancel"
-            />
-          </div>
-        </template>
+  <Dialog :open="open" @update:open="handleOpenChange">
+    <DialogContent
+      class="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-xl"
+      :show-close-button="false"
+    >
+      <DialogHeader>
+        <DialogTitle>裁剪头像</DialogTitle>
+        <DialogDescription>
+          拖动方框选择头像范围；键盘可用方向键移动，按住 Shift 加速
+        </DialogDescription>
+      </DialogHeader>
 
-        <div class="space-y-3">
-          <!-- 裁剪画布 -->
-          <div
-            ref="containerRef"
-            class="relative w-full bg-muted rounded-lg overflow-hidden select-none"
-            style="height: 360px;"
-          >
-            <canvas
-              ref="canvasRef"
-              class="absolute inset-0 w-full h-full touch-none"
-              @mousedown="onPointerDown"
-              @touchstart.prevent="onPointerDown"
-            />
-          </div>
-
-          <!-- 缩放控制 -->
-          <div class="flex items-center gap-3 px-1">
-            <UIcon name="i-lucide-zoom-out" class="text-muted shrink-0" />
-            <input
-              type="range"
-              :min="MIN_ZOOM"
-              :max="MAX_ZOOM"
-              step="0.05"
-              :value="zoomLevel"
-              class="flex-1 h-1.5 accent-primary cursor-pointer"
-              @input="onZoom(Number(($event.target as HTMLInputElement).value))"
-            >
-            <UIcon name="i-lucide-zoom-in" class="text-muted shrink-0" />
-          </div>
-
-          <!-- 尺寸信息 -->
-          <p v-if="previewInfo" class="text-xs text-dimmed text-center">
-            裁剪区域 {{ previewInfo.srcSize }}×{{ previewInfo.srcSize }}px → 输出 {{ previewInfo.outputSize }}×{{ previewInfo.outputSize }}px
-          </p>
+      <div class="flex flex-col gap-4 px-5 pb-6 sm:px-6">
+        <div
+          ref="containerRef"
+          class="relative h-[min(55vh,22.5rem)] min-h-64 w-full touch-none select-none overflow-hidden rounded-xl border border-border bg-muted"
+        >
+          <canvas
+            ref="canvasRef"
+            aria-label="头像裁剪区域"
+            aria-describedby="avatar-cropper-keyboard-help"
+            class="absolute inset-0 size-full touch-none"
+            tabindex="0"
+            @mousedown="onPointerDown"
+            @touchstart.prevent="onPointerDown"
+            @keydown="onCropKeydown"
+          />
         </div>
 
-        <template #footer>
-          <div class="flex justify-end gap-3">
-            <UButton
-              label="取消"
-              color="neutral"
-              variant="outline"
-              @click="cancel"
-            />
-            <UButton
-              label="确认裁剪"
-              color="primary"
-              icon="i-lucide-crop"
-              @click="confirm"
-            />
-          </div>
-        </template>
-      </UCard>
-    </template>
-  </UModal>
+        <p id="avatar-cropper-keyboard-help" class="sr-only">
+          使用方向键移动裁剪区域，按住 Shift 键可加快移动。
+        </p>
+
+        <div class="flex items-center gap-3">
+          <ZoomOutIcon class="size-4 shrink-0 text-muted-foreground" />
+          <input
+            aria-label="缩放头像"
+            type="range"
+            :min="MIN_ZOOM"
+            :max="MAX_ZOOM"
+            step="0.05"
+            :value="zoomLevel"
+            class="h-1.5 flex-1 cursor-pointer accent-primary"
+            @input="onZoom(Number(($event.target as HTMLInputElement).value))"
+          >
+          <ZoomInIcon class="size-4 shrink-0 text-muted-foreground" />
+        </div>
+
+        <p v-if="previewInfo" class="text-center text-xs text-muted-foreground">
+          裁剪 {{ previewInfo.srcSize }}×{{ previewInfo.srcSize }}px · 输出 {{ previewInfo.outputSize }}×{{ previewInfo.outputSize }}px
+        </p>
+      </div>
+
+      <DialogFooter>
+        <Button variant="outline" @click="cancel">
+          取消
+        </Button>
+        <Button @click="confirm">
+          <CropIcon data-icon="inline-start" />
+          确认裁剪
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
 </template>

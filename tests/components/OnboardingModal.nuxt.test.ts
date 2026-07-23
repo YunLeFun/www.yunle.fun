@@ -54,7 +54,7 @@ describe('onboardingModal', () => {
     h.s.user = ref({ id: 'u-test-1', nickname: '云游者_abcd', avatar: null })
     h.s.needsOnboarding = ref(true)
     h.s.fetchUser = vi.fn().mockResolvedValue(undefined)
-    h.s.updateUser = vi.fn().mockResolvedValue({})
+    h.s.updateUser = vi.fn().mockResolvedValue({ error: null })
     h.s.upsertMyProfile = vi.fn().mockResolvedValue({})
     h.s.toastAdd = vi.fn()
     localStorage.clear()
@@ -66,6 +66,7 @@ describe('onboardingModal', () => {
     await flushPromises()
     await nextTick()
     expect(bodyText()).toContain('欢迎来到云乐坊')
+    expect(document.querySelector('button[aria-label="上传头像"]')).toBeTruthy()
   })
 
   it('该 uid 已在 localStorage 标记过 → 不再弹（防重）', async () => {
@@ -121,5 +122,33 @@ describe('onboardingModal', () => {
     expect(h.s.updateUser).not.toHaveBeenCalled()
     expect(localStorage.getItem('ylf_onboarded_u-test-1')).toBeTruthy()
     expect(bodyText()).not.toContain('欢迎来到云乐坊')
+  })
+
+  it('资料保存被 CloudBase 拒绝时保留弹层并显示错误', async () => {
+    h.s.updateUser.mockResolvedValue({ error: new Error('头像保存失败') })
+    await mountSuspended(OnboardingModal)
+    await flushPromises()
+    await nextTick()
+
+    const input = queryAll<HTMLInputElement>('input').find(el => el.type !== 'file')
+    expect(input).toBeTruthy()
+    input!.value = '我的新昵称'
+    input!.dispatchEvent(new Event('input', { bubbles: true }))
+    await nextTick()
+
+    const finishBtn = queryAll<HTMLButtonElement>('button').find(b => (b.textContent || '').includes('完成'))
+    expect(finishBtn).toBeTruthy()
+    finishBtn!.click()
+    await flushPromises()
+
+    expect(h.s.fetchUser).not.toHaveBeenCalled()
+    expect(h.s.upsertMyProfile).not.toHaveBeenCalled()
+    expect(localStorage.getItem('ylf_onboarded_u-test-1')).toBeNull()
+    expect(bodyText()).toContain('欢迎来到云乐坊')
+    expect(h.s.toastAdd).toHaveBeenLastCalledWith(expect.objectContaining({
+      title: '保存失败',
+      description: '头像保存失败',
+      color: 'error',
+    }))
   })
 })

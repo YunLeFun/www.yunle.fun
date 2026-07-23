@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { CloudIcon } from '@lucide/vue'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+
 /**
  * 带会员角标的头像。
  *
@@ -21,6 +24,22 @@ const props = withDefaults(defineProps<{
 })
 
 const resolvedSrc = useAvatarUrl(() => props.src)
+const fallbackText = computed(() => {
+  const label = props.alt?.trim()
+  return label ? Array.from(label).slice(0, 2).join('').toUpperCase() : '云'
+})
+
+const AVATAR: Record<AvatarSize, string> = {
+  '3xs': 'size-5',
+  '2xs': 'size-6',
+  'xs': 'size-7',
+  'sm': 'size-8',
+  'md': 'size-9',
+  'lg': 'size-10',
+  'xl': 'size-12',
+  '2xl': 'size-16',
+  '3xl': 'size-20',
+}
 
 const CORNER: Record<AvatarSize, string> = {
   '3xs': 'size-2 -right-0.5 -bottom-0.5',
@@ -48,11 +67,16 @@ const ICON: Record<AvatarSize, string> = {
 
 <template>
   <div class="relative inline-flex shrink-0">
-    <UAvatar
-      :src="resolvedSrc"
-      :alt="alt"
-      :size="size"
-    />
+    <Avatar :class="AVATAR[size]">
+      <AvatarImage
+        v-if="resolvedSrc"
+        :src="resolvedSrc"
+        :alt="alt || ''"
+      />
+      <AvatarFallback class="bg-secondary font-heading font-semibold text-primary">
+        {{ fallbackText }}
+      </AvatarFallback>
+    </Avatar>
     <span
       v-if="isMember"
       class="ylf-member-mark absolute flex items-center justify-center rounded-full ring-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
@@ -62,7 +86,7 @@ const ICON: Record<AvatarSize, string> = {
       role="img"
       tabindex="0"
     >
-      <UIcon name="i-lucide-cloud" :class="ICON[size]" />
+      <CloudIcon :class="ICON[size]" />
     </span>
   </div>
 </template>
