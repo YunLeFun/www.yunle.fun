@@ -129,19 +129,23 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="relative isolate min-h-dvh overflow-x-hidden">
+  <div
+    data-slot="account-status-page"
+    class="relative isolate min-h-dvh"
+  >
     <div
-      class="pointer-events-none absolute inset-0 bg-background"
+      data-slot="account-status-background"
+      class="pointer-events-none absolute inset-0 overflow-hidden"
       aria-hidden="true"
-    />
-    <div
-      class="pointer-events-none absolute -top-28 left-1/2 size-72 -translate-x-1/2 rounded-full bg-primary/15 blur-3xl sm:size-96"
-      aria-hidden="true"
-    />
-    <div
-      class="pointer-events-none absolute right-[-7rem] bottom-[-5rem] size-64 rounded-full bg-warning/15 blur-3xl sm:size-80"
-      aria-hidden="true"
-    />
+    >
+      <div class="absolute inset-0 bg-background" />
+      <div
+        class="absolute -top-28 left-1/2 size-72 -translate-x-1/2 rounded-full bg-primary/15 blur-3xl sm:size-96"
+      />
+      <div
+        class="absolute right-[-7rem] bottom-[-5rem] size-64 rounded-full bg-warning/15 blur-3xl sm:size-80"
+      />
+    </div>
 
     <main
       class="account-status-main relative z-10 mx-auto flex min-h-dvh w-full max-w-xl flex-col items-center px-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:px-6 sm:py-10"
@@ -264,6 +268,7 @@ onMounted(() => {
         >
           <Button
             v-if="access.state === 'deletion_pending'"
+            variant="brand"
             size="lg"
             class="min-h-12 w-full"
             :disabled="!access.recoverable || loading || recovering"
@@ -277,6 +282,7 @@ onMounted(() => {
           <Button
             v-else-if="access.state === 'admin_banned'"
             as-child
+            variant="brand"
             size="lg"
             class="min-h-12 w-full"
           >
@@ -288,6 +294,7 @@ onMounted(() => {
 
           <Button
             v-else-if="access.state === 'unavailable'"
+            variant="brand"
             size="lg"
             class="min-h-12 w-full"
             :disabled="loading"
@@ -344,6 +351,7 @@ onMounted(() => {
             </Button>
           </DialogClose>
           <Button
+            variant="brand"
             class="min-h-11 w-full sm:w-auto"
             :disabled="!access.recoverable || loading || recovering"
             @click="handleRecover"

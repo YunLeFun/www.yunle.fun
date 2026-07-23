@@ -20,9 +20,9 @@ const stubs = {
   AlertDescription: { template: '<p><slot /></p>' },
   AlertTitle: { template: '<strong><slot /></strong>' },
   Button: {
-    props: ['disabled'],
+    props: ['disabled', 'variant'],
     emits: ['click'],
-    template: '<button type="button" :disabled="disabled" @click="$emit(\'click\')"><slot /></button>',
+    template: '<button type="button" :disabled="disabled" :data-variant="variant" @click="$emit(\'click\')"><slot /></button>',
   },
   Card: { template: '<section><slot /></section>' },
   CardContent: { template: '<div><slot /></div>' },
@@ -67,6 +67,9 @@ describe('account status page', () => {
     const wrapper = await mountSuspended(AccountStatusPage, { global: { stubs } })
     await flushPromises()
 
+    const page = wrapper.get('[data-slot="account-status-page"]')
+    expect(page.classes()).not.toContain('overflow-x-hidden')
+    expect(wrapper.get('[data-slot="account-status-background"]').classes()).toContain('overflow-hidden')
     expect(wrapper.text()).toContain('账号注销冷静期')
     expect(wrapper.text()).toContain('2026年7月31日 09:30')
     expect(wrapper.text()).toContain('中国标准时间（UTC+8）')
@@ -74,6 +77,7 @@ describe('account status page', () => {
 
     const recover = wrapper.findAll('button').find(button => button.text().includes('恢复账号'))
     expect(recover).toBeTruthy()
+    expect(recover!.attributes('data-variant')).toBe('brand')
     await recover!.trigger('click')
     await flushPromises()
     expect(h.s.recoverAccount).not.toHaveBeenCalled()
