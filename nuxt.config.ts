@@ -135,6 +135,7 @@ export default defineNuxtConfig({
     '/profile': { ssr: false },
     '/wallet': { ssr: false },
     '/settings': { ssr: false },
+    '/account-status': { ssr: false },
     '/login': { ssr: false },
     '/signup': { ssr: false },
     '/link': { ssr: false },
