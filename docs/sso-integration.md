@@ -85,6 +85,7 @@ if (authorization?.ok) {
 | `cms-web`           | `cms`          | `https://cms.yunle.fun`          | `identity:bootstrap` |
 | `drive-web`         | `drive`        | `https://drive.yunle.fun`        | `identity:bootstrap` |
 | `dayun-kicker-web`  | `dayun-kicker` | `https://dayun-kicker.yunle.fun` | `identity:bootstrap` |
+| `ai-sfc-web`        | `ai-sfc`       | `https://ai-sfc.yunle.fun`       | `identity:bootstrap` |
 | `home-web`          | `home`         | `https://home.yunle.fun`         | `identity:bootstrap` |
 | `wenta-web`         | `wenta`        | `https://wenta.yunle.fun`        | `identity:bootstrap` |
 | `skykeeper-desktop` | `skykeeper`    | 设备授权 Adapter，无 Web Origin  | `membership:read`    |

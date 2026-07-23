@@ -23,7 +23,7 @@ export const issuerCatalog = {
 
 export const productionRegistry = {
   schemaVersion: 1,
-  policyVersion: '2026-07-23.2',
+  policyVersion: '2026-07-23.3',
   issuer: 'https://www.yunle.fun',
   clients: [
     {
@@ -46,6 +46,13 @@ export const productionRegistry = {
       displayName: '大运踢球',
       status: 'active',
       adapters: [webSso('https://dayun-kicker.yunle.fun')],
+    },
+    {
+      clientId: 'ai-sfc-web',
+      appId: 'ai-sfc',
+      displayName: 'AI 春联',
+      status: 'active',
+      adapters: [webSso('https://ai-sfc.yunle.fun')],
     },
     {
       clientId: 'home-web',
@@ -79,7 +86,7 @@ export const productionRegistry = {
 
 export const developmentRegistry = {
   schemaVersion: 1,
-  policyVersion: '2026-07-23.2-dev',
+  policyVersion: '2026-07-23.3-dev',
   issuer: issuerCatalog.development.issuer,
   clients: [
     {
@@ -102,6 +109,13 @@ export const developmentRegistry = {
       displayName: '大运踢球',
       status: 'active',
       adapters: [webSso('https://dayun-kicker.yunle.localhost:3445')],
+    },
+    {
+      clientId: 'ai-sfc-web',
+      appId: 'ai-sfc',
+      displayName: 'AI 春联',
+      status: 'active',
+      adapters: [webSso('https://ai-sfc.yunle.localhost:3448')],
     },
     {
       clientId: 'home-web',

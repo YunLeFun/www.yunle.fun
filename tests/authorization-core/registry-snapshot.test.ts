@@ -17,6 +17,7 @@ describe('production authorization registry', () => {
       ['cms-web', 'cms', 'web-sso', 'identity:bootstrap', 'https://cms.yunle.fun'],
       ['drive-web', 'drive', 'web-sso', 'identity:bootstrap', 'https://drive.yunle.fun'],
       ['dayun-kicker-web', 'dayun-kicker', 'web-sso', 'identity:bootstrap', 'https://dayun-kicker.yunle.fun'],
+      ['ai-sfc-web', 'ai-sfc', 'web-sso', 'identity:bootstrap', 'https://ai-sfc.yunle.fun'],
       ['home-web', 'home', 'web-sso', 'identity:bootstrap', 'https://home.yunle.fun'],
       ['wenta-web', 'wenta', 'web-sso', 'identity:bootstrap', 'https://wenta.yunle.fun'],
       ['skykeeper-desktop', 'skykeeper', 'device', 'membership:read', undefined],
@@ -35,6 +36,7 @@ describe('production authorization registry', () => {
       ['cms-web', 'cms', 'web-sso', ['identity:bootstrap']],
       ['drive-web', 'drive', 'web-sso', ['identity:bootstrap']],
       ['dayun-kicker-web', 'dayun-kicker', 'web-sso', ['identity:bootstrap']],
+      ['ai-sfc-web', 'ai-sfc', 'web-sso', ['identity:bootstrap']],
       ['home-web', 'home', 'web-sso', ['identity:bootstrap']],
       ['wenta-web', 'wenta', 'web-sso', ['identity:bootstrap']],
       ['skykeeper-desktop', 'skykeeper', 'device', ['membership:read']],
@@ -70,14 +72,14 @@ describe('production authorization registry', () => {
 
     expect(createAuthorizationCore({ registry: developmentRegistry }).authorize({
       issuer: 'https://www.yunle.localhost:3000',
-      clientId: 'cms-web',
+      clientId: 'ai-sfc-web',
       adapter: 'web-sso',
       requestedScopes: ['identity:bootstrap'],
-      origin: 'https://cms.yunle.localhost:3443',
-      redirectUri: 'https://cms.yunle.localhost:3443/',
+      origin: 'https://ai-sfc.yunle.localhost:3448',
+      redirectUri: 'https://ai-sfc.yunle.localhost:3448/',
     })).toMatchObject({
-      clientId: 'cms-web',
-      appId: 'cms',
+      clientId: 'ai-sfc-web',
+      appId: 'ai-sfc',
     })
 
     expect(() => createAuthorizationCore({ registry: productionRegistry }).authorize({
