@@ -2,6 +2,9 @@ shellEmulator: true
 
 trustPolicy: no-downgrade
 trustPolicyExclude:
+  # 0.5.0 was locally published from commit ba36801 while GitHub Actions
+  # billing blocked OIDC provenance. Remove after the next OIDC release.
+  - '@yunlefun/sso@0.5.0'
   - chokidar@4.0.3
 packages:
   - packages/*
