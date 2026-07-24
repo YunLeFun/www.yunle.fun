@@ -480,6 +480,13 @@ async function listRewardHistory(db, { userId, skip = 0, limit = 20 }) {
   }
 }
 
+/** Read one reward operation by its stable business id for idempotent reconciliation. */
+async function getRewardOperation(db, grantId) {
+  const normalizedGrantId = assertIdentifier(grantId, 'grantId')
+  const operationId = stableId('reward_operation', normalizedGrantId)
+  return docData(await db.collection(REWARD_OPERATIONS_COLLECTION).doc(operationId).get())
+}
+
 module.exports = {
   COIN_REWARD_AMOUNTS,
   MEMBERSHIP_REWARD_DAYS,
@@ -487,6 +494,7 @@ module.exports = {
   REWARD_CORRECTIONS_COLLECTION,
   REWARD_OPERATIONS_COLLECTION,
   correctReward,
+  getRewardOperation,
   grantReward,
   listRewardHistory,
 }

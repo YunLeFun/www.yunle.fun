@@ -24,4 +24,19 @@ describe('authentication route rendering', () => {
     })
     expect(config.nitro?.prerender?.routes).toEqual(expect.arrayContaining(expectedRoutes))
   })
+
+  it('prerenders the fixed reward claim shell without exposing it to caches or crawlers', async () => {
+    const config = await loadNuxtConfig({ cwd: rootDir })
+
+    expect(config.routeRules?.['/claim']).toMatchObject({
+      prerender: true,
+      ssr: false,
+      headers: {
+        'cache-control': 'no-store',
+        'referrer-policy': 'no-referrer',
+        'x-robots-tag': 'noindex, nofollow, noarchive',
+      },
+    })
+    expect(config.nitro?.prerender?.routes).toContain('/claim')
+  })
 })

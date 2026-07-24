@@ -4,7 +4,7 @@
 > `mintForUser(uid)`、主站 session 转发和 cookie 内保存 CloudBase token 的设计不再允许用于新代码。
 > 当前规范以 [跨站 SSO 接入指南](./sso-integration.md) 和 `@yunlefun/server-session` 文档为准。
 
-> 状态：Phase 1 代码与本地 E2E 已完成；生产激活仍依赖 EdgeOne 真正托管 Nuxt SSR 运行时。本文是迁移的唯一权威设计参考，按阶段推进，每阶段独立可发布。
+> 状态：Phase 1 代码与本地 E2E 已完成；EdgeOne 已托管 Nuxt SSR 运行时，cookie 会话的生产开关仍按阶段单独激活。本文是迁移的唯一权威设计参考，按阶段推进，每阶段独立可发布。
 
 ## 1. 背景与目标
 
@@ -17,15 +17,15 @@
 
 ## 2. 现状基线（源码事实，迁移设计以此为准）
 
-| 事实                                                                                                                          | 证据                                                                                                                                                          | 影响                                                                                                              |
-| ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| **repo 构建已是 `nuxt build`（Nitro `node-server`、`ssr:true` hybrid）**，但**线上 EdgeOne 当前仍按静态托管、无服务端运行时** | `package.json` `build:"nuxt build"` + 本地 `.output/nitro.json` `preset:"node-server"`；**实测 prod `POST /api/session/*` 全 404（`server: edgeone-pages`）** | 代码就绪，但 cookie 端点在线上不存在；须让 EdgeOne 真正 serve SSR 运行时（托管 `.output/server`）才能种/读 cookie |
-| 账号页 `ssr:false`（SPA 壳）                                                                                                  | [nuxt.config.ts:87-98](../nuxt.config.ts)                                                                                                                     | 灭闪需翻回 SSR                                                                                                    |
-| `@cloudbase/js-sdk` 无 httpOnly cookie 会话模式                                                                               | SDK 从 JS 存储读 token 贴到 callFunction                                                                                                                      | cookie 只能是「我们自己的会话」，不是 SDK 的                                                                      |
-| 31 处 `callFunction` + 2 集合直连 + 1 storage 共用客户端 token                                                                | 影响面盘点（6 云函数：account-api ~22、wxpay-order、desktop-auth、github-api、sso-ticket）                                                                    | 不能简单删 token，否则全站数据访问失效                                                                            |
-| **所有云函数 uid 来自运行时注入**                                                                                             | [account-api/index.js:71](../cloudfunctions/account-api/index.js) `getCallerUid()` 读 `getUserInfo().uid`                                                     | 只要 SDK 有内存登录态，函数零改动                                                                                 |
-| **服务端铸票原语已在用**                                                                                                      | [sso-ticket/index.js](../cloudfunctions/sso-ticket/index.js) `auth().createTicket(uid)`（RS256 JWT，票据 10 分钟过期）                                        | 保留给跨站 SSO；本站自恢复已改为原始会话 `setSession`                                                             |
-| 已有内部服务 token 范式                                                                                                       | `ACCOUNT_API_INTERNAL_TOKEN`（[.env.example:31](../.env.example)）；account-api `deductCoinForUser` 等                                                        | sso-ticket 服务端代签路径照搬此鉴权范式                                                                           |
+| 事实                                                                         | 证据                                                                                                                                    | 影响                                                           |
+| ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| **repo 与线上均使用 `nuxt build`（Nitro `node-server`、`ssr:true` hybrid）** | `package.json` `build:"nuxt build"` + 本地 `.output/nitro.json` `preset:"node-server"`；生产 `/api/session/*` 已进入 EdgeOne 服务端函数 | Nuxt server route 可用；发布前仍须核对服务端环境变量与功能开关 |
+| 账号页 `ssr:false`（SPA 壳）                                                 | [nuxt.config.ts:87-98](../nuxt.config.ts)                                                                                               | 灭闪需翻回 SSR                                                 |
+| `@cloudbase/js-sdk` 无 httpOnly cookie 会话模式                              | SDK 从 JS 存储读 token 贴到 callFunction                                                                                                | cookie 只能是「我们自己的会话」，不是 SDK 的                   |
+| 31 处 `callFunction` + 2 集合直连 + 1 storage 共用客户端 token               | 影响面盘点（6 云函数：account-api ~22、wxpay-order、desktop-auth、github-api、sso-ticket）                                              | 不能简单删 token，否则全站数据访问失效                         |
+| **所有云函数 uid 来自运行时注入**                                            | [account-api/index.js:71](../cloudfunctions/account-api/index.js) `getCallerUid()` 读 `getUserInfo().uid`                               | 只要 SDK 有内存登录态，函数零改动                              |
+| **服务端铸票原语已在用**                                                     | [sso-ticket/index.js](../cloudfunctions/sso-ticket/index.js) `auth().createTicket(uid)`（RS256 JWT，票据 10 分钟过期）                  | 保留给跨站 SSO；本站自恢复已改为原始会话 `setSession`          |
+| 已有内部服务 token 范式                                                      | `ACCOUNT_API_INTERNAL_TOKEN`（[.env.example:31](../.env.example)）；account-api `deductCoinForUser` 等                                  | sso-ticket 服务端代签路径照搬此鉴权范式                        |
 
 ## 3. 目标架构：双层会话
 
@@ -66,10 +66,9 @@
 
 - **改动**：构建从 `nuxt generate` → `nuxt build`（Nitro，preset `node-server`）；装 `nuxt-auth-utils`、注册模块、配 `NUXT_SESSION_PASSWORD`。
 - **已验证**：`pnpm build` → `.output/nitro.json` preset 由 `static` 翻为 `node-server`，产出 `.output/server/index.mjs`，三个 `/api/session/*` 端点打进 server bundle；起 `node .output/server/index.mjs` 实测端点 400/401/200 + httpOnly Set-Cookie，首页 SSR 200。
-- **EdgeOne 部署（平台侧动作，需账号）——⚠️ 实测尚未生效**：线上 `POST /api/session/*` 仍 404（`server: edgeone-pages`），即当前部署没有 serve SSR 运行时。仍需：
-  - 装 `@edgeone/nuxt-pages`（官方适配，build 阶段把 preset 设 `node-server`、输出 remap 到 `.edgeone/`），或用 EdgeOne 原生 Nuxt SSR 识别；
-  - EdgeOne 控制台构建命令 `nuxt generate` → `pnpm build`（或适配器编排），输出目录相应调整；
-  - EdgeOne env 配 `NUXT_SESSION_PASSWORD`（≥32 字符）；生产激活 cookie 会话时再配 `NUXT_PUBLIC_COOKIE_SESSION=true`。
+- **EdgeOne 部署（平台侧动作）——✅ 服务端运行时已生效**：生产 `/api/session/*` 已进入 EdgeOne 服务端函数；继续保持 `pnpm build` 与 `.output/server` 托管。
+  - EdgeOne env 必须保留 `NUXT_SESSION_PASSWORD`（≥32 字符）；生产激活 cookie 会话时再配 `NUXT_PUBLIC_COOKIE_SESSION=true`。
+  - 新增依赖服务端签名的功能时，发布预览必须核对 EdgeOne 与下游服务的共享密钥一致性。
 - **风险**：EdgeOne SSR 冷启动、`/u` SSR 同时真正生效。
 
 ### Phase 1 · 会话层 + 启动恢复（安全核心，token 出 localStorage）
@@ -143,7 +142,7 @@
 - Phase 0：
   - [x] 装 nuxt-auth-utils + 注册模块（[nuxt.config.ts](../nuxt.config.ts)）+ runtimeConfig 铸票配置 + `.env.example`
   - [x] `nuxt build`（Nitro `node-server`）本地验证：preset `static`→`node-server`，`.output/server` 产出 + 端点 400/401/200+cookie 实测通过
-  - [ ] **EdgeOne 真正 serve SSR 运行时（实测未生效）**：repo `build` 已是 `nuxt build`，但线上 `POST /api/session/*` 仍 404（`server: edgeone-pages`）→ 当前部署无服务端运行时。需构建命令 `pnpm build` + **`@edgeone/nuxt-pages` 适配或原生 SSR（真正托管 `.output/server`）** + EdgeOne env（至少 `NUXT_SESSION_PASSWORD`；激活时加 `NUXT_PUBLIC_COOKIE_SESSION=true`）。控制台需账号；适配器可在 repo 内加。
+  - [x] **EdgeOne serve SSR 运行时**：生产 `/api/session/*` 已进入 EdgeOne 服务端函数；构建命令保持 `pnpm build`，托管 `.output/server`，EdgeOne env 至少保留 `NUXT_SESSION_PASSWORD`（激活 cookie 会话时加 `NUXT_PUBLIC_COOKIE_SESSION=true`）。
 - Phase 1：
   - [x] `/session/{login,bootstrap,logout}` 端点（[server/api/session/](../server/api/session/)）+ `#auth-utils` 类型（[shared/auth.d.ts](../shared/auth.d.ts)）；本地验证：cookie 种/清/守卫 OK
   - [x] CloudBase sso-ticket 加内部 token `mintForUser(uid)` 路径（[mint.js](../cloudfunctions/sso-ticket/mint.js) + [index.js](../cloudfunctions/sso-ticket/index.js)，既有调用者路径不变）+ 单测 [tests/sso-ticket/mint.test.js](../tests/sso-ticket/mint.test.js)（4/4）

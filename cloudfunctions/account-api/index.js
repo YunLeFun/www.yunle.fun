@@ -26,6 +26,9 @@
  *   - adminAdjustCoin   管理员人工调账（增/减，需 ACCOUNT_API_INTERNAL_TOKEN）
  *   - adminGrantReward  owner 按稳定 grantId 发放内测奖励（需 ACCOUNT_API_INTERNAL_TOKEN）
  *   - adminCorrectReward owner 创建受控奖励纠正（需 ACCOUNT_API_INTERNAL_TOKEN）
+ *   - getRewardClaimCampaign 读取共享领取活动（公开；登录时附本人领取结果）
+ *   - claimRewardCampaign 登录用户主动领取固定权益（需短时 IP 速率凭证）
+ *   - admin*RewardClaimCampaign 权益领取活动控制面（需 ACCOUNT_API_INTERNAL_TOKEN）
  *   - prepareSyntheticBaseline Broker 在受管身份禁用态初始化/恢复钱包基线（需 TEST_BROKER_ACCOUNT_API_TOKEN）
  *   - backfillDefaultNicknames 运维回填存量空/手机号昵称为「云游者_xxxx」（需 ACCOUNT_API_INTERNAL_TOKEN，幂等/分批/dryRun）
  *   - listTransactions  云币流水分页（需登录）
@@ -77,6 +80,8 @@ const {
 const { getUnreadCount, listNotifications, markRead } = require('./notifications')
 const { listUserOrders } = require('./orders-query')
 const { backfillDefaultNicknames, getProfile, upsertMyProfile } = require('./profiles')
+const { createRewardClaimActionRouter, isRewardClaimAction } = require('./reward-claim-routing')
+const { createRewardClaimRuntime } = require('./reward-claim-runtime')
 const { listRewardHistory } = require('./rewards')
 const { getSignInHistory, getSignInStatus, signIn } = require('./signin')
 const {
@@ -89,6 +94,18 @@ const { getAppSupport, getTipLeaderboard, tip } = require('./tips')
 
 const app = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV })
 const db = app.database()
+let rewardClaimActionRouter
+
+function getRewardClaimActionRouter() {
+  if (!rewardClaimActionRouter) {
+    const runtime = createRewardClaimRuntime(db)
+    rewardClaimActionRouter = createRewardClaimActionRouter({
+      service: runtime.service,
+      assertInternalServiceToken,
+    })
+  }
+  return rewardClaimActionRouter
+}
 
 /**
  * 匿名 / 占位身份集合。CloudBase 在「仅用公开 accessKey、未真正登录」时
@@ -158,6 +175,12 @@ const CORS_HEADERS = {
 /** 路由分发（payload 同 SDK event 形态 { action, ... }）。纯逻辑，HTTP 包装见 main。 */
 async function dispatch(event) {
   const { action } = event || {}
+  if (isRewardClaimAction(action)) {
+    return await getRewardClaimActionRouter().dispatch({
+      event,
+      callerUid: getCallerUid(),
+    })
+  }
   switch (action) {
     case 'prepareSyntheticBaseline':
       return await handlePrepareSyntheticBaseline(db, event)
@@ -296,7 +319,11 @@ exports.main = async (event) => {
     console.error('[account-api] 处理失败:', payload.action, err.message)
     if (isHttp) {
       return {
-        statusCode: err instanceof SyntheticAccountError ? err.httpStatus : 400,
+        statusCode: Number.isInteger(err?.httpStatus)
+          ? err.httpStatus
+          : err instanceof SyntheticAccountError
+            ? err.httpStatus
+            : 400,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
         body: JSON.stringify({ error: err.message, code: err.code }),
       }

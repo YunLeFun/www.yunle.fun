@@ -76,6 +76,8 @@ export default defineNuxtConfig({
     // CloudBase account-api 的公开 HTTP 访问地址（server 端 SSR 代理 getProfile 用）。
     // 官方生产域名是安全的只读默认值；本地/预发可用环境变量覆盖到对应环境。
     accountApiHttpUrl: process.env.NUXT_ACCOUNT_API_HTTP_URL || DEFAULT_ACCOUNT_API_HTTP_URL,
+    // 领取页服务端只用它把可信来源 IP 签成短时匿名凭证；必须与 account-api 配置一致。
+    rewardClaimRateTicketSecret: process.env.NUXT_REWARD_CLAIM_RATE_TICKET_SECRET || '',
     // nuxt-auth-utils sealed httpOnly cookie 会话（见 docs/cookie-session-migration.md · Phase 5）。
     // password 由 NUXT_SESSION_PASSWORD env 注入（≥32 字符）；以下显式收口 cookie flags。
     session: {
@@ -140,6 +142,17 @@ export default defineNuxtConfig({
     '/wallet': { ssr: false },
     '/settings': { ssr: false },
     '/account-status': { ssr: false },
+    // 固定预渲染壳使用 URL fragment 携带领取 token：静态托管可直接服务，
+    // 且 fragment 不会进入服务器访问日志或 Referer。
+    '/claim': {
+      prerender: true,
+      ssr: false,
+      headers: {
+        'cache-control': 'no-store',
+        'referrer-policy': 'no-referrer',
+        'x-robots-tag': 'noindex, nofollow, noarchive',
+      },
+    },
     // EdgeOne 的 Nuxt SSR 适配器不会为动态 client-only 页面注入客户端入口；
     // 固定认证入口预渲染 SPA 壳，保留客户端模块，查询参数继续由 onMounted / 客户端登录态处理。
     '/login': { prerender: true, ssr: false },
@@ -196,7 +209,7 @@ export default defineNuxtConfig({
     prerender: {
       // 显式列出内容页 + 关 crawlLinks（不爬 /apps、/wallet 等重的账号页），配合 build 脚本调高的 Node 堆避免预渲染 OOM。
       crawlLinks: false,
-      routes: ['/', '/pricing', '/blog', '/blog/yunle-fun', '/changelog', '/developer', '/explore', '/download', '/docs/getting-started', '/docs/getting-started/usage', '/docs/privacy-policy', '/docs/terms-of-service', '/docs/contact', '/docs/sitemap', '/login', '/signup', '/link', '/auth/sso', '/auth/github', '/auth/callback'],
+      routes: ['/', '/pricing', '/blog', '/blog/yunle-fun', '/changelog', '/developer', '/explore', '/download', '/docs/getting-started', '/docs/getting-started/usage', '/docs/privacy-policy', '/docs/terms-of-service', '/docs/contact', '/docs/sitemap', '/login', '/signup', '/link', '/claim', '/auth/sso', '/auth/github', '/auth/callback'],
       failOnError: false,
     },
   },

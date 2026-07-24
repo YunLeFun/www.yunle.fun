@@ -1,7 +1,7 @@
 # 服务端职责划分：CloudBase vs Nuxt Server（EdgeOne Pages）
 
-> 2026-06：站点已部署在 EdgeOne Pages（`nuxt generate` → `dist` 静态托管），
-> EdgeOne Pages 已支持 Node Functions / Edge Functions，可按需启用 Nuxt server 能力。
+> 站点已部署在 EdgeOne Pages，并通过 `nuxt build` 托管 Nitro `node-server`
+> 产物；Nuxt server routes / SSR 已启用。
 > 本文约定哪些功能放 CloudBase，哪些放 Nuxt server，避免两边重复实现。
 
 ## 一句话原则
@@ -22,7 +22,7 @@
 | Apple IAP 下单 / 通知      | `cloudfunctions/iap-order`、`cloudfunctions/appstore-notify` | App Store Server API 密钥隔离；通知 URL 已配置在 App Store Connect           |
 | 定时任务（对账等）         | CloudBase 云函数定时触发器                                   | 离订单数据近，失败可重试                                                     |
 
-## 适合放 Nuxt server（EdgeOne）的功能（按需启用）
+## 适合放 Nuxt server（EdgeOne）的功能
 
 | 功能                    | 形态                            | 收益                                                                                                                                                                                    |
 | ----------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -46,8 +46,8 @@
 - **目录名冲突（已处理）**：EdgeOne Pages 约定用仓库根目录 `functions/` 作为
   Edge Functions 目录，与 CloudBase 云函数目录撞名。CloudBase 云函数目录已改名为
   `cloudfunctions/`（2026-06），即使以后改用 EdgeOne 仓库直连构建也不会被误识别。
-- 启用 Nuxt server routes 后，部署产物从纯静态 `dist/` 变为 Nitro 输出，
-  EdgeOne Pages 需按 Nuxt 框架预设部署（构建命令 `pnpm build`），不再是 `pnpm generate`。
+- Nuxt server routes 的部署产物是 Nitro 输出；EdgeOne Pages 必须保持 Nuxt
+  框架预设与 `pnpm build`，不得回退到 `pnpm generate` 的纯静态产物。
 - **公开用户主页 `/u/[login]` 已启用 SSR**（2026-06，为 SEO / 分享 OG）：资料经 `server/api/profile`
   代理 `account-api` 的 **HTTP 访问服务**（公开 action `getProfile`，无登录态、不下发任何 CloudBase 密钥）。
   生效三步：① EdgeOne 构建命令切 `pnpm build`（Nitro；首页等 `prerender` 页仍构建期静态，性能不受影响）；

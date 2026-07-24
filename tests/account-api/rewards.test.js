@@ -7,6 +7,7 @@ import { listNotifications, USER_NOTIFICATIONS_COLLECTION } from '../../cloudfun
 import { USER_PROFILES_COLLECTION } from '../../cloudfunctions/account-api/profiles.js'
 import {
   correctReward,
+  getRewardOperation,
   grantReward,
   listRewardHistory,
   MEMBERSHIP_ENTITLEMENT_TRANSACTIONS_COLLECTION,
@@ -78,6 +79,13 @@ describe('账户奖励发放', () => {
     })
     expect(db._store[REWARD_OPERATIONS_COLLECTION]).toHaveLength(1)
     expect(db._store[USER_NOTIFICATIONS_COLLECTION]).toHaveLength(1)
+    await expect(getRewardOperation(db, 'grant_first_beta_u1')).resolves.toMatchObject({
+      grantId: 'grant_first_beta_u1',
+      campaignId: 'campaign_first_beta',
+      userId: 'u1',
+      status: 'completed',
+    })
+    await expect(getRewardOperation(db, 'grant_missing_reward')).resolves.toBeNull()
   })
 
   it('会员奖励支持 30、90、365 天档位并从现有到期时间持续顺延', async () => {

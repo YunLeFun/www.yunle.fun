@@ -11,6 +11,7 @@ const PUBLIC_AUTH_ROUTE_EXACT = [
 ]
 
 const PUBLIC_AUTH_ROUTE_PREFIXES = [
+  '/claim',
   '/docs',
   '/blog',
   '/changelog',

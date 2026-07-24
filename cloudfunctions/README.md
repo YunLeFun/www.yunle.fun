@@ -11,6 +11,7 @@
 | `wxpay-order`                | 创建支付订单（会员 / 云币充值）+ 查询订单 + 对账自愈                                                     | SDK `callFunction`     | 30s  |
 | `wxpay-notify`               | 接收微信支付异步回调通知                                                                                 | HTTP 访问服务          | 10s  |
 | `account-api`                | 平台账户中心：账户 / 云币 / 会员 / 奖励 / 签到 / 投币 / 关注·粉丝 / 注销冷静期                           | SDK `callFunction`     | 10s  |
+| `reward-claim-ops`           | 每分钟结束到期领取活动、恢复未知入账、清理限流窗口并投递运营告警 Outbox                                  | 定时触发（私有）       | 30s  |
 | `account-deletion-sweeper`   | 每小时完成已满 30 天冷静期的业务清理并删除 CloudBase Auth 身份                                           | 定时触发（私有）       | 30s  |
 | `account-lifecycle-notifier` | 每 5 分钟通过腾讯云 SES 处理注销申请、提醒、完成、延迟及运维事务邮件，并轮询实际投递状态                 | 定时触发（私有）       | 30s  |
 | `user-storage-api`           | 通用用户云空间：共享 quota / 上传预留 / 确认 / 文件索引 / 下载 / 删除 / app-kind policy                  | SDK `callFunction`     | 10s  |
@@ -60,9 +61,32 @@
 
 ### account-api 环境变量
 
-| 变量名                       | 说明                                                                                                                                                                                              | 获取方式                         |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| `ACCOUNT_API_INTERNAL_TOKEN` | 内部服务调用 `deductCoinForUser` / `adminAdjustCoin` / `adminGrantReward` / `adminCorrectReward` / `finalizeAccountDeletion` 时校验用的共享密钥；调用方（其它云函数、admin 后台）需配置同一个值。 | 使用随机长字符串，勿暴露给前端。 |
+| 变量名                                        | 说明                                                                                                                                                                                                                            | 获取方式                         |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| `ACCOUNT_API_INTERNAL_TOKEN`                  | 内部服务调用 `deductCoinForUser` / `adminAdjustCoin` / `adminGrantReward` / `adminCorrectReward` / `admin*RewardClaimCampaign` / `finalizeAccountDeletion` 时校验用的共享密钥；调用方（其它云函数、admin 后台）需配置同一个值。 | 使用随机长字符串，勿暴露给前端。 |
+| `REWARD_CLAIM_LINK_HASH_KEY`                  | 领取链接服务端 HMAC 摘要密钥；数据库只保存摘要。                                                                                                                                                                                | 独立生成至少 32 字节随机值。     |
+| `REWARD_CLAIM_RATE_TICKET_SECRET`             | 两分钟 IP 匿名速率凭证签名密钥；必须与链接摘要密钥不同。                                                                                                                                                                        | 独立生成至少 32 字节随机值。     |
+| `REWARD_CLAIM_SITE_URL`                       | 领取链接站点根地址，生产固定为 `https://www.yunle.fun`。                                                                                                                                                                        | `cloudbaserc.json` 固定值。      |
+| `REWARD_CLAIM_MEMBERSHIP_HIGH_THRESHOLD_DAYS` | 会员总责任强确认阈值，生产默认 `3650` 天。                                                                                                                                                                                      | `cloudbaserc.json` 固定值。      |
+
+www 的 `NUXT_REWARD_CLAIM_RATE_TICKET_SECRET` 必须与 account-api 的
+`REWARD_CLAIM_RATE_TICKET_SECRET` 相同；它只用于把可信来源 IP 转为短时匿名凭证。链接摘要密钥与速率凭证密钥不得复用。
+
+### reward-claim-ops 环境变量与权限
+
+| 变量名                         | 说明                                                                 |
+| ------------------------------ | -------------------------------------------------------------------- |
+| `ACCOUNT_API_INTERNAL_TOKEN`   | 调用 `adminSweepRewardClaimCampaigns`，必须与 account-api 完全相同。 |
+| `REWARD_CLAIM_OPS_WEBHOOK_URL` | 运营机器人 Webhook，仅存在于私有定时函数。                           |
+| `REWARD_CLAIM_ADMIN_URL`       | 告警中的后台入口，生产为 `https://admin.yunle.fun/reward-claims`。   |
+
+函数 `aclRule.invoke=false`，每分钟由定时触发器执行。Outbox 先租用再投递，失败按 1 分钟、5 分钟、15 分钟、1 小时、6 小时退避；租约过期可由下一轮恢复。通知只使用活动标题、内部标识和聚合计数白名单，不包含链接令牌、IP、UID、联系方式或凭证。默认部署脚本仅输出计划：
+
+```bash
+node scripts/deploy-reward-claim-ops.mjs
+```
+
+实际部署要求显式 `--apply --confirm-env=<exact-env-id>`，且四项密钥均存在、足够长、链接与速率密钥不复用。不要把运行脚本等同于授权创建或发布生产活动。
 
 ### account-deletion-sweeper 环境变量与权限
 
@@ -426,6 +450,7 @@ tcb login
 
 # 部署单个云函数（-e 可省略，CLI 会读 cloudbaserc.json 的 envId）
 tcb fn deploy account-api -e yunlefun-8g7ybcxc7345c490
+tcb fn deploy reward-claim-ops -e yunlefun-8g7ybcxc7345c490
 tcb fn deploy user-storage-api -e yunlefun-8g7ybcxc7345c490
 tcb fn deploy ai-gateway -e yunlefun-8g7ybcxc7345c490
 tcb fn deploy wxpay-order -e yunlefun-8g7ybcxc7345c490
@@ -564,6 +589,33 @@ admin owner 通过私有服务令牌调用 `account-api`：
 | `membership_entitlement_transactions` | `userId + createdAt`；`grantId + type`；`originalGrantId + type` |
 
 admin 自身另使用 `reward_campaigns` 和 `reward_grant_items` 保存批次控制面。部署顺序为：初始化资源 → 部署 `account-api` → 发布 admin。
+
+### 用户自主领取活动
+
+共享领取链接适用于不收集 UID 的内测群和小额拉新。公开 actions：
+
+- `getRewardClaimCampaign`：按高熵链接令牌读取公开活动状态，登录时附带本人的领取结果；
+- `claimRewardCampaign`：登录用户携带两分钟匿名 IP 速率凭证主动领取，UID 只来自 CloudBase Auth。
+
+内部 actions：
+
+- `adminPreviewRewardClaimCampaign`、`adminCreateRewardClaimCampaign`、`adminPublishRewardClaimCampaign`；
+- `adminChangeRewardClaimCampaignLifecycle`、`adminAddRewardClaimInventory`、`adminRotateRewardClaimLink`；
+- `adminListRewardClaimCampaigns`、`adminGetRewardClaimCampaign`、`adminListRewardClaims`；
+- `adminReconcileRewardClaim`、`adminCorrectRewardClaim`、`adminSweepRewardClaimCampaigns`。
+
+集合均为 `ADMINONLY`：
+
+| 集合                       | 关键索引/用途                               |
+| -------------------------- | ------------------------------------------- |
+| `reward_claim_campaigns`   | `code` 唯一；生命周期、库存与不可变公开承诺 |
+| `reward_claim_links`       | 只存 HMAC 摘要；活动、状态、版本查询        |
+| `reward_claims`            | `grantId` 唯一；活动/状态/时间和用户历史    |
+| `reward_claim_audit_logs`  | 活动审计时间线                              |
+| `reward_claim_rate_limits` | 账户/IP 摘要的短时计数器                    |
+| `reward_claim_alerts`      | 确定性 Outbox、租约、重试与送达状态         |
+
+资源由 admin 仓库的 `scripts/ensure-reward-claim-resources.mjs` 初始化。正确发布顺序是：资源与索引 → `account-api` → www → admin → `reward-claim-ops`。生产正式活动前另建 3 份演练活动，使用内部正式账户核验登录回跳、主动领取、幂等、耗尽、暂停、轮换、钱包流水、通知、对账和告警；演练奖励保留，但演练活动与链接不得复用。
 
 ### 云空间配额：`user_storage_quotas` + `user_storage_files`（需新建）
 

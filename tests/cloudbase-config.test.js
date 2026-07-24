@@ -91,6 +91,20 @@ describe('cloudBase test identity deployment manifest', () => {
     })
   })
 
+  it('runs reward-claim reconciliation and ops alert delivery every minute', () => {
+    expect(functions.get('reward-claim-ops')).toMatchObject({
+      aclRule: { invoke: false },
+      timeout: 30,
+      installDependency: true,
+      envVariables: {
+        ACCOUNT_API_INTERNAL_TOKEN: '{{env.ACCOUNT_API_INTERNAL_TOKEN}}',
+        REWARD_CLAIM_OPS_WEBHOOK_URL: '{{env.REWARD_CLAIM_OPS_WEBHOOK_URL}}',
+        REWARD_CLAIM_ADMIN_URL: 'https://admin.yunle.fun/reward-claims',
+      },
+      triggers: [{ name: 'rewardClaimOpsEveryMinute', type: 'timer', config: '0 * * * * * *' }],
+    })
+  })
+
   it('sends lifecycle email from a private five-minute timer with secret placeholders', () => {
     expect(functions.get('account-lifecycle-notifier')).toMatchObject({
       aclRule: { invoke: false },
