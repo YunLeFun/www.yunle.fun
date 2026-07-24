@@ -20,7 +20,7 @@ export default defineNuxtConfig({
   ],
 
   // Hybrid 渲染：默认 SSR。公开内容页（首页/文档/博客/定价/更新日志/开发者）走预渲染拿 SEO 与首屏；
-  // 账号 / 交互 / OAuth / 数据驱动页靠 CloudBase 客户端登录态，走 client-only。两类策略都在 routeRules 声明。
+  // 认证入口保留 SSR 壳并在客户端接管登录态，其他账号 / 数据驱动页继续走 client-only。各类策略都在 routeRules 声明。
   ssr: true,
 
   // shadcn-vue 组件由业务代码显式导入；避免 Nuxt 把目录中的 barrel 与同名 Vue 文件重复注册。
@@ -130,16 +130,18 @@ export default defineNuxtConfig({
     '/developer': { prerender: true },
     '/explore': { prerender: true },
     '/download': { prerender: true },
-    // 账号 / 交互 / OAuth / 数据驱动页：纯客户端渲染。
+    // 账号 / 数据驱动页：纯客户端渲染。
     // CloudBase 登录态只在客户端（localStorage），SSR 只会渲染未登录骨架并闪烁；这些页也无 SEO 需求。
     '/profile': { ssr: false },
     '/wallet': { ssr: false },
     '/settings': { ssr: false },
     '/account-status': { ssr: false },
-    '/login': { ssr: false },
-    '/signup': { ssr: false },
-    '/link': { ssr: false },
-    '/auth/**': { ssr: false },
+    // EdgeOne 的 Nuxt SSR 适配器不会为 ssr:false 路由注入客户端入口；
+    // 认证入口先输出可见 SSR 壳，再由 onMounted / 客户端登录态接管交互。
+    '/login': { ssr: true },
+    '/signup': { ssr: true },
+    '/link': { ssr: true },
+    '/auth/**': { ssr: true },
     '/apps/download': { redirect: { to: '/download', statusCode: 301 } },
     '/apps/**': { ssr: false },
     // 公开用户主页：SSR（SEO / 分享 OG），数据经 server route 代理 getProfile；关系 / 应用等客户端补
