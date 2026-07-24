@@ -5,23 +5,27 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import MemberAvatar from '../../app/components/MemberAvatar.vue'
 
 const h = vi.hoisted(() => ({
-  getTempFileURL: vi.fn(),
+  createSignedUrl: vi.fn(),
 }))
 
 mockNuxtImport('useCloudbase', () => () => ({
-  app: { getTempFileURL: h.getTempFileURL },
+  app: {
+    storage: {
+      from: () => ({ createSignedUrl: h.createSignedUrl }),
+    },
+  },
 }))
 
 describe('memberAvatar', () => {
   beforeEach(() => {
-    h.getTempFileURL.mockReset()
+    h.createSignedUrl.mockReset()
   })
 
   it('resolves a persistent CloudBase avatar reference before rendering it', async () => {
     const fileID = 'cloud://env.bucket/avatars/user-1.jpg'
     const freshUrl = 'https://cdn.example.com/avatars/user-1.jpg?token=fresh'
-    h.getTempFileURL.mockResolvedValue({
-      fileList: [{ fileID, tempFileURL: freshUrl }],
+    h.createSignedUrl.mockResolvedValue({
+      data: { signedUrl: freshUrl },
     })
 
     const wrapper = await mountSuspended(MemberAvatar, {
@@ -29,7 +33,7 @@ describe('memberAvatar', () => {
     })
     await flushPromises()
 
-    expect(h.getTempFileURL).toHaveBeenCalledWith({ fileList: [fileID] })
+    expect(h.createSignedUrl).toHaveBeenCalledWith(fileID, 7 * 24 * 60 * 60)
     expect(wrapper.get('img[role="img"]').attributes('src')).toBe(freshUrl)
   })
 
@@ -38,8 +42,8 @@ describe('memberAvatar', () => {
     const legacyUrl = `https://${bucket}.tcb.qcloud.la/avatars/user-2.jpg?sign=expired`
     const fileID = `cloud://yunlefun-8g7ybcxc7345c490.${bucket}/avatars/user-2.jpg`
     const freshUrl = 'https://cdn.example.com/avatars/user-2.jpg?token=fresh'
-    h.getTempFileURL.mockResolvedValue({
-      fileList: [{ fileID, tempFileURL: freshUrl }],
+    h.createSignedUrl.mockResolvedValue({
+      data: { signedUrl: freshUrl },
     })
 
     const wrapper = await mountSuspended(MemberAvatar, {
@@ -47,7 +51,7 @@ describe('memberAvatar', () => {
     })
     await flushPromises()
 
-    expect(h.getTempFileURL).toHaveBeenCalledWith({ fileList: [fileID] })
+    expect(h.createSignedUrl).toHaveBeenCalledWith(fileID, 7 * 24 * 60 * 60)
     expect(wrapper.get('img[role="img"]').attributes('src')).toBe(freshUrl)
   })
 
@@ -58,7 +62,7 @@ describe('memberAvatar', () => {
     })
     await flushPromises()
 
-    expect(h.getTempFileURL).not.toHaveBeenCalled()
+    expect(h.createSignedUrl).not.toHaveBeenCalled()
     expect(wrapper.get('img[role="img"]').attributes('src')).toBe(url)
   })
 
