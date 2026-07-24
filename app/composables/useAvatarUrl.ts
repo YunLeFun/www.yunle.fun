@@ -2,7 +2,8 @@ import type { MaybeRefOrGetter } from 'vue'
 import { normalizeAvatarSource, toCloudbaseAvatarFileID } from '~/utils/avatar'
 
 const pendingAvatarUrls = new Map<string, Promise<string | null>>()
-const AVATAR_SIGNED_URL_TTL_SECONDS = 7 * 24 * 60 * 60
+// Classic CloudBase temporary URLs accept at most 86,400 seconds.
+const AVATAR_SIGNED_URL_TTL_SECONDS = 24 * 60 * 60
 const AVATAR_SIGNED_URL_CACHE_TTL_MS = (AVATAR_SIGNED_URL_TTL_SECONDS - 5 * 60) * 1000
 const AVATAR_UPLOAD_URL_CACHE_TTL_MS = 60 * 60 * 1000
 

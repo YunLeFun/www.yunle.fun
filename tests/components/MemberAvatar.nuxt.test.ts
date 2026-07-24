@@ -33,7 +33,7 @@ describe('memberAvatar', () => {
     })
     await flushPromises()
 
-    expect(h.createSignedUrl).toHaveBeenCalledWith(fileID, 7 * 24 * 60 * 60)
+    expect(h.createSignedUrl).toHaveBeenCalledWith(fileID, 24 * 60 * 60)
     expect(wrapper.get('img[role="img"]').attributes('src')).toBe(freshUrl)
   })
 
@@ -51,8 +51,48 @@ describe('memberAvatar', () => {
     })
     await flushPromises()
 
-    expect(h.createSignedUrl).toHaveBeenCalledWith(fileID, 7 * 24 * 60 * 60)
+    expect(h.createSignedUrl).toHaveBeenCalledWith(fileID, 24 * 60 * 60)
     expect(wrapper.get('img[role="img"]').attributes('src')).toBe(freshUrl)
+  })
+
+  it('refreshes a bare legacy CloudBase avatar URL before the browser requests it', async () => {
+    const bucket = 'yunlefun-8g7ybcxc7345c490-1250000000'
+    const legacyUrl = `https://${bucket}.tcb.qcloud.la/avatars/user-3.jpg`
+    const fileID = `cloud://yunlefun-8g7ybcxc7345c490.${bucket}/avatars/user-3.jpg`
+    const freshUrl = 'https://cdn.example.com/avatars/user-3.jpg?token=fresh'
+    let resolveSignedUrl!: (value: { data: { signedUrl: string } }) => void
+    h.createSignedUrl.mockReturnValue(new Promise((resolve) => {
+      resolveSignedUrl = resolve
+    }))
+
+    const wrapper = await mountSuspended(MemberAvatar, {
+      props: { src: legacyUrl, alt: 'Bare Legacy User' },
+    })
+    await flushPromises()
+
+    expect(h.createSignedUrl).toHaveBeenCalledWith(fileID, 24 * 60 * 60)
+    expect(wrapper.find('img[role="img"]').exists()).toBe(false)
+
+    resolveSignedUrl({
+      data: { signedUrl: freshUrl },
+    })
+    await flushPromises()
+
+    expect(wrapper.get('img[role="img"]').attributes('src')).toBe(freshUrl)
+  })
+
+  it('falls back to text without requesting a legacy URL when signing fails', async () => {
+    const bucket = 'yunlefun-8g7ybcxc7345c490-1250000000'
+    const legacyUrl = `https://${bucket}.tcb.qcloud.la/avatars/user-4.jpg`
+    h.createSignedUrl.mockRejectedValue(new Error('signing unavailable'))
+
+    const wrapper = await mountSuspended(MemberAvatar, {
+      props: { src: legacyUrl, alt: '风信子' },
+    })
+    await flushPromises()
+
+    expect(h.createSignedUrl).toHaveBeenCalledTimes(1)
+    expect(wrapper.find('img[role="img"]').exists()).toBe(false)
   })
 
   it('renders third-party avatar URLs without sending them to CloudBase', async () => {
@@ -64,6 +104,15 @@ describe('memberAvatar', () => {
 
     expect(h.createSignedUrl).not.toHaveBeenCalled()
     expect(wrapper.get('img[role="img"]').attributes('src')).toBe(url)
+  })
+
+  it('uses one character when no avatar image is available', async () => {
+    const wrapper = await mountSuspended(MemberAvatar, {
+      props: { alt: '风信子' },
+    })
+
+    expect(wrapper.text()).toContain('风')
+    expect(wrapper.text()).not.toContain('风信')
   })
 
   it('exposes an active membership marker to pointer and keyboard users', async () => {

@@ -26,7 +26,7 @@ const props = withDefaults(defineProps<{
 const resolvedSrc = useAvatarUrl(() => props.src)
 const fallbackText = computed(() => {
   const label = props.alt?.trim()
-  return label ? Array.from(label).slice(0, 2).join('').toUpperCase() : '云'
+  return label ? Array.from(label).slice(0, 1).join('').toUpperCase() : '云'
 })
 
 const AVATAR: Record<AvatarSize, string> = {
