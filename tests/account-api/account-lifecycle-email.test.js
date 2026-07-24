@@ -166,10 +166,14 @@ describe('account lifecycle email templates', () => {
       'deletion_delayed',
       'deletion_cleanup_ops',
     ])
+    for (const definition of Object.values(SES_TEMPLATE_CATALOG)) {
+      expect(definition.version).toBe(2)
+      expect(definition.name).toMatch(/-v2$/)
+    }
     expect(SES_TEMPLATE_CATALOG.deletion_requested).toMatchObject({
       environmentVariable: 'SES_TEMPLATE_DELETION_REQUESTED',
       variables: ['deadline'],
-      version: 1,
+      version: 2,
     })
     expect(SES_TEMPLATE_CATALOG.deletion_requested.html).toContain('{{deadline}}')
     expect(SES_TEMPLATE_CATALOG.deletion_cleanup_ops.variables).toEqual([
@@ -177,6 +181,77 @@ describe('account lifecycle email templates', () => {
       'failureCount',
       'errorCode',
     ])
+  })
+
+  it('使用邮件客户端兼容的晴空白卡布局', () => {
+    const email = renderLifecycleEmail({
+      type: 'deletion_requested',
+      deletionScheduledAt: Date.UTC(2026, 6, 31, 1, 30),
+    })
+
+    expect(email.html).toContain('role="presentation"')
+    expect(email.html).toContain('bgcolor="#F4F9FF"')
+    expect(email.html).toContain('bgcolor="#FFFFFF"')
+    expect(email.html).toContain('display:none')
+    expect(email.html).toContain('#2563EB')
+    expect(email.html).toContain('#0EA5E9')
+    expect(email.html).toContain('#F59E0B')
+    expect(email.html).not.toContain('<main')
+    expect(email.html).not.toContain('<section')
+  })
+
+  it.each([
+    ['deletion_requested', '冷静期进行中', '#1D4ED8'],
+    ['deletion_reminder_7d', '还剩 7 天', '#B45309'],
+    ['deletion_reminder_1d', '最后提醒', '#B91C1C'],
+    ['deletion_completed', '处理完成', '#047857'],
+    ['deletion_delayed', '处理中', '#B45309'],
+    ['deletion_cleanup_ops', '需要处理', '#B45309'],
+  ])('%s 使用明确的状态标签和语义色', (type, status, color) => {
+    const email = renderLifecycleEmail({
+      type,
+      deletionScheduledAt: Date.UTC(2026, 6, 31, 1, 30),
+      metadata: {
+        caseRef: 'case-safe',
+        failureCount: 2,
+        errorCode: 'cleanup_failed',
+      },
+    })
+
+    expect(email.html).toContain(status)
+    expect(email.html).toContain(color)
+  })
+
+  it('操作按钮保留 44px 点击区和明文备用地址', () => {
+    const email = renderLifecycleEmail({
+      type: 'deletion_requested',
+      deletionScheduledAt: Date.UTC(2026, 6, 31, 1, 30),
+    })
+
+    expect(email.html).toContain('line-height:44px')
+    expect(email.html).toContain('按钮无法打开？')
+    expect(email.html.match(/https:\/\/www\.yunle\.fun\/account-status/g)?.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('运维通知使用结构化脱敏字段并转义动态 HTML', () => {
+    const email = renderLifecycleEmail({
+      type: 'deletion_cleanup_ops',
+      metadata: {
+        caseRef: 'case-<script>alert(1)</script>',
+        failureCount: 3,
+        errorCode: '<img src=x onerror=alert(1)>',
+      },
+    })
+
+    expect(email.subject).toBe('【需处理】账号生命周期任务异常')
+    expect(email.html).toContain('案件引用')
+    expect(email.html).toContain('失败次数')
+    expect(email.html).toContain('脱敏错误码')
+    expect(email.html).toContain('用户 PII')
+    expect(email.html).toContain('case-&lt;script&gt;alert(1)&lt;/script&gt;')
+    expect(email.html).toContain('&lt;img src=x onerror=alert(1)&gt;')
+    expect(email.html).not.toContain('<script>')
+    expect(email.html).not.toContain('<img')
   })
 
   it('申请邮件包含精确中国时区截止时间与恢复说明', () => {
