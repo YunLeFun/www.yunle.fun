@@ -29,6 +29,13 @@ describe('edgeOne production configuration', () => {
     expect(headers['Content-Security-Policy']).toContain('https://fonts.loli.net')
   })
 
+  it('prevents claim links from leaking referrer context', () => {
+    const claimRule = config.headers.find(rule => rule.source === '/claim')
+    const headers = Object.fromEntries(claimRule.headers.map(header => [header.key, header.value]))
+
+    expect(headers['Referrer-Policy']).toBe('no-referrer')
+  })
+
   it('permanently redirects the apex domain to www', () => {
     expect(config.redirects).toContainEqual({
       source: '$host',
