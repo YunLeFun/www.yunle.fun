@@ -20,7 +20,7 @@ export default defineNuxtConfig({
   ],
 
   // Hybrid 渲染：默认 SSR。公开内容页（首页/文档/博客/定价/更新日志/开发者）走预渲染拿 SEO 与首屏；
-  // 认证入口预渲染可交互页面并在客户端接管登录态，其他账号 / 数据驱动页继续走 client-only。各类策略都在 routeRules 声明。
+  // 认证入口预渲染 client-only 壳并在浏览器接管登录态，其他账号 / 数据驱动页也继续走 client-only。各类策略都在 routeRules 声明。
   ssr: true,
 
   // shadcn-vue 组件由业务代码显式导入；避免 Nuxt 把目录中的 barrel 与同名 Vue 文件重复注册。
@@ -107,13 +107,14 @@ export default defineNuxtConfig({
   routeRules: {
     '/auth/sso': {
       prerender: true,
+      ssr: false,
       headers: {
         'cache-control': 'no-store',
         'referrer-policy': 'no-referrer',
       },
     },
-    '/auth/github': { prerender: true },
-    '/auth/callback': { prerender: true },
+    '/auth/github': { prerender: true, ssr: false },
+    '/auth/callback': { prerender: true, ssr: false },
     '/docs': { redirect: '/docs/getting-started' },
     // 开发者文档已迁至 docs.yunle.fun（见 docs/nuxt-content-removal.md）
     '/docs/developer': { redirect: 'https://docs.yunle.fun' },
@@ -139,12 +140,12 @@ export default defineNuxtConfig({
     '/wallet': { ssr: false },
     '/settings': { ssr: false },
     '/account-status': { ssr: false },
-    // EdgeOne 的 Nuxt SSR 适配器不会为动态认证页注入客户端入口；
-    // 固定入口走预渲染，保留客户端模块，查询参数继续由 onMounted / 客户端登录态处理。
-    '/login': { prerender: true },
-    '/signup': { prerender: true },
-    '/link': { prerender: true },
-    '/auth/**': { ssr: true },
+    // EdgeOne 的 Nuxt SSR 适配器不会为动态 client-only 页面注入客户端入口；
+    // 固定认证入口预渲染 SPA 壳，保留客户端模块，查询参数继续由 onMounted / 客户端登录态处理。
+    '/login': { prerender: true, ssr: false },
+    '/signup': { prerender: true, ssr: false },
+    '/link': { prerender: true, ssr: false },
+    '/auth/**': { ssr: false },
     '/apps/download': { redirect: { to: '/download', statusCode: 301 } },
     '/apps/**': { ssr: false },
     // 公开用户主页：SSR（SEO / 分享 OG），数据经 server route 代理 getProfile；关系 / 应用等客户端补

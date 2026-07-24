@@ -11,11 +11,12 @@ describe('authentication route rendering', () => {
     const expectedRoutes = ['/login', '/signup', '/link', '/auth/sso', '/auth/github', '/auth/callback']
 
     for (const route of expectedRoutes)
-      expect(routeRules[route]).toMatchObject({ prerender: true })
+      expect(routeRules[route]).toMatchObject({ prerender: true, ssr: false })
 
-    expect(routeRules['/auth/**']).toMatchObject({ ssr: true })
+    expect(routeRules['/auth/**']).toMatchObject({ ssr: false })
     expect(routeRules['/auth/sso']).toMatchObject({
       prerender: true,
+      ssr: false,
       headers: {
         'cache-control': 'no-store',
         'referrer-policy': 'no-referrer',
