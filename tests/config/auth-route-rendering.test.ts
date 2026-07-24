@@ -5,19 +5,22 @@ import { describe, expect, it } from 'vitest'
 const rootDir = fileURLToPath(new URL('../..', import.meta.url))
 
 describe('authentication route rendering', () => {
-  it('keeps authentication entry points SSR-enabled for EdgeOne', async () => {
+  it('prerenders authentication entry points with client modules for EdgeOne', async () => {
     const config = await loadNuxtConfig({ cwd: rootDir })
     const routeRules = config.routeRules ?? {}
+    const expectedRoutes = ['/login', '/signup', '/link', '/auth/sso', '/auth/github', '/auth/callback']
 
-    expect(routeRules['/login']).toMatchObject({ ssr: true })
-    expect(routeRules['/signup']).toMatchObject({ ssr: true })
-    expect(routeRules['/link']).toMatchObject({ ssr: true })
+    for (const route of expectedRoutes)
+      expect(routeRules[route]).toMatchObject({ prerender: true })
+
     expect(routeRules['/auth/**']).toMatchObject({ ssr: true })
     expect(routeRules['/auth/sso']).toMatchObject({
+      prerender: true,
       headers: {
         'cache-control': 'no-store',
         'referrer-policy': 'no-referrer',
       },
     })
+    expect(config.nitro?.prerender?.routes).toEqual(expect.arrayContaining(expectedRoutes))
   })
 })

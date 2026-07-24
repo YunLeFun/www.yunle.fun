@@ -20,7 +20,7 @@ export default defineNuxtConfig({
   ],
 
   // Hybrid 渲染：默认 SSR。公开内容页（首页/文档/博客/定价/更新日志/开发者）走预渲染拿 SEO 与首屏；
-  // 认证入口保留 SSR 壳并在客户端接管登录态，其他账号 / 数据驱动页继续走 client-only。各类策略都在 routeRules 声明。
+  // 认证入口预渲染可交互页面并在客户端接管登录态，其他账号 / 数据驱动页继续走 client-only。各类策略都在 routeRules 声明。
   ssr: true,
 
   // shadcn-vue 组件由业务代码显式导入；避免 Nuxt 把目录中的 barrel 与同名 Vue 文件重复注册。
@@ -106,11 +106,14 @@ export default defineNuxtConfig({
 
   routeRules: {
     '/auth/sso': {
+      prerender: true,
       headers: {
         'cache-control': 'no-store',
         'referrer-policy': 'no-referrer',
       },
     },
+    '/auth/github': { prerender: true },
+    '/auth/callback': { prerender: true },
     '/docs': { redirect: '/docs/getting-started' },
     // 开发者文档已迁至 docs.yunle.fun（见 docs/nuxt-content-removal.md）
     '/docs/developer': { redirect: 'https://docs.yunle.fun' },
@@ -136,11 +139,11 @@ export default defineNuxtConfig({
     '/wallet': { ssr: false },
     '/settings': { ssr: false },
     '/account-status': { ssr: false },
-    // EdgeOne 的 Nuxt SSR 适配器不会为 ssr:false 路由注入客户端入口；
-    // 认证入口先输出可见 SSR 壳，再由 onMounted / 客户端登录态接管交互。
-    '/login': { ssr: true },
-    '/signup': { ssr: true },
-    '/link': { ssr: true },
+    // EdgeOne 的 Nuxt SSR 适配器不会为动态认证页注入客户端入口；
+    // 固定入口走预渲染，保留客户端模块，查询参数继续由 onMounted / 客户端登录态处理。
+    '/login': { prerender: true },
+    '/signup': { prerender: true },
+    '/link': { prerender: true },
     '/auth/**': { ssr: true },
     '/apps/download': { redirect: { to: '/download', statusCode: 301 } },
     '/apps/**': { ssr: false },
@@ -192,7 +195,7 @@ export default defineNuxtConfig({
     prerender: {
       // 显式列出内容页 + 关 crawlLinks（不爬 /apps、/wallet 等重的账号页），配合 build 脚本调高的 Node 堆避免预渲染 OOM。
       crawlLinks: false,
-      routes: ['/', '/pricing', '/blog', '/blog/yunle-fun', '/changelog', '/developer', '/explore', '/download', '/docs/getting-started', '/docs/getting-started/usage', '/docs/privacy-policy', '/docs/terms-of-service', '/docs/contact', '/docs/sitemap'],
+      routes: ['/', '/pricing', '/blog', '/blog/yunle-fun', '/changelog', '/developer', '/explore', '/download', '/docs/getting-started', '/docs/getting-started/usage', '/docs/privacy-policy', '/docs/terms-of-service', '/docs/contact', '/docs/sitemap', '/login', '/signup', '/link', '/auth/sso', '/auth/github', '/auth/callback'],
       failOnError: false,
     },
   },
