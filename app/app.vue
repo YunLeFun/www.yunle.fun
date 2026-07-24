@@ -80,7 +80,12 @@ watch(() => user.value?.id, (id) => {
       <NuxtPage />
     </NuxtLayout>
 
-    <!-- 新手机号用户首次登录引导（设置昵称 / 头像），由 needsOnboarding 状态驱动 -->
-    <LazyOnboardingModal v-if="hasUser" />
+    <!--
+      登录态会在客户端路由中间件中于 hydration 前恢复，而首页预渲染时 auth_user 恒为空。
+      将登录后才需要的引导弹窗移出服务端渲染树，确保两端首帧结构一致。
+    -->
+    <ClientOnly>
+      <LazyOnboardingModal v-if="hasUser" />
+    </ClientOnly>
   </UApp>
 </template>
