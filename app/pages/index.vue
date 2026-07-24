@@ -12,13 +12,6 @@ useSeoMeta({
   ogDescription: description,
 })
 
-// Rotate icon colors across the feature grid for a playful, colorful look
-const featureIconColors = [
-  'text-blue-500 dark:text-blue-400',
-  'text-violet-500 dark:text-violet-400',
-  'text-pink-500 dark:text-pink-400',
-]
-
 // 晴空 hero：跟随明暗模式
 const colorMode = useColorMode()
 const skyTheme = computed(() => (colorMode.value === 'dark' ? 'dark' : 'light'))
@@ -26,8 +19,7 @@ const heroLinks = page.hero.links
 </script>
 
 <template>
-  <div>
-    <!-- 晴空 Hero（天气之子） -->
+  <main>
     <section class="ylf-home-hero relative isolate overflow-hidden">
       <SkyScene :theme="skyTheme" :sun="false" class="pointer-events-none" />
       <div class="ylf-home-hero__scrim pointer-events-none absolute inset-0 z-[1]" aria-hidden="true" />
@@ -35,6 +27,7 @@ const heroLinks = page.hero.links
       <UContainer class="relative z-[2] py-20 sm:py-28 lg:py-32">
         <div class="max-w-2xl">
           <span class="ylf-glass ylf-hero-shadow inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-white">
+            <UIcon name="i-lucide-cloud-sun" class="size-4" aria-hidden="true" />
             {{ page.headline }}
           </span>
           <h1 class="ylf-dreamy-display ylf-hero-shadow mt-5 text-4xl leading-[1.15] text-white sm:text-5xl lg:text-6xl">
@@ -58,94 +51,53 @@ const heroLinks = page.hero.links
               :icon="heroLinks[1]?.icon"
               size="xl"
               color="neutral"
-              variant="solid"
+              variant="outline"
               class="ylf-glass-btn"
             />
-          </div>
-          <div class="ylf-hero-shadow mt-8 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-white/85">
-            <span class="inline-flex items-center gap-1.5"><UIcon name="i-ri:smartphone-line" class="size-4" />10+ 自研/社区应用</span>
-            <span class="inline-flex items-center gap-1.5"><UIcon name="i-lucide-refresh-cw" class="size-4" />登录即云同步</span>
-            <span class="inline-flex items-center gap-1.5"><UIcon name="i-lucide-layers" class="size-4" />一处账号 · 全应用通用</span>
           </div>
         </div>
       </UContainer>
     </section>
 
-    <UPageSection
-      v-for="(section, index) in page.sections"
-      :key="index"
-      :title="section.title"
-      :description="section.description"
-      :orientation="section.orientation"
-      :reverse="section.reverse"
-      :features="section.features"
-    >
-      <template #headline>
-        <YlfEyebrow :label="section.headline" />
-      </template>
+    <LazyHomeAppShowcase />
 
-      <MarketingPreview
-        :kind="index === 0 ? 'marketplace' : 'developer'"
-        :index="index"
+    <section class="home-journey" aria-labelledby="home-journey-title">
+      <UContainer>
+        <header class="home-journey__header">
+          <p>{{ page.journey.headline }}</p>
+          <h2 id="home-journey-title">
+            {{ page.journey.title }}
+          </h2>
+          <span>{{ page.journey.description }}</span>
+        </header>
+
+        <ol class="home-journey__steps">
+          <li v-for="(item, index) in page.journey.items" :key="item.title">
+            <span class="home-journey__index">{{ String(index + 1).padStart(2, '0') }}</span>
+            <span class="home-journey__icon" aria-hidden="true">
+              <UIcon :name="item.icon" />
+            </span>
+            <div>
+              <h3>{{ item.title }}</h3>
+              <p>{{ item.description }}</p>
+              <NuxtLink v-if="item.to" :to="item.to">
+                {{ item.linkLabel }}
+                <UIcon name="i-lucide-arrow-right" aria-hidden="true" />
+              </NuxtLink>
+            </div>
+          </li>
+        </ol>
+      </UContainer>
+    </section>
+
+    <UContainer class="pb-16 sm:pb-24">
+      <UPageCTA
+        v-bind="page.cta"
+        variant="subtle"
+        class="home-cta"
       />
-    </UPageSection>
-
-    <UPageSection
-      :title="page.features.title"
-      :description="page.features.description"
-    >
-      <template #headline>
-        <div class="flex justify-center">
-          <YlfEyebrow :label="page.features.headline" />
-        </div>
-      </template>
-
-      <UPageGrid>
-        <UPageCard
-          v-for="(item, index) in page.features.items"
-          :key="index"
-          v-bind="item"
-          spotlight
-          :ui="{ leadingIcon: featureIconColors[index % featureIconColors.length] }"
-        />
-      </UPageGrid>
-    </UPageSection>
-
-    <UPageSection
-      id="testimonials"
-      :headline="page.testimonials.headline"
-      :title="page.testimonials.title"
-      :description="page.testimonials.description"
-    >
-      <UPageColumns class="xl:columns-4">
-        <UPageCard
-          v-for="(testimonial, index) in page.testimonials.items"
-          :key="index"
-          variant="subtle"
-          :description="testimonial.quote"
-          :ui="{ description: 'before:content-[open-quote] after:content-[close-quote]' }"
-        >
-          <template #footer>
-            <UUser
-              v-bind="testimonial.user"
-              size="lg"
-            />
-          </template>
-        </UPageCard>
-      </UPageColumns>
-    </UPageSection>
-
-    <USeparator />
-
-    <UPageCTA
-      v-bind="page.cta"
-      variant="naked"
-      class="overflow-hidden"
-    >
-      <div class="ylf-cta-glow" />
-      <LazyStarsBg />
-    </UPageCTA>
-  </div>
+    </UContainer>
+  </main>
 </template>
 
 <style scoped>
@@ -161,5 +113,150 @@ const heroLinks = page.hero.links
 
 .ylf-home-hero__fade {
   background: linear-gradient(to bottom, transparent, var(--ui-bg));
+}
+
+.home-journey {
+  border-block: 1px solid var(--ui-border-muted);
+  padding-block: clamp(4rem, 9vw, 7rem);
+  background: color-mix(in srgb, var(--ui-bg-muted) 62%, transparent);
+}
+
+.home-journey__header {
+  max-width: 45rem;
+}
+
+.home-journey__header > p {
+  color: var(--ylf-dopa-cyan);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+.home-journey__header h2 {
+  margin-top: 0.55rem;
+  color: var(--ui-text-highlighted);
+  font-size: clamp(2rem, 5vw, 3.35rem);
+  font-weight: 850;
+  letter-spacing: -0.045em;
+  line-height: 1.1;
+  text-wrap: balance;
+}
+
+.home-journey__header span {
+  display: block;
+  margin-top: 0.9rem;
+  color: var(--ui-text-muted);
+  font-size: 1rem;
+  line-height: 1.75;
+}
+
+.home-journey__steps {
+  display: grid;
+  gap: 1rem;
+  margin: 2.25rem 0 0;
+  padding: 0;
+  counter-reset: none;
+  list-style: none;
+}
+
+.home-journey__steps li {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 1rem;
+  min-height: 12rem;
+  border: 1px solid var(--ui-border);
+  border-radius: 1.25rem;
+  padding: 1.25rem;
+  background: var(--ui-bg-elevated);
+  box-shadow: 0 1.25rem 3.5rem -3rem color-mix(in srgb, var(--ui-text-highlighted) 32%, transparent);
+}
+
+.home-journey__index {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  color: var(--ui-text-dimmed);
+  font-family: var(--ylf-font-round);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.home-journey__icon {
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--ui-primary) 24%, transparent);
+  border-radius: 0.9rem;
+  background: color-mix(in srgb, var(--ui-primary) 10%, var(--ui-bg-elevated));
+  color: var(--ui-primary);
+}
+
+.home-journey__icon svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.home-journey__steps h3 {
+  padding-right: 1.5rem;
+  color: var(--ui-text-highlighted);
+  font-size: 1.05rem;
+  font-weight: 750;
+}
+
+.home-journey__steps p {
+  margin-top: 0.55rem;
+  color: var(--ui-text-muted);
+  font-size: 0.9rem;
+  line-height: 1.7;
+}
+
+.home-journey__steps a {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+  min-height: 2.75rem;
+  margin-top: 0.85rem;
+  color: var(--ui-primary);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.home-journey__steps a svg {
+  width: 0.9rem;
+  height: 0.9rem;
+  transition: transform 180ms ease;
+}
+
+.home-journey__steps a:hover svg {
+  transform: translateX(2px);
+}
+
+.home-cta {
+  margin-top: clamp(4rem, 8vw, 6rem);
+  overflow: hidden;
+  border: 1px solid var(--ui-border);
+}
+
+@media (min-width: 768px) {
+  .home-journey__steps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .home-journey__steps li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-journey__steps a svg {
+    transition: none;
+  }
+
+  .home-journey__steps a:hover svg {
+    transform: none;
+  }
 }
 </style>

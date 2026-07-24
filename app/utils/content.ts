@@ -9,29 +9,6 @@ import { parseMarkdown } from '@nuxtjs/mdc/runtime'
 
 type RawMap = Record<string, string>
 
-interface DocHeroLink {
-  label: string
-  to: string
-  icon?: string
-  color?: 'primary' | 'neutral'
-  variant?: 'solid' | 'outline' | 'soft' | 'subtle' | 'ghost' | 'link'
-}
-
-interface DocHeroStep {
-  label: string
-  description: string
-  to: string
-}
-
-interface DocHero {
-  eyebrow?: string
-  title: string
-  titleAccent?: string
-  description?: string
-  links?: DocHeroLink[]
-  steps?: DocHeroStep[]
-}
-
 const docsRaw = import.meta.glob('../../content/1.docs/**/*.md', { query: '?raw', import: 'default', eager: true }) as RawMap
 const blogRaw = import.meta.glob('../../content/3.blog/*.md', { query: '?raw', import: 'default', eager: true }) as RawMap
 const changelogRaw = import.meta.glob('../../content/4.changelog/*.md', { query: '?raw', import: 'default', eager: true }) as RawMap
@@ -40,7 +17,6 @@ export interface MdContent {
   title?: string
   description?: string
   seo?: { title?: string, description?: string }
-  hero?: DocHero
   date?: string
   image?: { src: string } | string
   authors?: { name: string, to?: string, avatar?: { src: string } }[]
@@ -49,6 +25,13 @@ export interface MdContent {
   toc?: MDCParserResult['toc']
   path?: string
   [key: string]: unknown
+}
+
+export interface DocSearchItem {
+  title: string
+  description?: string
+  path: string
+  searchText: string
 }
 
 /** 去掉文件名 / 目录的数字排序前缀，如 `1.getting-started` → `getting-started` */
@@ -85,6 +68,40 @@ export async function getDocPage(routePath: string): Promise<MdContent | null> {
       return await parseFlat(raw, { path: routePath })
   }
   return null
+}
+
+function searchableText(raw: string) {
+  return raw
+    .replace(/^---[\s\S]*?---/, ' ')
+    .replace(/!\[[^\]]*\]\([^)]+\)/g, ' ')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/[`#>*_|~-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/** 构建轻量帮助搜索索引，供 /docs 下的客户端搜索使用。 */
+export async function getDocSearchIndex(): Promise<DocSearchItem[]> {
+  const items = await Promise.all(
+    Object.entries(docsRaw).map(async ([abs, raw]) => {
+      const parsed = await parseMarkdown(raw)
+      const path = docsRouteOf(abs)
+      const title = String(parsed.data.title || path)
+      const description = parsed.data.description ? String(parsed.data.description) : undefined
+
+      return {
+        title,
+        description,
+        path,
+        searchText: [title, description, searchableText(raw)]
+          .filter(Boolean)
+          .join(' ')
+          .toLocaleLowerCase('zh-CN'),
+      }
+    }),
+  )
+
+  return items.sort((a, b) => a.path.localeCompare(b.path, 'zh-CN'))
 }
 
 /** 按 slug 取博客文章 */

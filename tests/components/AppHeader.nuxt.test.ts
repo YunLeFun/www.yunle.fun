@@ -21,7 +21,10 @@ describe('app header', () => {
               </header>
             `,
           },
-          UNavigationMenu: { template: '<nav />' },
+          UNavigationMenu: {
+            props: ['items'],
+            template: '<nav><a v-for="item in items" :key="item.to" :href="item.to">{{ item.label }}</a></nav>',
+          },
           UColorModeButton: { template: '<button type="button" />' },
           ClientOnly: { template: '<slot />' },
           HeaderAuthArea: { template: '<div />' },
@@ -35,5 +38,7 @@ describe('app header', () => {
 
     expect(wrapper.get('[data-testid="menu-title"]').text()).toBe('主导航')
     expect(wrapper.get('[data-testid="menu-description"]').text()).toBe('浏览云乐坊的主要页面和账号入口')
+    expect(wrapper.findAll('a[href="/docs"]')[0]?.text()).toBe('帮助')
+    expect(wrapper.find('a[href="/developer"]').exists()).toBe(false)
   })
 })

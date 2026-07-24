@@ -1,157 +1,70 @@
 export const homePage = {
   title: '云之彼端，[乐趣]{class="ylf-gradient-text ylf-gradient-text--sun"}无限',
-  description: '发现、收藏、分享有趣的云端应用 —— 让平凡的一天，多一点意思。',
-  headline: '🎈 云端应用创意社区',
+  description: '从云乐坊正在维护的官方应用出发，发现实用、好玩，或有一点奇思妙想的云端体验。',
+  headline: '云端应用集合',
   seo: {
     title: '云乐坊',
-    description: '探索更多有趣的云端应用',
+    description: '浏览云乐坊官方应用，发现实用、好玩或充满想象力的云端体验。',
   },
   hero: {
     links: [
       {
-        label: '开始探索',
+        label: '浏览应用',
         icon: 'i-lucide-arrow-right',
         trailing: true,
         to: '/explore',
         size: 'xl' as const,
       },
       {
-        label: '下载 APP',
-        icon: 'i-ri:mobile-download-line',
+        label: '创建账号',
+        icon: 'i-lucide-user-plus',
         size: 'xl' as const,
         color: 'neutral' as const,
         variant: 'outline' as const,
-        class: 'ylf-gradient-border',
-        to: '/download',
+        to: '/signup',
       },
     ],
   },
-  sections: [
-    {
-      title: '云端应用 APP 市场',
-      description: '探索 N+ 云端应用，云同步收藏夹，分享你的作品',
-      headline: '🛍️ 应用市场',
-      id: 'features',
-      orientation: 'horizontal' as const,
-      features: [
-        {
-          title: '10+ APPs',
-          description: '来自云乐坊的 10+ 自研应用与社区优质应用',
-          icon: 'i-ri:smartphone-line',
-        },
-        {
-          title: '用户信息',
-          description: '每日推荐，链接个人账户，云同步你的快捷入口、收藏喜好',
-          icon: 'i-ri:user-2-line',
-        },
-        {
-          title: '创意工坊',
-          description: '上架分享你的作品或 AI 应用，让世界看到你的创意',
-          icon: 'i-lucide-code-2',
-        },
-      ],
-    },
-    {
-      title: '开发者平台',
-      description: '一站式部署托管或自由上架云端应用，与云乐坊一起共建你的创意社区',
-      headline: '🚀 开发者平台',
-      orientation: 'horizontal' as const,
-      reverse: true,
-      features: [
-        {
-          title: 'CDN 加速',
-          description: '辅助托管云端应用，接入 CDN 加速',
-          icon: 'i-lucide-zap',
-        },
-        {
-          title: '第三方接入',
-          description: '自由接入第三方云服务商上架你的应用',
-          icon: 'i-ri:cloud-line',
-        },
-        {
-          title: '分享你的创意',
-          description: '分享你的作品或 AI 应用，让世界看到你的创意',
-          icon: 'i-lucide-globe',
-        },
-      ],
-    },
-  ],
-  features: {
-    headline: '✨ 为什么选择云乐坊',
-    title: '让你的创意有一个家',
-    description: '像橱窗一样展示你的作品，让更多人看到你的创意',
+  journey: {
+    headline: '从这里开始',
+    title: '先逛应用，再决定是否创建账号',
+    description: '浏览应用不需要先注册。找到感兴趣的作品后，再根据应用提示登录或创建账号。',
     items: [
       {
-        title: '独立 APP',
-        description: '为用户常用的云端应用提供快捷的一级入口',
-        icon: 'i-ri:smartphone-line',
+        title: '浏览当前应用',
+        description: '在应用图谱中查看云乐坊已经公开的官方应用。',
+        icon: 'i-lucide-compass',
+        to: '/explore',
+        linkLabel: '前往应用市场',
       },
       {
-        title: '云同步',
-        description: '链接社交账户，云同步你的快捷入口、收藏喜好',
-        icon: 'i-ri:cloud-line',
+        title: '打开并体验',
+        description: '先阅读应用介绍，再从详情页打开对应的在线体验。',
+        icon: 'i-lucide-mouse-pointer-click',
       },
       {
-        title: '探索发现分享',
-        description: '在工坊探索、发现、分享更多有趣的作品',
-        icon: 'i-ri:share-line',
-      },
-    ],
-  },
-  testimonials: {
-    headline: '用户怎么说',
-    title: '加入云乐坊的创意社区',
-    description: '探索、创建与分享你的云端应用',
-    items: [
-      {
-        quote: '还不错！',
-        user: {
-          name: '沃兹基硕德',
-          description: '前端开发工程师',
-          avatar: {
-            src: 'https://www.yunyoujun.cn/images/avatar.jpg',
-          },
-        },
-      },
-      {
-        quote: 'LGTM!',
-        user: {
-          name: '云游君',
-          description: 'GitHub 活跃开发者',
-          avatar: {
-            src: 'https://www.yunyoujun.cn/images/avatar.jpg',
-          },
-        },
-      },
-      {
-        quote: 'El Psy Congroo.',
-        user: {
-          name: '小云',
-          description: '不知名虚拟偶像',
-          avatar: {
-            src: 'https://www.yunyoujun.cn/images/avatar.jpg',
-          },
-        },
+        title: '需要时创建账号',
+        description: '在需要保存状态或使用平台权益时，使用统一账号继续。',
+        icon: 'i-lucide-user-round-check',
+        to: '/signup',
+        linkLabel: '创建账号',
       },
     ],
   },
   cta: {
-    title: '准备好探索或构建你的云端应用了吗？',
-    description: '加入云乐坊创意社区，发现更多有趣的云端应用，或分享你自己的作品，让世界看到你的创意！',
+    title: '从一朵有趣的云开始',
+    description: '先看看目前有哪些应用。需要保存跨应用身份或平台权益时，再创建账号。',
     links: [
       {
-        label: '开发者平台',
-        to: '/developer/',
-        target: '_blank',
+        label: '浏览应用',
+        to: '/explore',
         trailingIcon: 'i-lucide-arrow-right',
       },
       {
-        label: '开发者社区',
-        to: 'https://github.com/orgs/YunLeFun/discussions',
-        target: '_blank',
+        label: '创建账号',
+        to: '/signup',
         variant: 'outline' as const,
-        class: 'ylf-gradient-border',
-        icon: 'i-ri-github-fill',
+        icon: 'i-lucide-user-plus',
       },
     ],
   },

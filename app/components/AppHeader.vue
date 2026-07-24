@@ -3,13 +3,9 @@ const route = useRoute()
 
 const items = computed(() => [
   {
-    label: '文档',
+    label: '帮助',
     to: '/docs',
     active: route.path.startsWith('/docs'),
-  },
-  {
-    label: '开发者',
-    to: '/developer',
   },
   {
     label: '会员',

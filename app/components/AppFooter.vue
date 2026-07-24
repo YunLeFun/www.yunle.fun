@@ -8,7 +8,7 @@ const columns = [{
     label: '网站地图',
     to: '/docs/sitemap/',
   }, {
-    label: '文档',
+    label: '帮助',
     to: '/docs/',
   }, {
     label: '博客',
@@ -17,6 +17,24 @@ const columns = [{
     label: '日志',
     to: '/changelog',
   }],
+}, {
+  label: '开发者',
+  children: [
+    {
+      label: '应用生态状态',
+      to: '/developer',
+    },
+    {
+      label: '开发者文档',
+      to: 'https://docs.yunle.fun',
+      target: '_blank',
+    },
+    {
+      label: 'GitHub',
+      to: 'https://github.com/YunLeFun',
+      target: '_blank',
+    },
+  ],
 }, {
   label: '关于',
   children: [
