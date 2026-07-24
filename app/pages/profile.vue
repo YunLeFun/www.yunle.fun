@@ -2,6 +2,7 @@
 import type { AppRecord } from '~/types/app'
 import type { UserProfile } from '~/types/social'
 import { isOfficialUser } from '~/config'
+import { getPublicProfilePath } from '~/utils/publicProfilePath'
 
 definePageMeta({
   layout: 'default',
@@ -46,6 +47,7 @@ const appsLoading = ref(true)
 
 // 我的公开资料（取关注 / 粉丝数）
 const myProfile = ref<UserProfile | null>(null)
+const publicProfilePath = computed(() => getPublicProfilePath(user.value, myProfile.value))
 
 // 粉丝 / 关注列表弹窗
 const showList = ref(false)
@@ -72,9 +74,9 @@ const entries = computed(() => {
     { label: '账户设置', icon: 'i-lucide-settings', to: '/settings', color: 'var(--ylf-dopa-blue)' },
     { label: '安全设置', icon: 'i-lucide-lock', to: '/settings?tab=security', color: 'var(--ylf-dopa-green)' },
   ]
-  // 有用户名才有公开主页地址
-  if (user.value?.login)
-    list.unshift({ label: '我的主页', icon: 'i-lucide-id-card', to: `/u/${user.value.login}`, color: 'var(--ylf-dopa-pink)' })
+  // 未设置用户名的老账号使用不可变 uid，仍可访问自己的公开主页。
+  if (publicProfilePath.value)
+    list.unshift({ label: '我的主页', icon: 'i-lucide-id-card', to: publicProfilePath.value, color: 'var(--ylf-dopa-pink)' })
   return list
 })
 
