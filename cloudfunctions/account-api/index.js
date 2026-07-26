@@ -82,6 +82,7 @@ const { listUserOrders } = require('./orders-query')
 const { backfillDefaultNicknames, getProfile, upsertMyProfile } = require('./profiles')
 const { createRewardClaimActionRouter, isRewardClaimAction } = require('./reward-claim-routing')
 const { createRewardClaimRuntime } = require('./reward-claim-runtime')
+const { assertRewardControlToken } = require('./reward-control-token')
 const { listRewardHistory } = require('./rewards')
 const { getSignInHistory, getSignInStatus, signIn } = require('./signin')
 const {
@@ -204,6 +205,15 @@ async function dispatch(event) {
       return await handleAdminGrantReward(db, event)
     case 'adminCorrectReward':
       return await handleAdminCorrectReward(db, event)
+    case 'getRewardCapabilities':
+      assertRewardControlToken(event)
+      return {
+        protocolVersion: 1,
+        coinAmounts: [100, 1000],
+        membershipDays: [30, 90, 365],
+        corrections: true,
+        stableGrantId: true,
+      }
     case 'backfillDefaultNicknames':
       // 运维一次性回填存量空 / 手机号昵称为「云游者_xxxx」，复用内部服务令牌鉴权
       assertInternalServiceToken(event?.serviceToken)

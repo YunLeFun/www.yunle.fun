@@ -9,6 +9,7 @@ const { assertAccountActionAllowed, getAccountAccess } = require('./account-acce
 const { banAccount, expireAccountRestrictions, unbanAccount } = require('./account-restrictions')
 const { assertAppId, assertDeductCoinInput } = require('./lib/validation')
 const { creditCoin, deductCoin } = require('./lib/wallet')
+const { assertRewardControlToken } = require('./reward-control-token')
 const { correctReward, grantReward } = require('./rewards')
 const { SyntheticAccountError, classifyAccountIdentity, isSecureServiceToken } = require('./synthetic')
 
@@ -100,12 +101,12 @@ async function handleGetAccountForUser(targetDb, event, options = {}) {
 }
 
 async function handleAdminGrantReward(targetDb, event, options = {}) {
-  assertInternalServiceToken(event?.serviceToken, options.expectedToken)
+  assertRewardControlToken(event, options.rewardControl)
   return grantReward(targetDb, { ...event, now: options.now ?? Date.now() })
 }
 
 async function handleAdminCorrectReward(targetDb, event, options = {}) {
-  assertInternalServiceToken(event?.serviceToken, options.expectedToken)
+  assertRewardControlToken(event, options.rewardControl)
   return correctReward(targetDb, { ...event, now: options.now ?? Date.now() })
 }
 

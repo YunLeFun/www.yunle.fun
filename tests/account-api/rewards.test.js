@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer'
 import { describe, expect, it } from 'vitest'
 
 import { handleAdminGrantReward } from '../../cloudfunctions/account-api/internal.js'
@@ -44,11 +45,15 @@ describe('账户奖励发放', () => {
   it('内部奖励接口必须通过服务令牌鉴权', async () => {
     const db = realUserDb()
     await expect(handleAdminGrantReward(db, {
+      action: 'adminGrantReward',
       ...rewardInput(),
-      serviceToken: 'wrong',
-    }, { expectedToken: 'right-token', now: NOW }))
+      rewardControlToken: 'wrong',
+    }, {
+      rewardControl: { tokens: [Buffer.alloc(32, 7)] },
+      now: NOW,
+    }))
       .rejects
-      .toThrow(/内部服务鉴权失败/)
+      .toThrow(/鉴权失败/)
   })
 
   it('通过稳定 grantId 发放 100 云币且重复执行只到账一次', async () => {
