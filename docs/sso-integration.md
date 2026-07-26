@@ -80,15 +80,20 @@ if (authorization?.ok) {
 
 ## 当前注册项
 
-| clientId            | appId          | production Origin                | scope                |
-| ------------------- | -------------- | -------------------------------- | -------------------- |
-| `cms-web`           | `cms`          | `https://cms.yunle.fun`          | `identity:bootstrap` |
-| `drive-web`         | `drive`        | `https://drive.yunle.fun`        | `identity:bootstrap` |
-| `dayun-kicker-web`  | `dayun-kicker` | `https://dayun-kicker.yunle.fun` | `identity:bootstrap` |
-| `ai-sfc-web`        | `ai-sfc`       | `https://ai-sfc.yunle.fun`       | `identity:bootstrap` |
-| `home-web`          | `home`         | `https://home.yunle.fun`         | `identity:bootstrap` |
-| `wenta-web`         | `wenta`        | `https://wenta.yunle.fun`        | `identity:bootstrap` |
-| `skykeeper-desktop` | `skykeeper`    | 设备授权 Adapter，无 Web Origin  | `membership:read`    |
+| clientId            | appId          | production Origin                | scope                | status     |
+| ------------------- | -------------- | -------------------------------- | -------------------- | ---------- |
+| `cms-web`           | `cms`          | `https://cms.yunle.fun`          | `identity:bootstrap` | `active`   |
+| `drive-web`         | `drive`        | `https://drive.yunle.fun`        | `identity:bootstrap` | `active`   |
+| `dayun-kicker-web`  | `dayun-kicker` | `https://dayun-kicker.yunle.fun` | `identity:bootstrap` | `active`   |
+| `ai-sfc-web`        | `ai-sfc`       | `https://ai-sfc.yunle.fun`       | `identity:bootstrap` | `active`   |
+| `home-web`          | `home`         | `https://home.yunle.fun`         | `identity:bootstrap` | `active`   |
+| `wenta-web`         | `wenta`        | `https://wenta.yunle.fun`        | `identity:bootstrap` | `active`   |
+| `play-web`          | `play`         | `https://play.yunle.fun`         | `identity:bootstrap` | `disabled` |
+| `skykeeper-desktop` | `skykeeper`    | 设备授权 Adapter，无 Web Origin  | `membership:read`    | `active`   |
+
+`play-web` 只预留身份和精确地址；在 Play Consumer 实现并通过回跳、nonce、PKCE、错误
+Origin/redirect URI 和失败关闭测试前保持停用。其 development Origin 与 redirect URI 为
+`https://play.yunle.localhost:3449` 和 `https://play.yunle.localhost:3449/`。
 
 development issuer 为 `https://www.yunle.localhost:3000`，只接受 Registry 中的 `.yunle.localhost` HTTPS 回跳。production issuer 不接受本地回跳。部署统一使用：
 

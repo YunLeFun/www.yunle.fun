@@ -11,6 +11,43 @@ import {
 } from '../../packages/authorization-core/src/index'
 
 describe('production authorization registry', () => {
+  it('reserves the Play Web client without enabling an unfinished callback', () => {
+    expect(productionRegistry.clients).toContainEqual({
+      clientId: 'play-web',
+      appId: 'play',
+      displayName: '云乐坊间',
+      status: 'disabled',
+      adapters: [{
+        kind: 'web-sso',
+        consent: 'trusted',
+        allowedScopes: ['identity:bootstrap'],
+        origins: ['https://play.yunle.fun'],
+        redirectUris: ['https://play.yunle.fun/'],
+      }],
+    })
+
+    expect(developmentRegistry.clients).toContainEqual(expect.objectContaining({
+      clientId: 'play-web',
+      appId: 'play',
+      status: 'disabled',
+      adapters: [expect.objectContaining({
+        origins: ['https://play.yunle.localhost:3449'],
+        redirectUris: ['https://play.yunle.localhost:3449/'],
+      })],
+    }))
+
+    expect(() => createAuthorizationCore({ registry: productionRegistry }).authorize({
+      issuer: productionRegistry.issuer,
+      clientId: 'play-web',
+      adapter: 'web-sso',
+      requestedScopes: ['identity:bootstrap'],
+      origin: 'https://play.yunle.fun',
+      redirectUri: 'https://play.yunle.fun/',
+    })).toThrowError(expect.objectContaining<Partial<AuthorizationError>>({
+      code: 'client_unavailable',
+    }))
+  })
+
   it('contains only the approved first-party protocol clients', () => {
     const authorization = createAuthorizationCore({ registry: productionRegistry })
     const cases = [

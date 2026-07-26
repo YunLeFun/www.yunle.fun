@@ -23,7 +23,7 @@ export const issuerCatalog = {
 
 export const productionRegistry = {
   schemaVersion: 1,
-  policyVersion: '2026-07-23.3',
+  policyVersion: '2026-07-26.1',
   issuer: 'https://www.yunle.fun',
   clients: [
     {
@@ -69,6 +69,13 @@ export const productionRegistry = {
       adapters: [webSso('https://wenta.yunle.fun')],
     },
     {
+      clientId: 'play-web',
+      appId: 'play',
+      displayName: '云乐坊间',
+      status: 'disabled',
+      adapters: [webSso('https://play.yunle.fun')],
+    },
+    {
       clientId: 'skykeeper-desktop',
       appId: 'skykeeper',
       displayName: 'Skykeeper',
@@ -86,7 +93,7 @@ export const productionRegistry = {
 
 export const developmentRegistry = {
   schemaVersion: 1,
-  policyVersion: '2026-07-23.3-dev',
+  policyVersion: '2026-07-26.1-dev',
   issuer: issuerCatalog.development.issuer,
   clients: [
     {
@@ -130,6 +137,13 @@ export const developmentRegistry = {
       displayName: '问 TA',
       status: 'active',
       adapters: [webSso('https://wenta.yunle.localhost:3447')],
+    },
+    {
+      clientId: 'play-web',
+      appId: 'play',
+      displayName: '云乐坊间',
+      status: 'disabled',
+      adapters: [webSso('https://play.yunle.localhost:3449')],
     },
     {
       clientId: 'skykeeper-desktop',
