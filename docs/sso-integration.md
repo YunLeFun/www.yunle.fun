@@ -96,6 +96,24 @@ development issuer 为 `https://www.yunle.localhost:3000`，只接受 Registry �
 AUTH_ISSUER_ENVIRONMENT=production
 ```
 
+本地开发继续运行当前 Provider，不创建第二套实现。在 Provider 仓库配置开发租户的公开 Web Key：
+
+```dotenv
+NUXT_PUBLIC_CLOUDBASE_ACCESS_KEY=<yunlefun-dev publishable key>
+```
+
+然后执行：
+
+```bash
+pnpm dev:sso
+```
+
+该命令把同一 Nuxt Provider 暴露为 `https://www.yunle.localhost:3000`，并默认使用 `yunlefun-dev-0ge03bdod37093d1`；首次使用时在另一个终端执行 `pnpm dev:sso:trust` 信任 Caddy 本地 CA。Publishable Key 只授予客户端公开身份能力，函数私钥仍只存在于开发租户的 `sso-ticket` 环境变量中。
+
+开发租户函数发布使用独立且固定 Env ID 的 `cloudbaserc.sso-development.json`。把自定义登录私钥与独立的 `ACCOUNT_API_INTERNAL_TOKEN` 放入 gitignored 的 `.env.sso-development.local` 后执行 `pnpm deploy:sso:development`；脚本会构建并部署当前 `authorization-core`、`account-api`、`sso-ticket` 和清理函数。不要用生产 `cloudbaserc.json` 发布开发 SSO。
+
+体验套餐不能启用 CloudBase HTTP 访问服务，因此本地 Provider 的 `/api/sso-ticket` 是开发专用的传输适配器：它通过 Publishable Key 调用同一个 `sso-ticket` Event Function，并把请求包装成现有 HTTP 契约。开发租户允许公开调用该函数，但签发仍强制要求真实用户上下文，兑换仍强制校验 Registry、精确 Origin、nonce、一次性授权码和 S256 PKCE；生产清单继续保持 `auth != null` 和正式 HTTPS 网关。
+
 没有 legacy 或 break-glass 开关。新增客户端必须同时提交 Registry 测试和 Consumer 回跳测试；Registry 的安全字段变化会改变 registration fingerprint，使已有未完成授权与 refresh grant 失败关闭。
 
 ## 运维资源

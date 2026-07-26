@@ -1,0 +1,59 @@
+{
+  "version": "2.0",
+  "envId": "yunlefun-dev-0ge03bdod37093d1",
+  "$schema": "https://framework-1258016615.tcloudbaseapp.com/schema/latest.json",
+  "functionRoot": "./cloudfunctions",
+  "functions": [
+    {
+      "name": "account-api",
+      "timeout": 10,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true,
+      "aclRule": {
+        "invoke": "auth != null"
+      },
+      "envVariables": {
+        "ACCOUNT_API_INTERNAL_TOKEN": "{{env.ACCOUNT_API_INTERNAL_TOKEN}}"
+      }
+    },
+    {
+      "name": "sso-ticket",
+      "timeout": 10,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true,
+      "aclRule": {
+        "invoke": true
+      },
+      "envVariables": {
+        "SSO_TICKET_PRIVATE_KEY_ID": "{{env.SSO_TICKET_PRIVATE_KEY_ID}}",
+        "SSO_TICKET_PRIVATE_KEY": "{{env.SSO_TICKET_PRIVATE_KEY}}",
+        "SSO_TICKET_REFRESH_SEC": "2592000",
+        "AUTH_ISSUER_ENVIRONMENT": "development",
+        "SSO_ISSUE_PER_USER_PER_MINUTE": "10",
+        "SSO_ISSUE_PER_IP_PER_MINUTE": "30",
+        "SSO_EXCHANGE_PER_IP_PER_MINUTE": "60",
+        "SSO_EXCHANGE_PER_ORIGIN_PER_MINUTE": "300",
+        "ACCOUNT_API_INTERNAL_TOKEN": "{{env.ACCOUNT_API_INTERNAL_TOKEN}}"
+      }
+    },
+    {
+      "name": "sso-security-sweeper",
+      "timeout": 30,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true,
+      "aclRule": {
+        "invoke": false
+      },
+      "triggers": [
+        {
+          "name": "ssoSecuritySweepHourly",
+          "type": "timer",
+          "config": "0 0 * * * * *"
+        }
+      ]
+    }
+  ]
+}
