@@ -9,6 +9,7 @@ const routeRules = config.routeRules ?? {}
 const outputRoots = [
   join(rootDir, '.output/public'),
   join(rootDir, '.edgeone/assets'),
+  join(rootDir, 'dist'),
 ]
 const clientShellRoutes = Object.entries(routeRules)
   .filter(([route, rule]) =>
