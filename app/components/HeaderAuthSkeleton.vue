@@ -10,7 +10,7 @@
     <!-- 对齐登录后的头像按钮；桌面端同时为固定宽度昵称预留空间。 -->
     <div class="flex h-8 items-center gap-2 px-2">
       <USkeleton class="size-6 shrink-0 rounded-full" />
-      <USkeleton class="hidden h-4 w-16 rounded-md md:block" />
+      <USkeleton class="hidden h-4 w-16 rounded-md lg:block" />
     </div>
   </div>
 </template>

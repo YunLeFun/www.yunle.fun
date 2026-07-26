@@ -13,6 +13,6 @@
     aria-hidden="true"
   >
     <USkeleton class="size-6 rounded-full" />
-    <USkeleton class="hidden md:block h-4 w-16 rounded-md" />
+    <USkeleton class="hidden h-4 w-16 rounded-md lg:block" />
   </div>
 </template>
