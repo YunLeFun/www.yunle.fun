@@ -1,5 +1,5 @@
 import { getRequestIP } from 'h3'
-import { createRewardClaimRateTicket } from '../../../cloudfunctions/account-api/reward-claim-security.js'
+import { createRewardClaimRateTicket } from '~~/cloudfunctions/account-api/reward-claim-security.js'
 
 interface RateTicketBody {
   linkDigest?: string
