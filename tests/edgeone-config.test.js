@@ -16,7 +16,8 @@ describe('edgeOne production configuration', () => {
   })
 
   it('sets baseline transport and browser isolation headers', () => {
-    const headers = Object.fromEntries(config.headers[0].headers.map(header => [header.key, header.value]))
+    const baselineRule = config.headers.find(rule => rule.source === '/*')
+    const headers = Object.fromEntries(baselineRule.headers.map(header => [header.key, header.value]))
     expect(headers['Strict-Transport-Security']).toBe('max-age=31536000')
     expect(headers['X-Content-Type-Options']).toBe('nosniff')
     expect(headers['X-Frame-Options']).toBe('DENY')
@@ -33,16 +34,22 @@ describe('edgeOne production configuration', () => {
     const claimRule = config.headers.find(rule => rule.source === '/claim')
     const headers = Object.fromEntries(claimRule.headers.map(header => [header.key, header.value]))
 
+    expect(config.headers.indexOf(claimRule)).toBeLessThan(config.headers.findIndex(rule => rule.source === '/*'))
     expect(headers['Referrer-Policy']).toBe('no-referrer')
+    expect(headers['Strict-Transport-Security']).toBe('max-age=31536000')
+    expect(headers['Content-Security-Policy']).toContain('frame-ancestors \'none\'')
   })
 
   it('prevents SSO authorization parameters from leaking through referrers or caches', () => {
     const ssoRule = config.headers.find(rule => rule.source === '/auth/sso')
     const headers = Object.fromEntries(ssoRule.headers.map(header => [header.key, header.value]))
 
+    expect(config.headers.indexOf(ssoRule)).toBeLessThan(config.headers.findIndex(rule => rule.source === '/*'))
     expect(headers['Cache-Control']).toBe('no-store')
     expect(headers['Referrer-Policy']).toBe('no-referrer')
     expect(headers['X-Robots-Tag']).toBe('noindex, nofollow, noarchive')
+    expect(headers['Strict-Transport-Security']).toBe('max-age=31536000')
+    expect(headers['Content-Security-Policy']).toContain('frame-ancestors \'none\'')
   })
 
   it('permanently redirects the apex domain to www', () => {
