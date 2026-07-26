@@ -13,6 +13,19 @@
 
 Client Registry 位于 [`packages/authorization-core/src/registry.ts`](../packages/authorization-core/src/registry.ts)，同时定义 production/development issuer、精确 HTTPS Origin、精确 redirect URI、允许 scope、consent 模式、状态、业务归属和客户端图标。Provider 页面与应用探索页不维护第二份白名单。
 
+### Registry 存储与发布模型
+
+Client Registry 当前是版本库中的类型安全静态快照，不存储在 CloudBase 数据库，也不在首页或授权请求期间查询数据库。原因如下：
+
+- 它属于安全策略而不是用户内容；变更需要代码评审、自动测试、版本记录和原子回滚。
+- 主站构建直接导入 `productionRegistry`，因此首页和 `/explore` 的账号云图在部署时已经获得快照，刷新页面不依赖 CloudBase 查询，也不需要再维护一份运行时缓存。
+- `sso-ticket` 与 `desktop-auth` 的部署产物会 vendoring 同一版本的 `@yunlefun/authorization-core`，避免前端展示、Web SSO 和桌面授权读取不同白名单。
+- 授权码、限流窗口和审计记录仍按各自契约存储在数据库；它们是运行时状态，不是 Registry 配置。
+
+只有出现“运营后台多角色维护、无需部署即可启停客户端、审批流或独立配置审计”等明确需求时，才考虑数据库化。届时建议让数据库作为管理源，由 CI/CD 在部署时校验并生成带版本的只读 Registry 快照；首页继续消费构建快照，授权函数固定消费同一版本。不要让前端和函数各自实时查询数据库，否则一次配置发布可能产生短暂的授权策略漂移。
+
+`app/config/sso-explorer.ts` 只维护描述、主题色、失败回退字标、视觉坐标和可选的站内 Logo 覆盖。应用名称、状态、Origin 和客户端自有 `iconUrl` 必须继续来自 Registry。展示文案或图标变化不进入 registration fingerprint；`appId`、`clientId`、adapter、scope、consent、issuer 或状态变化会改变授权安全语义。
+
 ### 客户端图标注册规范
 
 - 每个 Web SSO 客户端必须声明绝对 HTTPS `iconUrl`，且图标 Origin 必须与其注册 Origin 完全一致。
@@ -88,17 +101,17 @@ if (authorization?.ok) {
 
 ## 当前注册项
 
-| clientId            | appId          | production Origin                | scope                | status   |
-| ------------------- | -------------- | -------------------------------- | -------------------- | -------- |
-| `cms-web`           | `cms`          | `https://cms.yunle.fun`          | `identity:bootstrap` | `active` |
-| `drive-web`         | `drive`        | `https://drive.yunle.fun`        | `identity:bootstrap` | `active` |
-| `dayun-kicker-web`  | `dayun-kicker` | `https://dayun-kicker.yunle.fun` | `identity:bootstrap` | `active` |
-| `ai-sfc-web`        | `ai-sfc`       | `https://ai-sfc.yunle.fun`       | `identity:bootstrap` | `active` |
-| `home-web`          | `home`         | `https://home.yunle.fun`         | `identity:bootstrap` | `active` |
-| `wenta-web`         | `wenta`        | `https://wenta.yunle.fun`        | `identity:bootstrap` | `active` |
-| `play-web`          | `play`         | `https://play.yunle.fun`         | `identity:bootstrap` | `active` |
-| `support-web`       | `support`      | `https://support.yunle.fun`      | `identity:bootstrap` | `active` |
-| `skykeeper-desktop` | `skykeeper`    | 设备授权 Adapter，无 Web Origin  | `membership:read`    | `active` |
+| clientId            | appId          | 展示名称       | production Origin                | scope                | status   |
+| ------------------- | -------------- | -------------- | -------------------------------- | -------------------- | -------- |
+| `cms-web`           | `cms`          | Yunle CMS      | `https://cms.yunle.fun`          | `identity:bootstrap` | `active` |
+| `drive-web`         | `drive`        | 云乐盘         | `https://drive.yunle.fun`        | `identity:bootstrap` | `active` |
+| `dayun-kicker-web`  | `dayun-kicker` | 暴力电驴       | `https://dayun-kicker.yunle.fun` | `identity:bootstrap` | `active` |
+| `ai-sfc-web`        | `ai-sfc`       | AI 春联        | `https://ai-sfc.yunle.fun`       | `identity:bootstrap` | `active` |
+| `home-web`          | `home`         | 云之彼端       | `https://home.yunle.fun`         | `identity:bootstrap` | `active` |
+| `wenta-web`         | `wenta`        | 问 TA          | `https://wenta.yunle.fun`        | `identity:bootstrap` | `active` |
+| `play-web`          | `play`         | 云乐坊间       | `https://play.yunle.fun`         | `identity:bootstrap` | `active` |
+| `support-web`       | `support`      | 云乐坊支持中心 | `https://support.yunle.fun`      | `identity:bootstrap` | `active` |
+| `skykeeper-desktop` | `skykeeper`    | Skykeeper      | 设备授权 Adapter，无 Web Origin  | `membership:read`    | `active` |
 
 `play-web` 已在 Play Consumer 完成回跳、nonce、PKCE、错误 Origin/redirect URI 和失败
 关闭测试，并于 2026-07-26 激活。其 development Origin 与 redirect URI 为
@@ -134,6 +147,15 @@ pnpm dev:sso
 体验套餐不能启用 CloudBase HTTP 访问服务，因此本地 Provider 的 `/api/sso-ticket` 是开发专用的传输适配器：它通过 Publishable Key 调用同一个 `sso-ticket` Event Function，并把请求包装成现有 HTTP 契约。开发租户允许公开调用该函数，但签发仍强制要求真实用户上下文，兑换仍强制校验 Registry、精确 Origin、nonce、一次性授权码和 S256 PKCE；生产清单继续保持 `auth != null` 和正式 HTTPS 网关。
 
 没有 legacy 或 break-glass 开关。新增客户端必须同时提交 Registry 图标同源测试和 Consumer 回跳测试；Registry 的安全字段变化会改变 registration fingerprint，使已有未完成授权与 refresh grant 失败关闭。
+
+### Registry 变更发布清单
+
+1. 同步修改 production/development Registry；Web 客户端保持图标与 Origin 同源。
+2. 为新增或改名客户端更新 `app/config/sso-explorer.ts` 展示元数据，并补充 Registry 快照与同源测试。
+3. 安全策略变化时同步提升对应 `policyVersion`；纯展示名称、描述、颜色或图标调整无需提升。
+4. 运行 `pnpm lint && pnpm typecheck && pnpm test && pnpm build`。
+5. 推送 `main` 发布主站；随后运行 `node scripts/build-cloud-function.mjs sso-ticket desktop-auth`，用生成的 `.cloudbase/artifacts` 对两个函数执行仅代码更新，保留线上环境变量、网关和触发器配置。
+6. 冒烟验证 Web SSO 未知客户端拒绝、已注册客户端授权，以及 `desktop-auth` 公钥/设备授权入口。
 
 ## 运维资源
 

@@ -50,6 +50,7 @@
 
 - 新增 `app/pages/explore.vue`。
 - 首页主 CTA“开始探索”从外部应用站改为 `/explore`。
+- 首页通过 `HomeAppShowcase` 复用同一账号云图并提供“浏览全部应用”入口；完整搜索和应用矩阵仍由 `/explore` 承载。
 - 独立应用站入口继续保留在站点菜单中，避免改变现有产品边界。
 - `/explore` 服务端渲染标题、描述和静态页面框架；应用数据在客户端 CloudBase 就绪后加载。第一版不新增服务端管理凭据或数据代理。
 - 应用云岛和卡片进入现有 `/apps/:slug` 详情页；卡片可额外提供“打开应用”按钮，存在 `websiteUrl` 时新窗口打开该地址。
@@ -76,6 +77,8 @@
 - `isPublic` 为 `true`。
 
 应用矩阵与当前开发者平台未开放的业务规则一致。SSO 状态不得在应用展示配置中另设布尔字段，避免与授权真源漂移。
+
+首页与 `/explore` 的账号云图直接导入构建时 Registry 快照，不发起数据库请求；因此首页刷新时应立即拥有完整应用节点。只有 `/explore` 的官方应用矩阵需要在客户端查询 CloudBase。Registry 的持久化和发布约定见 [`docs/sso-integration.md`](../../sso-integration.md#registry-存储与发布模型)。
 
 ### 展示元数据
 
