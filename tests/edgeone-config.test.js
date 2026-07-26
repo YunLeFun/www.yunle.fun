@@ -21,7 +21,7 @@ describe('edgeOne production configuration', () => {
     expect(headers['Strict-Transport-Security']).toBe('max-age=31536000')
     expect(headers['X-Content-Type-Options']).toBe('nosniff')
     expect(headers['X-Frame-Options']).toBe('DENY')
-    expect(headers['Referrer-Policy']).toBe('strict-origin-when-cross-origin')
+    expect(headers['Referrer-Policy']).toBeUndefined()
     expect(headers['Permissions-Policy']).toBe('camera=(), microphone=(), geolocation=()')
     expect(headers['Content-Security-Policy']).toContain('default-src \'self\'')
     expect(headers['Content-Security-Policy']).toContain('frame-ancestors \'none\'')

@@ -20,6 +20,7 @@ describe('authentication route rendering', () => {
       headers: {
         'cache-control': 'no-store',
         'referrer-policy': 'no-referrer',
+        'x-robots-tag': 'noindex, nofollow, noarchive',
       },
     })
     expect(config.nitro?.prerender?.routes).toEqual(expect.arrayContaining(expectedRoutes))

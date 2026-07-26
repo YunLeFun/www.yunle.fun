@@ -113,6 +113,7 @@ export default defineNuxtConfig({
       headers: {
         'cache-control': 'no-store',
         'referrer-policy': 'no-referrer',
+        'x-robots-tag': 'noindex, nofollow, noarchive',
       },
     },
     '/auth/github': { prerender: true, ssr: false },
