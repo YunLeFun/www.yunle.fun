@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import type { SsoAccountState } from '~/types/app-explorer'
-import { computed, useId } from 'vue'
+import { computed } from 'vue'
 
 const props = defineProps<{
   account: SsoAccountState
+  surface: 'desktop' | 'mobile'
 }>()
 
-const gradientId = `sso-account-cloud-${useId().replaceAll(':', '')}`
+const gradientId = computed(() => `sso-account-cloud-${props.surface}`)
 const label = computed(() => {
   if (props.account.status === 'authenticated')
     return `云乐坊账号，${props.account.displayName}，统一账号已连接`
@@ -92,9 +93,8 @@ const label = computed(() => {
   border-radius: 48% 48% 24% 24%;
   color: var(--ylf-sso-ink);
   outline: none;
-  transition:
-    filter 180ms ease,
-    transform 180ms ease;
+  transition: transform 180ms ease;
+  will-change: transform;
 }
 
 .sso-account-cloud__shape {
@@ -167,7 +167,6 @@ const label = computed(() => {
 
 .sso-account-cloud:hover,
 .sso-account-cloud:focus-visible {
-  filter: drop-shadow(0 0 20px color-mix(in srgb, var(--ylf-sso-route-cyan) 50%, transparent));
   transform: translateY(-0.3rem);
 }
 

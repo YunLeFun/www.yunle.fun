@@ -96,6 +96,33 @@ describe('production authorization registry', () => {
     }
   })
 
+  it('exposes the localized Drive and Home brand metadata', () => {
+    expect(productionRegistry.clients).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        clientId: 'drive-web',
+        displayName: '云乐盘',
+        iconUrl: 'https://drive.yunle.fun/drive-mark.svg',
+      }),
+      expect.objectContaining({
+        clientId: 'home-web',
+        displayName: '云之彼端',
+        iconUrl: 'https://home.yunle.fun/brand-mark.svg',
+      }),
+    ]))
+
+    expect(developmentRegistry.clients).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        clientId: 'drive-web',
+        displayName: '云乐盘',
+      }),
+      expect.objectContaining({
+        clientId: 'home-web',
+        displayName: '云之彼端',
+        iconUrl: 'https://home.yunle.localhost:3446/brand-mark.svg',
+      }),
+    ]))
+  })
+
   it('contains only the approved first-party protocol clients', () => {
     const authorization = createAuthorizationCore({ registry: productionRegistry })
     const cases = [

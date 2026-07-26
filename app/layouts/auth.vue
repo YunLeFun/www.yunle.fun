@@ -1,13 +1,7 @@
-<script setup lang="ts">
-// 跟随站点明暗模式：浅色=晴朗白日，深色=新海诚式黄昏
-const colorMode = useColorMode()
-const skyTheme = computed(() => (colorMode.value === 'dark' ? 'dark' : 'light'))
-</script>
-
 <template>
   <div class="ylf-auth-shell relative min-h-screen min-h-dvh overflow-x-hidden">
     <!-- 梦幻晴空背景（天气之子） -->
-    <SkyScene :theme="skyTheme" class="pointer-events-none" />
+    <SkyScene class="pointer-events-none" />
     <!-- 顶部留白处压一层柔和提亮，保证返回按钮在亮空下清晰 -->
     <div class="pointer-events-none absolute inset-x-0 top-0 z-[1] h-32 bg-gradient-to-b from-white/35 to-transparent dark:from-black/20" aria-hidden="true" />
 

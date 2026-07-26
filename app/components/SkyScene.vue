@@ -30,30 +30,11 @@ const props = withDefaults(defineProps<{
   sunY?: string
   clouds?: 'full' | 'mini' | 'none'
 }>(), {
-  theme: 'light',
   sun: false,
   sunX: '80%',
   sunY: '20%',
   clouds: 'full',
 })
-
-const hydrationVersion = ref(0)
-
-onMounted(() => {
-  hydrationVersion.value = 1
-})
-
-const dusk = computed(() => props.theme === 'dark')
-
-const sky = computed(() => dusk.value
-  ? 'linear-gradient(175deg,#33386f 0%,#6a5d9c 27%,#c77fa6 52%,#f2a07f 75%,#ffd9a0 100%)'
-  : 'linear-gradient(175deg,#2f82e0 0%,#5aa6ea 30%,#9fd2f5 58%,#dceefb 80%,#fdf0d8 100%)')
-const sunCore = computed(() => (dusk.value ? '#ffdca0' : '#fffbe8'))
-const sunGlow = computed(() => (dusk.value ? 'rgba(255,196,138,.95)' : 'rgba(255,249,222,.95)'))
-const cloudTint = computed(() => (dusk.value ? '#f0c4d4' : '#d8e9fa'))
-const cloudShade = computed(() => (dusk.value ? 'rgba(86,52,100,.32)' : 'rgba(86,128,190,.26)'))
-const rayRGB = computed(() => (dusk.value ? 'rgba(255,220,170,' : 'rgba(255,252,235,'))
-const birdStroke = computed(() => (dusk.value ? 'rgba(60,40,70,.55)' : 'rgba(40,55,95,.5)'))
 
 const rays = [-18, 6, 26, 44]
 
@@ -85,22 +66,21 @@ function circ(s: number, l: number, b: number): CSSProperties {
     left: `${l}%`,
     bottom: `${b}%`,
     borderRadius: '50%',
-    background: `radial-gradient(circle at 40% 34%, #fff, ${cloudTint.value} 78%)`,
+    background: 'radial-gradient(circle at 40% 34%, #fff, var(--ylf-sky-scene-cloud-tint) 78%)',
   }
 }
 </script>
 
 <template>
   <div
-    :key="hydrationVersion"
     class="ylf-skyscene"
-    :style="{ position: 'absolute', inset: 0, overflow: 'hidden', background: sky }"
+    :data-theme="theme"
     aria-hidden="true"
   >
     <!-- 阳光光晕 + 丁达尔光束（默认关闭，可按需开启 sun） -->
     <template v-if="sun">
-      <div :style="{ position: 'absolute', left: sunX, top: sunY, width: '360px', height: '360px', transform: 'translate(-50%,-50%)', borderRadius: '50%', background: `radial-gradient(circle, ${sunGlow} 0%, transparent 62%)`, filter: 'blur(6px)' }" />
-      <div :style="{ position: 'absolute', left: sunX, top: sunY, width: '96px', height: '96px', transform: 'translate(-50%,-50%)', borderRadius: '50%', background: `radial-gradient(circle, ${sunCore} 0%, ${sunGlow} 55%, transparent 72%)`, boxShadow: `0 0 60px 20px ${sunGlow}` }" />
+      <div :style="{ position: 'absolute', left: sunX, top: sunY, width: '360px', height: '360px', transform: 'translate(-50%,-50%)', borderRadius: '50%', background: 'radial-gradient(circle, var(--ylf-sky-scene-sun-glow) 0%, transparent 62%)', filter: 'blur(6px)' }" />
+      <div :style="{ position: 'absolute', left: sunX, top: sunY, width: '96px', height: '96px', transform: 'translate(-50%,-50%)', borderRadius: '50%', background: 'radial-gradient(circle, var(--ylf-sky-scene-sun-core) 0%, var(--ylf-sky-scene-sun-glow) 55%, transparent 72%)', boxShadow: '0 0 60px 20px var(--ylf-sky-scene-sun-glow)' }" />
       <div
         v-for="(rot, i) in rays"
         :key="`ray-${i}`"
@@ -113,7 +93,7 @@ function circ(s: number, l: number, b: number): CSSProperties {
           height: '620px',
           transform: `translateX(-50%) rotate(${rot}deg)`,
           transformOrigin: 'top center',
-          background: `linear-gradient(${rayRGB}.5), ${rayRGB}0))`,
+          background: 'linear-gradient(color-mix(in srgb, var(--ylf-sky-scene-ray) 50%, transparent), transparent)',
           clipPath: 'polygon(42% 0, 58% 0, 96% 100%, 4% 100%)',
           filter: 'blur(7px)',
           animationDuration: `${7 + i}s`,
@@ -142,8 +122,8 @@ function circ(s: number, l: number, b: number): CSSProperties {
         animation: `${c.dir > 0 ? 'ylf-drift' : 'ylf-drift-slow'} ${c.dur}s ease-in-out infinite alternate`,
       }"
     >
-      <div :style="{ position: 'absolute', inset: 0, filter: `drop-shadow(0 9px 11px ${cloudShade})` }">
-        <div :style="{ position: 'absolute', left: '4%', right: '4%', bottom: 0, height: '42%', borderRadius: '999px', background: `linear-gradient(#fff, ${cloudTint})` }" />
+      <div :style="{ position: 'absolute', inset: 0, filter: 'drop-shadow(0 9px 11px var(--ylf-sky-scene-cloud-shade))' }">
+        <div :style="{ position: 'absolute', left: '4%', right: '4%', bottom: 0, height: '42%', borderRadius: '999px', background: 'linear-gradient(#fff, var(--ylf-sky-scene-cloud-tint))' }" />
         <div :style="circ(46, 2, 4)" />
         <div :style="circ(42, 58, 2)" />
         <div :style="circ(58, 24, 14)" />
@@ -161,7 +141,7 @@ function circ(s: number, l: number, b: number): CSSProperties {
       viewBox="0 0 22 10"
       :style="{ 'position': 'absolute', 'top': b.top, 'left': b.left, '--rot': '0deg', 'zIndex': 3 }"
       fill="none"
-      :stroke="birdStroke"
+      stroke="var(--ylf-sky-scene-bird)"
       stroke-width="1.4"
       stroke-linecap="round"
     >
@@ -173,6 +153,38 @@ function circ(s: number, l: number, b: number): CSSProperties {
 <style scoped>
 /* 自成层叠上下文：内部云朵/光束的 z-index 不会盖到使用处的兄弟内容上 */
 .ylf-skyscene {
+  position: absolute;
+  overflow: hidden;
   isolation: isolate;
+  background: var(--ylf-sky-scene-background);
+  inset: 0;
+  --ylf-sky-scene-background: linear-gradient(175deg, #2f82e0 0%, #5aa6ea 30%, #9fd2f5 58%, #dceefb 80%, #fdf0d8 100%);
+  --ylf-sky-scene-sun-core: #fffbe8;
+  --ylf-sky-scene-sun-glow: rgba(255, 249, 222, 0.95);
+  --ylf-sky-scene-cloud-tint: #d8e9fa;
+  --ylf-sky-scene-cloud-shade: rgba(86, 128, 190, 0.26);
+  --ylf-sky-scene-ray: rgb(255, 252, 235);
+  --ylf-sky-scene-bird: rgba(40, 55, 95, 0.5);
+}
+
+:global(.dark) .ylf-skyscene:not([data-theme]),
+.ylf-skyscene[data-theme='dark'] {
+  --ylf-sky-scene-background: linear-gradient(175deg, #33386f 0%, #6a5d9c 27%, #c77fa6 52%, #f2a07f 75%, #ffd9a0 100%);
+  --ylf-sky-scene-sun-core: #ffdca0;
+  --ylf-sky-scene-sun-glow: rgba(255, 196, 138, 0.95);
+  --ylf-sky-scene-cloud-tint: #f0c4d4;
+  --ylf-sky-scene-cloud-shade: rgba(86, 52, 100, 0.32);
+  --ylf-sky-scene-ray: rgb(255, 220, 170);
+  --ylf-sky-scene-bird: rgba(60, 40, 70, 0.55);
+}
+
+.ylf-skyscene[data-theme='light'] {
+  --ylf-sky-scene-background: linear-gradient(175deg, #2f82e0 0%, #5aa6ea 30%, #9fd2f5 58%, #dceefb 80%, #fdf0d8 100%);
+  --ylf-sky-scene-sun-core: #fffbe8;
+  --ylf-sky-scene-sun-glow: rgba(255, 249, 222, 0.95);
+  --ylf-sky-scene-cloud-tint: #d8e9fa;
+  --ylf-sky-scene-cloud-shade: rgba(86, 128, 190, 0.26);
+  --ylf-sky-scene-ray: rgb(255, 252, 235);
+  --ylf-sky-scene-bird: rgba(40, 55, 95, 0.5);
 }
 </style>

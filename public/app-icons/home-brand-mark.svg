@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">云之彼端</title>
+  <desc id="desc">左右对称的三瓣云与中央月洞门组成通往云端家园的入口</desc>
+  <defs>
+    <mask id="brand-cloud-gate">
+      <rect width="64" height="64" fill="#000"/>
+      <circle cx="32" cy="30.6" r="15.2" fill="#fff"/>
+      <circle cx="18.8" cy="36.2" r="9.8" fill="#fff"/>
+      <circle cx="45.2" cy="36.2" r="9.8" fill="#fff"/>
+      <rect x="18.8" y="35.8" width="26.4" height="10.2" fill="#fff"/>
+      <path fill="#000" d="M27.9 46v-.95a9.05 9.05 0 1 1 8.2 0V46h-8.2Z"/>
+    </mask>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="18" fill="#F4F5EF"/>
+  <rect x="2.5" y="2.5" width="59" height="59" rx="17.5" fill="none" stroke="#DCE1D8"/>
+  <rect x="8" y="12" width="48" height="36" fill="#28312F" mask="url(#brand-cloud-gate)"/>
+</svg>

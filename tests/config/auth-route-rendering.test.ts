@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 const rootDir = fileURLToPath(new URL('../..', import.meta.url))
 
-describe('EdgeOne client route rendering', () => {
+describe('edgeOne client route rendering', () => {
   it('prerenders fixed client-only account routes for EdgeOne', async () => {
     const config = await loadNuxtConfig({ cwd: rootDir })
     const routeRules = config.routeRules ?? {}

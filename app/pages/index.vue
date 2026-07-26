@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import { useTcbAuthSession } from '~/composables/auth/useAuthSession'
 import { homePage as page } from '~/config'
 
 const title = page.seo.title || page.title
 const description = page.seo.description || page.description
+const { authReady, authStatus, checkAuthStatus } = useTcbAuthSession()
 
 useSeoMeta({
   titleTemplate: '',
@@ -12,16 +14,95 @@ useSeoMeta({
   ogDescription: description,
 })
 
-// 晴空 hero：跟随明暗模式
-const colorMode = useColorMode()
-const skyTheme = computed(() => (colorMode.value === 'dark' ? 'dark' : 'light'))
-const heroLinks = page.hero.links
+const clientMounted = ref(false)
+const renderedAuthStatus = computed(() => clientMounted.value ? authStatus.value : 'pending')
+
+const profileAction = {
+  label: '个人中心',
+  icon: 'i-lucide-circle-user-round',
+  to: '/profile',
+}
+const exploreAction = page.cta.links[0]!
+
+const accountAction = computed(() => {
+  if (renderedAuthStatus.value === 'authenticated')
+    return profileAction
+  if (renderedAuthStatus.value === 'guest')
+    return page.hero.links[1]
+  return null
+})
+
+const journey = computed(() => {
+  if (renderedAuthStatus.value === 'guest')
+    return page.journey
+
+  if (renderedAuthStatus.value === 'authenticated') {
+    return {
+      ...page.journey,
+      title: '先逛应用，再用统一账号继续探索',
+      description: '浏览云乐坊的官方应用，或回到个人中心管理你的统一账号与平台权益。',
+      items: page.journey.items.map((item, index) => index === 2
+        ? {
+            ...item,
+            title: '管理你的账号',
+            description: '在个人中心查看资料、账号状态与已发布应用。',
+            to: '/profile',
+            linkLabel: '前往个人中心',
+          }
+        : item),
+    }
+  }
+
+  return {
+    ...page.journey,
+    title: '先逛应用，再决定下一步',
+    description: '浏览云乐坊的官方应用，找到感兴趣的作品后再继续。',
+    items: page.journey.items.map((item, index) => index === 2
+      ? {
+          title: '需要时使用统一账号',
+          description: '在需要保存状态或使用平台权益时，使用统一账号继续。',
+          icon: item.icon,
+        }
+      : item),
+  }
+})
+
+const cta = computed(() => {
+  if (renderedAuthStatus.value === 'authenticated') {
+    return {
+      ...page.cta,
+      description: '继续浏览应用，或进入个人中心管理你的统一账号与平台权益。',
+      links: [
+        exploreAction,
+        {
+          ...profileAction,
+          variant: 'outline' as const,
+        },
+      ],
+    }
+  }
+
+  if (renderedAuthStatus.value === 'guest')
+    return page.cta
+
+  return {
+    ...page.cta,
+    description: '先看看目前有哪些应用，发现实用、好玩或充满想象力的云端体验。',
+    links: [exploreAction],
+  }
+})
+
+onMounted(() => {
+  clientMounted.value = true
+  if (!authReady.value)
+    void checkAuthStatus()
+})
 </script>
 
 <template>
   <main>
     <section class="ylf-home-hero relative isolate overflow-hidden">
-      <SkyScene :theme="skyTheme" :sun="false" class="pointer-events-none" />
+      <SkyScene :sun="false" class="pointer-events-none" />
       <div class="ylf-home-hero__scrim pointer-events-none absolute inset-0 z-[1]" aria-hidden="true" />
       <div class="ylf-home-hero__fade pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-28" aria-hidden="true" />
       <UContainer class="relative z-[2] py-20 sm:py-28 lg:py-32">
@@ -38,17 +119,18 @@ const heroLinks = page.hero.links
           </p>
           <div class="mt-8 flex flex-wrap items-center gap-3">
             <UButton
-              :to="heroLinks[0]?.to"
-              :label="heroLinks[0]?.label"
-              :icon="heroLinks[0]?.icon"
-              :trailing="heroLinks[0]?.trailing"
+              :to="page.hero.links[0]?.to"
+              :label="page.hero.links[0]?.label"
+              :icon="page.hero.links[0]?.icon"
+              :trailing="page.hero.links[0]?.trailing"
               size="xl"
               class="ylf-brand-btn"
             />
             <UButton
-              :to="heroLinks[1]?.to"
-              :label="heroLinks[1]?.label"
-              :icon="heroLinks[1]?.icon"
+              v-if="accountAction"
+              :to="accountAction.to"
+              :label="accountAction.label"
+              :icon="accountAction.icon"
               size="xl"
               color="neutral"
               variant="outline"
@@ -64,15 +146,15 @@ const heroLinks = page.hero.links
     <section class="home-journey" aria-labelledby="home-journey-title">
       <UContainer>
         <header class="home-journey__header">
-          <p>{{ page.journey.headline }}</p>
+          <p>{{ journey.headline }}</p>
           <h2 id="home-journey-title">
-            {{ page.journey.title }}
+            {{ journey.title }}
           </h2>
-          <span>{{ page.journey.description }}</span>
+          <span>{{ journey.description }}</span>
         </header>
 
         <ol class="home-journey__steps">
-          <li v-for="(item, index) in page.journey.items" :key="item.title">
+          <li v-for="(item, index) in journey.items" :key="item.title">
             <span class="home-journey__index">{{ String(index + 1).padStart(2, '0') }}</span>
             <span class="home-journey__icon" aria-hidden="true">
               <UIcon :name="item.icon" />
@@ -92,7 +174,7 @@ const heroLinks = page.hero.links
 
     <UContainer class="pb-16 sm:pb-24">
       <UPageCTA
-        v-bind="page.cta"
+        v-bind="cta"
         variant="subtle"
         class="home-cta"
       />

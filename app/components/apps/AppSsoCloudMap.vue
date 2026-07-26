@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { SsoAccountState, SsoExplorerApp } from '~/types/app-explorer'
-import { useIntersectionObserver } from '@vueuse/core'
-import { computed, shallowRef } from 'vue'
+import { shallowRef } from 'vue'
 import SkyScene from '../SkyScene.vue'
 import SsoAccountCloud from './SsoAccountCloud.vue'
 import SsoAppCloud from './SsoAppCloud.vue'
@@ -19,19 +18,7 @@ defineEmits<{
   scrollToGrid: []
 }>()
 
-const colorMode = useColorMode()
-const mapElement = shallowRef<HTMLElement | null>(null)
-const mapVisible = shallowRef(true)
 const activeAppId = shallowRef<string | null>(null)
-const skyTheme = computed(() => colorMode.value === 'dark' ? 'dark' : 'light')
-
-useIntersectionObserver(
-  mapElement,
-  ([entry]) => {
-    mapVisible.value = entry?.isIntersecting ?? true
-  },
-  { rootMargin: '128px' },
-)
 
 function deactivate(appId: string) {
   if (activeAppId.value === appId)
@@ -41,12 +28,10 @@ function deactivate(appId: string) {
 
 <template>
   <section
-    ref="mapElement"
     class="app-sso-cloud-map"
-    :class="{ 'app-sso-cloud-map--paused': !mapVisible }"
     aria-label="统一账号应用云图"
   >
-    <SkyScene :theme="skyTheme" clouds="mini" class="app-sso-cloud-map__sky" />
+    <SkyScene clouds="mini" class="app-sso-cloud-map__sky" />
     <div class="app-sso-cloud-map__veil" aria-hidden="true" />
 
     <div class="app-sso-cloud-map__desktop">
@@ -57,7 +42,7 @@ function deactivate(appId: string) {
       />
 
       <div class="app-sso-cloud-map__account">
-        <SsoAccountCloud :account="account" />
+        <SsoAccountCloud :account="account" surface="desktop" />
       </div>
 
       <div
@@ -79,7 +64,7 @@ function deactivate(appId: string) {
     </div>
 
     <div class="app-sso-cloud-map__mobile">
-      <SsoAccountCloud :account="account" />
+      <SsoAccountCloud :account="account" surface="mobile" />
 
       <div class="app-sso-cloud-map__mobile-route" aria-hidden="true">
         <span />
@@ -171,10 +156,6 @@ function deactivate(appId: string) {
   bottom: 1rem;
 }
 
-.app-sso-cloud-map--paused :deep(.ylf-skyscene *) {
-  animation-play-state: paused !important;
-}
-
 @media (max-width: 1023px) {
   .app-sso-cloud-map {
     min-height: 32rem;
@@ -237,7 +218,7 @@ function deactivate(appId: string) {
   .app-sso-cloud-map__rail {
     display: flex;
     width: 100%;
-    gap: 0.2rem;
+    gap: 0.75rem;
     overflow-x: auto;
     overscroll-behavior-inline: contain;
     padding: 0 1rem 5.25rem;
@@ -250,9 +231,9 @@ function deactivate(appId: string) {
     display: none;
   }
 
-  .app-sso-cloud-map__rail :deep(.sso-app-cloud) {
-    width: 14.25rem;
-    flex: 0 0 14.25rem;
+  .app-sso-cloud-map__rail :deep(.sso-app-node) {
+    width: 15rem;
+    flex: 0 0 15rem;
     scroll-snap-align: center;
   }
 

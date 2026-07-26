@@ -24,11 +24,12 @@ describe('appSsoCloudMap', () => {
 
     const desktop = wrapper.get('.app-sso-cloud-map__desktop')
     for (const app of ssoExplorerApps) {
-      const cloud = desktop.get(`[data-testid="sso-app-${app.appId}"]`)
-      const externalLink = cloud.get('.sso-app-cloud__link')
+      const node = desktop.get(`[data-testid="sso-app-${app.appId}"]`)
+      const externalLink = node.get('.sso-app-node__link')
       expect(externalLink.attributes('href')).toBe(app.origin)
       expect(externalLink.attributes('target')).toBe('_blank')
       expect(externalLink.attributes('aria-label')).toContain('支持统一账号')
+      expect(node.find('.sso-app-cloud__shape').exists()).toBe(false)
     }
 
     expect(wrapper.find('[data-testid="cloud-preview"]').exists()).toBe(false)
@@ -46,7 +47,7 @@ describe('appSsoCloudMap', () => {
     const link = wrapper
       .get('.app-sso-cloud-map__desktop')
       .get('[data-testid="sso-app-ai-sfc"]')
-      .get('.sso-app-cloud__link')
+      .get('.sso-app-node__link')
 
     await link.trigger('focus')
     await nextTick()
@@ -57,5 +58,20 @@ describe('appSsoCloudMap', () => {
     await link.trigger('blur')
     await nextTick()
     expect(wrapper.findAll('.sso-cloud-routes__active')).toHaveLength(0)
+  })
+
+  it('uses stable unique gradient ids for the account clouds and active route', async () => {
+    const wrapper = await mountSuspended(AppSsoCloudMap, {
+      props: { apps: ssoExplorerApps, account },
+    })
+
+    const gradientIds = wrapper
+      .findAll('linearGradient')
+      .map(gradient => gradient.attributes('id'))
+
+    expect(gradientIds).toContain('sso-account-cloud-desktop')
+    expect(gradientIds).toContain('sso-account-cloud-mobile')
+    expect(gradientIds).toContain('sso-cloud-route-gradient')
+    expect(new Set(gradientIds)).toHaveLength(gradientIds.length)
   })
 })

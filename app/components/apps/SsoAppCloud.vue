@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { SsoExplorerApp } from '~/types/app-explorer'
-import { shallowRef, useId, watch } from 'vue'
+import { shallowRef, watch } from 'vue'
 
 const props = defineProps<{
   app: SsoExplorerApp
@@ -13,7 +13,6 @@ const emit = defineEmits<{
 }>()
 
 const logoFailed = shallowRef(false)
-const gradientId = `sso-app-cloud-${useId().replaceAll(':', '')}`
 
 watch(() => props.app.logoUrl, () => {
   logoFailed.value = false
@@ -22,73 +21,54 @@ watch(() => props.app.logoUrl, () => {
 
 <template>
   <div
-    class="sso-app-cloud"
-    :class="{ 'sso-app-cloud--active': active }"
+    class="sso-app-node"
+    :class="{ 'sso-app-node--active': active }"
     :style="{ '--sso-app-accent': app.accent }"
     :data-testid="`sso-app-${app.appId}`"
   >
+    <span class="sso-app-node__signal" aria-hidden="true" />
+
     <a
       :href="app.origin"
       target="_blank"
       rel="noopener noreferrer"
-      class="sso-app-cloud__link"
+      class="sso-app-node__link"
       :aria-label="`${app.name}，支持统一账号，在新标签页打开`"
       @focus="emit('activate', app.appId)"
       @blur="emit('deactivate', app.appId)"
       @mouseenter="emit('activate', app.appId)"
       @mouseleave="emit('deactivate', app.appId)"
     >
-      <svg
-        class="sso-app-cloud__shape"
-        viewBox="0 0 260 122"
-        role="presentation"
-        aria-hidden="true"
-      >
-        <defs>
-          <linearGradient :id="gradientId" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stop-color="var(--ylf-sso-cloud-top)" />
-            <stop offset="0.68" stop-color="var(--ylf-sso-cloud-middle-soft)" />
-            <stop offset="1" stop-color="var(--ylf-sso-cloud-base)" />
-          </linearGradient>
-        </defs>
-        <path
-          d="M49 110C25 110 10 96 10 76C10 56 25 42 44 40C50 22 66 12 84 13C95 3 109 0 122 5C135 10 144 21 146 35C164 27 185 34 195 49C220 48 240 65 241 86C242 100 231 111 213 111H49Z"
-          :fill="`url(#${gradientId})`"
-        />
-      </svg>
-
-      <span class="sso-app-cloud__content">
-        <span class="sso-app-cloud__logo" aria-hidden="true">
-          <img
-            v-if="!logoFailed"
-            :src="app.logoUrl"
-            alt=""
-            loading="lazy"
-            @error="logoFailed = true"
-          >
-          <span v-else>{{ app.fallbackMark }}</span>
-        </span>
-
-        <span class="sso-app-cloud__copy">
-          <strong>{{ app.name }}</strong>
-          <span class="sso-app-cloud__status">
-            <UIcon name="i-lucide-badge-check" aria-hidden="true" />
-            统一账号
-          </span>
-        </span>
-
-        <UIcon
-          name="i-lucide-external-link"
-          class="sso-app-cloud__external"
-          aria-hidden="true"
-        />
+      <span class="sso-app-node__logo" aria-hidden="true">
+        <img
+          v-if="!logoFailed"
+          :src="app.logoUrl"
+          alt=""
+          loading="lazy"
+          @error="logoFailed = true"
+        >
+        <span v-else>{{ app.fallbackMark }}</span>
       </span>
+
+      <span class="sso-app-node__copy">
+        <strong>{{ app.name }}</strong>
+        <span class="sso-app-node__status">
+          <UIcon name="i-lucide-badge-check" aria-hidden="true" />
+          统一账号
+        </span>
+      </span>
+
+      <UIcon
+        name="i-lucide-arrow-up-right"
+        class="sso-app-node__external"
+        aria-hidden="true"
+      />
     </a>
 
     <NuxtLink
       v-if="app.detailSlug"
       :to="`/apps/${app.detailSlug}`"
-      class="sso-app-cloud__detail"
+      class="sso-app-node__detail"
       :aria-label="`查看 ${app.name} 的站内详情`"
       title="查看站内详情"
       @focus="emit('activate', app.appId)"
@@ -100,152 +80,193 @@ watch(() => props.app.logoUrl, () => {
 </template>
 
 <style scoped>
-.sso-app-cloud {
+.sso-app-node {
   position: relative;
+  display: flex;
   width: 15rem;
-  height: 7.1rem;
+  height: 4.9rem;
+  gap: 0.25rem;
+  align-items: center;
+  padding: 0.55rem 0.55rem 0.55rem 0.78rem;
+  border: 1px solid color-mix(in srgb, var(--ylf-sso-cloud-border) 46%, transparent);
+  border-radius: 1.45rem;
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--ylf-sso-cloud-top) 96%, transparent),
+    color-mix(in srgb, var(--ylf-sso-cloud-middle-soft) 88%, transparent)
+  );
+  box-shadow:
+    0 17px 34px -22px color-mix(in srgb, var(--ylf-sso-cloud-shadow) 68%, transparent),
+    0 2px 8px color-mix(in srgb, var(--ylf-sso-cloud-shadow) 10%, transparent),
+    inset 0 1px color-mix(in srgb, var(--ylf-sso-cloud-top) 90%, transparent);
+  backdrop-filter: blur(12px);
   color: var(--ylf-sso-ink);
   transition:
-    filter 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
     transform 180ms ease;
 }
 
-.sso-app-cloud__link {
+.sso-app-node__signal {
+  position: absolute;
+  width: 0.22rem;
+  border-radius: 999px;
+  background: var(--sso-app-accent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--sso-app-accent) 42%, transparent);
+  inset: 1.05rem auto 1.05rem 0.38rem;
+  opacity: 0.78;
+  transition:
+    inset 180ms ease,
+    opacity 180ms ease;
+}
+
+.sso-app-node__link {
   position: relative;
-  display: block;
-  width: 100%;
+  display: grid;
+  min-width: 0;
   height: 100%;
-  border-radius: 4.5rem 4.5rem 2.25rem 2.25rem;
+  flex: 1;
+  grid-template-columns: 2.75rem minmax(0, 1fr) 0.95rem;
+  gap: 0.7rem;
+  align-items: center;
+  padding: 0.2rem 0.3rem 0.2rem 0.12rem;
+  border-radius: 1rem;
   outline: none;
 }
 
-.sso-app-cloud__shape {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  filter: drop-shadow(0 13px 18px color-mix(in srgb, var(--ylf-sso-cloud-shadow) 20%, transparent));
-  inset: 0;
-}
-
-.sso-app-cloud__content {
-  position: absolute;
+.sso-app-node__logo {
   display: grid;
-  grid-template-columns: 2.55rem minmax(0, 1fr) 0.9rem;
-  gap: 0.65rem;
-  align-items: center;
-  padding: 0 1.1rem 0 1rem;
-  inset: 2.4rem 0 0.55rem;
-}
-
-.sso-app-cloud__logo {
-  display: grid;
-  width: 2.55rem;
-  height: 2.55rem;
+  width: 2.75rem;
+  height: 2.75rem;
   overflow: hidden;
   place-items: center;
-  border: 1px solid color-mix(in srgb, var(--sso-app-accent) 30%, var(--ylf-sso-cloud-top));
-  border-radius: 0.82rem;
-  background: color-mix(in srgb, var(--sso-app-accent) 88%, var(--ylf-sso-cloud-top));
-  box-shadow: 0 7px 18px color-mix(in srgb, var(--sso-app-accent) 25%, transparent);
+  border: 1px solid color-mix(in srgb, var(--sso-app-accent) 34%, var(--ylf-sso-cloud-top));
+  border-radius: 0.9rem;
+  background: color-mix(in srgb, var(--sso-app-accent) 86%, var(--ylf-sso-cloud-top));
+  box-shadow: 0 8px 18px -8px color-mix(in srgb, var(--sso-app-accent) 58%, transparent);
   color: var(--ylf-sso-cloud-top);
   font-size: 0.68rem;
   font-weight: 850;
   letter-spacing: -0.02em;
 }
 
-.sso-app-cloud__logo img {
+.sso-app-node__logo img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.sso-app-cloud__copy {
+.sso-app-node__copy {
   display: grid;
   min-width: 0;
-  gap: 0.28rem;
+  gap: 0.34rem;
 }
 
-.sso-app-cloud__copy strong {
+.sso-app-node__copy strong {
   overflow: hidden;
-  font-size: 0.88rem;
-  font-weight: 800;
+  font-size: 0.9rem;
+  font-weight: 820;
   letter-spacing: -0.02em;
-  line-height: 1.1;
+  line-height: 1.15;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.sso-app-cloud__status {
+.sso-app-node__status {
   display: inline-flex;
+  width: max-content;
   gap: 0.25rem;
   align-items: center;
+  padding: 0.14rem 0.42rem;
+  border: 1px solid color-mix(in srgb, var(--sso-app-accent) 13%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--sso-app-accent) 8%, transparent);
   color: var(--ylf-sso-accent-strong);
   font-size: 0.62rem;
   font-weight: 700;
+  line-height: 1;
   white-space: nowrap;
 }
 
-.sso-app-cloud__status :deep(svg) {
+.sso-app-node__status :deep(svg) {
   width: 0.75rem;
   height: 0.75rem;
 }
 
-.sso-app-cloud__external {
-  width: 0.82rem;
-  height: 0.82rem;
+.sso-app-node__external {
+  width: 0.9rem;
+  height: 0.9rem;
   color: color-mix(in srgb, var(--ylf-sso-ink) 38%, transparent);
   transition: color 180ms ease;
 }
 
-.sso-app-cloud__detail {
-  position: absolute;
-  z-index: 3;
+.sso-app-node__detail {
   display: grid;
-  width: 2rem;
-  height: 2rem;
+  width: 2.15rem;
+  height: 2.15rem;
+  flex: none;
   place-items: center;
-  border: 1px solid color-mix(in srgb, var(--ylf-sso-cloud-top) 82%, transparent);
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--ylf-sso-cloud-top) 88%, transparent);
-  box-shadow: 0 8px 18px color-mix(in srgb, var(--ylf-sso-cloud-shadow) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ylf-sso-cloud-border) 30%, transparent);
+  border-radius: 0.8rem;
+  background: color-mix(in srgb, var(--ylf-sso-cloud-top) 62%, transparent);
   color: var(--ylf-sso-accent-strong);
-  right: 0.3rem;
-  top: 1.5rem;
+  outline: none;
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease;
 }
 
-.sso-app-cloud__detail :deep(svg) {
+.sso-app-node__detail :deep(svg) {
   width: 0.88rem;
   height: 0.88rem;
 }
 
-.sso-app-cloud:hover,
-.sso-app-cloud:focus-within,
-.sso-app-cloud--active {
+.sso-app-node:hover,
+.sso-app-node:focus-within,
+.sso-app-node--active {
   z-index: 8;
-  filter: drop-shadow(0 0 16px color-mix(in srgb, var(--sso-app-accent) 38%, transparent));
-  transform: translateY(-0.35rem) scale(1.025);
+  border-color: color-mix(in srgb, var(--sso-app-accent) 38%, var(--ylf-sso-cloud-top));
+  box-shadow:
+    0 21px 38px -22px color-mix(in srgb, var(--ylf-sso-cloud-shadow) 74%, transparent),
+    0 4px 12px color-mix(in srgb, var(--sso-app-accent) 12%, transparent),
+    inset 0 1px color-mix(in srgb, var(--ylf-sso-cloud-top) 94%, transparent);
+  transform: translateY(-0.22rem);
 }
 
-.sso-app-cloud__link:focus-visible,
-.sso-app-cloud__detail:focus-visible {
+.sso-app-node:hover .sso-app-node__signal,
+.sso-app-node:focus-within .sso-app-node__signal,
+.sso-app-node--active .sso-app-node__signal {
+  inset-block: 0.78rem;
+  opacity: 1;
+}
+
+.sso-app-node__link:focus-visible,
+.sso-app-node__detail:focus-visible {
   outline: 3px solid var(--ylf-sso-cloud-top);
   outline-offset: 3px;
 }
 
-.sso-app-cloud:hover .sso-app-cloud__external,
-.sso-app-cloud:focus-within .sso-app-cloud__external {
+.sso-app-node:hover .sso-app-node__external,
+.sso-app-node:focus-within .sso-app-node__external {
   color: var(--ylf-sso-accent-strong);
 }
 
+.sso-app-node__detail:hover {
+  border-color: color-mix(in srgb, var(--sso-app-accent) 30%, transparent);
+  background: color-mix(in srgb, var(--sso-app-accent) 9%, var(--ylf-sso-cloud-top));
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .sso-app-cloud,
-  .sso-app-cloud__external {
+  .sso-app-node,
+  .sso-app-node__signal,
+  .sso-app-node__external,
+  .sso-app-node__detail {
     transition: none;
   }
 
-  .sso-app-cloud:hover,
-  .sso-app-cloud:focus-within,
-  .sso-app-cloud--active {
+  .sso-app-node:hover,
+  .sso-app-node:focus-within,
+  .sso-app-node--active {
     transform: none;
   }
 }

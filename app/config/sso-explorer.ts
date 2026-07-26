@@ -5,6 +5,7 @@ interface SsoPresentation {
   description: string
   fallbackMark: string
   accent: string
+  logoUrl?: string
   detailSlug?: string
   position: SsoExplorerApp['position']
 }
@@ -36,9 +37,10 @@ const presentationByAppId: Record<string, SsoPresentation> = {
     position: { x: 24, y: 83 },
   },
   'home': {
-    description: '云乐坊个人主页',
+    description: '可编辑的云端智能家园',
     fallbackMark: '家',
-    accent: 'var(--ylf-dopa-amber)',
+    accent: '#687b67',
+    logoUrl: '/app-icons/home-brand-mark.svg',
     position: { x: 76, y: 18 },
   },
   'wenta': {
@@ -87,7 +89,7 @@ export const ssoExplorerApps: SsoExplorerApp[] = productionRegistry.clients.flat
     name: client.displayName,
     origin,
     description: presentation.description,
-    logoUrl: iconUrl,
+    logoUrl: presentation.logoUrl ?? iconUrl,
     fallbackMark: presentation.fallbackMark,
     accent: presentation.accent,
     detailSlug: presentation.detailSlug,

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { SsoExplorerApp } from '~/types/app-explorer'
-import { computed, useId } from 'vue'
+import { computed } from 'vue'
 
 const props = withDefaults(defineProps<{
   apps: SsoExplorerApp[]
@@ -11,14 +11,14 @@ const props = withDefaults(defineProps<{
   reducedMotion: false,
 })
 
-const gradientId = `sso-cloud-route-${useId().replaceAll(':', '')}`
+const gradientId = 'sso-cloud-route-gradient'
 const activeApp = computed(() => props.apps.find(app => app.appId === props.activeAppId))
 
 function routePath(app: SsoExplorerApp) {
   const left = app.position.x < 50
   const startX = left ? 42 : 58
   const startY = 58 + (app.position.y - 58) * 0.12
-  const endX = app.position.x + (left ? 7 : -7)
+  const endX = app.position.x + (left ? 9 : -9)
   const endY = app.position.y + 1
   const controlX = left
     ? Math.min(startX - 8, (startX + endX) / 2)
@@ -94,18 +94,18 @@ function routePath(app: SsoExplorerApp) {
 }
 
 .sso-cloud-routes__ribbon {
-  stroke: color-mix(in srgb, var(--ylf-sso-cloud-top) 50%, transparent);
-  stroke-width: 10;
+  stroke: color-mix(in srgb, var(--ylf-sso-cloud-top) 45%, transparent);
+  stroke-width: 7;
 }
 
 .sso-cloud-routes__edge {
-  stroke: color-mix(in srgb, var(--ylf-sso-route-edge) 62%, transparent);
-  stroke-width: 1.2;
+  stroke: color-mix(in srgb, var(--ylf-sso-route-edge) 68%, transparent);
+  stroke-width: 1.1;
 }
 
 .sso-cloud-routes__active {
-  stroke: color-mix(in srgb, var(--ylf-sso-cloud-top) 86%, transparent);
-  stroke-width: 11;
+  stroke: color-mix(in srgb, var(--ylf-sso-cloud-top) 82%, transparent);
+  stroke-width: 8.5;
 }
 
 .sso-cloud-routes__beam {

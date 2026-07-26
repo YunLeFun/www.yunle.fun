@@ -12,14 +12,11 @@ withDefaults(defineProps<{
 }>(), {
   scrim: true,
 })
-
-const colorMode = useColorMode()
-const skyTheme = computed(() => (colorMode.value === 'dark' ? 'dark' : 'light'))
 </script>
 
 <template>
   <section class="ylf-sky-hero relative overflow-hidden rounded-[1.75rem] sm:rounded-[2rem]">
-    <SkyScene :theme="skyTheme" :sun="false" class="pointer-events-none" />
+    <SkyScene :sun="false" class="pointer-events-none" />
     <div v-if="scrim" class="ylf-sky-hero__scrim pointer-events-none absolute inset-0 z-[1]" />
     <div class="relative z-[2]">
       <slot />

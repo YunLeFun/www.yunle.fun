@@ -5,7 +5,7 @@
  * 一张以「晴空」为底的玻璃质感会员卡：开通显示姓名 + 有效期，
  * 未开通显示「推开云层 · 点亮晴空」蒙层。个人中心 / 会员权益页复用。
  */
-const props = withDefaults(defineProps<{
+withDefaults(defineProps<{
   member?: boolean
   name?: string
   /** 有效期文案，如 2026 / 07 */
@@ -17,14 +17,11 @@ const props = withDefaults(defineProps<{
   name: '晴空旅人',
   expire: '—— / ——',
 })
-
-const colorMode = useColorMode()
-const effectiveTheme = computed(() => props.theme ?? (colorMode.value === 'dark' ? 'dark' : 'light'))
 </script>
 
 <template>
   <div class="ylf-pass relative aspect-[1.6/1] w-full overflow-hidden rounded-3xl">
-    <SkyScene :theme="effectiveTheme" :sun="false" clouds="mini" sun-x="72%" sun-y="18%" class="pointer-events-none" />
+    <SkyScene :theme="theme" :sun="false" clouds="mini" sun-x="72%" sun-y="18%" class="pointer-events-none" />
     <!-- 底部压暗，保证玻璃信息条清晰 -->
     <div
       class="pointer-events-none absolute inset-0 z-[2]"

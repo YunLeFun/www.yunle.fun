@@ -46,12 +46,12 @@ const items = computed(() => [
     <template #right>
       <UColorModeButton />
       <!--
-        首页保持可预渲染；认证区域在服务端与客户端均预留相同尺寸，
-        避免通知、头像和登录按钮切换时推动颜色模式与导航图标。
+        首页保持可预渲染；认证区域在服务端与客户端均预留相同最小尺寸，
+        内容变宽时自然扩展且不参与 flex 压缩，避免控件溢出或互相遮挡。
       -->
       <div
         data-testid="header-auth-slot"
-        class="flex w-20 items-center justify-end gap-1.5 lg:w-40"
+        class="flex min-w-24 shrink-0 items-center justify-end gap-1.5 lg:min-w-48"
       >
         <ClientOnly>
           <HeaderAuthArea />

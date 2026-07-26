@@ -18,11 +18,24 @@ describe('sso explorer configuration', () => {
     ])
     expect(ssoExplorerApps).toHaveLength(8)
     expect(ssoExplorerApps.every(app => app.origin.startsWith('https://'))).toBe(true)
-    expect(ssoExplorerApps.every(app => new URL(app.logoUrl).origin === app.origin)).toBe(true)
+    expect(ssoExplorerApps.every(app =>
+      app.logoUrl.startsWith('/')
+      || new URL(app.logoUrl).origin === app.origin,
+    )).toBe(true)
     expect(ssoExplorerApps.find(app => app.appId === 'cms')?.logoUrl)
       .toBe('https://cms.yunle.fun/icon.svg')
     expect(ssoExplorerApps.find(app => app.appId === 'drive')?.logoUrl)
       .toBe('https://drive.yunle.fun/drive-mark.svg')
+    expect(ssoExplorerApps.find(app => app.appId === 'drive')?.name)
+      .toBe('云乐盘')
+    expect(ssoExplorerApps.find(app => app.appId === 'dayun-kicker')?.name)
+      .toBe('暴力电驴')
+    expect(ssoExplorerApps.find(app => app.appId === 'home')).toMatchObject({
+      name: '云之彼端',
+      description: '可编辑的云端智能家园',
+      logoUrl: '/app-icons/home-brand-mark.svg',
+      accent: '#687b67',
+    })
   })
 
   it('maps public explorer slugs without treating unrelated apps as SSO clients', () => {

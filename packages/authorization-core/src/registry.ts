@@ -54,14 +54,14 @@ export const productionRegistry = {
     webClient({
       clientId: 'drive-web',
       appId: 'drive',
-      displayName: 'Yunle Drive',
+      displayName: '云乐盘',
       origin: 'https://drive.yunle.fun',
       iconPath: '/drive-mark.svg',
     }),
     webClient({
       clientId: 'dayun-kicker-web',
       appId: 'dayun-kicker',
-      displayName: '大运踢球',
+      displayName: '暴力电驴',
       origin: 'https://dayun-kicker.yunle.fun',
       iconPath: '/favicon.svg',
     }),
@@ -75,9 +75,9 @@ export const productionRegistry = {
     webClient({
       clientId: 'home-web',
       appId: 'home',
-      displayName: 'Yunle Home',
+      displayName: '云之彼端',
       origin: 'https://home.yunle.fun',
-      iconPath: '/favicon.ico',
+      iconPath: '/brand-mark.svg',
     }),
     webClient({
       clientId: 'wenta-web',
@@ -131,14 +131,14 @@ export const developmentRegistry = {
     webClient({
       clientId: 'drive-web',
       appId: 'drive',
-      displayName: 'Yunle Drive',
+      displayName: '云乐盘',
       origin: 'https://drive.yunle.localhost:3444',
       iconPath: '/drive-mark.svg',
     }),
     webClient({
       clientId: 'dayun-kicker-web',
       appId: 'dayun-kicker',
-      displayName: '大运踢球',
+      displayName: '暴力电驴',
       origin: 'https://dayun-kicker.yunle.localhost:3445',
       iconPath: '/favicon.svg',
     }),
@@ -152,9 +152,9 @@ export const developmentRegistry = {
     webClient({
       clientId: 'home-web',
       appId: 'home',
-      displayName: 'Yunle Home',
+      displayName: '云之彼端',
       origin: 'https://home.yunle.localhost:3446',
-      iconPath: '/favicon.ico',
+      iconPath: '/brand-mark.svg',
     }),
     webClient({
       clientId: 'wenta-web',
