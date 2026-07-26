@@ -11,12 +11,13 @@ import {
 } from '../../packages/authorization-core/src/index'
 
 describe('production authorization registry', () => {
-  it('reserves the Play Web client without enabling an unfinished callback', () => {
+  it('enables the verified Play Web client with exact callbacks', () => {
     expect(productionRegistry.clients).toContainEqual({
       clientId: 'play-web',
       appId: 'play',
       displayName: '云乐坊间',
-      status: 'disabled',
+      iconUrl: 'https://play.yunle.fun/favicon.svg',
+      status: 'active',
       adapters: [{
         kind: 'web-sso',
         consent: 'trusted',
@@ -29,23 +30,70 @@ describe('production authorization registry', () => {
     expect(developmentRegistry.clients).toContainEqual(expect.objectContaining({
       clientId: 'play-web',
       appId: 'play',
-      status: 'disabled',
+      status: 'active',
       adapters: [expect.objectContaining({
         origins: ['https://play.yunle.localhost:3449'],
         redirectUris: ['https://play.yunle.localhost:3449/'],
       })],
     }))
 
-    expect(() => createAuthorizationCore({ registry: productionRegistry }).authorize({
+    expect(createAuthorizationCore({ registry: productionRegistry }).authorize({
       issuer: productionRegistry.issuer,
       clientId: 'play-web',
       adapter: 'web-sso',
       requestedScopes: ['identity:bootstrap'],
       origin: 'https://play.yunle.fun',
       redirectUri: 'https://play.yunle.fun/',
-    })).toThrowError(expect.objectContaining<Partial<AuthorizationError>>({
-      code: 'client_unavailable',
-    }))
+    })).toMatchObject({
+      appId: 'play',
+      clientId: 'play-web',
+      scopes: ['identity:bootstrap'],
+    })
+  })
+
+  it('enables the Support governance client with exact callbacks', () => {
+    expect(productionRegistry.clients).toContainEqual({
+      clientId: 'support-web',
+      appId: 'support',
+      displayName: '云乐坊支持中心',
+      iconUrl: 'https://support.yunle.fun/favicon.svg',
+      status: 'active',
+      adapters: [{
+        kind: 'web-sso',
+        consent: 'trusted',
+        allowedScopes: ['identity:bootstrap'],
+        origins: ['https://support.yunle.fun'],
+        redirectUris: ['https://support.yunle.fun/'],
+      }],
+    })
+
+    expect(createAuthorizationCore({ registry: productionRegistry }).authorize({
+      issuer: productionRegistry.issuer,
+      clientId: 'support-web',
+      adapter: 'web-sso',
+      requestedScopes: ['identity:bootstrap'],
+      origin: 'https://support.yunle.fun',
+      redirectUri: 'https://support.yunle.fun/',
+    })).toMatchObject({
+      appId: 'support',
+      clientId: 'support-web',
+      scopes: ['identity:bootstrap'],
+    })
+  })
+
+  it('registers stable client-owned icons for every Web SSO client', () => {
+    for (const client of productionRegistry.clients) {
+      const adapter = client.adapters.find(candidate => candidate.kind === 'web-sso')
+      if (!adapter)
+        continue
+
+      expect('iconUrl' in client ? client.iconUrl : null, client.clientId).toBeTruthy()
+      if (!('iconUrl' in client))
+        continue
+
+      expect(new URL(client.iconUrl).origin).toBe(adapter.origins[0])
+      expect(new URL(client.iconUrl).search).toBe('')
+    }
   })
 
   it('contains only the approved first-party protocol clients', () => {
@@ -57,6 +105,8 @@ describe('production authorization registry', () => {
       ['ai-sfc-web', 'ai-sfc', 'web-sso', 'identity:bootstrap', 'https://ai-sfc.yunle.fun'],
       ['home-web', 'home', 'web-sso', 'identity:bootstrap', 'https://home.yunle.fun'],
       ['wenta-web', 'wenta', 'web-sso', 'identity:bootstrap', 'https://wenta.yunle.fun'],
+      ['play-web', 'play', 'web-sso', 'identity:bootstrap', 'https://play.yunle.fun'],
+      ['support-web', 'support', 'web-sso', 'identity:bootstrap', 'https://support.yunle.fun'],
       ['skykeeper-desktop', 'skykeeper', 'device', 'membership:read', undefined],
     ] as const
 
@@ -76,6 +126,8 @@ describe('production authorization registry', () => {
       ['ai-sfc-web', 'ai-sfc', 'web-sso', ['identity:bootstrap']],
       ['home-web', 'home', 'web-sso', ['identity:bootstrap']],
       ['wenta-web', 'wenta', 'web-sso', ['identity:bootstrap']],
+      ['play-web', 'play', 'web-sso', ['identity:bootstrap']],
+      ['support-web', 'support', 'web-sso', ['identity:bootstrap']],
       ['skykeeper-desktop', 'skykeeper', 'device', ['membership:read']],
     ])
   })

@@ -1,30 +1,10 @@
+import type {
+  AuthorizationAdapter,
+  ClientRegistration,
+  ClientRegistrySnapshot,
+  ConsentMode,
+} from './registry-types'
 import { createHash } from 'node:crypto'
-
-export type AuthorizationAdapter = 'device' | 'oidc' | 'web-sso'
-export type ConsentMode = 'explicit' | 'trusted'
-
-export interface ClientAdapterRegistration {
-  kind: AuthorizationAdapter
-  consent: ConsentMode
-  allowedScopes: readonly string[]
-  origins?: readonly string[]
-  redirectUris?: readonly string[]
-}
-
-export interface ClientRegistration {
-  clientId: string
-  appId: string
-  displayName: string
-  status: 'active' | 'disabled'
-  adapters: readonly ClientAdapterRegistration[]
-}
-
-export interface ClientRegistrySnapshot {
-  schemaVersion: 1
-  policyVersion: string
-  issuer: string
-  clients: readonly ClientRegistration[]
-}
 
 export interface AuthorizationRequest {
   issuer: string
@@ -165,6 +145,13 @@ export {
   issuerCatalog,
   productionRegistry,
 } from './registry'
+export type {
+  AuthorizationAdapter,
+  ClientAdapterRegistration,
+  ClientRegistration,
+  ClientRegistrySnapshot,
+  ConsentMode,
+} from './registry-types'
 export { createWebSsoCodeMachine } from './web-sso-code'
 export type {
   ConsumeWebSsoCodeInput,
