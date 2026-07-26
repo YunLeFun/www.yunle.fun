@@ -1,0 +1,10 @@
+{
+	admin 127.0.0.1:2031
+	auto_https disable_redirects
+	skip_install_trust
+}
+
+https://www.yunle.localhost:3000 {
+	tls internal
+	reverse_proxy {$YUNLE_PROVIDER_UPSTREAM:127.0.0.1:3001}
+}

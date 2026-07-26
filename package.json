@@ -6,7 +6,10 @@
   "scripts": {
     "build": "NODE_OPTIONS=--max-old-space-size=4096 nuxt build",
     "build:authorization-core": "pnpm --dir packages/authorization-core build",
+    "deploy:sso:development": "node scripts/deploy-sso-development.mjs",
     "dev": "TMPDIR=/tmp nuxt dev --host",
+    "dev:sso": "node scripts/dev-sso-provider.mjs",
+    "dev:sso:trust": "caddy trust --address 127.0.0.1:2031",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare && node scripts/setup-hooks.mjs",

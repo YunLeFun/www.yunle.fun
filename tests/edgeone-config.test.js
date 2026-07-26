@@ -36,6 +36,15 @@ describe('edgeOne production configuration', () => {
     expect(headers['Referrer-Policy']).toBe('no-referrer')
   })
 
+  it('prevents SSO authorization parameters from leaking through referrers or caches', () => {
+    const ssoRule = config.headers.find(rule => rule.source === '/auth/sso')
+    const headers = Object.fromEntries(ssoRule.headers.map(header => [header.key, header.value]))
+
+    expect(headers['Cache-Control']).toBe('no-store')
+    expect(headers['Referrer-Policy']).toBe('no-referrer')
+    expect(headers['X-Robots-Tag']).toBe('noindex, nofollow, noarchive')
+  })
+
   it('permanently redirects the apex domain to www', () => {
     expect(config.redirects).toContainEqual({
       source: '$host',
