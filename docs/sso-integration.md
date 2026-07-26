@@ -11,7 +11,15 @@
 - 同一业务以后可以有多个客户端，例如 `foo-web`、`foo-ios`；因此不把 `clientId` 简化成 `appId`。
 - Web Consumer 只请求 `identity:bootstrap`。缺省 scope 不授予任何权限。
 
-Client Registry 位于 [`packages/authorization-core/src/registry.ts`](../packages/authorization-core/src/registry.ts)，同时定义 production/development issuer、精确 HTTPS Origin、精确 redirect URI、允许 scope、consent 模式、状态和业务归属。Provider 页面不维护第二份白名单。
+Client Registry 位于 [`packages/authorization-core/src/registry.ts`](../packages/authorization-core/src/registry.ts)，同时定义 production/development issuer、精确 HTTPS Origin、精确 redirect URI、允许 scope、consent 模式、状态、业务归属和客户端图标。Provider 页面与应用探索页不维护第二份白名单。
+
+### 客户端图标注册规范
+
+- 每个 Web SSO 客户端必须声明绝对 HTTPS `iconUrl`，且图标 Origin 必须与其注册 Origin 完全一致。
+- `iconUrl` 直接指向客户端站点自己提供的稳定 SVG、PNG 或 ICO 资源；优先 SVG，不使用带构建哈希或版本查询参数的地址。
+- production 与 development 使用相同图标路径、各自环境的 Origin，确保本地联调也验证客户端资源边界。
+- 图标只在 Registry 注册一次，账号云图等消费端直接读取；加载失败时消费端可以显示本地字标，但不能再维护另一份图标路径。
+- `iconUrl` 属于展示身份，不参与 authorization registration fingerprint；换图标不会使进行中的授权或 refresh grant 失效。
 
 ## 协议流程
 
@@ -80,20 +88,26 @@ if (authorization?.ok) {
 
 ## 当前注册项
 
-| clientId            | appId          | production Origin                | scope                | status     |
-| ------------------- | -------------- | -------------------------------- | -------------------- | ---------- |
-| `cms-web`           | `cms`          | `https://cms.yunle.fun`          | `identity:bootstrap` | `active`   |
-| `drive-web`         | `drive`        | `https://drive.yunle.fun`        | `identity:bootstrap` | `active`   |
-| `dayun-kicker-web`  | `dayun-kicker` | `https://dayun-kicker.yunle.fun` | `identity:bootstrap` | `active`   |
-| `ai-sfc-web`        | `ai-sfc`       | `https://ai-sfc.yunle.fun`       | `identity:bootstrap` | `active`   |
-| `home-web`          | `home`         | `https://home.yunle.fun`         | `identity:bootstrap` | `active`   |
-| `wenta-web`         | `wenta`        | `https://wenta.yunle.fun`        | `identity:bootstrap` | `active`   |
-| `play-web`          | `play`         | `https://play.yunle.fun`         | `identity:bootstrap` | `disabled` |
-| `skykeeper-desktop` | `skykeeper`    | 设备授权 Adapter，无 Web Origin  | `membership:read`    | `active`   |
+| clientId            | appId          | production Origin                | scope                | status   |
+| ------------------- | -------------- | -------------------------------- | -------------------- | -------- |
+| `cms-web`           | `cms`          | `https://cms.yunle.fun`          | `identity:bootstrap` | `active` |
+| `drive-web`         | `drive`        | `https://drive.yunle.fun`        | `identity:bootstrap` | `active` |
+| `dayun-kicker-web`  | `dayun-kicker` | `https://dayun-kicker.yunle.fun` | `identity:bootstrap` | `active` |
+| `ai-sfc-web`        | `ai-sfc`       | `https://ai-sfc.yunle.fun`       | `identity:bootstrap` | `active` |
+| `home-web`          | `home`         | `https://home.yunle.fun`         | `identity:bootstrap` | `active` |
+| `wenta-web`         | `wenta`        | `https://wenta.yunle.fun`        | `identity:bootstrap` | `active` |
+| `play-web`          | `play`         | `https://play.yunle.fun`         | `identity:bootstrap` | `active` |
+| `support-web`       | `support`      | `https://support.yunle.fun`      | `identity:bootstrap` | `active` |
+| `skykeeper-desktop` | `skykeeper`    | 设备授权 Adapter，无 Web Origin  | `membership:read`    | `active` |
 
-`play-web` 只预留身份和精确地址；在 Play Consumer 实现并通过回跳、nonce、PKCE、错误
-Origin/redirect URI 和失败关闭测试前保持停用。其 development Origin 与 redirect URI 为
-`https://play.yunle.localhost:3449` 和 `https://play.yunle.localhost:3449/`。
+`play-web` 已在 Play Consumer 完成回跳、nonce、PKCE、错误 Origin/redirect URI 和失败
+关闭测试，并于 2026-07-26 激活。其 development Origin 与 redirect URI 为
+`https://play.yunle.localhost:3449` 和 `https://play.yunle.localhost:3449/`；两套 issuer
+仍保持完全隔离。
+
+`support-web` 使用 `https://support.yunle.fun/` 精确回跳。它只把短暂
+CloudBase access token 交给 Support BFF 兑换 HttpOnly 应用会话，随后立即清除浏览器
+CloudBase session；治理成员与 scope 由 Support 服务端独立授权。
 
 development issuer 为 `https://www.yunle.localhost:3000`，只接受 Registry 中的 `.yunle.localhost` HTTPS 回跳。production issuer 不接受本地回跳。部署统一使用：
 
@@ -119,7 +133,7 @@ pnpm dev:sso
 
 体验套餐不能启用 CloudBase HTTP 访问服务，因此本地 Provider 的 `/api/sso-ticket` 是开发专用的传输适配器：它通过 Publishable Key 调用同一个 `sso-ticket` Event Function，并把请求包装成现有 HTTP 契约。开发租户允许公开调用该函数，但签发仍强制要求真实用户上下文，兑换仍强制校验 Registry、精确 Origin、nonce、一次性授权码和 S256 PKCE；生产清单继续保持 `auth != null` 和正式 HTTPS 网关。
 
-没有 legacy 或 break-glass 开关。新增客户端必须同时提交 Registry 测试和 Consumer 回跳测试；Registry 的安全字段变化会改变 registration fingerprint，使已有未完成授权与 refresh grant 失败关闭。
+没有 legacy 或 break-glass 开关。新增客户端必须同时提交 Registry 图标同源测试和 Consumer 回跳测试；Registry 的安全字段变化会改变 registration fingerprint，使已有未完成授权与 refresh grant 失败关闭。
 
 ## 运维资源
 
