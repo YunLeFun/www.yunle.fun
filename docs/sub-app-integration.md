@@ -241,6 +241,19 @@ const { result } = await app.callFunction({
 4. **云币是虚拟商品**：不可提现、不可转账、不可兑换人民币（已写入用户协议）。退款只退未消费部分。
 5. **流水只追加**：`coin_transactions` 只增不改，是对账与客诉依据。
 
+### 反馈接入（规划，尚未上线）
+
+子应用不自建反馈数据库或聊天系统。反馈系统上线后，使用稳定 `appId` 跳转统一支持中心：
+
+```text
+https://support.yunle.fun/feedback/new?app={appId}
+```
+
+应用从游戏大厅等其他入口启动时，反馈目标仍是应用自己的 `appId`；来源客户端只用于还原场景，不能改变处理人。需要传递可信版本或运行上下文时，由 `support-api` 创建短期 `feedbackContextId`，不要把日志、token、对局详情或其他敏感数据放进 URL。
+
+详细的目标/来源字段、权限和诊断边界见
+[应用反馈与平台支持系统规格](./feedback-support-system.md#游戏大厅与游戏接入)。
+
 ## 7. 接入 checklist
 
 - [ ] 确认与云乐坊同 env、同 Auth、同商户号
@@ -252,6 +265,7 @@ const { result } = await app.callFunction({
 - [ ] 定义本应用的 `level → features` 映射
 - [ ] 按次扣费接 `deductCoin`（带 `bizId`，处理余额不足）
 - [ ] 充值：跳转 `/wallet` 或内嵌 `useCoinRecharge`
+- [ ] （反馈系统上线后）用本应用 `appId` 接入统一支持中心，不自建反馈消息系统
 - [ ] 自测：充值到账、扣费幂等、余额不足提示、会员免扣费
 
 ## 8. 受控 AI 日额度应用
