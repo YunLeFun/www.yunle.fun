@@ -4,7 +4,26 @@ import { describe, expect, it } from 'vitest'
 
 const rootDir = fileURLToPath(new URL('../..', import.meta.url))
 
-describe('authentication route rendering', () => {
+describe('EdgeOne client route rendering', () => {
+  it('prerenders fixed client-only account routes for EdgeOne', async () => {
+    const config = await loadNuxtConfig({ cwd: rootDir })
+    const routeRules = config.routeRules ?? {}
+    const expectedRoutes = [
+      '/profile',
+      '/wallet',
+      '/settings',
+      '/account-status',
+      '/feed',
+      '/apps',
+      '/apps/new',
+    ]
+
+    for (const route of expectedRoutes)
+      expect(routeRules[route]).toMatchObject({ prerender: true, ssr: false })
+
+    expect(config.nitro?.prerender?.routes).toEqual(expect.arrayContaining(expectedRoutes))
+  })
+
   it('prerenders authentication entry points with client modules for EdgeOne', async () => {
     const config = await loadNuxtConfig({ cwd: rootDir })
     const routeRules = config.routeRules ?? {}

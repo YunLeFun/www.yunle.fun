@@ -3,6 +3,21 @@ import process from 'node:process'
 import yaml from '@rollup/plugin-yaml'
 
 const DEFAULT_ACCOUNT_API_HTTP_URL = 'https://api.yunle.fun/account-api'
+const EDGEONE_ACCOUNT_CLIENT_SHELL_ROUTES = [
+  '/profile',
+  '/wallet',
+  '/settings',
+  '/account-status',
+  '/feed',
+  '/apps',
+  '/apps/new',
+] as const
+const EDGEONE_ACCOUNT_CLIENT_SHELL_RULES = Object.fromEntries(
+  EDGEONE_ACCOUNT_CLIENT_SHELL_ROUTES.map(route => [
+    route,
+    { prerender: true, ssr: false },
+  ]),
+)
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
@@ -137,12 +152,9 @@ export default defineNuxtConfig({
     '/developer': { prerender: true },
     '/explore': { prerender: true },
     '/download': { prerender: true },
-    // 账号 / 数据驱动页：纯客户端渲染。
-    // CloudBase 登录态只在客户端（localStorage），SSR 只会渲染未登录骨架并闪烁；这些页也无 SEO 需求。
-    '/profile': { ssr: false },
-    '/wallet': { ssr: false },
-    '/settings': { ssr: false },
-    '/account-status': { ssr: false },
+    // 固定账号 / 数据页：预渲染 client-only 壳，确保 EdgeOne 输出客户端入口脚本。
+    // CloudBase 登录态只在客户端恢复；静态壳不包含用户数据，可以安全复用。
+    ...EDGEONE_ACCOUNT_CLIENT_SHELL_RULES,
     // 固定预渲染壳使用 URL fragment 携带领取 token：静态托管可直接服务，
     // 且 fragment 不会进入服务器访问日志或 Referer。
     '/claim': {
@@ -161,10 +173,10 @@ export default defineNuxtConfig({
     '/link': { prerender: true, ssr: false },
     '/auth/**': { ssr: false },
     '/apps/download': { redirect: { to: '/download', statusCode: 301 } },
-    '/apps/**': { ssr: false },
+    // 动态应用路由无法枚举预渲染；保留 SSR 加载壳，数据仍在 onMounted / 会话就绪后从客户端读取。
+    '/apps/**': { ssr: true },
     // 公开用户主页：SSR（SEO / 分享 OG），数据经 server route 代理 getProfile；关系 / 应用等客户端补
     '/u/**': { ssr: true },
-    '/feed': { ssr: false },
     '/test/**': { ssr: false },
 
     '/_nuxt/**': {
@@ -210,7 +222,7 @@ export default defineNuxtConfig({
     prerender: {
       // 显式列出内容页 + 关 crawlLinks（不爬 /apps、/wallet 等重的账号页），配合 build 脚本调高的 Node 堆避免预渲染 OOM。
       crawlLinks: false,
-      routes: ['/', '/pricing', '/blog', '/blog/yunle-fun', '/changelog', '/developer', '/explore', '/download', '/docs/getting-started', '/docs/getting-started/usage', '/docs/privacy-policy', '/docs/terms-of-service', '/docs/contact', '/docs/sitemap', '/login', '/signup', '/link', '/claim', '/auth/sso', '/auth/github', '/auth/callback'],
+      routes: ['/', '/pricing', '/blog', '/blog/yunle-fun', '/changelog', '/developer', '/explore', '/download', '/docs/getting-started', '/docs/getting-started/usage', '/docs/privacy-policy', '/docs/terms-of-service', '/docs/contact', '/docs/sitemap', '/login', '/signup', '/link', '/claim', '/auth/sso', '/auth/github', '/auth/callback', ...EDGEONE_ACCOUNT_CLIENT_SHELL_ROUTES],
       failOnError: false,
     },
   },

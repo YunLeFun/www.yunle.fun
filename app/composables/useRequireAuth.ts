@@ -10,6 +10,10 @@ import { useTcbAuthSession } from '~/composables/auth/useAuthSession'
  * @param redirect 登录后回跳地址，默认当前完整路径
  */
 export function useRequireAuth(redirect?: string) {
+  // SSR 只输出无用户数据的页面加载壳；登录态必须在浏览器内从 CloudBase / cookie 会话恢复。
+  if (import.meta.server)
+    return
+
   const { isAuthenticated, authReady, checkAuthStatus } = useTcbAuthSession()
   const router = useRouter()
   const route = useRoute()

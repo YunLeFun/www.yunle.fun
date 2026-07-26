@@ -4,7 +4,7 @@
   "private": true,
   "packageManager": "pnpm@11.17.0",
   "scripts": {
-    "build": "NODE_OPTIONS=--max-old-space-size=4096 nuxt build",
+    "build": "NODE_OPTIONS=--max-old-space-size=4096 nuxt build && node scripts/verify-edgeone-client-shells.mjs",
     "build:authorization-core": "pnpm --dir packages/authorization-core build",
     "deploy:sso:development": "node scripts/deploy-sso-development.mjs",
     "dev": "TMPDIR=/tmp nuxt dev --host",
