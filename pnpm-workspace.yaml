@@ -25,6 +25,7 @@ allowBuilds:
 # 顶传递依赖到已修补版本（仅 fontless 仍引入 esbuild <0.28.1，GHSA-g7r4-m6w7-qqqr）
 overrides:
   fontless>esbuild: ^0.28.1
+  minimatch>brace-expansion: 5.0.8
 
 catalog:
   '@antfu/eslint-config': ^9.2.0
