@@ -10,14 +10,12 @@ const categories: ExplorerCategory[] = [
     label: '灵感智能',
     description: '智能应用',
     icon: 'i-lucide-sparkles',
-    anchor: { x: 20, y: 20 },
   },
   {
     id: 'play',
     label: '轻松一下',
     description: '互动玩具',
     icon: 'i-lucide-gamepad-2',
-    anchor: { x: 60, y: 60 },
   },
 ]
 

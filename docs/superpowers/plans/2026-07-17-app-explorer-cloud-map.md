@@ -1,5 +1,7 @@
 # Cloud App Atlas Implementation Plan
 
+> **Status (2026-07-27):** Superseded. The legacy public-app cloud map described here was retired after the registry-backed `AppSsoCloudMap` became the canonical cloud visualization for both the homepage and `/explore`. The searchable public-app grid remains active.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build a public `/explore` page that presents every official public app as an accessible cloud atlas and a searchable application grid.

@@ -16,10 +16,6 @@ export interface ExplorerCategory {
   label: string
   description: string
   icon: string
-  anchor: {
-    x: number
-    y: number
-  }
 }
 
 export interface ExplorerApp extends AppRecord {

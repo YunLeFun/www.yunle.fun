@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { ExplorerApp, SsoAccountState } from '~/types/app-explorer'
-import { computed, onMounted, shallowRef } from 'vue'
-import { useTcbAuthSession } from '~/composables/auth/useAuthSession'
+import type { ExplorerApp } from '~/types/app-explorer'
+import { computed } from 'vue'
+import { useSsoAccountState } from '~/composables/useSsoAccountState'
 import { ssoExplorerApps } from '~/config/sso-explorer'
 import AppSsoCloudMap from './AppSsoCloudMap.vue'
 
@@ -15,22 +15,7 @@ defineEmits<{
 
 const categoryCount = computed(() => new Set(props.apps.map(app => app.category)).size)
 const prefersReducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
-const authSession = useTcbAuthSession()
-const hydrated = shallowRef(false)
-const accountState = computed<SsoAccountState>(() => ({
-  status: hydrated.value
-    ? (authSession.authStatus?.value ?? (authSession.user?.value ? 'authenticated' : 'guest'))
-    : 'pending',
-  displayName: authSession.user?.value?.nickname || authSession.user?.value?.login || '云乐坊账号',
-  avatar: authSession.user?.value?.avatar,
-  to: hydrated.value && authSession.authStatus?.value === 'authenticated'
-    ? '/profile'
-    : '/login?redirect=%2Fexplore',
-}))
-
-onMounted(() => {
-  hydrated.value = true
-})
+const accountState = useSsoAccountState('/explore')
 </script>
 
 <template>

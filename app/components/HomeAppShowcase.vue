@@ -1,41 +1,14 @@
 <script setup lang="ts">
-import type { AppRecord } from '~/types/app'
-import { computed, onMounted, shallowRef } from 'vue'
-import AppCloudMap from '~/components/apps/AppCloudMap.vue'
-import { useTcbAuthSession } from '~/composables/auth/useAuthSession'
-import { normalizeExplorerApps } from '~/utils/app-explorer'
+import AppSsoCloudMap from '~/components/apps/AppSsoCloudMap.vue'
+import { useSsoAccountState } from '~/composables/useSsoAccountState'
+import { ssoExplorerApps } from '~/config/sso-explorer'
 
-const apps = shallowRef<AppRecord[]>([])
-const loading = shallowRef(true)
-const error = shallowRef<string | null>(null)
-const { getOfficialApps } = useApps()
-const { authReady, checkAuthStatus } = useTcbAuthSession()
 const prefersReducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
-const normalizedApps = computed(() => normalizeExplorerApps(apps.value))
-
-async function loadApps() {
-  loading.value = true
-  error.value = null
-
-  try {
-    if (!authReady.value)
-      await checkAuthStatus()
-
-    apps.value = (await getOfficialApps()).filter(app => app.isPublic)
-  }
-  catch {
-    error.value = '应用云图暂时没有加载成功，请稍后重试。'
-  }
-  finally {
-    loading.value = false
-  }
-}
+const accountState = useSsoAccountState('/')
 
 function browseApps() {
   return navigateTo('/explore')
 }
-
-onMounted(loadApps)
 </script>
 
 <template>
@@ -45,19 +18,19 @@ onMounted(loadApps)
         <div>
           <p class="home-app-showcase__eyebrow">
             <UIcon name="i-lucide-cloud-sun" aria-hidden="true" />
-            应用发现
+            统一账号生态
           </p>
           <h2 id="home-app-showcase-title">
-            看见正在开放的应用
+            一个账号，连接每一朵云
           </h2>
           <p>
-            云图直接读取应用市场中的官方公开应用。聚焦或悬停在应用上，可以查看它的名称与简介。
+            云图展示已经接入云乐坊统一账号的应用；全部公开应用仍可在应用市场中浏览。
           </p>
         </div>
 
         <UButton
           to="/explore"
-          label="打开应用市场"
+          label="浏览全部应用"
           icon="i-lucide-arrow-up-right"
           trailing
           color="neutral"
@@ -66,51 +39,9 @@ onMounted(loadApps)
         />
       </header>
 
-      <div
-        v-if="loading"
-        class="home-app-showcase__state"
-        role="status"
-        aria-live="polite"
-      >
-        <UIcon name="i-lucide-loader-circle" class="animate-spin" aria-hidden="true" />
-        <div>
-          <strong>正在连接应用市场</strong>
-          <span>公开应用加载完成后会在这里组成云图。</span>
-        </div>
-      </div>
-
-      <div
-        v-else-if="error"
-        class="home-app-showcase__state"
-        role="alert"
-      >
-        <UIcon name="i-lucide-cloud-off" aria-hidden="true" />
-        <div>
-          <strong>{{ error }}</strong>
-          <span>你仍然可以直接进入应用市场查看。</span>
-        </div>
-        <div class="home-app-showcase__state-actions">
-          <UButton label="重新加载" icon="i-lucide-refresh-cw" @click="loadApps" />
-          <UButton to="/explore" label="浏览应用" color="neutral" variant="outline" />
-        </div>
-      </div>
-
-      <div
-        v-else-if="!normalizedApps.length"
-        class="home-app-showcase__state"
-        role="status"
-      >
-        <UIcon name="i-lucide-cloud" aria-hidden="true" />
-        <div>
-          <strong>公开应用正在整理</strong>
-          <span>应用开放后会自动出现在这里。</span>
-        </div>
-        <UButton to="/explore" label="前往应用市场" color="neutral" variant="outline" />
-      </div>
-
-      <AppCloudMap
-        v-else
-        :apps="normalizedApps"
+      <AppSsoCloudMap
+        :apps="ssoExplorerApps"
+        :account="accountState"
         :reduced-motion="prefersReducedMotion"
         @scroll-to-grid="browseApps"
       />
@@ -167,48 +98,6 @@ onMounted(loadApps)
   color: var(--ui-text-muted);
   font-size: 1rem;
   line-height: 1.75;
-}
-
-.home-app-showcase__state {
-  display: flex;
-  min-height: 30rem;
-  flex-direction: column;
-  gap: 1rem;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--ui-border);
-  border-radius: 1.75rem;
-  padding: 2rem;
-  background: linear-gradient(145deg, color-mix(in srgb, var(--ui-primary) 8%, var(--ui-bg)), var(--ui-bg-elevated));
-  color: var(--ui-text-muted);
-  text-align: center;
-}
-
-.home-app-showcase__state > svg {
-  width: 2rem;
-  height: 2rem;
-  color: var(--ui-primary);
-}
-
-.home-app-showcase__state > div:not(.home-app-showcase__state-actions) {
-  display: grid;
-  gap: 0.35rem;
-}
-
-.home-app-showcase__state strong {
-  color: var(--ui-text-highlighted);
-  font-size: 1rem;
-}
-
-.home-app-showcase__state span {
-  font-size: 0.9rem;
-}
-
-.home-app-showcase__state-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  justify-content: center;
 }
 
 @media (min-width: 768px) {
