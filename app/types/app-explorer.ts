@@ -36,3 +36,26 @@ export interface AppExplorerMeta {
   featured?: boolean
   accent?: string
 }
+
+export interface SsoExplorerApp {
+  clientId: string
+  appId: string
+  name: string
+  origin: string
+  description: string
+  logoUrl: string
+  fallbackMark: string
+  accent: string
+  detailSlug?: string
+  position: {
+    x: number
+    y: number
+  }
+}
+
+export interface SsoAccountState {
+  status: 'pending' | 'guest' | 'authenticated'
+  displayName: string
+  avatar?: string | null
+  to: string
+}

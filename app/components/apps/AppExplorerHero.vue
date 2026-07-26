@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import type { ExplorerApp } from '~/types/app-explorer'
-import { computed } from 'vue'
-import AppCloudMap from './AppCloudMap.vue'
+import type { ExplorerApp, SsoAccountState } from '~/types/app-explorer'
+import { computed, onMounted, shallowRef } from 'vue'
+import { useTcbAuthSession } from '~/composables/auth/useAuthSession'
+import { ssoExplorerApps } from '~/config/sso-explorer'
+import AppSsoCloudMap from './AppSsoCloudMap.vue'
 
 const props = defineProps<{
   apps: ExplorerApp[]
@@ -12,7 +14,23 @@ defineEmits<{
 }>()
 
 const categoryCount = computed(() => new Set(props.apps.map(app => app.category)).size)
-const featuredCount = computed(() => props.apps.filter(app => app.featured).length)
+const prefersReducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
+const authSession = useTcbAuthSession()
+const hydrated = shallowRef(false)
+const accountState = computed<SsoAccountState>(() => ({
+  status: hydrated.value
+    ? (authSession.authStatus?.value ?? (authSession.user?.value ? 'authenticated' : 'guest'))
+    : 'pending',
+  displayName: authSession.user?.value?.nickname || authSession.user?.value?.login || '云乐坊账号',
+  avatar: authSession.user?.value?.avatar,
+  to: hydrated.value && authSession.authStatus?.value === 'authenticated'
+    ? '/profile'
+    : '/login?redirect=%2Fexplore',
+}))
+
+onMounted(() => {
+  hydrated.value = true
+})
 </script>
 
 <template>
@@ -24,7 +42,7 @@ const featuredCount = computed(() => props.apps.filter(app => app.featured).leng
         </p>
         <h1>云端应用图谱</h1>
         <p class="app-explorer-hero__lead">
-          每一朵云，都是一个等待相遇的创意。沿着云路漫游，或直接搜索你感兴趣的应用。
+          一个云乐坊账号，连接已接入统一登录的应用；继续向下，发现全部公开应用。
         </p>
       </div>
 
@@ -38,13 +56,18 @@ const featuredCount = computed(() => props.apps.filter(app => app.featured).leng
           <dd>{{ categoryCount }}</dd>
         </div>
         <div>
-          <dt>精选云朵</dt>
-          <dd>{{ featuredCount }}</dd>
+          <dt>统一账号应用</dt>
+          <dd>{{ ssoExplorerApps.length }}</dd>
         </div>
       </dl>
     </div>
 
-    <AppCloudMap :apps="apps" @scroll-to-grid="$emit('scrollToGrid')" />
+    <AppSsoCloudMap
+      :apps="ssoExplorerApps"
+      :account="accountState"
+      :reduced-motion="prefersReducedMotion"
+      @scroll-to-grid="$emit('scrollToGrid')"
+    />
   </section>
 </template>
 

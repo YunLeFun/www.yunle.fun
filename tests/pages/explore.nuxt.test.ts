@@ -72,32 +72,33 @@ describe('explore page', () => {
     await nextTick()
 
     expect(h.getOfficialApps).toHaveBeenCalledTimes(1)
-    expect(wrapper.get('[data-testid="cloud-island-ai-sfc"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="sso-app-ai-sfc"]').exists()).toBe(true)
   })
 
-  it('loads public apps and shares filtering between the cloud and grid', async () => {
+  it('keeps the SSO map stable while filtering the public app grid', async () => {
     const wrapper = await mountSuspended(ExplorePage)
     await flushPromises()
     await nextTick()
 
     expect(h.getOfficialApps).toHaveBeenCalledTimes(1)
-    expect(wrapper.get('[data-testid="cloud-island-ai-sfc"]').exists()).toBe(true)
-    expect(wrapper.findAll('a[href="/apps/ai-sfc"]').length).toBeGreaterThan(1)
-    expect(wrapper.get('[data-testid="cloud-island-fc"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="sso-app-ai-sfc"]').exists()).toBe(true)
+    expect(wrapper.find('section[aria-label="应用列表"] a[href="/apps/ai-sfc"]').exists()).toBe(true)
+    expect(wrapper.find('section[aria-label="应用列表"] a[href="/apps/fc"]').exists()).toBe(true)
 
     await wrapper.get('input[type="search"]').setValue('AI')
     await nextTick()
 
-    expect(wrapper.get('[data-testid="cloud-island-ai-sfc"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="cloud-island-fc"]').exists()).toBe(false)
-    expect(wrapper.findAll('a[href="/apps/fc"]')).toHaveLength(0)
+    expect(wrapper.get('[data-testid="sso-app-ai-sfc"]').exists()).toBe(true)
+    expect(wrapper.find('section[aria-label="应用列表"] a[href="/apps/ai-sfc"]').exists()).toBe(true)
+    expect(wrapper.find('section[aria-label="应用列表"] a[href="/apps/fc"]').exists()).toBe(false)
 
     await wrapper.get('input[type="search"]').setValue('')
     await wrapper.get('[data-category="play"]').trigger('click')
     await nextTick()
 
-    expect(wrapper.find('[data-testid="cloud-island-ai-sfc"]').exists()).toBe(false)
-    expect(wrapper.get('[data-testid="cloud-island-fc"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="sso-app-ai-sfc"]').exists()).toBe(true)
+    expect(wrapper.find('section[aria-label="应用列表"] a[href="/apps/ai-sfc"]').exists()).toBe(false)
+    expect(wrapper.find('section[aria-label="应用列表"] a[href="/apps/fc"]').exists()).toBe(true)
   })
 
   it('retries loading after a transient error', async () => {
@@ -114,7 +115,7 @@ describe('explore page', () => {
     await nextTick()
 
     expect(h.getOfficialApps).toHaveBeenCalledTimes(2)
-    expect(wrapper.get('[data-testid="cloud-island-ai-sfc"]').exists()).toBe(true)
+    expect(wrapper.find('section[aria-label="应用列表"] a[href="/apps/ai-sfc"]').exists()).toBe(true)
   })
 
   it('uses the public atlas as the homepage exploration entry', () => {

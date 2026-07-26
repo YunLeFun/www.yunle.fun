@@ -68,7 +68,7 @@ onMounted(loadApps)
 
     <UContainer class="app-explorer-page__container">
       <AppExplorerHero
-        :apps="filteredApps"
+        :apps="normalizedApps"
         @scroll-to-grid="scrollToGrid"
       />
 

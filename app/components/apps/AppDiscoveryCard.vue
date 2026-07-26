@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ExplorerApp } from '~/types/app-explorer'
 import { computed, shallowRef } from 'vue'
+import { isSsoExplorerAppSlug } from '~/config/sso-explorer'
 import AppExplorerIcon from './AppExplorerIcon.vue'
 
 const props = defineProps<{
@@ -10,6 +11,7 @@ const props = defineProps<{
 const spotlightX = shallowRef(50)
 const spotlightY = shallowRef(20)
 const appUrl = computed(() => props.app.websiteUrl || props.app.backupUrl)
+const ssoConnected = computed(() => isSsoExplorerAppSlug(props.app.slug))
 
 function updateSpotlight(event: PointerEvent) {
   const element = event.currentTarget as HTMLElement
@@ -37,6 +39,10 @@ function updateSpotlight(event: PointerEvent) {
           <div class="app-discovery-card__eyebrow">
             <span>{{ app.categoryLabel }}</span>
             <span v-if="app.featured" class="app-discovery-card__featured">精选</span>
+            <span v-if="ssoConnected" class="app-discovery-card__sso">
+              <UIcon name="i-lucide-shield-check" aria-hidden="true" />
+              统一账号
+            </span>
           </div>
           <h3 class="app-discovery-card__title">
             <NuxtLink :to="`/apps/${app.slug}`">
@@ -149,6 +155,23 @@ function updateSpotlight(event: PointerEvent) {
   background: color-mix(in srgb, var(--app-accent) 16%, transparent);
   color: var(--app-accent);
   letter-spacing: normal;
+}
+
+.app-discovery-card__sso {
+  display: inline-flex;
+  gap: 0.22rem;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.12rem 0.45rem;
+  background: color-mix(in srgb, var(--ylf-dopa-blue) 12%, transparent);
+  color: var(--ylf-dopa-blue);
+  letter-spacing: normal;
+  white-space: nowrap;
+}
+
+.app-discovery-card__sso :deep(svg) {
+  width: 0.7rem;
+  height: 0.7rem;
 }
 
 .app-discovery-card__title {
