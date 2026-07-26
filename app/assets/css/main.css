@@ -44,6 +44,25 @@
   --ylf-border: #cbd5e1;
   --ylf-border-strong: #94a3b8;
   --ylf-shadow-color: #020617;
+  --ylf-account-panel-shadow: #082f66;
+
+  /* 统一账号云图：固定的晴空与白云绘制色，通过语义令牌供组件复用。 */
+  --ylf-sso-sky: #6bb5f1;
+  --ylf-sso-ink: #10203a;
+  --ylf-sso-accent: #3978c4;
+  --ylf-sso-accent-strong: #3f79cf;
+  --ylf-sso-cloud-top: #ffffff;
+  --ylf-sso-cloud-middle: #f9fcff;
+  --ylf-sso-cloud-middle-soft: #f7fbff;
+  --ylf-sso-cloud-base: #dceeff;
+  --ylf-sso-cloud-border: #75b3ef;
+  --ylf-sso-cloud-shadow: #184f89;
+  --ylf-sso-cloud-shadow-strong: #1e63a8;
+  --ylf-sso-veil-top: #2378ce;
+  --ylf-sso-veil-bottom: #215796;
+  --ylf-sso-route-edge: #cdebff;
+  --ylf-sso-route-cyan: #7be7ff;
+  --ylf-sso-route-violet: #8c83ff;
 
   /* YunLe UI 语义令牌：Nuxt UI 与 shadcn-vue 共用同一套明暗模式来源。 */
   --background: var(--ui-bg);
@@ -125,6 +144,7 @@
   --ylf-border: #2a3658;
   --ylf-border-strong: #3c4c74;
   --ylf-shadow-color: #020617;
+  --ylf-account-panel-shadow: #020617;
 
   /* 暗色下提亮的多巴胺色，保证在深色面板上依旧鲜活 */
   --ylf-dopa-pink: #f472b6;
@@ -404,7 +424,8 @@ body {
 .ylf-glass-btn[data-slot='base'] {
   background: color-mix(in srgb, #fff 22%, transparent);
   color: #fff;
-  border: 1px solid color-mix(in srgb, #fff 45%, transparent);
+  border: 0;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #fff 45%, transparent);
   backdrop-filter: blur(8px) saturate(140%);
   -webkit-backdrop-filter: blur(8px) saturate(140%);
   transition:
