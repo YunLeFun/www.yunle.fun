@@ -1,13 +1,25 @@
 <script setup lang="ts">
+import type { OAuthIdentityLike } from '~/utils/authProviders'
+import { ShieldCheckIcon } from '@lucide/vue'
+import { Badge } from '@/components/ui/badge'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { Separator } from '@/components/ui/separator'
 import {
   getBoundOAuthProviderIds,
+  getOAuthIdentityName,
   GITHUB_PROVIDER_ID,
   hasOAuthProvider,
   isOAuthProviderEnabled,
   normalizeOAuthProviderId,
   WECHAT_PROVIDER_ID,
 } from '~/utils/authProviders'
-import { maskPhone } from '~/utils/mask'
 
 const {
   user,
@@ -20,13 +32,22 @@ const {
 
 // 通过 getUserIdentities API 获取的真实绑定状态
 const boundProviders = ref<string[]>([])
+const boundIdentities = ref<OAuthIdentityLike[]>([])
 const userProviders = computed(() =>
   (user.value?.providers || []).map(normalizeOAuthProviderId).filter(Boolean),
 )
 const allBoundProviders = computed(() => [...userProviders.value, ...boundProviders.value])
+const configuredCredentialCount = computed(() =>
+  Number(!!user.value?.email)
+  + Number(!!user.value?.phone)
+  + Number(!!user.value?.hasPassword),
+)
 
 const isGitHubBound = computed(() =>
   hasOAuthProvider(allBoundProviders.value, GITHUB_PROVIDER_ID),
+)
+const githubLogin = computed(() =>
+  getOAuthIdentityName(boundIdentities.value, GITHUB_PROVIDER_ID),
 )
 const isWeChatBound = computed(() =>
   hasOAuthProvider(allBoundProviders.value, WECHAT_PROVIDER_ID),
@@ -52,6 +73,7 @@ const unbindTarget = ref<{ provider: string, label: string } | null>(null)
 async function refreshBoundProviders() {
   try {
     const identities = await getUserIdentities()
+    boundIdentities.value = identities
     boundProviders.value = getBoundOAuthProviderIds(identities)
   }
   catch {
@@ -125,41 +147,42 @@ onMounted(async () => {
 <template>
   <div class="space-y-6">
     <!-- 登录凭证 -->
-    <UPageCard class="p-4 sm:p-6">
-      <h3 class="mb-1 text-lg font-semibold">
-        登录凭证
-      </h3>
-      <p class="mb-3 text-xs text-muted">
-        用于登录账户的方式，建议至少绑定一种并设置密码
-      </p>
+    <Card class="security-credentials">
+      <CardHeader class="security-credentials__header">
+        <div class="flex min-w-0 items-start gap-3">
+          <span class="security-credentials__mark" aria-hidden="true">
+            <ShieldCheckIcon />
+          </span>
+          <div class="flex min-w-0 flex-1 flex-col gap-1">
+            <CardTitle>登录凭证</CardTitle>
+            <CardDescription>
+              管理可用于登录和找回账号的验证方式
+            </CardDescription>
+          </div>
+          <Badge variant="outline" class="shrink-0">
+            {{ configuredCredentialCount }}/3 已配置
+          </Badge>
+        </div>
+      </CardHeader>
 
-      <div class="divide-y divide-default">
+      <CardContent class="security-credentials__content">
         <!-- 邮箱 -->
         <SettingsSecurityBindEmail />
+        <Separator />
 
         <!-- 手机号 -->
-        <div class="flex flex-col gap-2 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-          <div class="min-w-0 flex-1 space-y-1">
-            <p class="text-sm font-medium">
-              手机号
-            </p>
-            <p class="truncate text-xs text-muted">
-              {{ user?.phone ? `已绑定 ${maskPhone(user.phone)}` : '未绑定手机号' }}
-            </p>
-          </div>
-          <UBadge
-            class="shrink-0 self-start sm:self-auto"
-            :label="user?.phone ? '已绑定' : '未绑定'"
-            :color="user?.phone ? 'success' : 'warning'"
-            variant="subtle"
-            size="sm"
-          />
-        </div>
+        <SettingsSecurityBindPhone />
+        <Separator />
 
         <!-- 密码 -->
         <SettingsSecurityPassword />
-      </div>
-    </UPageCard>
+      </CardContent>
+
+      <CardFooter class="security-credentials__footer">
+        <ShieldCheckIcon aria-hidden="true" />
+        <p>建议保留两种可用凭证，换设备或忘记密码时仍能找回账号。</p>
+      </CardFooter>
+    </Card>
 
     <!-- 第三方账号 -->
     <UPageCard v-if="isGitHubEnabled || isWeChatEnabled" class="p-4 sm:p-6">
@@ -178,6 +201,7 @@ onMounted(async () => {
           label="GitHub"
           icon="i-ri-github-fill"
           :bound="isGitHubBound"
+          :account-login="githubLogin"
           :loading="githubLoading || (unbindLoading && unbindTarget?.provider === 'github')"
           :providers-loading="providersLoading"
           @bind="handleBindGitHub"
@@ -239,3 +263,69 @@ onMounted(async () => {
     </UModal>
   </div>
 </template>
+
+<style scoped>
+.security-credentials {
+  position: relative;
+  gap: 0;
+  padding-block: 0;
+  overflow: hidden;
+  box-shadow: 0 22px 60px -48px color-mix(in srgb, var(--ylf-shadow-color) 34%, transparent);
+}
+
+.security-credentials::before {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 0.1875rem;
+  content: '';
+  background: var(--ylf-gradient-brand);
+}
+
+.security-credentials__header {
+  padding: 1.25rem;
+  border-bottom: 1px solid var(--ylf-border-subtle);
+  background:
+    radial-gradient(circle at 3.25rem 1rem, color-mix(in srgb, var(--primary) 9%, transparent), transparent 8rem),
+    var(--card);
+}
+
+.security-credentials__mark {
+  display: flex;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 11%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border));
+  border-radius: var(--radius-lg);
+}
+
+.security-credentials__mark svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.security-credentials__content {
+  padding-inline: 0;
+}
+
+.security-credentials__content :deep([data-slot='separator']) {
+  margin-left: 5rem;
+  width: calc(100% - 5rem);
+}
+
+.security-credentials__footer {
+  gap: 0.5rem;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+}
+
+.security-credentials__footer svg {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex: none;
+}
+</style>

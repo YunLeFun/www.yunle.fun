@@ -1,6 +1,45 @@
 <script setup lang="ts">
 import type { TcbResetPasswordData } from '~/composables/useTcbAuth'
+import {
+  CheckIcon,
+  EyeIcon,
+  EyeOffIcon,
+  KeyRoundIcon,
+  LockKeyholeIcon,
+  SendIcon,
+  ShieldCheckIcon,
+} from '@lucide/vue'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from '@/components/ui/field'
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from '@/components/ui/input-group'
+import { Spinner } from '@/components/ui/spinner'
 import { maskPhone } from '~/utils/mask'
+import SecurityCredentialRow from './SecurityCredentialRow.vue'
+import SecurityOtpInput from './SecurityOtpInput.vue'
+import SecurityVerificationProgress from './SecurityVerificationProgress.vue'
+
+const RE_OTP = /^\d{6}$/
 
 const {
   user,
@@ -29,11 +68,21 @@ const hasPassword = computed(() => user.value?.hasPassword)
 const otpTarget = computed(() =>
   user.value?.email || (user.value?.phone ? maskPhone(user.value.phone) : ''),
 )
+const newPasswordTooShort = computed(() => newPassword.value.length > 0 && newPassword.value.length < 6)
+const confirmPasswordMismatch = computed(() =>
+  confirmPasswordValue.value.length > 0 && newPassword.value !== confirmPasswordValue.value,
+)
 const passwordFormValid = computed(() => {
   if (hasPassword.value) {
     return oldPassword.value.length >= 6 && newPassword.value.length >= 6 && newPassword.value === confirmPasswordValue.value
   }
   return newPassword.value.length >= 6 && newPassword.value === confirmPasswordValue.value
+})
+
+watch(setPasswordOtpCode, (value) => {
+  const sanitized = value.replace(/\D/g, '').slice(0, 6)
+  if (sanitized !== value)
+    setPasswordOtpCode.value = sanitized
 })
 
 function openModal() {
@@ -61,7 +110,7 @@ async function handleSendSetPasswordOtp() {
 }
 
 async function handleConfirmSetPassword() {
-  if (!setPasswordResetData.value || !setPasswordOtpCode.value || newPassword.value.length < 6 || newPassword.value !== confirmPasswordValue.value)
+  if (!setPasswordResetData.value || !RE_OTP.test(setPasswordOtpCode.value) || newPassword.value.length < 6 || newPassword.value !== confirmPasswordValue.value)
     return
   try {
     await confirmSetPassword(setPasswordResetData.value, setPasswordOtpCode.value, newPassword.value)
@@ -86,291 +135,310 @@ async function handleChangePassword() {
 </script>
 
 <template>
-  <!-- 密码行 -->
-  <div class="flex flex-col gap-2 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-    <div class="min-w-0 flex-1 space-y-1">
-      <p class="text-sm font-medium">
-        登录密码
-      </p>
-      <p class="truncate text-xs text-muted">
-        {{ hasPassword ? '已设置密码，可使用邮箱/手机号 + 密码登录' : '未设置密码，设置后可使用密码登录' }}
-      </p>
-    </div>
-    <div class="flex shrink-0 items-center gap-2">
-      <UBadge
-        :label="hasPassword ? '已设置' : '未设置'"
-        :color="hasPassword ? 'success' : 'warning'"
-        variant="subtle"
-        size="sm"
-      />
-      <UButton
-        :label="hasPassword ? '修改' : '设置'"
-        color="primary"
-        variant="outline"
-        size="xs"
-        icon="i-lucide-key-round"
-        @click="openModal"
-      />
-    </div>
-  </div>
+  <SecurityCredentialRow
+    :icon="KeyRoundIcon"
+    label="登录密码"
+    :description="hasPassword ? '已设置密码，可配合邮箱或手机号登录' : '设置密码后，可在验证码之外多一种登录方式'"
+    :status="hasPassword ? '已设置' : '未设置'"
+    :action="hasPassword ? '修改' : '设置'"
+    accent="password"
+    :ready="!!hasPassword"
+    @action="openModal"
+  />
 
-  <!-- 密码设置/修改弹窗 -->
-  <UModal v-model:open="showModal">
-    <template #content>
-      <div class="p-6 space-y-4">
-        <div class="flex items-center gap-3">
-          <div class="p-2 rounded-full bg-primary-50 dark:bg-primary-950">
-            <UIcon name="i-lucide-key-round" class="text-xl text-primary" />
-          </div>
-          <div>
-            <h3 class="font-semibold">
-              {{ hasPassword ? '修改密码' : '设置密码' }}
-            </h3>
-            <p class="text-sm text-muted">
-              {{ hasPassword ? '请输入当前密码和新密码' : setPasswordStep === 'otp' ? `将发送验证码至${otpTarget || '绑定账号'}` : '请输入验证码并设置新密码' }}
-            </p>
-          </div>
+  <Dialog v-model:open="showModal">
+    <DialogContent class="sm:max-w-lg">
+      <DialogHeader>
+        <div class="flex items-center gap-2 text-xs font-medium text-primary">
+          <KeyRoundIcon aria-hidden="true" />
+          <span>密码保护</span>
         </div>
+        <DialogTitle>
+          {{ hasPassword ? '修改登录密码' : '设置登录密码' }}
+        </DialogTitle>
+        <DialogDescription>
+          {{ hasPassword ? '验证当前密码后，设置一个新的登录密码。' : '先验证已绑定的联系方式，再创建登录密码。' }}
+        </DialogDescription>
+      </DialogHeader>
 
-        <!-- 已有密码：直接修改 -->
-        <form v-if="hasPassword" class="space-y-4" @submit.prevent="handleChangePassword">
-          <UFormField label="当前密码">
-            <UInput
-              v-model="oldPassword"
-              :type="showOldPassword ? 'text' : 'password'"
-              placeholder="请输入当前密码"
-              size="lg"
-              icon="i-lucide-lock"
-              autocomplete="current-password"
-              :disabled="authLoading"
-              class="w-full"
-            >
-              <template #trailing>
-                <UButton
-                  :icon="showOldPassword ? 'i-lucide-eye-off' : 'i-lucide-eye'"
-                  color="neutral"
-                  variant="ghost"
-                  size="xs"
-                  type="button"
-                  :padded="false"
-                  :aria-label="showOldPassword ? '隐藏当前密码' : '显示当前密码'"
-                  :aria-pressed="showOldPassword"
+      <!-- 已有密码：直接修改 -->
+      <div v-if="hasPassword" class="px-6 pb-6">
+        <form id="password-change-form" @submit.prevent="handleChangePassword">
+          <FieldGroup>
+            <Field>
+              <FieldLabel for="password-current">
+                当前密码
+              </FieldLabel>
+              <InputGroup :data-disabled="authLoading">
+                <InputGroupAddon>
+                  <LockKeyholeIcon aria-hidden="true" />
+                </InputGroupAddon>
+                <InputGroupInput
+                  id="password-current"
+                  v-model="oldPassword"
+                  :type="showOldPassword ? 'text' : 'password'"
+                  autocomplete="current-password"
+                  placeholder="请输入当前密码"
                   :disabled="authLoading"
-                  @mousedown.prevent
-                  @click="showOldPassword = !showOldPassword"
                 />
-              </template>
-            </UInput>
-          </UFormField>
+                <InputGroupAddon align="inline-end">
+                  <InputGroupButton
+                    size="icon-xs"
+                    :aria-label="showOldPassword ? '隐藏当前密码' : '显示当前密码'"
+                    :aria-pressed="showOldPassword"
+                    :disabled="authLoading"
+                    @mousedown.prevent
+                    @click="showOldPassword = !showOldPassword"
+                  >
+                    <EyeOffIcon v-if="showOldPassword" />
+                    <EyeIcon v-else />
+                  </InputGroupButton>
+                </InputGroupAddon>
+              </InputGroup>
+            </Field>
 
-          <UFormField label="新密码">
-            <UInput
-              v-model="newPassword"
-              :type="showNewPassword ? 'text' : 'password'"
-              placeholder="至少 6 位字符"
-              size="lg"
-              icon="i-lucide-lock"
-              autocomplete="new-password"
-              :disabled="authLoading"
-              class="w-full"
-            >
-              <template #trailing>
-                <UButton
-                  :icon="showNewPassword ? 'i-lucide-eye-off' : 'i-lucide-eye'"
-                  color="neutral"
-                  variant="ghost"
-                  size="xs"
-                  type="button"
-                  :padded="false"
-                  :aria-label="showNewPassword ? '隐藏新密码' : '显示新密码'"
-                  :aria-pressed="showNewPassword"
+            <Field :data-invalid="newPasswordTooShort">
+              <FieldLabel for="password-new">
+                新密码
+              </FieldLabel>
+              <InputGroup :data-invalid="newPasswordTooShort" :data-disabled="authLoading">
+                <InputGroupAddon>
+                  <LockKeyholeIcon aria-hidden="true" />
+                </InputGroupAddon>
+                <InputGroupInput
+                  id="password-new"
+                  v-model="newPassword"
+                  :type="showNewPassword ? 'text' : 'password'"
+                  autocomplete="new-password"
+                  placeholder="至少 6 位字符"
+                  :aria-invalid="newPasswordTooShort"
                   :disabled="authLoading"
-                  @mousedown.prevent
-                  @click="showNewPassword = !showNewPassword"
                 />
-              </template>
-            </UInput>
-            <template v-if="newPassword && newPassword.length < 6" #hint>
-              <span class="text-xs text-error">密码长度至少 6 位</span>
-            </template>
-          </UFormField>
+                <InputGroupAddon align="inline-end">
+                  <InputGroupButton
+                    size="icon-xs"
+                    :aria-label="showNewPassword ? '隐藏新密码' : '显示新密码'"
+                    :aria-pressed="showNewPassword"
+                    :disabled="authLoading"
+                    @mousedown.prevent
+                    @click="showNewPassword = !showNewPassword"
+                  >
+                    <EyeOffIcon v-if="showNewPassword" />
+                    <EyeIcon v-else />
+                  </InputGroupButton>
+                </InputGroupAddon>
+              </InputGroup>
+              <FieldError v-if="newPasswordTooShort">
+                密码长度至少 6 位
+              </FieldError>
+              <FieldDescription v-else>
+                建议使用不与其他网站重复的密码
+              </FieldDescription>
+            </Field>
 
-          <UFormField label="确认新密码">
-            <UInput
-              v-model="confirmPasswordValue"
-              :type="showConfirmPassword ? 'text' : 'password'"
-              placeholder="再次输入新密码"
-              size="lg"
-              icon="i-lucide-lock"
-              autocomplete="new-password"
-              :disabled="authLoading"
-              class="w-full"
-            >
-              <template #trailing>
-                <UButton
-                  :icon="showConfirmPassword ? 'i-lucide-eye-off' : 'i-lucide-eye'"
-                  color="neutral"
-                  variant="ghost"
-                  size="xs"
-                  type="button"
-                  :padded="false"
-                  :aria-label="showConfirmPassword ? '隐藏确认密码' : '显示确认密码'"
-                  :aria-pressed="showConfirmPassword"
+            <Field :data-invalid="confirmPasswordMismatch">
+              <FieldLabel for="password-confirm">
+                确认新密码
+              </FieldLabel>
+              <InputGroup :data-invalid="confirmPasswordMismatch" :data-disabled="authLoading">
+                <InputGroupAddon>
+                  <LockKeyholeIcon aria-hidden="true" />
+                </InputGroupAddon>
+                <InputGroupInput
+                  id="password-confirm"
+                  v-model="confirmPasswordValue"
+                  :type="showConfirmPassword ? 'text' : 'password'"
+                  autocomplete="new-password"
+                  placeholder="再次输入新密码"
+                  :aria-invalid="confirmPasswordMismatch"
                   :disabled="authLoading"
-                  @mousedown.prevent
-                  @click="showConfirmPassword = !showConfirmPassword"
                 />
-              </template>
-            </UInput>
-            <template v-if="confirmPasswordValue && newPassword !== confirmPasswordValue" #hint>
-              <span class="text-xs text-error">两次输入的密码不一致</span>
-            </template>
-          </UFormField>
-
-          <div class="flex justify-end gap-3">
-            <UButton
-              label="取消"
-              color="neutral"
-              variant="outline"
-              @click="showModal = false"
-            />
-            <UButton
-              label="确认修改"
-              type="submit"
-              color="primary"
-              :loading="authLoading"
-              :disabled="!passwordFormValid"
-            />
-          </div>
-        </form>
-
-        <!-- 首次设置密码：步骤1 发送验证码 -->
-        <div v-else-if="setPasswordStep === 'otp'" class="space-y-4">
-          <p class="text-sm text-muted">
-            为了验证您的身份，将向 <strong>{{ otpTarget }}</strong> 发送验证码
-          </p>
-          <div class="flex justify-end gap-3">
-            <UButton
-              label="取消"
-              color="neutral"
-              variant="outline"
-              @click="showModal = false"
-            />
-            <UButton
-              label="发送验证码"
-              color="primary"
-              :loading="authLoading"
-              :disabled="!user?.email && !user?.phone"
-              @click="handleSendSetPasswordOtp"
-            />
-          </div>
-        </div>
-
-        <!-- 首次设置密码：步骤2 验证码 + 新密码 -->
-        <form v-else class="space-y-4" @submit.prevent="handleConfirmSetPassword">
-          <UFormField label="验证码">
-            <div class="flex gap-2">
-              <UInput
-                v-model="setPasswordOtpCode"
-                placeholder="输入 6 位验证码"
-                size="lg"
-                icon="i-lucide-shield-check"
-                maxlength="6"
-                :disabled="authLoading"
-                class="flex-1"
-              />
-              <UButton
-                :label="setPasswordCountdownActive ? `${setPasswordCountdown}s` : '重新发送'"
-                color="neutral"
-                variant="outline"
-                size="lg"
-                :disabled="setPasswordCountdownActive || authLoading"
-                @click="handleSendSetPasswordOtp"
-              />
-            </div>
-          </UFormField>
-
-          <UFormField label="新密码">
-            <UInput
-              v-model="newPassword"
-              :type="showNewPassword ? 'text' : 'password'"
-              placeholder="至少 6 位字符"
-              size="lg"
-              icon="i-lucide-lock"
-              autocomplete="new-password"
-              :disabled="authLoading"
-              class="w-full"
-            >
-              <template #trailing>
-                <UButton
-                  :icon="showNewPassword ? 'i-lucide-eye-off' : 'i-lucide-eye'"
-                  color="neutral"
-                  variant="ghost"
-                  size="xs"
-                  type="button"
-                  :padded="false"
-                  :aria-label="showNewPassword ? '隐藏新密码' : '显示新密码'"
-                  :aria-pressed="showNewPassword"
-                  :disabled="authLoading"
-                  @mousedown.prevent
-                  @click="showNewPassword = !showNewPassword"
-                />
-              </template>
-            </UInput>
-            <template v-if="newPassword && newPassword.length < 6" #hint>
-              <span class="text-xs text-error">密码长度至少 6 位</span>
-            </template>
-          </UFormField>
-
-          <UFormField label="确认新密码">
-            <UInput
-              v-model="confirmPasswordValue"
-              :type="showConfirmPassword ? 'text' : 'password'"
-              placeholder="再次输入新密码"
-              size="lg"
-              icon="i-lucide-lock"
-              autocomplete="new-password"
-              :disabled="authLoading"
-              class="w-full"
-            >
-              <template #trailing>
-                <UButton
-                  :icon="showConfirmPassword ? 'i-lucide-eye-off' : 'i-lucide-eye'"
-                  color="neutral"
-                  variant="ghost"
-                  size="xs"
-                  type="button"
-                  :padded="false"
-                  :aria-label="showConfirmPassword ? '隐藏确认密码' : '显示确认密码'"
-                  :aria-pressed="showConfirmPassword"
-                  :disabled="authLoading"
-                  @mousedown.prevent
-                  @click="showConfirmPassword = !showConfirmPassword"
-                />
-              </template>
-            </UInput>
-            <template v-if="confirmPasswordValue && newPassword !== confirmPasswordValue" #hint>
-              <span class="text-xs text-error">两次输入的密码不一致</span>
-            </template>
-          </UFormField>
-
-          <div class="flex justify-end gap-3">
-            <UButton
-              label="返回"
-              color="neutral"
-              variant="outline"
-              @click="setPasswordStep = 'otp'"
-            />
-            <UButton
-              label="设置密码"
-              type="submit"
-              color="primary"
-              :loading="authLoading"
-              :disabled="!setPasswordOtpCode || setPasswordOtpCode.length < 4 || newPassword.length < 6 || newPassword !== confirmPasswordValue"
-            />
-          </div>
+                <InputGroupAddon align="inline-end">
+                  <InputGroupButton
+                    size="icon-xs"
+                    :aria-label="showConfirmPassword ? '隐藏确认密码' : '显示确认密码'"
+                    :aria-pressed="showConfirmPassword"
+                    :disabled="authLoading"
+                    @mousedown.prevent
+                    @click="showConfirmPassword = !showConfirmPassword"
+                  >
+                    <EyeOffIcon v-if="showConfirmPassword" />
+                    <EyeIcon v-else />
+                  </InputGroupButton>
+                </InputGroupAddon>
+              </InputGroup>
+              <FieldError v-if="confirmPasswordMismatch">
+                两次输入的密码不一致
+              </FieldError>
+            </Field>
+          </FieldGroup>
         </form>
       </div>
-    </template>
-  </UModal>
+
+      <!-- 首次设置密码 -->
+      <div v-else class="flex flex-col gap-5 px-6 pb-6">
+        <SecurityVerificationProgress
+          :current="setPasswordStep === 'otp' ? 1 : 2"
+          first-label="验证身份"
+          second-label="创建密码"
+        />
+
+        <div v-if="setPasswordStep === 'otp'">
+          <Alert>
+            <ShieldCheckIcon aria-hidden="true" />
+            <AlertTitle>先确认是你本人</AlertTitle>
+            <AlertDescription>
+              验证码将发送至 <strong>{{ otpTarget || '已绑定账号' }}</strong>，验证通过后即可设置密码。
+            </AlertDescription>
+          </Alert>
+        </div>
+
+        <form
+          v-else
+          id="password-set-form"
+          @submit.prevent="handleConfirmSetPassword"
+        >
+          <FieldGroup>
+            <Field>
+              <FieldLabel>验证码</FieldLabel>
+              <SecurityOtpInput
+                v-model="setPasswordOtpCode"
+                :disabled="authLoading"
+                :countdown-active="setPasswordCountdownActive"
+                :countdown="setPasswordCountdown"
+                @resend="handleSendSetPasswordOtp"
+              />
+              <FieldDescription>
+                输入收到的 6 位数字验证码
+              </FieldDescription>
+            </Field>
+
+            <Field :data-invalid="newPasswordTooShort">
+              <FieldLabel for="password-create">
+                新密码
+              </FieldLabel>
+              <InputGroup :data-invalid="newPasswordTooShort" :data-disabled="authLoading">
+                <InputGroupAddon>
+                  <LockKeyholeIcon aria-hidden="true" />
+                </InputGroupAddon>
+                <InputGroupInput
+                  id="password-create"
+                  v-model="newPassword"
+                  :type="showNewPassword ? 'text' : 'password'"
+                  autocomplete="new-password"
+                  placeholder="至少 6 位字符"
+                  :aria-invalid="newPasswordTooShort"
+                  :disabled="authLoading"
+                />
+                <InputGroupAddon align="inline-end">
+                  <InputGroupButton
+                    size="icon-xs"
+                    :aria-label="showNewPassword ? '隐藏新密码' : '显示新密码'"
+                    :aria-pressed="showNewPassword"
+                    :disabled="authLoading"
+                    @mousedown.prevent
+                    @click="showNewPassword = !showNewPassword"
+                  >
+                    <EyeOffIcon v-if="showNewPassword" />
+                    <EyeIcon v-else />
+                  </InputGroupButton>
+                </InputGroupAddon>
+              </InputGroup>
+              <FieldError v-if="newPasswordTooShort">
+                密码长度至少 6 位
+              </FieldError>
+              <FieldDescription v-else>
+                建议使用不与其他网站重复的密码
+              </FieldDescription>
+            </Field>
+
+            <Field :data-invalid="confirmPasswordMismatch">
+              <FieldLabel for="password-create-confirm">
+                确认新密码
+              </FieldLabel>
+              <InputGroup :data-invalid="confirmPasswordMismatch" :data-disabled="authLoading">
+                <InputGroupAddon>
+                  <LockKeyholeIcon aria-hidden="true" />
+                </InputGroupAddon>
+                <InputGroupInput
+                  id="password-create-confirm"
+                  v-model="confirmPasswordValue"
+                  :type="showConfirmPassword ? 'text' : 'password'"
+                  autocomplete="new-password"
+                  placeholder="再次输入新密码"
+                  :aria-invalid="confirmPasswordMismatch"
+                  :disabled="authLoading"
+                />
+                <InputGroupAddon align="inline-end">
+                  <InputGroupButton
+                    size="icon-xs"
+                    :aria-label="showConfirmPassword ? '隐藏确认密码' : '显示确认密码'"
+                    :aria-pressed="showConfirmPassword"
+                    :disabled="authLoading"
+                    @mousedown.prevent
+                    @click="showConfirmPassword = !showConfirmPassword"
+                  >
+                    <EyeOffIcon v-if="showConfirmPassword" />
+                    <EyeIcon v-else />
+                  </InputGroupButton>
+                </InputGroupAddon>
+              </InputGroup>
+              <FieldError v-if="confirmPasswordMismatch">
+                两次输入的密码不一致
+              </FieldError>
+            </Field>
+          </FieldGroup>
+        </form>
+      </div>
+
+      <DialogFooter v-if="hasPassword">
+        <DialogClose as-child>
+          <Button type="button" variant="outline">
+            取消
+          </Button>
+        </DialogClose>
+        <Button
+          type="submit"
+          form="password-change-form"
+          :disabled="!passwordFormValid || authLoading"
+        >
+          <Spinner v-if="authLoading" data-icon="inline-start" />
+          <CheckIcon v-else data-icon="inline-start" />
+          {{ authLoading ? '修改中' : '确认修改' }}
+        </Button>
+      </DialogFooter>
+
+      <DialogFooter v-else-if="setPasswordStep === 'otp'">
+        <DialogClose as-child>
+          <Button type="button" variant="outline">
+            取消
+          </Button>
+        </DialogClose>
+        <Button
+          type="button"
+          :disabled="(!user?.email && !user?.phone) || authLoading"
+          @click="handleSendSetPasswordOtp"
+        >
+          <Spinner v-if="authLoading" data-icon="inline-start" />
+          <SendIcon v-else data-icon="inline-start" />
+          {{ authLoading ? '发送中' : '发送验证码' }}
+        </Button>
+      </DialogFooter>
+
+      <DialogFooter v-else>
+        <Button type="button" variant="outline" @click="setPasswordStep = 'otp'">
+          返回
+        </Button>
+        <Button
+          type="submit"
+          form="password-set-form"
+          :disabled="!RE_OTP.test(setPasswordOtpCode) || !passwordFormValid || authLoading"
+        >
+          <Spinner v-if="authLoading" data-icon="inline-start" />
+          <CheckIcon v-else data-icon="inline-start" />
+          {{ authLoading ? '设置中' : '设置密码' }}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
 </template>

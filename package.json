@@ -43,6 +43,7 @@
     "reka-ui": "catalog:",
     "tailwind-merge": "catalog:",
     "tw-animate-css": "catalog:",
+    "vue-input-otp": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

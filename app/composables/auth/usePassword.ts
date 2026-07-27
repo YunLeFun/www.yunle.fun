@@ -1,5 +1,5 @@
 /**
- * 密码认证（登录、修改、重置）和邮箱绑定
+ * 密码认证（登录、修改、重置）和邮箱/手机号绑定
  */
 import type { TcbBindVerificationData, TcbResetPasswordData } from './types'
 import { getAuthErrorPresentation, getErrorMessage } from './types'
@@ -190,6 +190,51 @@ export function useTcbPassword(core: ReturnType<typeof import('./useAuthCore').u
     }
   }
 
+  const bindPhone = async (phone: string) => {
+    try {
+      loading.value = true
+      error.value = null
+      const { data, error: updateError } = await auth.updateUser({ phone })
+      if (updateError)
+        throw new Error(updateError.message || '发送验证码失败')
+      toast.add({ title: '验证码已发送', description: '请查看手机短信', color: 'success' })
+      return data
+    }
+    catch (err: unknown) {
+      console.error('绑定手机号失败:', err)
+      error.value = getErrorMessage(err)
+      toast.add({ title: '发送失败', description: getErrorMessage(err) || '请稍后重试', color: 'error' })
+      throw err
+    }
+    finally {
+      loading.value = false
+    }
+  }
+
+  const verifyBindPhone = async (bindData: TcbBindVerificationData, phone: string, token: string) => {
+    try {
+      loading.value = true
+      error.value = null
+      if (!('verifyOtp' in bindData) || !bindData.verifyOtp)
+        throw new Error('绑定验证回调不可用')
+      const { data, error: verifyError } = await bindData.verifyOtp({ phone, token })
+      if (verifyError)
+        throw new Error(verifyError.message || '验证码验证失败')
+      await fetchUser()
+      toast.add({ title: '绑定成功', description: '手机号已成功绑定', color: 'success' })
+      return data
+    }
+    catch (err: unknown) {
+      console.error('验证绑定手机号失败:', err)
+      error.value = getErrorMessage(err)
+      toast.add({ title: '验证失败', description: getErrorMessage(err) || '验证码错误或已过期', color: 'error' })
+      throw err
+    }
+    finally {
+      loading.value = false
+    }
+  }
+
   return {
     signInWithPassword,
     requestSetPasswordOtp,
@@ -199,5 +244,7 @@ export function useTcbPassword(core: ReturnType<typeof import('./useAuthCore').u
     confirmResetPassword,
     bindEmail,
     verifyBindEmail,
+    bindPhone,
+    verifyBindPhone,
   }
 }

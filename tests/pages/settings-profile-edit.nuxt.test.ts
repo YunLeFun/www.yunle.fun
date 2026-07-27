@@ -1,7 +1,7 @@
 // @vitest-environment nuxt
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ref } from 'vue'
+import { nextTick, ref } from 'vue'
 import SettingsPage from '../../app/pages/settings.vue'
 
 const h = vi.hoisted(() => ({
@@ -25,8 +25,8 @@ mockNuxtImport('useTcbAuth', () => () => ({
 }))
 
 const stubs = {
-  SettingsAccountTab: true,
-  SettingsPrivacyTab: true,
+  SettingsAccountTab: { template: '<div>账户内容</div>' },
+  SettingsPrivacyTab: { template: '<div>隐私内容</div>' },
   SettingsProfileTab: {
     props: ['startEditing'],
     emits: ['editFinished'],
@@ -36,10 +36,7 @@ const stubs = {
       </div>
     `,
   },
-  SettingsSecurityTab: true,
-  UButton: true,
-  UContainer: { template: '<main><slot /></main>' },
-  UIcon: true,
+  SettingsSecurityTab: { template: '<div>安全内容</div>' },
 }
 
 describe('settings profile edit route', () => {
@@ -70,5 +67,27 @@ describe('settings profile edit route', () => {
     await finish!.trigger('click')
 
     expect(h.router.replace).toHaveBeenCalledWith({ query: {} })
+  })
+
+  it('uses accessible tabs and keeps the selected tab in the URL', async () => {
+    h.route.query = { tab: 'security' }
+
+    const wrapper = await mountSuspended(SettingsPage, { global: { stubs } })
+    const tabList = wrapper.get('[role="tablist"]')
+    const tabButtons = tabList.findAll('[role="tab"]')
+    const securityTab = tabButtons.find(tab => tab.text().includes('安全设置'))
+    const accountTab = tabButtons.find(tab => tab.text().includes('账户管理'))
+
+    expect(tabButtons).toHaveLength(4)
+    expect(securityTab?.attributes('aria-selected')).toBe('true')
+    expect(wrapper.text()).toContain('安全内容')
+    expect(wrapper.text()).not.toContain('账户内容')
+
+    await accountTab!.trigger('mousedown', { button: 0, ctrlKey: false })
+    await nextTick()
+
+    await vi.waitFor(() => {
+      expect(h.router.replace).toHaveBeenCalledWith({ query: { tab: 'account' } })
+    })
   })
 })

@@ -199,13 +199,13 @@ body {
 }
 
 :where(
-  a[href]:not([data-slot='base']),
-  button:not([data-slot='base']):not(:disabled),
-  input:not([data-slot='base']),
-  textarea:not([data-slot='base']),
-  select:not([data-slot='base']),
-  [role='button']:not([data-slot='base']):not([aria-disabled='true']),
-  [tabindex]:not([data-slot='base'])
+  a[href]:not([data-slot]),
+  button:not([data-slot]):not(:disabled),
+  input:not([data-slot]),
+  textarea:not([data-slot]),
+  select:not([data-slot]),
+  [role='button']:not([data-slot]):not([aria-disabled='true']),
+  [tabindex]:not([data-slot])
 ):focus-visible {
   outline: 2px solid var(--ylf-ring);
   outline-offset: 3px;

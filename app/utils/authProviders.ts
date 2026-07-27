@@ -9,6 +9,8 @@ export interface OAuthIdentityLike {
   id?: string | null
   provider?: string | null
   bind?: boolean | null
+  name?: string | null
+  provider_user_name?: string | null
 }
 
 export function normalizeOAuthProviderId(providerId: string | null | undefined) {
@@ -30,6 +32,19 @@ export function getBoundOAuthProviderIds(identities: readonly OAuthIdentityLike[
   }
 
   return [...providers]
+}
+
+export function getOAuthIdentityName(
+  identities: readonly OAuthIdentityLike[],
+  providerId: string,
+) {
+  const targetProviderId = normalizeOAuthProviderId(providerId)
+  const identity = identities.find(item =>
+    item.bind !== false
+    && normalizeOAuthProviderId(item.id || item.provider) === targetProviderId,
+  )
+
+  return identity?.provider_user_name?.trim() || identity?.name?.trim() || ''
 }
 
 export function hasOAuthProvider(providerIds: readonly (string | null | undefined)[], providerId: string) {

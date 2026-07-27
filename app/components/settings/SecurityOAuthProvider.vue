@@ -5,6 +5,7 @@ const props = defineProps<{
   icon: string
   iconClass?: string
   bound: boolean
+  accountLogin?: string
   loading: boolean
   providersLoading: boolean
 }>()
@@ -13,6 +14,14 @@ const emit = defineEmits<{
   bind: []
   unbind: []
 }>()
+
+const description = computed(() => {
+  if (!props.bound)
+    return `绑定后可使用 ${props.label} 账号登录`
+  if (props.accountLogin)
+    return `已绑定 @${props.accountLogin.replace(/^@/, '')}，可使用 ${props.label} 登录`
+  return `已绑定，可使用 ${props.label} 登录`
+})
 </script>
 
 <template>
@@ -29,7 +38,7 @@ const emit = defineEmits<{
           正在查询绑定状态...
         </p>
         <p v-else class="truncate text-xs text-muted">
-          {{ props.bound ? `已绑定，可使用 ${props.label} 登录` : `绑定后可使用 ${props.label} 账号登录` }}
+          {{ description }}
         </p>
       </div>
     </div>

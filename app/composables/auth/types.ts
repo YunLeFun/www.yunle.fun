@@ -8,6 +8,7 @@ import type {
   SignUpRes,
   UpdateUserWithVerificationRes,
 } from '@cloudbase/auth'
+import { isOAuthUsernamePlaceholder } from '../../utils/username'
 
 /** CloudBase Auth SDK 返回的原始用户类型 */
 export interface TcbRawUser {
@@ -85,18 +86,23 @@ export function mapCloudbaseUser(cbUser: TcbRawUser): User | null {
     return null
   // 通过 HTTP API /auth/v1/user/me 返回的 password 字段判断（"SET" 表示已设置）
   const passwordStatus = (cbUser as Record<string, unknown>)._passwordStatus as string | undefined
+  const providers = cbUser.app_metadata?.providers || []
+  const rawLogin = cbUser.user_metadata?.username?.trim() || null
+  // OAuth provider 元数据偶尔不完整；占位判断只依赖不会成为合法用户名的纯数字格式。
+  const login = isOAuthUsernamePlaceholder(rawLogin) ? null : rawLogin
+
   return {
     id: cbUser.id || '',
-    login: cbUser.user_metadata?.username || null,
+    login,
     email: cbUser.email || null,
     phone: cbUser.phone || null,
-    nickname: cbUser.user_metadata?.nickName || cbUser.user_metadata?.name || cbUser.user_metadata?.username || undefined,
+    nickname: cbUser.user_metadata?.nickName || cbUser.user_metadata?.name || login || undefined,
     avatar: cbUser.user_metadata?.avatarUrl || cbUser.user_metadata?.picture || null,
     description: (cbUser.user_metadata?.description as string) || '',
     gender: (['MALE', 'FEMALE'].includes(cbUser.user_metadata?.gender as string) ? cbUser.user_metadata.gender : '') as UserGender,
     role: cbUser.role?.[0] || 'USER',
     hasPassword: passwordStatus === 'SET',
-    providers: cbUser.app_metadata?.providers || [],
+    providers,
     // 仅保留展示所需字段；CloudBase 不会持久回传第三方 OAuth access token，
     // 故不要在此依赖 token 判断“是否绑定”——绑定状态以 providers / getUserIdentities() 为准。
     identities: (cbUser.identities || []).map(i => ({ id: i.id, name: i.name, picture: i.picture })),

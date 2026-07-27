@@ -1,4 +1,20 @@
 <script setup lang="ts">
+import {
+  ArrowLeftIcon,
+  EyeOffIcon,
+  SettingsIcon,
+  ShieldIcon,
+  UserIcon,
+} from '@lucide/vue'
+import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs'
+
 definePageMeta({
   layout: 'default',
 })
@@ -22,17 +38,22 @@ watch(isAuthenticated, (value) => {
 
 // Tab 切换
 const tabs = [
-  { label: '个人资料', short: '资料', value: 'profile', icon: 'i-lucide-user' },
-  { label: '隐私与通知', short: '隐私', value: 'privacy', icon: 'i-lucide-eye-off' },
-  { label: '安全设置', short: '安全', value: 'security', icon: 'i-lucide-shield' },
-  { label: '账户管理', short: '账户', value: 'account', icon: 'i-lucide-settings' },
-]
+  { label: '个人资料', short: '资料', value: 'profile', icon: UserIcon },
+  { label: '隐私与通知', short: '隐私', value: 'privacy', icon: EyeOffIcon },
+  { label: '安全设置', short: '安全', value: 'security', icon: ShieldIcon },
+  { label: '账户管理', short: '账户', value: 'account', icon: SettingsIcon },
+] as const
 
-const tabParam = (route.query.tab as string) || ''
-const initialTab = editProfileRequested.value
+type SettingsTab = typeof tabs[number]['value']
+
+function isSettingsTab(value: unknown): value is SettingsTab {
+  return typeof value === 'string' && tabs.some(tab => tab.value === value)
+}
+
+const initialTab: SettingsTab = editProfileRequested.value
   ? 'profile'
-  : tabs.some(t => t.value === tabParam) ? tabParam : 'profile'
-const activeTab = ref(initialTab)
+  : isSettingsTab(route.query.tab) ? route.query.tab : 'profile'
+const activeTab = ref<SettingsTab>(initialTab)
 
 watch(activeTab, (val) => {
   router.replace({ query: val === 'profile' ? {} : { tab: val } })
@@ -42,7 +63,7 @@ watch(activeTab, (val) => {
 watch(() => route.query.tab, (tab) => {
   const next = editProfileRequested.value
     ? 'profile'
-    : typeof tab === 'string' && tabs.some(t => t.value === tab) ? tab : 'profile'
+    : isSettingsTab(tab) ? tab : 'profile'
   if (next !== activeTab.value)
     activeTab.value = next
 })
@@ -58,69 +79,81 @@ function clearProfileEditRequest() {
 </script>
 
 <template>
-  <UContainer class="py-8 sm:py-12">
+  <main class="px-4 py-8 sm:px-6 sm:py-12">
     <div v-if="loading" class="flex justify-center py-20">
-      <UIcon
-        name="i-lucide-loader-2"
-        class="text-3xl text-muted animate-spin"
-      />
+      <Spinner class="size-7 text-muted-foreground" />
     </div>
 
     <div
       v-else-if="user"
-      class="mx-auto space-y-6"
+      class="mx-auto flex flex-col gap-6"
       :class="editProfileRequested ? 'max-w-4xl' : 'max-w-2xl'"
     >
       <!-- 页面标题 -->
       <div class="flex items-start gap-3">
-        <UButton
-          icon="i-lucide-arrow-left"
-          color="neutral"
+        <Button
+          as-child
           variant="ghost"
-          size="lg"
-          to="/profile"
-          aria-label="返回个人中心"
+          size="icon-lg"
           class="mt-0.5 shrink-0"
-        />
+        >
+          <NuxtLink to="/profile" aria-label="返回个人中心">
+            <ArrowLeftIcon />
+          </NuxtLink>
+        </Button>
         <div class="min-w-0">
-          <h1 class="text-2xl font-semibold tracking-tight text-highlighted sm:text-3xl">
+          <h1 class="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
             {{ editProfileRequested ? '编辑资料' : '设置' }}
           </h1>
-          <p class="mt-1 text-sm leading-6 text-muted">
+          <p class="mt-1 text-sm leading-6 text-muted-foreground">
             {{ editProfileRequested ? '调整其他人看到的头像、昵称和个人介绍' : '管理个人资料、隐私和账户安全' }}
           </p>
         </div>
       </div>
 
-      <!-- Tab 切换：移动端图标 + 短标签，桌面端全标签 -->
-      <div
-        v-if="!editProfileRequested"
-        class="flex gap-1 rounded-xl border border-muted bg-elevated/70 p-1"
-      >
-        <button
-          v-for="tab in tabs"
-          :key="tab.value"
-          class="flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-2 text-sm font-medium transition-all sm:gap-2 sm:px-3"
-          :class="activeTab === tab.value
-            ? 'bg-default text-default shadow-sm'
-            : 'text-muted hover:text-default'"
-          @click="activeTab = tab.value"
-        >
-          <UIcon :name="tab.icon" class="shrink-0 text-base" />
-          <span class="sm:hidden">{{ tab.short }}</span>
-          <span class="hidden sm:inline">{{ tab.label }}</span>
-        </button>
-      </div>
-
-      <!-- Tab 内容 -->
       <SettingsProfileTab
-        v-if="activeTab === 'profile'"
-        :start-editing="editProfileRequested"
+        v-if="editProfileRequested"
+        :start-editing="true"
         @edit-finished="clearProfileEditRequest"
       />
-      <SettingsPrivacyTab v-else-if="activeTab === 'privacy'" />
-      <SettingsSecurityTab v-else-if="activeTab === 'security'" />
-      <SettingsAccountTab v-else-if="activeTab === 'account'" />
+
+      <Tabs
+        v-else
+        v-model="activeTab"
+        class="flex-col gap-6"
+      >
+        <!-- Tab 切换：移动端图标 + 短标签，桌面端全标签 -->
+        <TabsList class="h-auto w-full">
+          <TabsTrigger
+            v-for="tab in tabs"
+            :key="tab.value"
+            :value="tab.value"
+            :aria-label="tab.label"
+            class="min-w-0 py-2 sm:px-3"
+          >
+            <component :is="tab.icon" data-icon="inline-start" aria-hidden="true" />
+            <span class="sm:hidden">{{ tab.short }}</span>
+            <span class="hidden sm:inline">{{ tab.label }}</span>
+          </TabsTrigger>
+        </TabsList>
+
+        <!-- Tab 内容 -->
+        <TabsContent value="profile">
+          <SettingsProfileTab
+            :start-editing="false"
+            @edit-finished="clearProfileEditRequest"
+          />
+        </TabsContent>
+        <TabsContent value="privacy">
+          <SettingsPrivacyTab />
+        </TabsContent>
+        <TabsContent value="security">
+          <SettingsSecurityTab />
+        </TabsContent>
+        <TabsContent value="account">
+          <SettingsAccountTab />
+        </TabsContent>
+      </Tabs>
     </div>
-  </UContainer>
+  </main>
 </template>

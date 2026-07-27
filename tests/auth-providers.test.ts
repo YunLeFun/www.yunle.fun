@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   getBoundOAuthProviderIds,
+  getOAuthIdentityName,
   GITHUB_PROVIDER_ID,
   hasOAuthProvider,
   normalizeOAuthProviderId,
@@ -26,5 +27,27 @@ describe('auth provider helpers', () => {
     expect(hasOAuthProvider(['wechat'], WECHAT_PROVIDER_ID)).toBe(true)
     expect(hasOAuthProvider([GITHUB_PROVIDER_ID], GITHUB_PROVIDER_ID)).toBe(true)
     expect(hasOAuthProvider([GITHUB_PROVIDER_ID], WECHAT_PROVIDER_ID)).toBe(false)
+  })
+
+  it('gets the login from the exact bound OAuth identity', () => {
+    expect(getOAuthIdentityName([
+      { id: WECHAT_PROVIDER_ID, name: '微信用户' },
+      {
+        id: GITHUB_PROVIDER_ID,
+        name: 'GitHub',
+        provider_user_name: ' RainCither ',
+      },
+    ], GITHUB_PROVIDER_ID)).toBe('RainCither')
+
+    expect(getOAuthIdentityName([
+      { id: GITHUB_PROVIDER_ID, name: 'disabled-user', bind: false },
+      { id: WECHAT_PROVIDER_ID, name: 'not-github' },
+    ], GITHUB_PROVIDER_ID)).toBe('')
+  })
+
+  it('falls back to the provider name when no provider username is available', () => {
+    expect(getOAuthIdentityName([
+      { id: GITHUB_PROVIDER_ID, name: ' RainCither ' },
+    ], GITHUB_PROVIDER_ID)).toBe('RainCither')
   })
 })

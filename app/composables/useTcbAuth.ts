@@ -5,7 +5,7 @@
  * - auth/useAuthCore: 核心状态管理（user, loading, fetchUser, logout, checkAuthStatus）
  * - auth/useOtp: 手机号/邮箱 OTP 登录与注册
  * - auth/useOAuth: GitHub/微信 OAuth 登录、绑定/解绑
- * - auth/usePassword: 密码登录、修改、重置、邮箱绑定
+ * - auth/usePassword: 密码登录、修改、重置、邮箱/手机号绑定
  */
 import { useTcbAuthCore } from './auth/useAuthCore'
 import { useTcbOAuth } from './auth/useOAuth'
@@ -41,7 +41,7 @@ export function useTcbAuth() {
     // OTP
     ...otp,
 
-    // 密码 & 邮箱绑定
+    // 密码 & 邮箱/手机号绑定
     ...password,
 
     // OAuth & 第三方身份
