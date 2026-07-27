@@ -206,7 +206,9 @@ describe('权益领取活动领域服务', () => {
 
     expect(token).toMatch(/^token-/)
     expect(JSON.stringify([...store.state.links.values()])).not.toContain(token)
-    expect((await service.inspect(token)).availability).toBe('active')
+    const publicView = await service.inspect(token)
+    expect(publicView.availability).toBe('active')
+    expect(publicView.campaign).not.toHaveProperty('remainingCount')
 
     const rotated = await service.rotateLink(campaign._id, OWNER)
     expect(rotated.rawToken).not.toBe(token)
@@ -232,6 +234,21 @@ describe('权益领取活动领域服务', () => {
       rewardName: '云乐坊内测感谢礼',
       coinAmount: 100,
       membershipDays: 0,
+    })
+  })
+
+  it('资格适配器未提供昵称时快照使用稳定默认昵称', async () => {
+    const { service, token, store } = await publishedHarness({
+      eligibility: {
+        inspect: async () => ({ eligible: true, nickname: '' }),
+      },
+    })
+
+    await service.claim({ token, rateTicket: 'ticket' }, 'u1')
+
+    expect([...store.state.claims.values()][0]).toMatchObject({
+      userId: 'u1',
+      nicknameSnapshot: '云游者_uymn',
     })
   })
 

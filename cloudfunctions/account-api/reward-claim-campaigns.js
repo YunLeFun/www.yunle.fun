@@ -3,6 +3,7 @@
 'use strict'
 
 const crypto = require('node:crypto')
+const { generateDefaultNickname } = require('./displayName')
 const { publicLinkDigest } = require('./reward-claim-security')
 
 const COIN_REWARD_AMOUNTS = new Set([0, 100, 1000])
@@ -223,10 +224,6 @@ function publicCampaign(campaign, availability, claim) {
       title: campaign.title,
       description: campaign.description,
       reward: { ...campaign.reward },
-      remainingCount: Math.max(
-        0,
-        campaign.totalInventory - campaign.reservedCount - campaign.succeededCount,
-      ),
       claimLimit: 1,
       startsAt: campaign.startsAt,
       endsAt: campaign.endsAt,
@@ -791,7 +788,7 @@ function createRewardClaimCampaignService(deps) {
           claimId,
           campaignId: campaign._id,
           userId,
-          nicknameSnapshot: eligibility.nickname || '云乐坊用户',
+          nicknameSnapshot: eligibility.nickname || generateDefaultNickname(userId),
           grantId: existing?.grantId || ids.grant(campaign._id, userId),
           status: 'processing',
           processingReason: 'settling',

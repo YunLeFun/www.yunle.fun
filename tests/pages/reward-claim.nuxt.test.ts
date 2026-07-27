@@ -31,7 +31,6 @@ const activeCampaign = {
     title: '云乐坊内测感谢礼',
     description: '感谢参与云乐坊内测，领取一份云币礼遇。',
     reward: { coinAmount: 100, membershipDays: 0 },
-    remainingCount: 50,
     claimLimit: 1,
     startsAt: Date.UTC(2026, 6, 24, 2),
     endsAt: Date.UTC(2026, 6, 31, 2),
@@ -64,12 +63,12 @@ describe('共享权益领取页', () => {
     h.state.checkAuthStatus = vi.fn(async () => undefined)
   })
 
-  it('向访客展示中文活动信息、精确剩余库存和登录后回跳入口', async () => {
+  it('向访客展示活动信息和登录入口，但不公开精确剩余库存', async () => {
     const wrapper = await mountPage()
 
     expect(wrapper.text()).toContain('云乐坊内测感谢礼')
     expect(wrapper.text()).toContain('100 云币')
-    expect(wrapper.text()).toContain('剩余 50 份')
+    expect(wrapper.text()).not.toContain('剩余 50 份')
     expect(wrapper.text()).toContain('每个账户限领一次')
     expect(wrapper.text()).toContain('领取后长期有效')
     expect(wrapper.get('a[href^="/login?redirect="]').attributes('href'))

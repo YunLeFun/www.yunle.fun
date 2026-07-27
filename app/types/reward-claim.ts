@@ -15,7 +15,6 @@ export interface RewardClaimPublicCampaign {
     coinAmount: number
     membershipDays: number
   }
-  remainingCount: number
   claimLimit: 1
   startsAt: number
   endsAt: number
