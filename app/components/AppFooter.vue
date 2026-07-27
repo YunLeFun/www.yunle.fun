@@ -11,6 +11,9 @@ const columns = [{
     label: '帮助',
     to: '/docs/',
   }, {
+    label: '支持中心',
+    to: 'https://support.yunle.fun/',
+  }, {
     label: '博客',
     to: '/blog',
   }, {
