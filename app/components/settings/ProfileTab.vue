@@ -45,6 +45,12 @@ import { Separator } from '@/components/ui/separator'
 import { Spinner } from '@/components/ui/spinner'
 import { Textarea } from '@/components/ui/textarea'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import {
+  isTemporaryUsername,
+  USERNAME_MAX_LENGTH,
+  USERNAME_MIN_LENGTH,
+  USERNAME_PATTERN,
+} from '~/utils/username'
 
 const props = withDefaults(defineProps<{
   startEditing?: boolean
@@ -191,14 +197,16 @@ const usernameInput = ref('')
 const settingUsername = ref(false)
 const usernameError = ref('')
 
-// 用户名是否已设置（不可修改）
+// 系统临时用户名允许用户自行替换一次；用户确认后的正式用户名不可修改。
 const hasUsername = computed(() => !!user.value?.login)
+const hasTemporaryUsername = computed(() => isTemporaryUsername(user.value?.login))
+const canChangeUsername = computed(() => !hasUsername.value || hasTemporaryUsername.value)
 
 // 用户名格式校验
 const usernameRules = {
-  pattern: /^[a-z][\w-]{2,19}$/i,
-  minLength: 3,
-  maxLength: 20,
+  pattern: USERNAME_PATTERN,
+  minLength: USERNAME_MIN_LENGTH,
+  maxLength: USERNAME_MAX_LENGTH,
 }
 
 function validateUsername(value: string): string {
@@ -212,6 +220,8 @@ function validateUsername(value: string): string {
     return '用户名必须以字母开头'
   if (!usernameRules.pattern.test(value))
     return '只允许字母、数字、下划线和连字符'
+  if (isTemporaryUsername(value))
+    return '该用户名使用了系统保留格式，请换一个试试'
   return ''
 }
 
@@ -497,7 +507,7 @@ async function save() {
                 用户名
               </FieldLabel>
               <FieldDescription>
-                用于个人主页地址，设置后不可修改
+                {{ hasTemporaryUsername ? '当前为系统生成，可自行修改一次' : '用于个人主页地址，确认后不可修改' }}
               </FieldDescription>
               <div class="ylf-profile-editor__secondary-row flex min-h-12 items-center justify-between gap-3 rounded-xl border bg-muted/45 px-4 py-2.5">
                 <span v-if="hasUsername" class="min-w-0 truncate font-mono text-sm text-foreground">
@@ -505,14 +515,14 @@ async function save() {
                 </span>
                 <span v-else class="text-sm text-muted-foreground">尚未设置</span>
                 <Badge
-                  v-if="hasUsername"
+                  v-if="hasUsername && !canChangeUsername"
                   variant="secondary"
                   class="shrink-0"
                 >
                   不可修改
                 </Badge>
                 <Button
-                  v-else
+                  v-if="canChangeUsername"
                   variant="secondary"
                   size="sm"
                   type="button"
@@ -520,7 +530,7 @@ async function save() {
                   @click="openUsernameModal"
                 >
                   <AtSignIcon data-icon="inline-start" />
-                  设置用户名
+                  {{ hasTemporaryUsername ? '修改用户名' : '设置用户名' }}
                 </Button>
               </div>
             </Field>
@@ -635,19 +645,21 @@ async function save() {
               用户名
             </dt>
             <dd class="flex items-center justify-between gap-3">
-              <span v-if="hasUsername" class="font-mono text-sm text-foreground">@{{ user?.login }}</span>
-              <template v-else>
-                <span class="text-sm text-muted-foreground">尚未设置</span>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  class="text-primary"
-                  @click="openUsernameModal"
-                >
-                  <AtSignIcon data-icon="inline-start" />
-                  设置用户名
-                </Button>
-              </template>
+              <span v-if="hasUsername" class="flex min-w-0 items-center gap-2">
+                <span class="truncate font-mono text-sm text-foreground">@{{ user?.login }}</span>
+                <Badge v-if="hasTemporaryUsername" variant="secondary">临时</Badge>
+              </span>
+              <span v-else class="text-sm text-muted-foreground">尚未设置</span>
+              <Button
+                v-if="canChangeUsername"
+                variant="secondary"
+                size="sm"
+                class="shrink-0 text-primary"
+                @click="openUsernameModal"
+              >
+                <AtSignIcon data-icon="inline-start" />
+                {{ hasTemporaryUsername ? '修改用户名' : '设置用户名' }}
+              </Button>
             </dd>
           </div>
         </dl>
@@ -676,7 +688,7 @@ async function save() {
     <Dialog v-model:open="showUsernameModal">
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>设置用户名</DialogTitle>
+          <DialogTitle>{{ hasTemporaryUsername ? '修改用户名' : '设置用户名' }}</DialogTitle>
           <DialogDescription>
             用户名将用于你的个人主页地址
           </DialogDescription>
@@ -685,9 +697,9 @@ async function save() {
         <div class="flex flex-col gap-5 px-6 pb-6">
           <Alert>
             <InfoIcon />
-            <AlertTitle>用户名设置后不可更改</AlertTitle>
+            <AlertTitle>{{ hasTemporaryUsername ? '临时用户名可修改一次' : '用户名设置后不可更改' }}</AlertTitle>
             <AlertDescription>
-              请仔细确认拼写，保存后将无法自行修改。
+              {{ hasTemporaryUsername ? '这是系统生成的临时用户名，请设置你想长期使用的用户名；确认后将无法自行修改。' : '请仔细确认拼写，保存后将无法自行修改。' }}
             </AlertDescription>
           </Alert>
 
@@ -712,7 +724,7 @@ async function save() {
               {{ usernameError }}
             </FieldError>
             <div class="flex flex-col gap-1 text-xs text-muted-foreground">
-              <p>· 3-20 个字符</p>
+              <p>· 5-20 个字符</p>
               <p>· 必须以字母开头</p>
               <p>· 只允许字母、数字、下划线（_）和连字符（-）</p>
             </div>
@@ -731,7 +743,7 @@ async function save() {
           >
             <Spinner v-if="settingUsername" data-icon="inline-start" />
             <CheckIcon v-else data-icon="inline-start" />
-            {{ settingUsername ? '设置中' : '确认设置' }}
+            {{ settingUsername ? '保存中' : (hasTemporaryUsername ? '确认修改' : '确认设置') }}
           </Button>
         </DialogFooter>
       </DialogContent>

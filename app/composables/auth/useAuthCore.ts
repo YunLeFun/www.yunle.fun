@@ -5,10 +5,13 @@
 import type { TcbRawUser, User } from './types'
 import { isAnonymousSession } from '@yunlefun/sso'
 import { normalizeAvatarSource } from '~/utils/avatar'
+import {
+  generateTemporaryUsername,
+  isTemporaryUsername,
+  USERNAME_PATTERN,
+} from '~/utils/username'
 import { getErrorMessage, mapCloudbaseUser } from './types'
 import { useServerSession } from './useServerSession'
-
-const RE_USERNAME = /^[a-z][\w-]{2,19}$/i
 
 export function useTcbAuthCore() {
   const { auth } = useCloudbase()
@@ -94,6 +97,22 @@ export function useTcbAuthCore() {
         if (accountAccess.restricted)
           return user.value
 
+        // OAuth / OTP 身份不一定自带符合站内规则的 username。为每个 uid 生成稳定的
+        // 临时用户名写回 Auth，避免身份占位符阻塞公开资料同步；临时用户名可由用户替换一次。
+        if (!user.value.login) {
+          const temporaryUsername = generateTemporaryUsername(user.value.id)
+          try {
+            const { error: usernameError } = await auth.updateUser({ username: temporaryUsername })
+            if (usernameError)
+              throw usernameError
+            user.value = { ...user.value, login: temporaryUsername }
+          }
+          catch (usernameError) {
+            // 临时用户名写回失败不应阻塞登录或领取；公开资料允许 login 为空。
+            console.warn('[auth] 写回临时用户名失败:', usernameError)
+          }
+        }
+
         // 手机 OTP 默认昵称＝完整手机号（PII 且不体面）。首次登录检测到裸手机号昵称，
         // 换成品牌默认名（如「云游者_k7m2」）并写回 CloudBase auth，从源头根治。
         // 幂等：写回后昵称不再是手机号，下次登录不再触发；写回失败则下次按同一 uid 生成同名，无害。
@@ -104,13 +123,15 @@ export function useTcbAuthCore() {
             .catch(e => console.warn('[auth] 写回默认昵称失败:', e))
           needsOnboarding.value = true
         }
-        // 同步公开资料到 user_profiles（供关注 / 粉丝等社交展示），fire-and-forget
-        upsertMyProfile({
+        // 登录完成前同步公开资料，降低用户随即进入领取页时资料仍未建立的窗口。
+        const syncedProfile = await upsertMyProfile({
           login: user.value.login,
           nickname: user.value.nickname,
           avatar: user.value.avatar,
           description: user.value.description,
-        }).catch(() => {})
+        })
+        if (!syncedProfile)
+          console.warn('[auth] 公开资料同步未完成，将在下次登录重试')
         // 密码状态异步补充，不阻塞登录态恢复
         enrichPasswordStatus(user.value.id).catch(e => console.warn('[auth] 获取密码状态失败:', e))
         // 双层会话：登录成功后种 / 续 httpOnly cookie（fire-and-forget）
@@ -194,10 +215,13 @@ export function useTcbAuthCore() {
     try {
       loading.value = true
       error.value = null
-      if (user.value?.login)
+      const currentLogin = user.value?.login
+      if (currentLogin && !isTemporaryUsername(currentLogin))
         throw new Error('用户名已设置，不可修改')
-      if (!RE_USERNAME.test(username))
-        throw new Error('用户名格式不正确：3-20 个字符，以字母开头，只允许字母、数字、下划线和连字符')
+      if (!USERNAME_PATTERN.test(username))
+        throw new Error('用户名格式不正确：5-20 个字符，以字母开头，只允许字母、数字、下划线和连字符')
+      if (isTemporaryUsername(username))
+        throw new Error('该用户名使用了系统保留格式，请换一个试试')
 
       const { error: updateError } = await auth.updateUser({ username })
       if (updateError) {
@@ -207,7 +231,11 @@ export function useTcbAuthCore() {
           : msg)
       }
       await fetchUser()
-      toast.add({ title: '设置成功', description: `您的用户名已设置为 @${username}`, color: 'success' })
+      toast.add({
+        title: currentLogin ? '修改成功' : '设置成功',
+        description: `您的用户名已设置为 @${username}`,
+        color: 'success',
+      })
     }
     catch (err: unknown) {
       console.error('设置用户名失败:', err)

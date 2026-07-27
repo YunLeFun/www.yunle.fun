@@ -185,13 +185,10 @@ watch(() => user.value?.id, (next, previous) => {
 
         <template v-else-if="campaign && availability !== 'unavailable'">
           <CardHeader class="relative border-b border-border/70 bg-gradient-to-br from-primary/13 via-card to-cyan-400/10 px-6 py-7 sm:px-8 sm:py-8">
-            <div class="mb-5 flex items-center justify-between gap-3">
+            <div class="mb-5 flex items-center">
               <span class="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-background/80 px-3 py-1 text-xs font-semibold text-primary shadow-sm backdrop-blur">
                 <GiftIcon class="size-3.5" aria-hidden="true" />
                 云乐坊权益领取
-              </span>
-              <span v-if="availability === 'active'" class="text-xs font-medium text-muted-foreground">
-                剩余 {{ campaign.remainingCount }} 份
               </span>
             </div>
             <CardTitle class="text-2xl leading-tight font-bold text-balance sm:text-3xl">

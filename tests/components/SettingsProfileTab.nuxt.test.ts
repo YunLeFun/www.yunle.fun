@@ -104,6 +104,50 @@ describe('settings profile editing entry', () => {
     expect(wrapper.findAll('button').some(button => button.text() === '编辑')).toBe(true)
   })
 
+  it('lets a GitHub user whose numeric placeholder was normalized choose a username', async () => {
+    h.s.user.value = {
+      ...h.s.user.value,
+      login: null,
+    }
+    const setUsername = h.s.setUsername as ReturnType<typeof vi.fn>
+    const wrapper = await mountSuspended(ProfileTab, { global: { stubs } })
+
+    expect(wrapper.text()).toContain('尚未设置')
+    const openButton = wrapper.findAll('button').find(button => button.text().includes('设置用户名'))
+    expect(openButton).toBeTruthy()
+    await openButton!.trigger('click')
+
+    await wrapper.get('input[placeholder="请输入用户名"]').setValue('new_github_user')
+    const confirmButton = wrapper.findAll('button').find(button => button.text().includes('确认设置'))
+    expect(confirmButton).toBeTruthy()
+    await confirmButton!.trigger('click')
+    await flushPromises()
+
+    expect(setUsername).toHaveBeenCalledWith('new_github_user')
+  })
+
+  it('lets a user replace a system-generated temporary username', async () => {
+    h.s.user.value = {
+      ...h.s.user.value,
+      login: 'tmp_ftddhqtxqnsw',
+    }
+    const setUsername = h.s.setUsername as ReturnType<typeof vi.fn>
+    const wrapper = await mountSuspended(ProfileTab, { global: { stubs } })
+
+    expect(wrapper.text()).toContain('临时')
+    const openButton = wrapper.findAll('button').find(button => button.text().includes('修改用户名'))
+    expect(openButton).toBeTruthy()
+    await openButton!.trigger('click')
+
+    await wrapper.get('input[placeholder="请输入用户名"]').setValue('chosen_username')
+    const confirmButton = wrapper.findAll('button').find(button => button.text().includes('确认修改'))
+    expect(confirmButton).toBeTruthy()
+    await confirmButton!.trigger('click')
+    await flushPromises()
+
+    expect(setUsername).toHaveBeenCalledWith('chosen_username')
+  })
+
   it('emits completion when the user cancels direct editing', async () => {
     const wrapper = await mountSuspended(ProfileTab, {
       props: { startEditing: true },
