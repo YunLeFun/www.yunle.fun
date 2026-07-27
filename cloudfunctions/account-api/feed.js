@@ -9,7 +9,7 @@
 'use strict'
 
 const { USER_FOLLOWS_COLLECTION } = require('./follows')
-const { assertUserId, fetchProfilesByIds } = require('./profiles')
+const { assertUserId, fetchProfilesByIds, resolvePublicNickname } = require('./profiles')
 
 const APPS_COLLECTION = 'apps'
 /** 关注扇出上限（CloudBase in 查询数量保护；超出的关注对象本期不进 feed） */
@@ -66,7 +66,7 @@ async function getFollowingFeed(db, { userId, skip = 0, limit = 20, now = Date.n
       owner: {
         userId: a.ownerId,
         login: p?.login || a.ownerLogin || null,
-        nickname: p?.nickname || '',
+        nickname: resolvePublicNickname(p?.nickname, a.ownerId),
         avatar: p?.avatar || null,
         isMember: p?.isMember === true,
       },

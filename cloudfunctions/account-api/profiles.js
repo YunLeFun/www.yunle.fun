@@ -32,7 +32,7 @@ const AVATAR_MAX = 512
  * 中国大陆手机号：11 位、1[3-9] 开头。
  * 手机 OTP 用户在 CloudBase 的 auth 默认昵称（user_metadata.nickName）就是完整手机号，
  * 前端登录时会把它同步上来。user_profiles 是「展示给他人」的公开基建，绝不能落手机号 PII，
- * 故识别出这种「裸手机号昵称」后按未提供处理（见 pickProfileFields）。
+ * 故识别出这种「裸手机号昵称」后按未提供处理，并按 uid 生成稳定默认昵称。
  */
 const RE_PHONE_LIKE = /^1[3-9]\d{9}$/
 function isPhoneLikeNickname(s) {
@@ -72,12 +72,17 @@ function pickProfileFields(input) {
 
   const login = clampStr(input.login, 20)
   if (login !== undefined) {
-    if (login && !RE_LOGIN.test(login))
+    // 第三方登录可能把数字身份 ID 放进 Auth username。user_profiles 只是 Auth 的
+    // 公开缓存，纯数字占位值应忽略，不能让整次资料初始化失败。
+    if (!login || /^\d+$/.test(login))
+      out.login = null
+    else if (!RE_LOGIN.test(login))
       throw new Error('用户名格式不正确：3-20 个字符，以字母开头，仅限字母、数字、下划线和连字符')
-    out.login = login || null
+    else
+      out.login = login
   }
   // 昵称：把「裸手机号昵称」（auth 默认值）视为未提供——既不写入 PII，
-  // 也不会覆盖用户后来在设置里改过的真实昵称（真实昵称经 auth.updateUser 同步上来，不是手机号）。
+  // 也不会覆盖用户后来在设置里改过的真实昵称；创建或修复空资料时由调用方补稳定默认昵称。
   const nickname = clampStr(input.nickname, NICKNAME_MAX)
   if (nickname !== undefined && !isPhoneLikeNickname(nickname))
     out.nickname = nickname
@@ -98,12 +103,20 @@ function pickProfileFields(input) {
   return out
 }
 
+/** 公开昵称始终非空且不暴露裸手机号；历史脏值按 uid 稳定派生默认昵称。 */
+function resolvePublicNickname(nickname, userId) {
+  const normalized = clampStr(nickname, NICKNAME_MAX) || ''
+  return normalized && !isPhoneLikeNickname(normalized)
+    ? normalized
+    : generateDefaultNickname(userId)
+}
+
 /** 公开资料投影（对外只暴露这些字段） */
 function toPublicProfile(doc, userId, isMember = false) {
   return {
     userId,
     login: doc?.login || null,
-    nickname: doc?.nickname || '',
+    nickname: resolvePublicNickname(doc?.nickname, userId),
     avatar: doc?.avatar || null,
     description: doc?.description || '',
     followersCount: doc?.followersCount || 0,
@@ -117,8 +130,8 @@ function toPublicProfile(doc, userId, isMember = false) {
 }
 
 /**
- * 批量计算公开会员标记。规范 `_id == uid` 文档优先；仅存在历史 userId 文档时，
- * 只要任一记录仍有效即视为会员。查询失败统一降级为空 Map，不影响公开资料主链路。
+ * 批量计算公开会员标记。`user_memberships` 以 CloudBase uid 作为唯一 `_id`。
+ * 查询失败统一降级为空 Map，不影响公开资料主链路。
  */
 async function fetchPublicMembershipsByIds(db, ids, now = Date.now()) {
   const normalizedIds = [...new Set((Array.isArray(ids) ? ids : [])
@@ -129,26 +142,13 @@ async function fetchPublicMembershipsByIds(db, ids, now = Date.now()) {
 
   try {
     const idSet = new Set(normalizedIds)
-    const legacyLimit = Math.min(normalizedIds.length * 10, 1000)
-    const [canonicalResult, legacyResult] = await Promise.all([
-      db
-        .collection(MEMBERSHIPS_COLLECTION)
-        .where({ _id: db.command.in(normalizedIds) })
-        .limit(normalizedIds.length)
-        .get(),
-      db
-        .collection(MEMBERSHIPS_COLLECTION)
-        .where({ userId: db.command.in(normalizedIds) })
-        .limit(legacyLimit)
-        .get(),
-    ])
+    const result = await db
+      .collection(MEMBERSHIPS_COLLECTION)
+      .where({ _id: db.command.in(normalizedIds) })
+      .limit(normalizedIds.length)
+      .get()
 
-    for (const membership of (Array.isArray(legacyResult?.data) ? legacyResult.data : [])) {
-      if (idSet.has(membership?.userId) && isMembershipActive(membership.expireAt, now))
-        statuses.set(membership.userId, true)
-    }
-    // 规范文档是最终真相源，覆盖可能残留的历史记录。
-    for (const membership of (Array.isArray(canonicalResult?.data) ? canonicalResult.data : [])) {
+    for (const membership of (Array.isArray(result?.data) ? result.data : [])) {
       if (idSet.has(membership?._id))
         statuses.set(membership._id, isMembershipActive(membership.expireAt, now))
     }
@@ -171,12 +171,12 @@ async function readProfileDoc(db, uid) {
   return Array.isArray(data) ? (data[0] || null) : (data || null)
 }
 
-/** 构造占位 / 初始 profile 文档（计数为 0，资料字段空，等本人 upsert 补全） */
+/** 构造占位 / 初始 profile 文档（计数为 0，昵称按 uid 稳定生成，等本人 upsert 补全） */
 function blankProfile(uid, now, overrides = {}) {
   return {
     _id: uid,
     login: null,
-    nickname: '',
+    nickname: generateDefaultNickname(uid),
     avatar: null,
     description: '',
     followersCount: 0,
@@ -208,12 +208,18 @@ async function upsertMyProfile(db, { userId, profile, now = Date.now() }) {
     // 但 GitHub / 手机等认证绑定仍被旧 uid 占用。最终注销一旦开始，禁止任何资料复活。
     if (existing.deletedAt)
       throw new Error('账号已注销，不能再更新公开资料')
-    await db.collection(USER_PROFILES_COLLECTION).doc(uid).update({ ...fields, updatedAt: now })
+    const nextFields = { ...fields }
+    if (nextFields.nickname === ''
+      || (nextFields.nickname === undefined
+        && (!existing.nickname || isPhoneLikeNickname(existing.nickname)))) {
+      nextFields.nickname = generateDefaultNickname(uid)
+    }
+    await db.collection(USER_PROFILES_COLLECTION).doc(uid).update({ ...nextFields, updatedAt: now })
   }
   else {
     await db.collection(USER_PROFILES_COLLECTION).add(blankProfile(uid, now, {
       login: fields.login ?? null,
-      nickname: fields.nickname ?? '',
+      nickname: fields.nickname || generateDefaultNickname(uid),
       avatar: fields.avatar ?? null,
       description: fields.description ?? '',
     }))
@@ -339,8 +345,13 @@ async function fetchProfilesByIds(db, ids, now = Date.now()) {
       .get(),
     fetchPublicMembershipsByIds(db, ids, now),
   ])
-  for (const p of (Array.isArray(data) ? data : []))
-    map.set(p._id, { ...p, isMember: memberships.get(p._id) === true })
+  for (const p of (Array.isArray(data) ? data : [])) {
+    map.set(p._id, {
+      ...p,
+      nickname: resolvePublicNickname(p.nickname, p._id),
+      isMember: memberships.get(p._id) === true,
+    })
+  }
   return map
 }
 
@@ -413,6 +424,7 @@ module.exports = {
   USER_PROFILES_COLLECTION,
   assertUserId,
   pickProfileFields,
+  resolvePublicNickname,
   toPublicProfile,
   readProfileDoc,
   upsertMyProfile,

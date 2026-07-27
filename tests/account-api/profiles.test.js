@@ -52,7 +52,7 @@ describe('upsertMyProfile', () => {
         { _id: 'u1', login: 'alice', nickname: 'Alice', followersCount: 0, followingCount: 0, version: 1 },
       ],
       [MEMBERSHIPS_COLLECTION]: [
-        { _id: 'u1', userId: 'u1', expireAt: NOW + 1 },
+        { _id: 'u1', expireAt: NOW + 1 },
       ],
     })
 
@@ -75,16 +75,37 @@ describe('upsertMyProfile', () => {
     expect(db._store[USER_PROFILES_COLLECTION][0]).toMatchObject({ followersCount: 0, followingCount: 0 })
   })
 
-  it('非法用户名抛错', async () => {
+  it('第三方登录的纯数字用户名占位符不会阻塞资料创建', async () => {
     const db = makeFakeDb()
-    await expect(upsertMyProfile(db, { userId: 'u1', profile: { login: '1bad' }, now: NOW })).rejects.toThrow(/用户名/)
+    const result = await upsertMyProfile(db, {
+      userId: 'u1',
+      profile: { login: '1978032370372050944', nickname: 'OAuth 用户' },
+      now: NOW,
+    })
+    expect(result).toMatchObject({ login: null, nickname: 'OAuth 用户' })
   })
 
-  it('裸手机号昵称（auth 默认值）不落库：创建时昵称为空', async () => {
+  it('普通非法用户名会被拒绝且不会清空现有公开用户名', async () => {
+    const db = makeFakeDb({
+      [USER_PROFILES_COLLECTION]: [
+        { _id: 'u1', login: 'alice', nickname: 'Alice', followersCount: 0, followingCount: 0, version: 1 },
+      ],
+    })
+
+    await expect(upsertMyProfile(db, {
+      userId: 'u1',
+      profile: { login: '1bad' },
+      now: NOW,
+    })).rejects.toThrow(/用户名格式不正确/)
+
+    expect(db._store[USER_PROFILES_COLLECTION][0].login).toBe('alice')
+  })
+
+  it('裸手机号昵称（auth 默认值）不落库：创建时改为稳定默认昵称', async () => {
     const db = makeFakeDb()
     const res = await upsertMyProfile(db, { userId: 'u1', profile: { nickname: '15906608053' }, now: NOW })
-    expect(res.nickname).toBe('')
-    expect(db._store[USER_PROFILES_COLLECTION][0].nickname).toBe('')
+    expect(res.nickname).toBe('云游者_uymn')
+    expect(db._store[USER_PROFILES_COLLECTION][0].nickname).toBe('云游者_uymn')
   })
 
   it('裸手机号昵称不覆盖已设置的真实昵称', async () => {
@@ -93,6 +114,40 @@ describe('upsertMyProfile', () => {
     // 模拟用户从没改 auth 昵称、再次登录把手机号同步上来
     const res = await upsertMyProfile(db, { userId: 'u1', profile: { nickname: '15906608053' }, now: NOW + 1 })
     expect(res.nickname).toBe('小明')
+  })
+
+  it('历史空昵称用户再次同步手机号资料时自动修复', async () => {
+    const db = makeFakeDb({
+      [USER_PROFILES_COLLECTION]: [
+        { _id: 'u1', login: null, nickname: '', followersCount: 0, followingCount: 0, version: 1 },
+      ],
+    })
+
+    const res = await upsertMyProfile(db, {
+      userId: 'u1',
+      profile: { nickname: '15906608053' },
+      now: NOW,
+    })
+
+    expect(res.nickname).toBe('云游者_uymn')
+    expect(db._store[USER_PROFILES_COLLECTION][0].nickname).toBe('云游者_uymn')
+  })
+
+  it('显式清空昵称时恢复为稳定默认昵称而不是写入空值', async () => {
+    const db = makeFakeDb({
+      [USER_PROFILES_COLLECTION]: [
+        { _id: 'u1', login: 'alice', nickname: 'Alice', followersCount: 0, followingCount: 0, version: 1 },
+      ],
+    })
+
+    const res = await upsertMyProfile(db, {
+      userId: 'u1',
+      profile: { nickname: '   ' },
+      now: NOW,
+    })
+
+    expect(res.nickname).toBe('云游者_uymn')
+    expect(db._store[USER_PROFILES_COLLECTION][0].nickname).toBe('云游者_uymn')
   })
 
   it('真实昵称即使全是数字也照常落库（仅拒绝合法手机号段）', async () => {
@@ -110,7 +165,7 @@ describe('getProfile', () => {
         { _id: 'u1', login: 'alice', nickname: 'Alice' },
       ],
       [MEMBERSHIPS_COLLECTION]: [
-        { _id: 'u1', userId: 'u1', level: 'basic', expireAt: NOW + 1 },
+        { _id: 'u1', level: 'basic', expireAt: NOW + 1 },
       ],
     })
 
@@ -131,7 +186,9 @@ describe('getProfile', () => {
     db.collection = (name) => {
       if (name === MEMBERSHIPS_COLLECTION) {
         return {
-          doc: () => ({ get: async () => { throw new Error('membership unavailable') } }),
+          where() { return this },
+          limit() { return this },
+          async get() { throw new Error('membership unavailable') },
         }
       }
       return collection(name)
@@ -150,6 +207,18 @@ describe('getProfile', () => {
     const db = makeFakeDb()
     await upsertMyProfile(db, { userId: 'u1', profile: { login: 'alice', nickname: 'Alice' }, now: NOW })
     expect(await getProfile(db, { userId: 'u1' })).toMatchObject({ userId: 'u1', login: 'alice', nickname: 'Alice' })
+  })
+
+  it('读取历史空昵称或手机号昵称时返回稳定默认昵称', async () => {
+    const db = makeFakeDb({
+      [USER_PROFILES_COLLECTION]: [
+        { _id: 'u1', login: null, nickname: '' },
+        { _id: 'u2', login: null, nickname: '15906608053' },
+      ],
+    })
+
+    await expect(getProfile(db, { userId: 'u1' })).resolves.toMatchObject({ nickname: '云游者_uymn' })
+    await expect(getProfile(db, { userId: 'u2' })).resolves.toMatchObject({ nickname: '云游者_vx7z' })
   })
 
   it('按 login 读取', async () => {

@@ -42,8 +42,8 @@ describe('关注动态 getFollowingFeed', () => {
   it('批量标记动态作者的当前会员状态', async () => {
     const db = seed()
     db._store[MEMBERSHIPS_COLLECTION] = [
-      { _id: 'u2', userId: 'u2', expireAt: NOW + 1 },
-      { _id: 'u3', userId: 'u3', expireAt: NOW - 1 },
+      { _id: 'u2', expireAt: NOW + 1 },
+      { _id: 'u3', expireAt: NOW - 1 },
     ]
 
     const { items } = await getFollowingFeed(db, { userId: 'u1', now: NOW })
@@ -72,6 +72,6 @@ describe('关注动态 getFollowingFeed', () => {
       apps: [{ _id: 'a', ownerId: 'u9', ownerLogin: 'eve', slug: 'eve-app', name: 'EveApp', isPublic: true, createdAt: NOW, updatedAt: NOW }],
     })
     const { items } = await getFollowingFeed(db, { userId: 'u1' })
-    expect(items[0].owner).toMatchObject({ userId: 'u9', login: 'eve', nickname: '' })
+    expect(items[0].owner).toMatchObject({ userId: 'u9', login: 'eve', nickname: '云游者_4fhz' })
   })
 })

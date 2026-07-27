@@ -5,7 +5,7 @@
 const crypto = require('node:crypto')
 
 const { resolveBillingAnchor } = require('./lib/membership')
-const { MEMBERSHIPS_COLLECTION, readMembership } = require('./lib/orders')
+const { MEMBERSHIPS_COLLECTION } = require('./lib/orders')
 const { clawbackCoin, creditCoin } = require('./lib/wallet')
 const { createRewardNotification } = require('./notifications')
 const { readProfileDoc } = require('./profiles')
@@ -96,31 +96,18 @@ function correctionResult(correction, deduped = false) {
   }
 }
 
-async function assertRewardableUser(db, userId) {
+async function assertRewardableUser(db, userId, { allowMissingProfile = false } = {}) {
   const classification = await classifyAccountIdentity(db, userId)
   if (classification.synthetic)
     throw new Error('受管测试身份不能领取运营奖励')
   const profile = await readProfileDoc(db, userId)
-  if (!profile)
+  if (!profile && !allowMissingProfile)
     throw new Error('用户不存在或尚未建立正式账户资料')
-  if (profile.deletedAt)
+  if (profile?.deletedAt)
     throw new Error('已注销账户不能领取奖励')
 }
 
-async function ensureCanonicalMembership(db, userId) {
-  const canonicalRef = db.collection(MEMBERSHIPS_COLLECTION).doc(userId)
-  const canonical = docData(await canonicalRef.get())
-  if (canonical)
-    return
-  const legacy = await readMembership(db, userId)
-  if (!legacy || legacy._id === userId)
-    return
-  const { _id: _legacyId, ...fields } = legacy
-  await canonicalRef.set({ ...fields, userId })
-}
-
 async function grantMembershipReward(db, input) {
-  await ensureCanonicalMembership(db, input.userId)
   const transactionId = stableId('membership_reward', input.grantId)
   let outcome
   await db.runTransaction(async (transaction) => {
@@ -148,7 +135,6 @@ async function grantMembershipReward(db, input) {
     const base = expireBefore && expireBefore > input.now ? expireBefore : input.now
     const expireAfter = base + input.membershipDays * DAY_MS
     const nextMembership = {
-      userId: input.userId,
       level: membership?.level || membership?.planId || 'basic',
       activeCycle: membership?.activeCycle || 'reward',
       expireAt: expireAfter,
@@ -268,9 +254,9 @@ async function correctMembershipReward(db, original, correctionInput) {
 /**
  * 发放一笔 owner 奖励。每种资产都有独立稳定幂等键，允许部分失败后安全重试。
  */
-async function grantReward(db, rawInput) {
+async function grantReward(db, rawInput, options = {}) {
   const input = normalizeRewardInput(rawInput)
-  await assertRewardableUser(db, input.userId)
+  await assertRewardableUser(db, input.userId, options)
 
   const operationId = stableId('reward_operation', input.grantId)
   const operationRef = db.collection(REWARD_OPERATIONS_COLLECTION).doc(operationId)

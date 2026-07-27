@@ -73,7 +73,7 @@ describe('关注 followUser / unfollowUser', () => {
   it('关注无资料的目标：自动占位并计数', async () => {
     const db = seed()
     await followUser(db, { followerId: 'u1', followingId: 'ghost', now: NOW })
-    expect(profile(db, 'ghost')).toMatchObject({ followersCount: 1, followingCount: 0, nickname: '' })
+    expect(profile(db, 'ghost')).toMatchObject({ followersCount: 1, followingCount: 0, nickname: '云游者_33gf' })
     expect(profile(db, 'u1').followingCount).toBe(1)
   })
 })
@@ -119,11 +119,42 @@ describe('列表 listFollowing / listFollowers', () => {
     expect(nextSkip).toBeNull()
   })
 
+  it('listFollowing 归一化历史空昵称和手机号昵称', async () => {
+    const db = makeFakeDb({
+      [USER_PROFILES_COLLECTION]: [
+        { _id: 'u1', nickname: 'Alice' },
+        { _id: 'u2', nickname: '' },
+        { _id: 'u3', nickname: '15906608053' },
+      ],
+      [USER_FOLLOWS_COLLECTION]: [
+        { _id: 'f1', followerId: 'u1', followingId: 'u2', createdAt: NOW },
+        { _id: 'f2', followerId: 'u1', followingId: 'u3', createdAt: NOW + 1 },
+      ],
+    })
+
+    const { items } = await listFollowing(db, { userId: 'u1' })
+
+    expect(items.find(item => item.userId === 'u2')?.nickname).toBe('云游者_vx7z')
+    expect(items.find(item => item.userId === 'u3')?.nickname).toBe('云游者_wwwg')
+  })
+
+  it('listFollowing 在历史关系缺少 profile 时仍返回默认昵称', async () => {
+    const db = makeFakeDb({
+      [USER_FOLLOWS_COLLECTION]: [
+        { _id: 'f1', followerId: 'u1', followingId: 'u9', createdAt: NOW },
+      ],
+    })
+
+    const { items } = await listFollowing(db, { userId: 'u1' })
+
+    expect(items[0]).toMatchObject({ userId: 'u9', nickname: '云游者_4fhz' })
+  })
+
   it('listFollowing 批量标记有效会员并排除已到期会员', async () => {
     const db = await seedFollows()
     db._store[MEMBERSHIPS_COLLECTION] = [
-      { _id: 'u2', userId: 'u2', expireAt: NOW - 1 },
-      { _id: 'u3', userId: 'u3', expireAt: NOW + 1 },
+      { _id: 'u2', expireAt: NOW - 1 },
+      { _id: 'u3', expireAt: NOW + 1 },
     ]
 
     const { items } = await listFollowing(db, { userId: 'u1', now: NOW })

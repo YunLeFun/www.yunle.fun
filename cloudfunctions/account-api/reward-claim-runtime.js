@@ -5,7 +5,7 @@
 const process = require('node:process')
 
 const { assertAccountActionAllowed } = require('./account-access')
-const { readProfileDoc } = require('./profiles')
+const { readProfileDoc, resolvePublicNickname } = require('./profiles')
 const { createRewardClaimCampaignService } = require('./reward-claim-campaigns')
 const {
   createCloudbaseRewardClaimRateLimit,
@@ -56,11 +56,11 @@ function createRewardClaimRuntime(db, options = {}) {
         if (classification.synthetic)
           return { eligible: false, message: '受管测试身份不能领取运营奖励' }
         const profile = await readProfileDoc(db, userId)
-        if (!profile || profile.deletedAt)
+        if (profile?.deletedAt)
           return { eligible: false, message: '用户不存在或账户已注销' }
         return {
           eligible: true,
-          nickname: profile.nickname || profile.login || '云乐坊用户',
+          nickname: resolvePublicNickname(profile?.nickname, userId),
         }
       }
       catch (error) {
@@ -73,7 +73,13 @@ function createRewardClaimRuntime(db, options = {}) {
   }
   const reward = {
     async grant(input) {
-      const result = await grantReward(db, { ...input, now: currentTime() })
+      // 领取入口已用当前登录 uid 完成账号状态与 synthetic 身份校验；资料缓存
+      // 可能因首次登录同步延迟而暂缺，不应再次以缓存存在性阻断奖励结算。
+      const result = await grantReward(
+        db,
+        { ...input, now: currentTime() },
+        { allowMissingProfile: true },
+      )
       if (result.status !== 'completed') {
         return {
           kind: 'unknown',

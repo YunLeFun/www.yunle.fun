@@ -33,10 +33,22 @@ describe('关注通知', () => {
     expect(items[0].actor).toMatchObject({ userId: 'u2', login: 'bob', nickname: 'Bob' })
   })
 
+  it('历史通知缺少 actor profile 时仍返回默认昵称', async () => {
+    const db = seed()
+    await createFollowNotification(db, { userId: 'u1', actorId: 'actor-empty', now: NOW })
+
+    const { items } = await listNotifications(db, { userId: 'u1' })
+
+    expect(items[0].actor).toMatchObject({
+      userId: 'actor-empty',
+      nickname: '云游者_y2ba',
+    })
+  })
+
   it('批量标记通知触发者的当前会员状态', async () => {
     const db = seed()
     db._store[MEMBERSHIPS_COLLECTION] = [
-      { _id: 'u2', userId: 'u2', expireAt: NOW + 1 },
+      { _id: 'u2', expireAt: NOW + 1 },
     ]
     await followUser(db, { followerId: 'u2', followingId: 'u1', now: NOW })
 

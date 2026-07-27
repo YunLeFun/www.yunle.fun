@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { COIN_TX_COLLECTION, WALLET_COLLECTION } from '../../cloudfunctions/account-api/lib/wallet.js'
 import { USER_NOTIFICATIONS_COLLECTION } from '../../cloudfunctions/account-api/notifications.js'
 import { USER_PROFILES_COLLECTION } from '../../cloudfunctions/account-api/profiles.js'
+import { REWARD_CLAIMS_COLLECTION } from '../../cloudfunctions/account-api/reward-claim-cloudbase.js'
 import {
   createRewardClaimRuntime,
 } from '../../cloudfunctions/account-api/reward-claim-runtime.js'
@@ -37,7 +38,7 @@ describe('权益领取生产运行时适配', () => {
   it('通过现有奖励模块完成一笔领取、流水和用户通知', async () => {
     const db = makeFakeDb({
       [USER_PROFILES_COLLECTION]: [
-        { _id: 'u1', nickname: '云游者', version: 1 },
+        { _id: 'u1', nickname: '', version: 1 },
       ],
     })
     const runtime = createRewardClaimRuntime(db, {
@@ -62,6 +63,34 @@ describe('权益领取生产运行时适配', () => {
     expect(db._store[COIN_TX_COLLECTION]).toHaveLength(1)
     expect(db._store[REWARD_OPERATIONS_COLLECTION]).toHaveLength(1)
     expect(db._store[USER_NOTIFICATIONS_COLLECTION]).toHaveLength(1)
+    expect(db._store[REWARD_CLAIMS_COLLECTION]).toMatchObject([
+      { userId: 'u1', nicknameSnapshot: '云游者_uymn' },
+    ])
+  })
+
+  it('公开资料尚未同步时仍可完成领取', async () => {
+    const db = makeFakeDb()
+    const runtime = createRewardClaimRuntime(db, {
+      env: ENV,
+      now: () => NOW,
+      randomBytes: size => Buffer.alloc(size, 13),
+    })
+    const draft = await runtime.service.createDraft(campaignInput(), OWNER)
+    const published = await runtime.service.publish(draft._id, {}, OWNER)
+    const rateTicket = runtime.rateTicket.issueForRequest({
+      rawToken: published.rawToken,
+      ip: '203.0.113.9',
+    })
+
+    const result = await runtime.service.claim({
+      token: published.rawToken,
+      rateTicket,
+    }, 'u-without-profile')
+
+    expect(result).toMatchObject({ status: 'succeeded', balanceAfter: 100 })
+    expect(db._store[WALLET_COLLECTION]).toMatchObject([
+      { userId: 'u-without-profile', balance: 100 },
+    ])
   })
 
   it('正式运行时拒绝受管 synthetic 身份', async () => {

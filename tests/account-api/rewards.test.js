@@ -98,7 +98,6 @@ describe('账户奖励发放', () => {
     const db = realUserDb({
       [MEMBERSHIPS_COLLECTION]: [{
         _id: 'u1',
-        userId: 'u1',
         level: 'basic',
         expireAt: NOW + 10 * day,
         createdAt: NOW - day,
@@ -131,7 +130,30 @@ describe('账户奖励发放', () => {
     expect(second.membership.expireAfter).toBe(NOW + 130 * day)
     expect(third.membership.expireAfter).toBe(NOW + 495 * day)
     expect(db._store[MEMBERSHIPS_COLLECTION][0].expireAt).toBe(NOW + 495 * day)
+    expect(db._store[MEMBERSHIPS_COLLECTION][0]).not.toHaveProperty('userId')
     expect(db._store[MEMBERSHIP_ENTITLEMENT_TRANSACTIONS_COLLECTION]).toHaveLength(3)
+  })
+
+  it('首次会员奖励以 uid 主键创建记录且不写冗余 userId', async () => {
+    const day = 86_400_000
+    const db = realUserDb()
+
+    const result = await grantReward(db, rewardInput({
+      coinAmount: 0,
+      membershipDays: 30,
+    }))
+
+    expect(result.membership).toMatchObject({
+      expireBefore: null,
+      expireAfter: NOW + 30 * day,
+    })
+    expect(db._store[MEMBERSHIPS_COLLECTION]).toEqual([
+      expect.objectContaining({
+        _id: 'u1',
+        expireAt: NOW + 30 * day,
+      }),
+    ])
+    expect(db._store[MEMBERSHIPS_COLLECTION][0]).not.toHaveProperty('userId')
   })
 
   it('固定天数奖励后，下一次月付从奖励后的实际到期日顺延', async () => {
@@ -142,7 +164,6 @@ describe('账户奖励发放', () => {
     const db = realUserDb({
       [MEMBERSHIPS_COLLECTION]: [{
         _id: 'u1',
-        userId: 'u1',
         level: 'basic',
         activeCycle: 'month',
         expireAt: expireBefore,

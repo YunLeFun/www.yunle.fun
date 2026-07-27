@@ -10,7 +10,12 @@
 
 const crypto = require('node:crypto')
 
-const { assertUserId, fetchProfilesByIds, readProfileDoc } = require('./profiles')
+const {
+  assertUserId,
+  fetchProfilesByIds,
+  readProfileDoc,
+  resolvePublicNickname,
+} = require('./profiles')
 
 const USER_NOTIFICATIONS_COLLECTION = 'user_notifications'
 /** 未读数上限（超出按此值显示 99+，避免全表扫描） */
@@ -138,7 +143,7 @@ async function listNotifications(db, { userId, skip = 0, limit = 20, now = Date.
       actor: {
         userId: r.actorId,
         login: p?.login || null,
-        nickname: p?.nickname || '',
+        nickname: resolvePublicNickname(p?.nickname, r.actorId),
         avatar: p?.avatar || null,
         isMember: p?.isMember === true,
       },

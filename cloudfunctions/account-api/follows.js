@@ -15,7 +15,13 @@
 'use strict'
 
 const { createFollowNotification } = require('./notifications')
-const { assertUserId, bumpFollowCount, fetchProfilesByIds, readProfileDoc } = require('./profiles')
+const {
+  assertUserId,
+  bumpFollowCount,
+  fetchProfilesByIds,
+  readProfileDoc,
+  resolvePublicNickname,
+} = require('./profiles')
 
 const USER_FOLLOWS_COLLECTION = 'user_follows'
 
@@ -198,7 +204,7 @@ async function listRelations(db, { matchField, idField, ownerId, viewerId, skip,
     return {
       userId: uid,
       login: p?.login || null,
-      nickname: p?.nickname || '',
+      nickname: resolvePublicNickname(p?.nickname, uid),
       avatar: p?.avatar || null,
       followersCount: p?.followersCount || 0,
       followingCount: p?.followingCount || 0,
