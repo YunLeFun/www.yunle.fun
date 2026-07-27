@@ -3,7 +3,6 @@ import type { BillingCycle, PlanId } from './payment'
 /** 会员状态（来自 user_memberships 集合） */
 export interface MembershipRecord {
   _id: string
-  userId: string
   planId: PlanId
   activeCycle: BillingCycle
   /** 会员到期时间戳（ms） */

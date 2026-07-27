@@ -58,8 +58,8 @@ export interface PaymentFlowSnapshot {
 export interface UsePaymentFlowOptions {
   /** sessionStorage 持久化键，不同业务流必须用不同 key 以免快照串台 */
   pendingKey: string
-  /** 支付成功后的副作用（如刷新会员 / 刷新余额），不阻塞 UI */
-  onPaid?: () => void | Promise<void>
+  /** 支付成功后的状态同步；完成后才向用户展示成功 */
+  onPaid?: () => unknown | Promise<unknown>
 }
 
 /**
@@ -233,7 +233,10 @@ export function usePaymentFlow(options: UsePaymentFlowOptions) {
     stopPolling()
 
     let attempts = 0
+    let paidRefreshInFlight = false
     pollTimer = setInterval(async () => {
+      if (paidRefreshInFlight)
+        return
       attempts++
       if (attempts > POLLING_MAX_ATTEMPTS) {
         stopPolling()
@@ -250,10 +253,19 @@ export function usePaymentFlow(options: UsePaymentFlowOptions) {
         })
         const result = res.result as QueryOrderResult
         if (result.status === 'paid') {
-          stopPolling()
-          phase.value = 'success'
-          writePending(null)
-          Promise.resolve(options.onPaid?.()).catch(() => {})
+          paidRefreshInFlight = true
+          try {
+            await options.onPaid?.()
+            stopPolling()
+            phase.value = 'success'
+            writePending(null)
+          }
+          catch (err) {
+            console.warn('支付已确认，刷新账户状态失败，将继续重试:', err)
+          }
+          finally {
+            paidRefreshInFlight = false
+          }
         }
         else if (result.status === 'failed' || result.status === 'closed') {
           stopPolling()

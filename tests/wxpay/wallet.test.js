@@ -295,9 +295,10 @@ describe('grantOrderEntitlement', () => {
     await grantOrderEntitlement(db, { order, now: NOW })
     const m = db._store[MEMBERSHIPS_COLLECTION][0]
     expect(m).toMatchObject({
-      userId: 'u1',
+      _id: 'u1',
       expireAt: computeNewExpireAt({ current: null, cycle: 'month', now: NOW }),
     })
+    expect(m).not.toHaveProperty('userId')
   })
 
   it('无 orderType 的历史订单：按 membership 处理（用 planId）', async () => {

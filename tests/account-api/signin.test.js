@@ -34,7 +34,7 @@ describe('每日签到 signIn', () => {
 
   it('会员签到 +2 云币', async () => {
     const db = makeFakeDb({
-      [MEMBERSHIPS_COLLECTION]: [{ _id: 'm', userId: 'vip', level: 'basic', expireAt: NOW + DAY }],
+      [MEMBERSHIPS_COLLECTION]: [{ _id: 'vip', level: 'basic', expireAt: NOW + DAY }],
     })
     const res = await signIn(db, { userId: 'vip', now: NOW })
     expect(res).toMatchObject({ balance: 2, reward: 2, alreadySigned: false, isMember: true })
@@ -42,7 +42,7 @@ describe('每日签到 signIn', () => {
 
   it('会员已过期按免费 +1', async () => {
     const db = makeFakeDb({
-      [MEMBERSHIPS_COLLECTION]: [{ _id: 'm', userId: 'ex', level: 'basic', expireAt: NOW - DAY }],
+      [MEMBERSHIPS_COLLECTION]: [{ _id: 'ex', level: 'basic', expireAt: NOW - DAY }],
     })
     const res = await signIn(db, { userId: 'ex', now: NOW })
     expect(res.reward).toBe(1)
@@ -78,7 +78,7 @@ describe('getSignInStatus', () => {
 
   it('已签到：signedToday=true 且回报实际入账额', async () => {
     const db = makeFakeDb({
-      [MEMBERSHIPS_COLLECTION]: [{ _id: 'm', userId: 'vip', expireAt: NOW + DAY }],
+      [MEMBERSHIPS_COLLECTION]: [{ _id: 'vip', expireAt: NOW + DAY }],
     })
     await signIn(db, { userId: 'vip', now: NOW })
     expect(await getSignInStatus(db, { userId: 'vip', now: NOW })).toMatchObject({
@@ -167,7 +167,7 @@ describe('连续签到 streak + 7 天里程碑', () => {
 
   it('会员连续 7 天里程碑 +20', async () => {
     const db = makeFakeDb({
-      [MEMBERSHIPS_COLLECTION]: [{ _id: 'm', userId: 'vip', expireAt: NOW + 30 * DAY }],
+      [MEMBERSHIPS_COLLECTION]: [{ _id: 'vip', expireAt: NOW + 30 * DAY }],
     })
     let res
     for (let i = 0; i < 7; i++)

@@ -20,9 +20,7 @@ export function usePayment() {
 
   const flow = usePaymentFlow({
     pendingKey: PENDING_ORDER_KEY,
-    onPaid: () => {
-      membership.refresh().catch(() => {})
-    },
+    onPaid: () => membership.refresh({ throwOnError: true }),
   })
 
   // 选中的套餐信息

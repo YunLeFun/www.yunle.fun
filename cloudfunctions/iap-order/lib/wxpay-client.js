@@ -96,8 +96,33 @@ async function queryTransactionByOutTradeNo(client, { outTradeNo, mchId }) {
   })
 }
 
+/**
+ * 发起微信支付全额或部分退款。
+ *
+ * @param {object} client
+ * @param {object} input 微信退款 API 请求体
+ * @returns {Promise<object>} 微信退款单
+ */
+async function requestRefund(client, input) {
+  return wxpayRequest(client, {
+    method: 'POST',
+    urlPath: '/v3/refund/domestic/refunds',
+    body: input,
+  })
+}
+
+/** 按稳定商户退款单号查询微信退款结果。 */
+async function queryRefundByOutRefundNo(client, outRefundNo) {
+  return wxpayRequest(client, {
+    method: 'GET',
+    urlPath: `/v3/refund/domestic/refunds/${encodeURIComponent(outRefundNo)}`,
+  })
+}
+
 module.exports = {
   WXPAY_HOST,
-  wxpayRequest,
+  queryRefundByOutRefundNo,
   queryTransactionByOutTradeNo,
+  requestRefund,
+  wxpayRequest,
 }

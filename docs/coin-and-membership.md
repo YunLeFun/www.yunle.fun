@@ -88,15 +88,14 @@
 索引：`idx_user_time`（`userId` ASC, `createdAt` DESC，非唯一）、
 可选 `idx_app_time`（`appId` ASC, `createdAt` DESC）用于按应用对账。
 
-### 3.3 `user_memberships` — 会员（沿用现状，去耦合）
+### 3.3 `user_memberships` — 会员（单一主键，去耦合）
 
-几乎不变。`level` 取代写死的 `planId`，**仍是一个用户一条全局记录、不带 appId**——
+`level` 取代写死的 `planId`，**一个用户一条全局记录、不带 appId**——
 这正是「跨应用共享会员」的天然形态。
 
 ```jsonc
 {
   "_id": "<cloudbase uid>",
-  "userId": "<cloudbase uid>",
   "level": "basic", // 会员等级，预留多档（basic / pro …）
   "activeCycle": "month", // month | year
   "expireAt": 1738367600000, // 毫秒时间戳
@@ -108,7 +107,8 @@
 }
 ```
 
-索引：`idx_user`（`userId` ASC，唯一）。`_id` 统一固定为 CloudBase `uid`，历史 auto-id 文档由会员开通 / 账户读取路径兼容并迁移。
+`_id` 就是 CloudBase `uid`，由内建主键索引保证一个用户最多一条会员记录；
+不再重复存储 `userId`，也不需要额外的用户唯一索引。
 
 > 迁移：现有文档的 `planId: "basic"` 语义等同于 `level: "basic"`。可在读取层做兼容
 > （`level ?? planId`），无需一次性刷数据。详见 [§7](#7-迁移方案)。
@@ -298,7 +298,7 @@ async function deductCoin(db, { userId, appId, amount, bizId, meta }) {
 | `orders`                  | `idx_outTradeNo`     | `outTradeNo`           | 唯一 |
 | `orders`                  | `idx_userId_status`  | `userId`, `status`     | 否   |
 | `orders`                  | `idx_app_type`（新） | `appId`, `orderType`   | 否   |
-| `user_memberships`        | `idx_user`           | `userId`               | 唯一 |
+| `user_memberships`        | `_id_`（内建）       | `_id`（CloudBase uid） | 唯一 |
 | `user_wallet`（新）       | `idx_user`           | `userId`               | 唯一 |
 | `coin_transactions`（新） | `idx_user_time`      | `userId`, `createdAt`↓ | 否   |
 | `coin_transactions`（新） | `idx_app_time`       | `appId`, `createdAt`↓  | 否   |

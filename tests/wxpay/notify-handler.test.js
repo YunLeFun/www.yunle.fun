@@ -16,6 +16,7 @@ import { computeNewExpireAt } from '../../cloudfunctions/wxpay-order/lib/members
 import { handleNotify } from '../../cloudfunctions/wxpay-order/lib/notify-handler.js'
 import { MEMBERSHIPS_COLLECTION, ORDERS_COLLECTION } from '../../cloudfunctions/wxpay-order/lib/orders.js'
 import { DAY_MS } from '../../cloudfunctions/wxpay-order/lib/plans.js'
+import { buildOutRefundNo } from '../../cloudfunctions/wxpay-order/lib/refunds.js'
 import { makeCallbackEvent, makeFakeDb, makeKeyPair, signCallback } from '../_fixtures/wxpay.mjs'
 
 const APPID = 'wxe6749827b67dfc25'
@@ -72,7 +73,7 @@ function buildResource({ overrides } = {}) {
 
 function findMembership(db, userId) {
   const rows = db._store[MEMBERSHIPS_COLLECTION] || []
-  return rows.find(item => item._id === userId) || rows.find(item => item.userId === userId)
+  return rows.find(item => item._id === userId)
 }
 
 let keyPair
@@ -101,10 +102,11 @@ describe('handleNotify — 成功路径', () => {
     const ms = db._store[MEMBERSHIPS_COLLECTION]
     expect(ms).toHaveLength(1)
     expect(ms[0]).toMatchObject({
-      userId: 'user-1',
+      _id: 'user-1',
       planId: 'basic',
       activeCycle: 'month',
     })
+    expect(ms[0]).not.toHaveProperty('userId')
     expect(ms[0].expireAt).toBe(computeNewExpireAt({ current: null, cycle: 'month', now: config.now() }))
   })
 
@@ -276,12 +278,102 @@ describe('handleNotify — 非支付成功事件', () => {
       privateKey: keyPair.privateKey,
       serial: SERIAL,
       eventType: 'REFUND.SUCCESS',
-      resourcePlaintext: buildResource(),
+      resourcePlaintext: {
+        mchid: MCHID,
+        out_trade_no: OUT_TRADE_NO,
+        transaction_id: '4200000000000000000000',
+        out_refund_no: 'YLFREF-unmanaged',
+        refund_id: '50000000001',
+        refund_status: 'SUCCESS',
+        amount: { refund: 990, total: 990 },
+      },
       timestamp,
     })
     const res = await handleNotify({ event, db, config })
     expect(res.statusCode).toBe(200)
     expect(db._store[ORDERS_COLLECTION][0].status).toBe('pending')
+  })
+
+  it('后台管理退款回调 SUCCESS：标记 refunded 并安全回滚会员', async () => {
+    const nowMs = Date.now()
+    const expireBefore = nowMs + DAY_MS
+    const expireAfter = nowMs + 31 * DAY_MS
+    const outRefundNo = buildOutRefundNo(OUT_TRADE_NO)
+    const db = makeFakeDb({
+      [ORDERS_COLLECTION]: [{
+        _id: 'order-refund',
+        outTradeNo: OUT_TRADE_NO,
+        userId: 'user-1',
+        orderType: 'membership',
+        payType: 'native',
+        status: 'paid',
+        amount: 990,
+        paidAt: nowMs - DAY_MS,
+        membershipGrant: {
+          expireBefore,
+          expireAfter,
+          activeCycleBefore: 'month',
+          planIdBefore: 'basic',
+          lastOrderIdBefore: 'previous-order',
+        },
+        refund: {
+          outRefundNo,
+          status: 'PROCESSING',
+          entitlementStatus: 'pending',
+          amount: 990,
+          currency: 'CNY',
+          reason: '用户申请退款',
+          requestedBy: 'owner',
+          requestedAt: nowMs - 1000,
+          updatedAt: nowMs - 1000,
+        },
+      }],
+      [MEMBERSHIPS_COLLECTION]: [{
+        _id: 'user-1',
+        planId: 'basic',
+        activeCycle: 'month',
+        expireAt: expireAfter,
+        lastOrderId: OUT_TRADE_NO,
+      }],
+    })
+    const config = {
+      apiV3Key: APIV3,
+      expectedAppid: APPID,
+      expectedMchid: MCHID,
+      certificates: { [SERIAL]: keyPair.publicKey },
+      toleranceSeconds: 300,
+      now: () => nowMs,
+    }
+    const event = makeCallbackEvent({
+      apiV3Key: APIV3,
+      privateKey: keyPair.privateKey,
+      serial: SERIAL,
+      eventType: 'REFUND.SUCCESS',
+      resourcePlaintext: {
+        mchid: MCHID,
+        out_trade_no: OUT_TRADE_NO,
+        transaction_id: '4200000000000000000000',
+        out_refund_no: outRefundNo,
+        refund_id: '50000000001',
+        refund_status: 'SUCCESS',
+        success_time: '2027-01-15T10:00:00+08:00',
+        amount: { refund: 990, total: 990 },
+      },
+      timestamp: String(Math.floor(nowMs / 1000)),
+    })
+
+    const response = await handleNotify({ event, db, config })
+
+    expect(response.statusCode).toBe(200)
+    expect(db._store[ORDERS_COLLECTION][0]).toMatchObject({
+      status: 'refunded',
+      refundStatus: 'SUCCESS',
+      refundEntitlementStatus: 'reverted',
+    })
+    expect(db._store[MEMBERSHIPS_COLLECTION][0]).toMatchObject({
+      expireAt: expireBefore,
+      lastOrderId: 'previous-order',
+    })
   })
 
   it('trade_state=USERPAYING：200 但不开通', async () => {
@@ -332,8 +424,7 @@ describe('handleNotify — 续费场景', () => {
         status: 'pending',
       }],
       [MEMBERSHIPS_COLLECTION]: [{
-        _id: 'm-1',
-        userId: 'user-1',
+        _id: 'user-1',
         planId: 'basic',
         activeCycle: 'month',
         expireAt: existing,

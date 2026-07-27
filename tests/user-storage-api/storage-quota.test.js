@@ -30,7 +30,7 @@ describe('user-storage-api storage quota', () => {
   it('普通用户默认 100MB，会员懒同步为 1GB', async () => {
     const db = makeFakeDb({
       [MEMBERSHIPS_COLLECTION]: [
-        { _id: 'm1', userId: 'vip', level: 'basic', expireAt: NOW + 86_400_000 },
+        { _id: 'vip', level: 'basic', expireAt: NOW + 86_400_000 },
       ],
     })
 
@@ -130,7 +130,7 @@ describe('user-storage-api storage quota', () => {
   it('会员到期后降回普通额度，但保留 addon 扩容', async () => {
     const db = makeFakeDb({
       [MEMBERSHIPS_COLLECTION]: [
-        { _id: 'm1', userId: 'u1', level: 'basic', expireAt: NOW - 1 },
+        { _id: 'u1', level: 'basic', expireAt: NOW - 1 },
       ],
       [USER_STORAGE_QUOTAS_COLLECTION]: [
         {
@@ -181,7 +181,7 @@ describe('user-storage-api storage quota', () => {
     }
     const db = makeFakeDb({
       [MEMBERSHIPS_COLLECTION]: [
-        { _id: 'm1', userId: 'u1', level: 'basic', expireAt: NOW - 1 },
+        { _id: 'u1', level: 'basic', expireAt: NOW - 1 },
       ],
       [USER_STORAGE_QUOTAS_COLLECTION]: [staleQuota],
     })

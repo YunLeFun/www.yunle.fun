@@ -37,15 +37,17 @@
 
 ### wxpay-order 环境变量
 
-| 变量名                | 说明                                                 | 获取方式                                                                                                        |
-| --------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `WX_MCH_ID`           | 微信支付商户号                                       | [微信支付商户平台](https://pay.weixin.qq.com/) → 账户中心 → 商户信息 → 商户号                                   |
-| `WX_APPID`            | 微信应用 AppID                                       | 使用 **云乐坊工作室服务号**：`wxe6749827b67dfc25`（网站应用不支持绑定微信开放平台，需使用已认证服务号的 AppID） |
-| `WX_SERIAL_NO`        | API 证书序列号                                       | 见下方「API 证书获取步骤」第 4 步                                                                               |
-| `WX_PRIVATE_KEY`      | API 证书私钥（PEM 格式）                             | 见下方「API 证书获取步骤」第 3 步                                                                               |
-| `WX_APIV3_KEY`        | APIv3 密钥（32 字节）                                | 见下方「APIv3 密钥获取步骤」                                                                                    |
-| `WX_NOTIFY_URL`       | 支付回调通知地址                                     | 见下方「回调地址获取」                                                                                          |
-| `WX_ALLOW_TEST_ORDER` | 是否允许自定义金额的测试下单接口（生产环境务必留空） | 设置为 `true` 时启用 `createTestOrder`，默认禁用                                                                |
+| 变量名                       | 说明                                                 | 获取方式                                                                                                        |
+| ---------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `WX_MCH_ID`                  | 微信支付商户号                                       | [微信支付商户平台](https://pay.weixin.qq.com/) → 账户中心 → 商户信息 → 商户号                                   |
+| `WX_APPID`                   | 微信应用 AppID                                       | 使用 **云乐坊工作室服务号**：`wxe6749827b67dfc25`（网站应用不支持绑定微信开放平台，需使用已认证服务号的 AppID） |
+| `WX_SERIAL_NO`               | API 证书序列号                                       | 见下方「API 证书获取步骤」第 4 步                                                                               |
+| `WX_PRIVATE_KEY`             | API 证书私钥（PEM 格式）                             | 见下方「API 证书获取步骤」第 3 步                                                                               |
+| `WX_APIV3_KEY`               | APIv3 密钥（32 字节）                                | 见下方「APIv3 密钥获取步骤」                                                                                    |
+| `WX_NOTIFY_URL`              | 支付回调通知地址                                     | 见下方「回调地址获取」                                                                                          |
+| `WX_REFUND_NOTIFY_URL`       | 退款结果回调地址；留空时复用 `WX_NOTIFY_URL`         | 指向同一个 `wxpay-notify` HTTP 访问服务                                                                         |
+| `ACCOUNT_API_INTERNAL_TOKEN` | admin 退款与账户服务间的内部令牌                     | 与 admin 的 `NUXT_CLOUDBASE_ACCOUNT_API_INTERNAL_TOKEN`、account-api 中的值一致                                 |
+| `WX_ALLOW_TEST_ORDER`        | 是否允许自定义金额的测试下单接口（生产环境务必留空） | 设置为 `true` 时启用 `createTestOrder`，默认禁用                                                                |
 
 ### wxpay-notify 环境变量
 
@@ -58,6 +60,10 @@
 | `WX_TIME_TOLERANCE`        | 验签允许的时钟漂移秒数（默认 300）                                        | 一般保持默认                                                                              |
 
 > 💡 `WX_PLATFORM_CERTIFICATES` 的 PEM 字符串中换行可写作 `\n`，代码会自动还原；多证书时直接增加 JSON key 即可，旧证书在轮换期内可与新证书并存。
+>
+> `wxpay-notify` 同时接收支付成功和退款结果通知。后台退款申请会显式把
+> `WX_REFUND_NOTIFY_URL`（或回退后的 `WX_NOTIFY_URL`）传给微信；只有渠道状态为
+> `SUCCESS` 时才把订单标为 `refunded` 并回滚会员权益。
 
 ### account-api 环境变量
 
@@ -242,6 +248,18 @@ refresh token 固定为 30 天 idle / 180 天 absolute，轮换并做 grant-fami
 > 当前环境 `<envId>` = `yunlefun-8g7ybcxc7345c490`。这些函数的 HTTP 路径绑定在网关的**通配域名 `*`** 上，因此在所有已接入域名都可达：默认域名 `https://<envId>.service.tcloudbase.com`，以及自定义域名 `api.yunle.fun` / `tcb.yunle.fun` / `tcb.api.yunle.fun`（如 `https://api.yunle.fun/desktop-auth`）。
 >
 > **云托管与云函数共存于同一域名**：同一张网关路由表上，`api.yunle.fun/`（根路径）指向**云托管**服务 `api`，而 `/desktop-auth`、`/wxpay-notify`、`/appstore-notify` 指向**云函数**——按 **path 最长前缀优先**分流（精确路径优先于根路径 `/`），互不冲突。所以"`api.yunle.fun` 在控制台显示为云托管域名"并不代表函数没接入，函数路由在「云函数 → HTTP 访问服务」入口单独管理。绑定详情见 [CloudBase 控制台](https://tcb.cloud.tencent.com/dev?envId=yunlefun-8g7ybcxc7345c490#/scf)。
+
+### Admin 会员退款上线门禁
+
+1. 运行 `pnpm sync:wxpay-lib && pnpm test`，先部署 `wxpay-order`，再部署
+   `wxpay-notify`；两者必须使用同一套商户号、证书与退款回调地址。
+2. 确认 `wxpay-order.ACCOUNT_API_INTERNAL_TOKEN` 与 admin 的
+   `NUXT_CLOUDBASE_ACCOUNT_API_INTERNAL_TOKEN` 一致。
+3. 使用正式低额会员订单演练申请、处理中、成功回调、重复回调和会员快照不匹配路径。
+4. 核对订单中的 `refund`、`refundStatus`、`refundEntitlementStatus` 与会员到期时间后，
+   再在 admin 设置 `NUXT_PUBLIC_ORDER_REFUNDS_ENABLED=true`。
+5. `ABNORMAL` 或 `CLOSED` 不会撤销会员；先在微信商户平台完成异常处理，再从 admin
+   主动更新退款状态。
 
 ---
 
@@ -497,20 +515,17 @@ tcb fn deploy --all -e yunlefun-8g7ybcxc7345c490
 「`status: paid` 但无 `grantedAt`」表示回调在标记已支付之后、发放权益之前中断（漏发场景），
 由 `wxpay-order` 的 `reconcileOrders` 扫描自愈补发；补发依赖底层幂等（会员 `lastOrderId` / 云币 `refId` / 订单 `grantedAt`），重入安全、不会重复发放。
 
-会员状态存储在 `user_memberships` 集合，索引：
+会员状态存储在 `user_memberships` 集合。一个用户固定对应一条文档：
 
-| 索引名     | 字段         | 唯一性 |
-| ---------- | ------------ | ------ |
-| `idx_user` | `userId` ASC | 唯一   |
-
-`_id` 固定为 CloudBase `uid`；历史 auto-id 会员文档由会员开通 / 账户读取路径兼容并迁移。
+- `_id` 固定为 CloudBase `uid`
+- 仅使用内建 `_id_` 主键索引
+- 不重复保存 `userId`，不建立额外用户唯一索引
 
 文档结构：
 
 ```jsonc
 {
   "_id": "<cloudbase uid>",
-  "userId": "<cloudbase uid>",
   "planId": "basic",
   "activeCycle": "month", // 或 "year"
   "expireAt": 1735689600000, // 毫秒时间戳
@@ -531,7 +546,8 @@ IAP 会员退款只在发放快照与当前最后一笔订单一致时回滚该�
 会员状态已变化或缺少可靠快照时，订单会标记 `manual_review_required`，不会直接清空用户的
 全部会员权益。
 
-安全规则：用户只能读取自己的订单与会员（`auth.uid == doc.userId`），写入由云函数完成。
+`user_memberships` 线上权限为 `ADMINONLY`，由 `account-api` 按当前登录 uid 返回会员状态；
+客户端不直接查询或写入会员集合。订单与会员写入均由云函数完成。
 
 [查看 orders 集合 →](https://tcb.cloud.tencent.com/dev?envId=yunlefun-8g7ybcxc7345c490#/db/doc/collection/orders)
 

@@ -78,7 +78,6 @@ describe('activateMembership', () => {
     expect(db._store[MEMBERSHIPS_COLLECTION]).toHaveLength(1)
     expect(db._store[MEMBERSHIPS_COLLECTION][0]).toMatchObject({
       _id: 'u1',
-      userId: 'u1',
       planId: 'basic',
       activeCycle: 'month',
       billingAnchorDay: 15,
@@ -86,6 +85,7 @@ describe('activateMembership', () => {
       createdAt: NOW,
       updatedAt: NOW,
     })
+    expect(db._store[MEMBERSHIPS_COLLECTION][0]).not.toHaveProperty('userId')
   })
 
   it('已有未过期会员：累加到现有到期日', async () => {
@@ -93,7 +93,6 @@ describe('activateMembership', () => {
     const db = makeFakeDb({
       [MEMBERSHIPS_COLLECTION]: [{
         _id: 'u1',
-        userId: 'u1',
         planId: 'basic',
         activeCycle: 'month',
         expireAt: existingExpire,
@@ -117,7 +116,6 @@ describe('activateMembership', () => {
     const db = makeFakeDb({
       [MEMBERSHIPS_COLLECTION]: [{
         _id: 'u1',
-        userId: 'u1',
         planId: 'basic',
         activeCycle: 'month',
         expireAt: NOW - 5 * DAY_MS,
@@ -195,39 +193,18 @@ describe('activateMembership', () => {
     expect(db._store[MEMBERSHIPS_COLLECTION][0].billingAnchorIsMonthEnd).toBe(false)
   })
 
-  it('legacy auto-id 会员记录会迁移为 _id 等于 uid 的规范记录', async () => {
-    const existingExpire = NOW + 12 * DAY_MS
+  it('只按 uid 主键读取会员，不依赖冗余 userId 字段', async () => {
     const db = makeFakeDb({
       [MEMBERSHIPS_COLLECTION]: [{
-        _id: 'legacy-member',
-        userId: 'u1',
+        _id: 'u1',
         planId: 'basic',
         activeCycle: 'month',
-        expireAt: existingExpire,
-        createdAt: NOW - 20 * DAY_MS,
-        updatedAt: NOW - 10 * DAY_MS,
+        expireAt: NOW + 12 * DAY_MS,
       }],
     })
 
-    const r = await activateMembership(db, {
-      userId: 'u1',
-      planId: 'basic',
-      cycle: 'month',
-      now: NOW,
-      outTradeNo: 'YLF-LEGACY',
-    })
-    const canonical = await readMembership(db, 'u1')
-
-    const expectedExpire = computeNewExpireAt({ current: existingExpire, cycle: 'month', now: NOW })
-    expect(r.expireAt).toBe(expectedExpire)
-    expect(canonical).toMatchObject({
-      _id: 'u1',
-      userId: 'u1',
-      lastOrderId: 'YLF-LEGACY',
-      expireAt: expectedExpire,
-      billingAnchorDay: 27,
-    })
-    expect(db._store[MEMBERSHIPS_COLLECTION].filter(item => item.userId === 'u1')).toHaveLength(2)
+    expect(await readMembership(db, 'u1')).toMatchObject({ _id: 'u1' })
+    expect(await readMembership(db, 'missing')).toBeNull()
   })
 
   it('userId 缺失抛错', async () => {
@@ -249,11 +226,12 @@ describe('activateMembership — 并发安全（CAS 重试）', () => {
     let updateCalls = 0
     const db = {
       collection: () => ({
-        where() { return this },
-        limit() { return this },
-        async get() {
-          return { data: [{ _id: 'u1', userId: 'u1', expireAt: currentExpire }] }
+        doc() {
+          return {
+            get: async () => ({ data: [{ _id: 'u1', expireAt: currentExpire }] }),
+          }
         },
+        where() { return this },
         async update(payload) {
           updateCalls++
           if (updateCalls === 1) {
@@ -282,21 +260,22 @@ describe('activateMembership — 并发安全（CAS 重试）', () => {
     }))
   })
 
-  it('新用户 insert 撞唯一索引时回退到 update', async () => {
+  it('新用户 insert 撞 _id 主键时回退到 update', async () => {
     let doc = null
     let addCalls = 0
     const db = {
       collection: () => ({
-        where() { return this },
-        limit() { return this },
-        async get() {
-          return { data: doc ? [doc] : [] }
+        doc() {
+          return {
+            get: async () => ({ data: doc ? [doc] : [] }),
+          }
         },
+        where() { return this },
         async add() {
           addCalls++
-          // 并发 insert：本次 add 前已有别的请求插入了记录 → 撞唯一索引
-          doc = { _id: 'u1', userId: 'u1', expireAt: NOW + 31 * DAY_MS }
-          throw new Error('duplicate key error collection: user_memberships index: userId')
+          // 并发 insert：本次 add 前已有别的请求插入了记录 → 撞 `_id` 主键
+          doc = { _id: 'u1', expireAt: NOW + 31 * DAY_MS }
+          throw new Error('duplicate key error collection: user_memberships index: _id_')
         },
         async update(payload) {
           doc = { ...doc, ...payload }
@@ -323,11 +302,12 @@ describe('activateMembership — 并发安全（CAS 重试）', () => {
   it('持续冲突超过最大重试次数则抛错', async () => {
     const db = {
       collection: () => ({
-        where() { return this },
-        limit() { return this },
-        async get() {
-          return { data: [{ _id: 'u1', userId: 'u1', expireAt: NOW }] }
+        doc() {
+          return {
+            get: async () => ({ data: [{ _id: 'u1', expireAt: NOW }] }),
+          }
         },
+        where() { return this },
         async update() {
           return { updated: 0 } // 永远 CAS 失败
         },
@@ -349,7 +329,6 @@ describe('activateMembership — 订单幂等（lastOrderId）', () => {
     const db = makeFakeDb({
       [MEMBERSHIPS_COLLECTION]: [{
         _id: 'u1',
-        userId: 'u1',
         planId: 'basic',
         activeCycle: 'month',
         expireAt: existingExpire,
@@ -372,7 +351,6 @@ describe('activateMembership — 订单幂等（lastOrderId）', () => {
     const db = makeFakeDb({
       [MEMBERSHIPS_COLLECTION]: [{
         _id: 'u1',
-        userId: 'u1',
         planId: 'basic',
         activeCycle: 'month',
         expireAt: existingExpire,
@@ -486,7 +464,6 @@ describe('grantOrderEntitlement — 幂等与 grantedAt 回写', () => {
       }],
       [MEMBERSHIPS_COLLECTION]: [{
         _id: 'u1',
-        userId: 'u1',
         planId: 'basic',
         activeCycle: 'month',
         expireAt: NOW + 31 * DAY_MS,

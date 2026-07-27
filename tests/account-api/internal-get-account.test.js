@@ -42,7 +42,7 @@ describe('account-api getAccountForUser', () => {
   it('返回余额与有效会员', async () => {
     const db = makeFakeDb({
       [WALLET_COLLECTION]: [{ _id: 'w', userId: 'target-user', balance: 88, version: 3 }],
-      [MEMBERSHIPS_COLLECTION]: [{ _id: 'm', userId: 'target-user', level: 'pro', expireAt: NOW + 100_000 }],
+      [MEMBERSHIPS_COLLECTION]: [{ _id: 'target-user', level: 'pro', expireAt: NOW + 100_000 }],
     })
     const res = await handleGetAccountForUser(db, { serviceToken: TOKEN, userId: 'target-user' }, { expectedToken: TOKEN, now: NOW })
     expect(res).toEqual({ coin: 88, membership: { isActive: true, level: 'pro', expireAt: NOW + 100_000 } })
@@ -51,7 +51,7 @@ describe('account-api getAccountForUser', () => {
   it('过期会员视为未激活', async () => {
     const db = makeFakeDb({
       [WALLET_COLLECTION]: [{ _id: 'w', userId: 'u1', balance: 10, version: 1 }],
-      [MEMBERSHIPS_COLLECTION]: [{ _id: 'm', userId: 'u1', level: 'pro', expireAt: NOW - 1 }],
+      [MEMBERSHIPS_COLLECTION]: [{ _id: 'u1', level: 'pro', expireAt: NOW - 1 }],
     })
     const res = await handleGetAccountForUser(db, { serviceToken: TOKEN, userId: 'u1' }, { expectedToken: TOKEN, now: NOW })
     expect(res).toEqual({ coin: 10, membership: { isActive: false, level: 'pro', expireAt: NOW - 1 } })

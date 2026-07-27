@@ -62,7 +62,7 @@ export function useCoin() {
   const isMember = computed(() => !!account.value?.membership.isActive)
 
   /** 拉取账户全貌（余额 + 会员） */
-  async function refresh(): Promise<AccountSnapshot | null> {
+  async function refresh(options: { throwOnError?: boolean } = {}): Promise<AccountSnapshot | null> {
     if (!user.value || !app) {
       account.value = null
       return null
@@ -80,6 +80,8 @@ export function useCoin() {
     catch (err) {
       error.value = err instanceof Error ? err.message : '获取账户失败'
       console.warn('[useCoin] refresh failed:', err)
+      if (options.throwOnError)
+        throw err
       return account.value
     }
     finally {

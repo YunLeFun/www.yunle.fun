@@ -139,7 +139,8 @@ describe('grantIapTransaction - 会员', () => {
     expect(order.meta.environment).toBe('Sandbox')
 
     const membership = db._store.user_memberships[0]
-    expect(membership.userId).toBe('u1')
+    expect(membership._id).toBe('u1')
+    expect(membership).not.toHaveProperty('userId')
     expect(membership.expireAt).toBe(computeNewExpireAt({ current: null, cycle: 'month', now: NOW }))
   })
 

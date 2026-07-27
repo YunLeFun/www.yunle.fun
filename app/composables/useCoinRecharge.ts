@@ -17,9 +17,7 @@ export function useCoinRecharge() {
 
   const flow = usePaymentFlow({
     pendingKey: PENDING_RECHARGE_KEY,
-    onPaid: () => {
-      coin.refresh().catch(() => {})
-    },
+    onPaid: () => coin.refresh({ throwOnError: true }),
   })
 
   const selectedPack = ref<CoinPackId | null>(null)

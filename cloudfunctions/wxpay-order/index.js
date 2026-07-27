@@ -5,12 +5,16 @@
  *   - createOrder      创建套餐订单（需登录）
  *   - createTestOrder  自定义金额测试下单（默认禁用，需 WX_ALLOW_TEST_ORDER=true 才启用）
  *   - queryOrder       查询订单（本地状态 + 微信兜底）
+ *   - adminRequestMembershipRefund owner 发起 7 天内会员全额退款（需内部服务令牌）
+ *   - adminQueryMembershipRefund owner 主动查询并补偿退款结果（需内部服务令牌）
  *
  * 主入口只做"参数解析 + 鉴权 + 路由"，纯逻辑全部委托给 lib/。
  */
 
 'use strict'
 
+const { Buffer } = require('node:buffer')
+const crypto = require('node:crypto')
 const process = require('node:process')
 const cloudbase = require('@cloudbase/node-sdk')
 const { assertActiveAccountForUid } = require('./account-access')
@@ -24,6 +28,10 @@ const {
   ORDERS_COLLECTION,
 } = require('./lib/orders')
 const { getCoinPack, getCustomCoinPlan, getMembershipAmount } = require('./lib/plans')
+const {
+  queryMembershipRefundForAdmin,
+  requestMembershipRefundForAdmin,
+} = require('./lib/refund-service')
 const {
   assertMembershipOrderInput,
   assertOutTradeNo,
@@ -51,6 +59,7 @@ function loadConfig() {
     serialNo: process.env.WX_SERIAL_NO,
     privateKey: process.env.WX_PRIVATE_KEY,
     notifyUrl: process.env.WX_NOTIFY_URL,
+    refundNotifyUrl: process.env.WX_REFUND_NOTIFY_URL || process.env.WX_NOTIFY_URL,
     allowTestOrder: process.env.WX_ALLOW_TEST_ORDER === 'true',
   }
   const missing = ['appId', 'mchId', 'serialNo', 'privateKey', 'notifyUrl']
@@ -59,6 +68,23 @@ function loadConfig() {
     throw new Error(`微信支付配置缺失：${missing.join(', ')}`)
   }
   return cfg
+}
+
+function timingSafeEqualString(left, right) {
+  if (typeof left !== 'string' || typeof right !== 'string')
+    return false
+  const leftBuffer = Buffer.from(left)
+  const rightBuffer = Buffer.from(right)
+  return leftBuffer.length === rightBuffer.length
+    && crypto.timingSafeEqual(leftBuffer, rightBuffer)
+}
+
+function assertInternalServiceToken(token) {
+  const expected = process.env.ACCOUNT_API_INTERNAL_TOKEN || ''
+  if (!expected)
+    throw new Error('内部服务鉴权未配置')
+  if (!timingSafeEqualString(token, expected))
+    throw new Error('内部服务鉴权失败')
 }
 
 /**
@@ -327,7 +353,8 @@ async function handleCreateTestOrder(event) {
  * 结算单笔 pending 订单：主动查微信 → 命中成功则标 paid 并发放权益。
  *
  * 供 queryOrder（前端轮询）与 reconcileOrders（兜底对账）复用，保证「查单 → 发放」逻辑只有一处。
- * 发放只在 markOrderPaid 返回 updated>0（pending→paid 首次转移）时触发，依赖底层幂等保证不重复。
+ * 微信确认成功后必须等权益发放完成才向客户端返回 paid；即使支付回调抢先完成了状态更新，
+ * 也会依靠会员 lastOrderId / 云币 refId 幂等键安全地等待或补发权益。
  *
  * @param {object} cfg loadConfig() 结果
  * @param {object} order pending 订单文档
@@ -368,13 +395,24 @@ async function settlePendingOrder(cfg, order) {
       transactionId: tx.transaction_id,
       now,
     })
-    if (updated > 0) {
-      try {
-        await grantOrderEntitlement(db, { order, now })
+    let paidOrder = order
+    if (updated === 0) {
+      const latestOrder = await findOrderByOutTradeNo(db, outTradeNo)
+      if (!latestOrder || latestOrder.status !== 'paid') {
+        return {
+          status: latestOrder?.status || 'pending',
+          transactionId: latestOrder?.transactionId || null,
+          paidAt: latestOrder?.paidAt || null,
+        }
       }
-      catch (err) {
-        console.error('[wxpay-order] 兜底发放权益失败（需人工补偿）:', err.message)
-      }
+      paidOrder = latestOrder
+    }
+    try {
+      await grantOrderEntitlement(db, { order: paidOrder, now })
+    }
+    catch (err) {
+      console.error('[wxpay-order] 兜底发放权益失败，将继续轮询:', err.message)
+      return { status: 'pending', transactionId: tx.transaction_id, paidAt: now }
     }
     return { status: 'paid', transactionId: tx.transaction_id, paidAt: now }
   }
@@ -402,8 +440,27 @@ async function handleQueryOrder(event) {
   if (order.userId !== uid)
     throw new Error('无权访问该订单')
 
-  // 已经是终态：直接返回
+  // 支付回调会先把订单标为 paid，再发放会员/云币权益。前端轮询可能恰好落在两步之间：
+  // 如果此时直接返回 paid，客户端会停止轮询并只刷新一次尚未更新的账户状态。
+  // 因此 paid 只有在权益已发放后才作为客户端终态返回；发放失败时保持轮询，
+  // 下一次 queryOrder 会继续依靠底层幂等键补发。
   if (order.status !== 'pending') {
+    if (order.status === 'paid' && !order.grantedAt) {
+      try {
+        await grantOrderEntitlement(db, { order, now: Date.now() })
+      }
+      catch (err) {
+        console.error('[wxpay-order] 查单时补发权益失败，将继续轮询:', {
+          outTradeNo,
+          err: err.message,
+        })
+        return {
+          status: 'pending',
+          transactionId: order.transactionId || null,
+          paidAt: order.paidAt || null,
+        }
+      }
+    }
     return {
       status: order.status,
       transactionId: order.transactionId || null,
@@ -477,6 +534,28 @@ async function handleReconcile() {
   return { reconciled: pending.length, paid, regranted }
 }
 
+async function handleAdminRequestMembershipRefund(event) {
+  assertInternalServiceToken(event?.serviceToken)
+  const cfg = loadConfig()
+  return requestMembershipRefundForAdmin(db, {
+    outTradeNo: event?.outTradeNo,
+    operator: event?.operator,
+    reason: event?.reason,
+    config: cfg,
+    now: Date.now(),
+  })
+}
+
+async function handleAdminQueryMembershipRefund(event) {
+  assertInternalServiceToken(event?.serviceToken)
+  const cfg = loadConfig()
+  return queryMembershipRefundForAdmin(db, {
+    outTradeNo: event?.outTradeNo,
+    config: cfg,
+    now: Date.now(),
+  })
+}
+
 exports.main = async (event) => {
   const { action } = event || {}
   try {
@@ -489,6 +568,10 @@ exports.main = async (event) => {
         return await handleQueryOrder(event)
       case 'reconcileOrders':
         return await handleReconcile()
+      case 'adminRequestMembershipRefund':
+        return await handleAdminRequestMembershipRefund(event)
+      case 'adminQueryMembershipRefund':
+        return await handleAdminQueryMembershipRefund(event)
       default:
         throw new Error(`未知 action: ${action}`)
     }

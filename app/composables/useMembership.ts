@@ -32,7 +32,7 @@ export function useMembership() {
   const state = computed(() => deriveState(record.value, Date.now()))
   const isActive = computed(() => !!state.value?.active)
 
-  async function refresh(): Promise<MembershipRecord | null> {
+  async function refresh(options: { throwOnError?: boolean } = {}): Promise<MembershipRecord | null> {
     if (!user.value) {
       record.value = null
       return null
@@ -54,6 +54,8 @@ export function useMembership() {
     catch (err) {
       error.value = err instanceof Error ? err.message : '获取会员状态失败'
       console.warn('[useMembership] refresh failed:', err)
+      if (options.throwOnError)
+        throw err
       return record.value
     }
     finally {

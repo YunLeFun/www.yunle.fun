@@ -15,6 +15,7 @@ const {
   grantOrderEntitlement,
   markOrderPaid,
 } = require('./orders')
+const { applyWechatRefundResult } = require('./refunds')
 const { verifyCallbackSignature } = require('./signature')
 const { assertResourceMatchesOrder } = require('./validation')
 
@@ -108,9 +109,11 @@ async function handleNotify(input) {
     return buildResponse(400, 'FAIL', '无法解析回调内容')
   }
 
-  // 忽略非支付成功事件（如退款、其他事件）但要返回 200 防止微信重发
-  if (notification.event_type !== 'TRANSACTION.SUCCESS') {
-    console.warn('[wxpay-notify] 忽略非支付成功事件:', notification.event_type)
+  const isPaymentNotification = notification.event_type === 'TRANSACTION.SUCCESS'
+  const isRefundNotification = typeof notification.event_type === 'string'
+    && notification.event_type.startsWith('REFUND.')
+  if (!isPaymentNotification && !isRefundNotification) {
+    console.warn('[wxpay-notify] 忽略未知事件:', notification.event_type)
     return buildResponse(200, 'SUCCESS', '已接收')
   }
 
@@ -122,6 +125,35 @@ async function handleNotify(input) {
   catch (err) {
     console.error('[wxpay-notify] 解密失败:', err.message)
     return buildResponse(500, 'FAIL', '解密失败')
+  }
+
+  if (isRefundNotification) {
+    try {
+      const result = await applyWechatRefundResult(db, {
+        outTradeNo: resource.out_trade_no,
+        outRefundNo: resource.out_refund_no,
+        refundId: resource.refund_id,
+        status: resource.refund_status,
+        successTime: resource.success_time,
+        refundAmount: resource.amount?.refund,
+        totalAmount: resource.amount?.total,
+        resourceMchid: resource.mchid,
+        expectedMchid: config.expectedMchid,
+        source: 'wechat-callback',
+        now,
+      })
+      if (!result.handled) {
+        console.warn('[wxpay-notify] 忽略非后台管理退款:', {
+          outTradeNo: resource.out_trade_no,
+          outRefundNo: resource.out_refund_no,
+        })
+      }
+      return buildResponse(200, 'SUCCESS', result.handled ? '退款结果已处理' : '退款记录不存在')
+    }
+    catch (err) {
+      console.error('[wxpay-notify] 退款结果处理失败:', err.message)
+      return buildResponse(500, 'FAIL', '退款结果处理失败')
+    }
   }
 
   if (resource.trade_state !== 'SUCCESS') {
