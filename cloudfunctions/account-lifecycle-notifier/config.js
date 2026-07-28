@@ -19,6 +19,13 @@ function loadEmailConfig(env = process.env) {
     ]),
   )
   return {
+    acceptanceEmail: typeof env.SES_ACCEPTANCE_EMAIL === 'string'
+      ? env.SES_ACCEPTANCE_EMAIL.trim()
+      : '',
+    acceptanceEnabled: env.SES_ACCEPTANCE_ENABLED === 'true',
+    acceptanceSigningKey: typeof env.SES_ACCEPTANCE_SIGNING_KEY === 'string'
+      ? env.SES_ACCEPTANCE_SIGNING_KEY
+      : '',
     mode: env.ACCOUNT_LIFECYCLE_EMAIL_MODE === 'live' ? 'live' : 'dry_run',
     region: env.SES_REGION || 'ap-guangzhou',
     fromAddress: env.SES_FROM_EMAIL || 'account@notify.yunle.fun',

@@ -5,6 +5,11 @@
 const process = require('node:process')
 const cloudbase = require('@cloudbase/node-sdk')
 
+const {
+  ACCEPTANCE_ACTION,
+  createAcceptanceStore,
+  sendAcceptanceEmail,
+} = require('./acceptance')
 const { loadEmailConfig } = require('./config')
 const { getTencentEmailStatus, sendTencentEmail } = require('./delivery')
 const { processNotificationJob } = require('./queue')
@@ -47,7 +52,7 @@ function createSesClient(config, context = {}) {
   })
 }
 
-exports.main = async function main(_event, context = {}) {
+exports.main = async function main(event, context = {}) {
   const runtime = cloudbase.getCloudbaseContext()
   const envId = runtime.TCB_ENV || runtime.SCF_NAMESPACE
   if (!envId)
@@ -55,6 +60,17 @@ exports.main = async function main(_event, context = {}) {
 
   const config = loadEmailConfig()
   const app = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV })
+  if (event?.action === ACCEPTANCE_ACTION) {
+    const result = await sendAcceptanceEmail(event, {
+      config,
+      now: Date.now(),
+      send: message => sendTencentEmail(createSesClient(config, context), config, message),
+      store: createAcceptanceStore(app.database()),
+    })
+    console.warn('[account-lifecycle-notifier] acceptance completed', JSON.stringify(result))
+    return result
+  }
+
   const store = createNotificationStore(app.database(), {
     userDailyLimit: config.userDailyLimit,
     opsDailyLimit: config.opsDailyLimit,
