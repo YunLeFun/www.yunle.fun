@@ -53,7 +53,7 @@
 
 ### `user_storage_files`
 
-文件索引表。配额只以这张表的状态机为准，不扫描 CloudBase Storage 目录。
+文件索引表。配额只以这张表的状态机为准，不扫描 COS 对象列表。
 
 ```jsonc
 {
@@ -65,7 +65,12 @@
   "fileName": "photo.png",
   "contentType": "image/png",
   "storageKey": "user-storage/<uid>/<appId>/<reservationId>/photo.png",
-  "fileId": "",
+  "fileId": "", // finalize 后为 cos://bucket/key，不含任何签名
+  "storageProvider": "",
+  "storageBucket": "",
+  "storageRegion": "",
+  "objectKey": "",
+  "objectETag": "",
   "sizeBytes": 0,
   "reservedSizeBytes": 41943040,
   "sha256": "",
@@ -114,7 +119,13 @@
 
 ### `reserveStorageUpload`
 
-上传前调用。服务端校验单文件 200MB、总配额、app/kind policy 和并发版本，然后返回后端生成的 `storageKey`。
+上传前调用。服务端校验单文件 200MB、总配额、app/kind policy 和并发版本，然后：
+
+- 生成服务端控制的 `storageKey`；
+- 使用云函数运行角色的临时凭证，为该精确对象键签发 10 分钟 PUT URL；
+- 把要求签入的请求头一并返回。客户端必须原样携带这些 header。
+
+签名 URL 只存在于本次响应，不写入数据库或日志。
 
 入参：
 
@@ -143,17 +154,25 @@
     "reservedSizeBytes": 41943040,
     "reservationExpiresAt": 1735690800000
   },
+  "upload": {
+    "method": "PUT",
+    "url": "https://...cos.ap-shanghai.myqcloud.com/user-storage/...?q-signature=...",
+    "headers": { "Content-Type": "application/json" },
+    "expiresAt": 1735689600000
+  },
   "deduped": false
 }
 ```
 
 ### `finalizeStorageUpload`
 
-上传 CloudBase Storage 成功后调用。服务端会：
+客户端 PUT 成功后调用。客户端不再提交或决定 `fileId`；服务端会：
 
-- 确认 `fileId` 路径匹配 reserve 返回的 `storageKey`
-- 通过 `@cloudbase/node-sdk#getFileInfo` 读取真实 `content-length`
-- 确认真实大小不超过 reserve 大小和 200MB
+- 对 reserve 中保存的精确 `storageKey` 发起 COS HEAD；
+- 校验真实 `content-length`、`content-type` 与预留策略；
+- 确认真实大小不超过 reserve 大小和 200MB；
+- 超限或类型不匹配时删除对象并释放预留；
+- 只把不含签名的 `cos://bucket/key` 规范引用写入 `fileId`；
 - 将 `reservedBytes` 转为 `usedBytes`
 
 入参：
@@ -161,8 +180,7 @@
 ```jsonc
 {
   "action": "finalizeStorageUpload",
-  "reservationId": "<reservationId>",
-  "fileId": "cloud://env.xxx/user-storage/..."
+  "reservationId": "<reservationId>"
 }
 ```
 
@@ -190,8 +208,8 @@
 
 ### `downloadStorageFile`
 
-下载当前用户的 active 文件。服务端只校验登录态归属、文件状态、app/kind policy 和 `maxBytes`，不解析业务格式；
-小文件会随函数响应返回 `text`，较大文件返回 CloudBase 临时下载 URL，由前端自行 fetch。
+下载当前用户的 active 文件。服务端校验登录态归属、文件状态、app/kind policy 和 `maxBytes`，再为精确对象键
+签发 5 分钟 GET URL。最多 4MiB 的 JSON/文本可同时随函数响应返回 `text`；二进制或较大文件只返回短期 URL。
 
 入参：
 
@@ -209,14 +227,15 @@
 {
   "file": { "reservationId": "<reservationId>", "status": "active" },
   "quota": { "usedBytes": 512 },
-  "downloadUrl": "https://...",
+  "downloadUrl": "https://...?q-signature=...",
+  "downloadUrlExpiresAt": 1735689300000,
   "text": "{...}" // 小文件才返回
 }
 ```
 
 ### `deleteStorageFile`
 
-删除对象并释放用量。服务端会先调用 CloudBase Storage `deleteFile`，成功后把索引标记为 `deleted`，
+删除对象并释放用量。服务端会先调用 COS `DeleteObject`，成功后把索引标记为 `deleted`，
 并扣减 `usedBytes` 或 `reservedBytes`。重复调用幂等。
 
 入参：
@@ -232,8 +251,24 @@
 
 1. 应用读取 `getStorageQuota`，展示剩余空间和单文件上限。
 2. 用户选择文件后，应用调用 `reserveStorageUpload`。
-3. 应用用返回的 `storageKey` 上传到 CloudBase Storage。
-4. 上传成功后调用 `finalizeStorageUpload`。
+3. 应用使用返回的 `upload.method + upload.url + upload.headers` 直接 PUT 到私有 COS。
+4. PUT 成功后只提交 `reservationId` 调用 `finalizeStorageUpload`。
 5. 删除时优先调用 `deleteStorageFile`，不要只删 Storage 对象。
 
 `saier` 侧只保留前端提示、文件格式解析与合并策略，所有权威 quota / path / ownership 判断都以 `user-storage-api` 返回为准。`user-storage-api` 不解析 `saier.brush-library.v1` 或 `BrushPreset`。
+
+## 5. 私有 COS 运行配置
+
+- Bucket：默认 `yunlefun-private-1325586649`，可由 `PRIVATE_COS_BUCKET` 覆盖。
+- Region：默认 `ap-shanghai`，可由 `PRIVATE_COS_REGION` 覆盖。
+- URL TTL：上传默认 600 秒、下载默认 300 秒，可由
+  `PRIVATE_COS_UPLOAD_URL_TTL_SECONDS` / `PRIVATE_COS_DOWNLOAD_URL_TTL_SECONDS` 调整（60~3600 秒）。
+- 凭证：只读取 SCF 运行角色注入的 `TENCENTCLOUD_SECRETID`、
+  `TENCENTCLOUD_SECRETKEY`、`TENCENTCLOUD_SESSIONTOKEN`，不配置长期密钥。
+- 运行角色按最小权限授予该桶 `PutObject`、`GetObject`、`HeadObject`、`DeleteObject`；
+  Bucket ACL 保持 private。
+- Web 直传只为一方站点配置精确 CORS Origin，允许 `PUT` / `GET`，允许请求头 `Content-Type`；
+  不使用带凭证的通配 Origin。
+
+CloudBase 默认云存储仅承载公开可读内容（例如头像）。用户项目、笔刷库等私有内容统一进入独立私有 COS，
+两类对象不得混存。

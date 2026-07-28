@@ -666,6 +666,7 @@ admin 自身另使用 `reward_campaigns` 和 `reward_grant_items` 保存批次�
   reservationId, userId, appId, kind, slotKey,
   status: "reserved", // reserved | finalizing | active | deleted | expired
   fileName, contentType, storageKey, fileId,
+  storageProvider, storageBucket, storageRegion, objectKey, objectETag,
   sizeBytes, reservedSizeBytes,
   reservationExpiresAt, createdAt, updatedAt
 }
@@ -673,12 +674,16 @@ admin 自身另使用 `reward_campaigns` 和 `reward_grant_items` 保存批次�
 
 > ⚠️ `user_storage_quotas._id` 必须固定为 CloudBase uid；`idx_user` 继续保持唯一用于兼容查询与防重复。
 >
-> 上传必须走 `reserveStorageUpload -> uploadFile(storageKey) -> finalizeStorageUpload`；删除优先走
+> 私有文件上传必须走 `reserveStorageUpload -> PUT(upload.url, upload.headers) -> finalizeStorageUpload`；
+> `finalizeStorageUpload` 只提交 `reservationId`，对象引用和真实元数据由服务端从私有 COS 确认。删除优先走
 > `deleteStorageFile`，不要只删 Storage 对象。会员开通 / 到期通过 `getStorageQuota`、reserve、finalize、delete
 > 入口懒同步 `quotaBytes`，不会因降级删除存量文件。
 
 安全规则：用户只读自己的配额和文件索引（`auth.uid == doc.userId`），写入由 `user-storage-api` 完成。
 所有接入应用必须调用 `user-storage-api`；`account-api` 只保留账户、钱包、会员、资料、关注和通知职责。
+CloudBase 默认云存储只放公开可读内容；项目、笔刷库等私有对象统一放
+`yunlefun-private-1325586649` 私有 COS。`user-storage-api` 使用 SCF 运行角色临时凭证签发短期 URL，
+数据库和日志不得持久化签名 URL 或长期密钥。
 
 ### 投币 / 支持榜：`app_tip_stats` + `app_supporters`（需新建）
 

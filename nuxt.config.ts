@@ -3,6 +3,8 @@ import process from 'node:process'
 import yaml from '@rollup/plugin-yaml'
 
 const DEFAULT_ACCOUNT_API_HTTP_URL = 'https://api.yunle.fun/account-api'
+const DEFAULT_CLOUDBASE_STORAGE_PUBLIC_ORIGIN
+  = 'https://7975-yunlefun-8g7ybcxc7345c490-1325586649.tcb.qcloud.la'
 const EDGEONE_ACCOUNT_CLIENT_SHELL_ROUTES = [
   '/profile',
   '/wallet',
@@ -111,6 +113,8 @@ export default defineNuxtConfig({
       apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || 'http://localhost:3000',
       githubClientId: process.env.NUXT_PUBLIC_GITHUB_CLIENT_ID || '',
       cloudbaseEnvId: process.env.NUXT_PUBLIC_CLOUDBASE_ENV_ID || 'yunlefun-8g7ybcxc7345c490',
+      cloudbaseStoragePublicOrigin: process.env.NUXT_PUBLIC_CLOUDBASE_STORAGE_PUBLIC_ORIGIN
+        || DEFAULT_CLOUDBASE_STORAGE_PUBLIC_ORIGIN,
       cloudbaseRegion: process.env.NUXT_PUBLIC_CLOUDBASE_REGION || 'ap-shanghai',
       cloudbaseAccessKey: process.env.NUXT_PUBLIC_CLOUDBASE_ACCESS_KEY || '',
       // 双层会话总开关：true 时启用 cookie→ticket 启动恢复（httpOnly cookie 作 SSR 可读会话真值）。

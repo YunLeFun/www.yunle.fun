@@ -7,18 +7,11 @@ const functions = new Map(config.functions.map(item => [item.name, item]))
 const authCoreSource = await readFile(new URL('../app/composables/auth/useAuthCore.ts', import.meta.url), 'utf8')
 
 describe('cloudBase test identity deployment manifest', () => {
-  it('publishes avatars for reading while reserving avatar writes for the server', () => {
-    expect(storageRules.read).toContain('/^avatars\\//.test(resource.path)')
-    expect(storageRules.read.indexOf('/^avatars\\//')).toBeLessThan(storageRules.read.indexOf('auth != null'))
-    expect(storageRules.write).not.toContain('avatars')
-  })
-
-  it('keeps non-avatar storage private and preserves existing project uploads', () => {
-    expect(storageRules.read).toContain('auth != null')
-    expect(storageRules.read).toContain('/user-storage\\//.test(resource.path)')
-    expect(storageRules.read).toContain('/^saier\\/projects\\//.test(resource.path)')
-    expect(storageRules.write).toContain('/user-storage\\//.test(resource.path)')
-    expect(storageRules.write).toContain('/^saier\\/projects\\//.test(resource.path)')
+  it('keeps the default bucket public-read and server-write only', () => {
+    expect(storageRules).toEqual({
+      read: 'true',
+      write: 'false',
+    })
   })
 
   it('versions every private test-identity environment variable as a placeholder', () => {

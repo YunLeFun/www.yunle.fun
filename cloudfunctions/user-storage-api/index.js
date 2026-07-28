@@ -7,117 +7,20 @@
 
 'use strict'
 
-const process = require('node:process')
 const cloudbase = require('@cloudbase/node-sdk')
-const { assertActiveAccountForUid } = require('./account-access')
-
-const {
-  deleteStorageFile,
-  downloadStorageFile,
-  finalizeStorageUpload,
-  getStorageQuota,
-  listStorageFiles,
-  readCloudbaseFileInfo,
-  reserveStorageUpload,
-} = require('./storage')
+const router = require('./router')
 
 const app = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV })
 const db = app.database()
 const callAccountApi = data => app.callFunction({ name: 'account-api', data }).then(r => r.result)
 
-const ANON_UIDS = new Set(['', 'anon'])
-
-function getCallerUid(cloudbaseApp = app) {
-  try {
-    const auth = cloudbaseApp.auth()
-    const info = auth.getUserInfo()
-    const uid = info?.uid || ''
-    return ANON_UIDS.has(uid) ? '' : uid
-  }
-  catch {
-    return ''
-  }
-}
-
-async function dispatch(event, deps = {}) {
-  const payload = event && typeof event === 'object' ? event : {}
-  const action = payload.action
-  const cloudbaseApp = deps.cloudbaseApp || app
-  const database = deps.db || db
-  const userId = deps.userId || getCallerUid(cloudbaseApp)
-  if (!userId)
-    throw new Error('请先登录')
-  await assertActiveAccountForUid(deps.callAccountApi || callAccountApi, {
-    serviceToken: deps.serviceToken ?? process.env.ACCOUNT_API_INTERNAL_TOKEN ?? '',
-    userId,
-  })
-
-  switch (action) {
-    case 'getStorageQuota':
-      return await getStorageQuota(database, { userId, now: Date.now() })
-    case 'reserveStorageUpload':
-      return await reserveStorageUpload(database, { ...payload, userId, now: Date.now() })
-    case 'finalizeStorageUpload':
-      return await finalizeStorageUpload(
-        database,
-        { ...payload, userId, now: Date.now() },
-        {
-          readFileInfo: fileId => readCloudbaseFileInfo(cloudbaseApp, fileId),
-          deleteFile: fileId => cloudbaseApp.deleteFile({ fileList: [fileId] }),
-        },
-      )
-    case 'listStorageFiles':
-      return await listStorageFiles(database, {
-        userId,
-        appId: payload.appId,
-        kind: payload.kind,
-        slotKey: payload.slotKey,
-        skip: payload.skip,
-        limit: payload.limit,
-        includeDeleted: payload.includeDeleted,
-      })
-    case 'deleteStorageFile':
-      return await deleteStorageFile(
-        database,
-        { ...payload, userId, now: Date.now() },
-        { deleteFile: fileId => cloudbaseApp.deleteFile({ fileList: [fileId] }) },
-      )
-    case 'downloadStorageFile':
-      return await downloadStorageFile(
-        database,
-        { ...payload, userId, now: Date.now() },
-        {
-          ...(typeof cloudbaseApp.downloadFile === 'function'
-            ? { downloadFile: fileId => cloudbaseApp.downloadFile({ fileID: fileId }) }
-            : {}),
-          getTempFileURL: fileId => readCloudbaseTempFileURL(cloudbaseApp, fileId),
-        },
-      )
-    default:
-      throw new Error(`未知 action: ${action}`)
-  }
-}
-
-async function readCloudbaseTempFileURL(cloudbaseApp, fileId) {
-  if (!cloudbaseApp || typeof cloudbaseApp.getTempFileURL !== 'function')
-    return ''
-  const res = await cloudbaseApp.getTempFileURL({ fileList: [fileId] })
-  const info = Array.isArray(res?.fileList) ? res.fileList[0] : null
-  if (!info)
-    return ''
-  if (info.code && !isSuccessCode(info.code))
-    throw new Error(`生成下载链接失败: ${info.code}`)
-  return info.tempFileURL || info.download_url || info.downloadUrl || info.downloadUrlEncoded || ''
-}
-
-function isSuccessCode(code) {
-  const normalized = String(code).toLowerCase()
-  return normalized === 'success' || normalized === 'ok' || normalized === '0'
-}
-
 exports.main = async (event) => {
   try {
-    return await dispatch(event)
+    return await router.dispatch(event, {
+      callAccountApi,
+      cloudbaseApp: app,
+      db,
+    })
   }
   catch (err) {
     console.error('[user-storage-api] 处理失败:', event?.action, err.message)
@@ -125,9 +28,4 @@ exports.main = async (event) => {
   }
 }
 
-exports._private = {
-  ANON_UIDS,
-  dispatch,
-  getCallerUid,
-  readCloudbaseTempFileURL,
-}
+exports._private = router

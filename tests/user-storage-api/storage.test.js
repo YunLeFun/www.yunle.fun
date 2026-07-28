@@ -14,7 +14,21 @@ import { makeFakeDb } from '../_fixtures/wxpay.mjs'
 const NOW = 1_700_000_000_000
 
 function fileIdFor(storageKey) {
-  return `cloud://yunlefun-8g7ybcxc7345c490.abc/${storageKey}`
+  return `cos://yunlefun-private-1325586649/${storageKey}`
+}
+
+function privateStorageOptions(fileInfo, overrides = {}) {
+  return {
+    describeObject: storageKey => ({
+      fileId: fileIdFor(storageKey),
+      objectKey: storageKey,
+      storageBucket: 'yunlefun-private-1325586649',
+      storageProvider: 'cos',
+      storageRegion: 'ap-shanghai',
+    }),
+    readFileInfo: async () => fileInfo,
+    ...overrides,
+  }
 }
 
 async function reserveBrushLibrary(db, reservationId, sizeBytes, now) {
@@ -96,26 +110,28 @@ describe('user-storage-api brush library policy', () => {
     const first = await reserveBrushLibrary(db, 'brush_first1', 4096, NOW)
     await finalizeStorageUpload(
       db,
-      { userId: 'u1', reservationId: 'brush_first1', fileId: fileIdFor(first.file.storageKey), now: NOW + 1 },
-      { readFileInfo: async () => ({ sizeBytes: 2048, contentType: 'application/json' }) },
+      { userId: 'u1', reservationId: 'brush_first1', now: NOW + 1 },
+      privateStorageOptions({ sizeBytes: 2048, contentType: 'application/json' }),
     )
 
-    const second = await reserveBrushLibrary(db, 'brush_second1', 4096, NOW + 2)
+    await reserveBrushLibrary(db, 'brush_second1', 4096, NOW + 2)
     const finalized = await finalizeStorageUpload(
       db,
-      { userId: 'u1', reservationId: 'brush_second1', fileId: fileIdFor(second.file.storageKey), now: NOW + 3 },
-      {
-        deleteFile: async (fileId) => {
-          deletedFileIds.push(fileId)
-          return { fileList: [{ code: 'SUCCESS', fileID: fileId }] }
+      { userId: 'u1', reservationId: 'brush_second1', now: NOW + 3 },
+      privateStorageOptions(
+        { sizeBytes: 1024, contentType: 'application/json' },
+        {
+          deleteFile: async (storageKey) => {
+            deletedFileIds.push(storageKey)
+            return {}
+          },
         },
-        readFileInfo: async () => ({ sizeBytes: 1024, contentType: 'application/json' }),
-      },
+      ),
     )
 
     expect(finalized.quota.usedBytes).toBe(1024)
     expect(finalized.quota.reservedBytes).toBe(0)
-    expect(deletedFileIds).toEqual([fileIdFor(first.file.storageKey)])
+    expect(deletedFileIds).toEqual([first.file.storageKey])
 
     const rows = db._store[USER_STORAGE_FILES_COLLECTION]
     expect(rows.find(item => item.reservationId === 'brush_first1')).toMatchObject({
@@ -137,6 +153,50 @@ describe('user-storage-api brush library policy', () => {
       reservationId: 'brush_second1',
       kind: STORAGE_FILE_KIND.BRUSH_LIBRARY,
       slotKey: 'default',
+    })
+  })
+
+  it('finalize 重试会继续清理尚未替换成功的旧 singleton', async () => {
+    const db = makeFakeDb()
+    const first = await reserveBrushLibrary(db, 'brush_retry_old', 4096, NOW)
+    await finalizeStorageUpload(
+      db,
+      { userId: 'u1', reservationId: 'brush_retry_old', now: NOW + 1 },
+      privateStorageOptions({ sizeBytes: 2048, contentType: 'application/json' }),
+    )
+
+    await reserveBrushLibrary(db, 'brush_retry_new', 4096, NOW + 2)
+    await expect(
+      finalizeStorageUpload(
+        db,
+        { userId: 'u1', reservationId: 'brush_retry_new', now: NOW + 3 },
+        privateStorageOptions(
+          { sizeBytes: 1024, contentType: 'application/json' },
+          {
+            deleteFile: async () => {
+              throw new Error('temporary delete failure')
+            },
+          },
+        ),
+      ),
+    ).rejects.toThrow(/temporary delete failure/)
+
+    const retried = await finalizeStorageUpload(
+      db,
+      { userId: 'u1', reservationId: 'brush_retry_new', now: NOW + 4 },
+      {
+        deleteFile: async () => ({}),
+      },
+    )
+    expect(retried).toMatchObject({
+      deduped: true,
+      quota: { usedBytes: 1024 },
+    })
+    expect(db._store[USER_STORAGE_FILES_COLLECTION].find(
+      item => item.reservationId === first.file.reservationId,
+    )).toMatchObject({
+      replacedByReservationId: 'brush_retry_new',
+      status: STORAGE_FILE_STATUS.DELETED,
     })
   })
 })

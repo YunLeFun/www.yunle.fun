@@ -1,7 +1,6 @@
 interface AvatarUploadResult {
   fileID: string
   cloudPath: string
-  url: string
 }
 
 function readFileAsDataUrl(file: File): Promise<string> {
@@ -23,7 +22,6 @@ function isAvatarUploadResult(value: unknown): value is AvatarUploadResult {
   const item = value as Record<string, unknown>
   return typeof item.fileID === 'string'
     && typeof item.cloudPath === 'string'
-    && typeof item.url === 'string'
 }
 
 export function useAvatarUpload() {
@@ -46,7 +44,6 @@ export function useAvatarUpload() {
     })
     if (!isAvatarUploadResult(res.result))
       throw new Error('头像上传失败')
-    rememberAvatarUrl(res.result.fileID, res.result.url)
     return res.result
   }
 

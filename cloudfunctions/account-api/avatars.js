@@ -45,18 +45,8 @@ function assertAvatarPayload(input) {
   return { contentType, ext, fileContent }
 }
 
-function normalizeTempFileURL(result, fileID) {
-  const item = Array.isArray(result?.fileList)
-    ? result.fileList.find(file => file && file.fileID === fileID) || result.fileList[0]
-    : null
-  const tempFileURL = item?.tempFileURL
-  if (typeof tempFileURL !== 'string' || !tempFileURL)
-    throw new Error('获取头像地址失败')
-  return tempFileURL
-}
-
 async function uploadAvatar(cloudbaseApp, { userId, avatar, now = Date.now() }) {
-  if (!cloudbaseApp || typeof cloudbaseApp.uploadFile !== 'function' || typeof cloudbaseApp.getTempFileURL !== 'function')
+  if (!cloudbaseApp || typeof cloudbaseApp.uploadFile !== 'function')
     throw new Error('头像上传服务不可用')
   if (typeof userId !== 'string' || !userId.trim())
     throw new Error('请先登录')
@@ -69,11 +59,9 @@ async function uploadAvatar(cloudbaseApp, { userId, avatar, now = Date.now() }) 
   if (typeof fileID !== 'string' || !fileID)
     throw new Error('头像上传失败')
 
-  const urlResult = await cloudbaseApp.getTempFileURL({ fileList: [fileID] })
   return {
     fileID,
     cloudPath,
-    url: normalizeTempFileURL(urlResult, fileID),
   }
 }
 

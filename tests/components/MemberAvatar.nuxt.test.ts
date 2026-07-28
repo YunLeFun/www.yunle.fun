@@ -1,108 +1,50 @@
 // @vitest-environment nuxt
-import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
-import { flushPromises } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { mountSuspended } from '@nuxt/test-utils/runtime'
+import { describe, expect, it } from 'vitest'
 import MemberAvatar from '../../app/components/MemberAvatar.vue'
 
-const h = vi.hoisted(() => ({
-  createSignedUrl: vi.fn(),
-}))
-
-mockNuxtImport('useCloudbase', () => () => ({
-  app: {
-    storage: {
-      from: () => ({ createSignedUrl: h.createSignedUrl }),
-    },
-  },
-}))
+const envId = 'yunlefun-8g7ybcxc7345c490'
+const bucket = `7975-${envId}-1325586649`
 
 describe('memberAvatar', () => {
-  beforeEach(() => {
-    h.createSignedUrl.mockReset()
-  })
-
-  it('resolves a persistent CloudBase avatar reference before rendering it', async () => {
-    const fileID = 'cloud://env.bucket/avatars/user-1.jpg'
-    const freshUrl = 'https://cdn.example.com/avatars/user-1.jpg?token=fresh'
-    h.createSignedUrl.mockResolvedValue({
-      data: { signedUrl: freshUrl },
-    })
-
+  it('renders a persistent CloudBase avatar reference as a public URL', async () => {
+    const fileID = `cloud://${envId}.${bucket}/avatars/user-1.jpg`
     const wrapper = await mountSuspended(MemberAvatar, {
       props: { src: fileID, alt: 'User' },
     })
-    await flushPromises()
 
-    expect(h.createSignedUrl).toHaveBeenCalledWith(fileID, 24 * 60 * 60)
-    expect(wrapper.get('img[role="img"]').attributes('src')).toBe(freshUrl)
+    expect(wrapper.get('img[role="img"]').attributes('src')).toBe(
+      `https://${bucket}.tcb.qcloud.la/avatars/user-1.jpg`,
+    )
   })
 
-  it('refreshes a legacy signed CloudBase avatar URL', async () => {
-    const bucket = 'yunlefun-8g7ybcxc7345c490-1250000000'
-    const legacyUrl = `https://${bucket}.tcb.qcloud.la/avatars/user-2.jpg?sign=expired`
-    const fileID = `cloud://yunlefun-8g7ybcxc7345c490.${bucket}/avatars/user-2.jpg`
-    const freshUrl = 'https://cdn.example.com/avatars/user-2.jpg?token=fresh'
-    h.createSignedUrl.mockResolvedValue({
-      data: { signedUrl: freshUrl },
-    })
-
+  it('removes the signature from a legacy public CloudBase avatar URL', async () => {
+    const legacyUrl = `https://${bucket}.tcb.qcloud.la/avatars/user-2.jpg?sign=expired&t=1#avatar`
     const wrapper = await mountSuspended(MemberAvatar, {
       props: { src: legacyUrl, alt: 'Legacy User' },
     })
-    await flushPromises()
 
-    expect(h.createSignedUrl).toHaveBeenCalledWith(fileID, 24 * 60 * 60)
-    expect(wrapper.get('img[role="img"]').attributes('src')).toBe(freshUrl)
+    expect(wrapper.get('img[role="img"]').attributes('src')).toBe(
+      `https://${bucket}.tcb.qcloud.la/avatars/user-2.jpg`,
+    )
   })
 
-  it('refreshes a bare legacy CloudBase avatar URL before the browser requests it', async () => {
-    const bucket = 'yunlefun-8g7ybcxc7345c490-1250000000'
-    const legacyUrl = `https://${bucket}.tcb.qcloud.la/avatars/user-3.jpg`
-    const fileID = `cloud://yunlefun-8g7ybcxc7345c490.${bucket}/avatars/user-3.jpg`
-    const freshUrl = 'https://cdn.example.com/avatars/user-3.jpg?token=fresh'
-    let resolveSignedUrl!: (value: { data: { signedUrl: string } }) => void
-    h.createSignedUrl.mockReturnValue(new Promise((resolve) => {
-      resolveSignedUrl = resolve
-    }))
-
+  it('does not render an untrusted CloudBase file reference', async () => {
+    const fileID = 'cloud://another-env.bucket/avatars/user-3.jpg'
     const wrapper = await mountSuspended(MemberAvatar, {
-      props: { src: legacyUrl, alt: 'Bare Legacy User' },
+      props: { src: fileID, alt: '风信子' },
     })
-    await flushPromises()
 
-    expect(h.createSignedUrl).toHaveBeenCalledWith(fileID, 24 * 60 * 60)
     expect(wrapper.find('img[role="img"]').exists()).toBe(false)
-
-    resolveSignedUrl({
-      data: { signedUrl: freshUrl },
-    })
-    await flushPromises()
-
-    expect(wrapper.get('img[role="img"]').attributes('src')).toBe(freshUrl)
+    expect(wrapper.text()).toContain('风')
   })
 
-  it('falls back to text without requesting a legacy URL when signing fails', async () => {
-    const bucket = 'yunlefun-8g7ybcxc7345c490-1250000000'
-    const legacyUrl = `https://${bucket}.tcb.qcloud.la/avatars/user-4.jpg`
-    h.createSignedUrl.mockRejectedValue(new Error('signing unavailable'))
-
-    const wrapper = await mountSuspended(MemberAvatar, {
-      props: { src: legacyUrl, alt: '风信子' },
-    })
-    await flushPromises()
-
-    expect(h.createSignedUrl).toHaveBeenCalledTimes(1)
-    expect(wrapper.find('img[role="img"]').exists()).toBe(false)
-  })
-
-  it('renders third-party avatar URLs without sending them to CloudBase', async () => {
+  it('renders third-party avatar URLs unchanged', async () => {
     const url = 'https://avatars.githubusercontent.com/u/1?v=4'
     const wrapper = await mountSuspended(MemberAvatar, {
       props: { src: url, alt: 'GitHub User' },
     })
-    await flushPromises()
 
-    expect(h.createSignedUrl).not.toHaveBeenCalled()
     expect(wrapper.get('img[role="img"]').attributes('src')).toBe(url)
   })
 

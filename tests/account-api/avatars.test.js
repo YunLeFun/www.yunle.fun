@@ -18,9 +18,6 @@ describe('account avatar upload', () => {
         uploaded.push(input)
         return { fileID: `cloud://env.bucket/${input.cloudPath}` }
       },
-      async getTempFileURL({ fileList }) {
-        return { fileList: [{ fileID: fileList[0], tempFileURL: 'https://example.com/avatar.jpg' }] }
-      },
     }
 
     const res = await uploadAvatar(cloudbaseApp, {
@@ -32,7 +29,6 @@ describe('account avatar upload', () => {
     expect(res).toEqual({
       cloudPath: 'avatars/u1_123.jpg',
       fileID: 'cloud://env.bucket/avatars/u1_123.jpg',
-      url: 'https://example.com/avatar.jpg',
     })
     expect(uploaded[0].fileContent).toBeInstanceOf(Buffer)
     expect(uploaded[0].fileContent.toString()).toBe('avatar')
@@ -47,20 +43,11 @@ describe('account avatar upload', () => {
     expect(() => assertAvatarPayload({ contentType: 'image/jpeg', data })).toThrow(/2 MiB/)
   })
 
-  it('requires a temp file url from CloudBase', async () => {
-    const cloudbaseApp = {
-      async uploadFile() {
-        return { fileID: 'cloud://env.bucket/avatars/u1_1.jpg' }
-      },
-      async getTempFileURL() {
-        return { fileList: [] }
-      },
-    }
-
-    await expect(uploadAvatar(cloudbaseApp, {
+  it('requires the server-side upload capability', async () => {
+    await expect(uploadAvatar({}, {
       userId: 'u1',
       avatar: { contentType: 'image/jpeg', data: JPEG_DATA_URL },
       now: 1,
-    })).rejects.toThrow(/头像地址/)
+    })).rejects.toThrow(/上传服务/)
   })
 })

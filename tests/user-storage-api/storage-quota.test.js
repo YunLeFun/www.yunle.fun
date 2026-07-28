@@ -23,7 +23,21 @@ const NOW = 1_700_000_000_000
 const MB = 1024 * 1024
 
 function fileIdFor(storageKey) {
-  return `cloud://yunlefun-8g7ybcxc7345c490.abc/${storageKey}`
+  return `cos://yunlefun-private-1325586649/${storageKey}`
+}
+
+function privateStorageOptions(fileInfo, overrides = {}) {
+  return {
+    describeObject: storageKey => ({
+      fileId: fileIdFor(storageKey),
+      objectKey: storageKey,
+      storageBucket: 'yunlefun-private-1325586649',
+      storageProvider: 'cos',
+      storageRegion: 'ap-shanghai',
+    }),
+    readFileInfo: async () => fileInfo,
+    ...overrides,
+  }
 }
 
 describe('user-storage-api storage quota', () => {
@@ -277,8 +291,8 @@ describe('user-storage-api storage quota', () => {
 
     const res = await finalizeStorageUpload(
       db,
-      { userId: 'u1', reservationId: 'res_final1', fileId, now: NOW + 1 },
-      { readFileInfo: async () => ({ sizeBytes: 25 * MB, contentType: 'image/png' }) },
+      { userId: 'u1', reservationId: 'res_final1', now: NOW + 1 },
+      privateStorageOptions({ sizeBytes: 25 * MB, contentType: 'image/png', etag: '"etag-final1"' }),
     )
 
     expect(res.quota.usedBytes).toBe(25 * MB)
@@ -286,12 +300,14 @@ describe('user-storage-api storage quota', () => {
     expect(res.file).toMatchObject({
       status: STORAGE_FILE_STATUS.ACTIVE,
       fileId,
+      storageProvider: 'cos',
+      storageBucket: 'yunlefun-private-1325586649',
       sizeBytes: 25 * MB,
       reservedSizeBytes: 40 * MB,
     })
   })
 
-  it('finalize 拒绝伪造 storageKey 或 fileId', async () => {
+  it('finalize 拒绝伪造 storageKey，并忽略客户端提供的 fileId', async () => {
     const db = makeFakeDb()
     const reserved = await reserveStorageUpload(db, {
       userId: 'u1',
@@ -308,31 +324,29 @@ describe('user-storage-api storage quota', () => {
         {
           userId: 'u1',
           reservationId: 'res_guard1',
-          fileId: fileIdFor(reserved.file.storageKey),
           storageKey: 'user-storage/u2/saier/res_guard1/photo.png',
           now: NOW + 1,
         },
-        { readFileInfo: async () => ({ sizeBytes: 5 * MB, contentType: 'image/png' }) },
+        privateStorageOptions({ sizeBytes: 5 * MB, contentType: 'image/png' }),
       ),
     ).rejects.toThrow(/storageKey/)
 
-    await expect(
-      finalizeStorageUpload(
-        db,
-        {
-          userId: 'u1',
-          reservationId: 'res_guard1',
-          fileId: fileIdFor('user-storage/u2/saier/res_guard1/photo.png'),
-          now: NOW + 2,
-        },
-        { readFileInfo: async () => ({ sizeBytes: 5 * MB, contentType: 'image/png' }) },
-      ),
-    ).rejects.toThrow(/fileId/)
+    const finalized = await finalizeStorageUpload(
+      db,
+      {
+        userId: 'u1',
+        reservationId: 'res_guard1',
+        fileId: fileIdFor('user-storage/u2/saier/res_guard1/photo.png'),
+        now: NOW + 2,
+      },
+      privateStorageOptions({ sizeBytes: 5 * MB, contentType: 'image/png' }),
+    )
+    expect(finalized.file.fileId).toBe(fileIdFor(reserved.file.storageKey))
   })
 
   it('finalize 拒绝超过 reserve 的真实文件并释放 reserved', async () => {
     const db = makeFakeDb()
-    const reserved = await reserveStorageUpload(db, {
+    await reserveStorageUpload(db, {
       userId: 'u1',
       appId: 'saier',
       sizeBytes: 20 * MB,
@@ -344,8 +358,8 @@ describe('user-storage-api storage quota', () => {
     await expect(
       finalizeStorageUpload(
         db,
-        { userId: 'u1', reservationId: 'res_final2', fileId: fileIdFor(reserved.file.storageKey), now: NOW + 1 },
-        { readFileInfo: async () => ({ sizeBytes: 25 * MB, contentType: 'image/png' }) },
+        { userId: 'u1', reservationId: 'res_final2', now: NOW + 1 },
+        privateStorageOptions({ sizeBytes: 25 * MB, contentType: 'image/png' }),
       ),
     ).rejects.toThrow(/实际文件大小/)
 
@@ -356,9 +370,84 @@ describe('user-storage-api storage quota', () => {
     expect(file.status).toBe(STORAGE_FILE_STATUS.EXPIRED)
   })
 
+  it('finalize 在对象尚未可见时回退为 reserved，允许客户端重试', async () => {
+    const db = makeFakeDb()
+    await reserveStorageUpload(db, {
+      userId: 'u1',
+      appId: 'saier',
+      contentType: 'application/json',
+      fileName: 'retry.saier.project.json',
+      kind: 'project',
+      reservationId: 'res_retry1',
+      sizeBytes: 1024,
+      now: NOW,
+    })
+    const unavailable = privateStorageOptions({ sizeBytes: 512, contentType: 'application/json' }, {
+      readFileInfo: async () => {
+        throw new Error('NoSuchKey')
+      },
+    })
+
+    await expect(
+      finalizeStorageUpload(
+        db,
+        { userId: 'u1', reservationId: 'res_retry1', now: NOW + 1 },
+        unavailable,
+      ),
+    ).rejects.toThrow(/确认私有存储对象失败/)
+    expect(db._store[USER_STORAGE_FILES_COLLECTION][0].status).toBe(STORAGE_FILE_STATUS.RESERVED)
+
+    const finalized = await finalizeStorageUpload(
+      db,
+      { userId: 'u1', reservationId: 'res_retry1', now: NOW + 2 },
+      privateStorageOptions({ sizeBytes: 512, contentType: 'application/json' }),
+    )
+    expect(finalized.file.status).toBe(STORAGE_FILE_STATUS.ACTIVE)
+  })
+
+  it('finalize 删除 Content-Type 不匹配的对象并释放预留', async () => {
+    const db = makeFakeDb()
+    await reserveStorageUpload(db, {
+      userId: 'u1',
+      appId: 'saier',
+      contentType: 'application/json',
+      fileName: 'guard.saier.project.json',
+      kind: 'project',
+      reservationId: 'res_mime1',
+      sizeBytes: 1024,
+      now: NOW,
+    })
+    const deletedKeys = []
+
+    await expect(
+      finalizeStorageUpload(
+        db,
+        { userId: 'u1', reservationId: 'res_mime1', now: NOW + 1 },
+        privateStorageOptions(
+          { sizeBytes: 512, contentType: 'image/png' },
+          {
+            deleteFile: async (storageKey) => {
+              deletedKeys.push(storageKey)
+              return {}
+            },
+          },
+        ),
+      ),
+    ).rejects.toThrow(/Content-Type/)
+
+    expect(deletedKeys).toEqual([
+      'user-storage/u1/saier/res_mime1/guard.saier.project.json',
+    ])
+    expect(db._store[USER_STORAGE_FILES_COLLECTION][0].status).toBe(STORAGE_FILE_STATUS.EXPIRED)
+    await expect(getStorageQuota(db, { userId: 'u1', now: NOW + 2 })).resolves.toMatchObject({
+      reservedBytes: 0,
+      usedBytes: 0,
+    })
+  })
+
   it('deleteStorageFile 允许删除并幂等释放 usedBytes', async () => {
     const db = makeFakeDb()
-    const reserved = await reserveStorageUpload(db, {
+    await reserveStorageUpload(db, {
       userId: 'u1',
       appId: 'saier',
       sizeBytes: 40 * MB,
@@ -366,11 +455,10 @@ describe('user-storage-api storage quota', () => {
       reservationId: 'res_delete1',
       now: NOW,
     })
-    const fileId = fileIdFor(reserved.file.storageKey)
     await finalizeStorageUpload(
       db,
-      { userId: 'u1', reservationId: 'res_delete1', fileId, now: NOW + 1 },
-      { readFileInfo: async () => ({ sizeBytes: 25 * MB, contentType: 'image/png' }) },
+      { userId: 'u1', reservationId: 'res_delete1', now: NOW + 1 },
+      privateStorageOptions({ sizeBytes: 25 * MB, contentType: 'image/png' }),
     )
 
     const deleted = await deleteStorageFile(db, { userId: 'u1', reservationId: 'res_delete1', now: NOW + 2 })
@@ -384,7 +472,7 @@ describe('user-storage-api storage quota', () => {
 
   it('deleteStorageFile 在云存储对象删除失败时不释放 usedBytes', async () => {
     const db = makeFakeDb()
-    const reserved = await reserveStorageUpload(db, {
+    await reserveStorageUpload(db, {
       userId: 'u1',
       appId: 'saier',
       sizeBytes: 40 * MB,
@@ -392,11 +480,10 @@ describe('user-storage-api storage quota', () => {
       reservationId: 'res_delete2',
       now: NOW,
     })
-    const fileId = fileIdFor(reserved.file.storageKey)
     await finalizeStorageUpload(
       db,
-      { userId: 'u1', reservationId: 'res_delete2', fileId, now: NOW + 1 },
-      { readFileInfo: async () => ({ sizeBytes: 25 * MB, contentType: 'image/png' }) },
+      { userId: 'u1', reservationId: 'res_delete2', now: NOW + 1 },
+      privateStorageOptions({ sizeBytes: 25 * MB, contentType: 'image/png' }),
     )
 
     await expect(
@@ -414,7 +501,7 @@ describe('user-storage-api storage quota', () => {
 
   it('downloadStorageFile 只允许当前用户下载 active 文件并按 maxBytes 限制内联内容', async () => {
     const db = makeFakeDb()
-    const reserved = await reserveStorageUpload(db, {
+    await reserveStorageUpload(db, {
       userId: 'u1',
       appId: 'saier',
       contentType: 'application/json',
@@ -424,19 +511,21 @@ describe('user-storage-api storage quota', () => {
       sizeBytes: 1024,
       now: NOW,
     })
-    const fileId = fileIdFor(reserved.file.storageKey)
     await finalizeStorageUpload(
       db,
-      { userId: 'u1', reservationId: 'res_down1', fileId, now: NOW + 1 },
-      { readFileInfo: async () => ({ sizeBytes: 512, contentType: 'application/json' }) },
+      { userId: 'u1', reservationId: 'res_down1', now: NOW + 1 },
+      privateStorageOptions({ sizeBytes: 512, contentType: 'application/json' }),
     )
 
     const downloaded = await downloadStorageFile(
       db,
       { userId: 'u1', reservationId: 'res_down1', maxBytes: 1024, now: NOW + 2 },
       {
-        downloadFile: async () => ({ fileContent: Buffer.from('{"ok":true}', 'utf8') }),
-        getTempFileURL: async () => 'https://temp.example/project.json',
+        createDownloadUrl: async () => ({
+          expiresAt: NOW + 5 * 60 * 1000,
+          url: 'https://temp.example/project.json?signature=short-lived',
+        }),
+        downloadFile: async () => Buffer.from('{"ok":true}', 'utf8'),
       },
     )
 
@@ -445,14 +534,15 @@ describe('user-storage-api storage quota', () => {
       status: STORAGE_FILE_STATUS.ACTIVE,
       userId: 'u1',
     })
-    expect(downloaded.downloadUrl).toBe('https://temp.example/project.json')
+    expect(downloaded.downloadUrl).toBe('https://temp.example/project.json?signature=short-lived')
+    expect(downloaded.downloadUrlExpiresAt).toBe(NOW + 5 * 60 * 1000)
     expect(downloaded.text).toBe('{"ok":true}')
 
     await expect(
       downloadStorageFile(
         db,
         { userId: 'u2', reservationId: 'res_down1', maxBytes: 1024, now: NOW + 3 },
-        { downloadFile: async () => ({ fileContent: Buffer.from('{}') }) },
+        { downloadFile: async () => Buffer.from('{}') },
       ),
     ).rejects.toThrow(/文件不存在/)
 
@@ -460,7 +550,7 @@ describe('user-storage-api storage quota', () => {
       downloadStorageFile(
         db,
         { userId: 'u1', reservationId: 'res_down1', maxBytes: 128, now: NOW + 4 },
-        { downloadFile: async () => ({ fileContent: Buffer.from('{}') }) },
+        { downloadFile: async () => Buffer.from('{}') },
       ),
     ).rejects.toThrow(/下载上限/)
   })
@@ -481,7 +571,7 @@ describe('user-storage-api storage quota', () => {
       downloadStorageFile(
         db,
         { userId: 'u1', reservationId: 'res_down2', maxBytes: 1024, now: NOW + 1 },
-        { downloadFile: async () => ({ fileContent: Buffer.from('{}') }) },
+        { downloadFile: async () => Buffer.from('{}') },
       ),
     ).rejects.toThrow(/不能下载/)
   })
@@ -507,7 +597,7 @@ describe('user-storage-api storage quota', () => {
 
   it('listStorageFiles 按 appId 只返回 active 文件', async () => {
     const db = makeFakeDb()
-    const saier = await reserveStorageUpload(db, {
+    await reserveStorageUpload(db, {
       userId: 'u1',
       appId: 'saier',
       sizeBytes: 10 * MB,
@@ -515,7 +605,7 @@ describe('user-storage-api storage quota', () => {
       reservationId: 'res_list1',
       now: NOW,
     })
-    const other = await reserveStorageUpload(db, {
+    await reserveStorageUpload(db, {
       userId: 'u1',
       appId: 'notebook',
       sizeBytes: 10 * MB,
@@ -525,13 +615,13 @@ describe('user-storage-api storage quota', () => {
     })
     await finalizeStorageUpload(
       db,
-      { userId: 'u1', reservationId: 'res_list1', fileId: fileIdFor(saier.file.storageKey), now: NOW + 2 },
-      { readFileInfo: async () => ({ sizeBytes: 5 * MB, contentType: 'application/json' }) },
+      { userId: 'u1', reservationId: 'res_list1', now: NOW + 2 },
+      privateStorageOptions({ sizeBytes: 5 * MB, contentType: 'application/json' }),
     )
     await finalizeStorageUpload(
       db,
-      { userId: 'u1', reservationId: 'res_list2', fileId: fileIdFor(other.file.storageKey), now: NOW + 3 },
-      { readFileInfo: async () => ({ sizeBytes: 5 * MB, contentType: 'application/json' }) },
+      { userId: 'u1', reservationId: 'res_list2', now: NOW + 3 },
+      privateStorageOptions({ sizeBytes: 5 * MB, contentType: 'application/json' }),
     )
 
     const listed = await listStorageFiles(db, { userId: 'u1', appId: 'saier' })

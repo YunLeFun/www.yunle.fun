@@ -12,6 +12,17 @@
 秘密边界保持单一：CloudBase 的管理密钥、支付私钥（微信商户私钥、App Store 私钥）
 只存在于 CloudBase 云函数环境变量中，**不要**下发到 EdgeOne。
 
+## 存储边界
+
+- CloudBase 默认桶只承载头像等公开资产，权限采用所有用户可读、管理员写。
+  用户资料持久化 SDK 返回的 `cloud://` 文件 ID；Web 与 App 通过明确配置的
+  `NUXT_PUBLIC_CLOUDBASE_STORAGE_PUBLIC_ORIGIN` 映射到公共 URL，不持久化或
+  每次生成临时签名。
+- 头像上传由 `account-api` 校验身份、类型与大小后写入 `avatars/`，浏览器不
+  获得默认桶写权限。
+- 用户项目、画笔库和附件等私有内容使用独立私有 COS 桶，并由服务端校验所有权
+  后签发短期 STS 或下载 URL；私有内容不得写回 CloudBase 默认公开桶。
+
 ## 留在 CloudBase 的功能（现状保持）
 
 | 功能                       | 载体                                                         | 原因                                                                         |

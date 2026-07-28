@@ -420,6 +420,11 @@ function toFileSummary(file) {
     contentType: file.contentType || '',
     storageKey: file.storageKey || '',
     fileId: file.fileId || '',
+    storageProvider: file.storageProvider || '',
+    storageBucket: file.storageBucket || '',
+    storageRegion: file.storageRegion || '',
+    objectKey: file.objectKey || file.storageKey || '',
+    objectETag: file.objectETag || '',
     sizeBytes: safeNonNegativeInteger(file.sizeBytes),
     reservedSizeBytes: safeNonNegativeInteger(file.reservedSizeBytes),
     reservationExpiresAt: file.reservationExpiresAt || null,
@@ -428,6 +433,19 @@ function toFileSummary(file) {
     finalizedAt: file.finalizedAt || null,
     deletedAt: file.deletedAt || null,
   }
+}
+
+function normalizeMediaType(value) {
+  return typeof value === 'string'
+    ? value.split(';', 1)[0].trim().toLowerCase()
+    : ''
+}
+
+function isInlineTextContentType(value) {
+  const mediaType = normalizeMediaType(value)
+  return mediaType.startsWith('text/')
+    || mediaType === 'application/json'
+    || mediaType.endsWith('+json')
 }
 
 async function adjustQuotaUsage(db, { userId, usedDelta = 0, reservedDelta = 0, now = Date.now() }) {
@@ -654,13 +672,6 @@ async function reserveStorageUpload(db, input) {
   }
 }
 
-function fileIdMatchesStorageKey(fileId, storageKey) {
-  if (typeof fileId !== 'string' || !fileId.trim())
-    return false
-  const clean = fileId.split('?')[0]
-  return clean === storageKey || clean.endsWith(`/${storageKey}`)
-}
-
 function assertDeleteFileSucceeded(result) {
   if (!result)
     return
@@ -674,39 +685,27 @@ function assertDeleteFileSucceeded(result) {
     throw new Error(`删除云存储对象失败: ${item.code}`)
 }
 
-async function readCloudbaseFileInfo(cloudbaseApp, fileId) {
-  if (!cloudbaseApp || typeof cloudbaseApp.getFileInfo !== 'function')
-    throw new Error('CloudBase 文件信息读取能力不可用')
-  const res = await cloudbaseApp.getFileInfo({ fileList: [fileId] })
-  const info = Array.isArray(res?.fileList) ? res.fileList[0] : null
-  if (!info || info.code !== 'SUCCESS')
-    throw new Error(`读取文件信息失败: ${info?.code || 'UNKNOWN'}`)
-  const sizeBytes = safeNonNegativeInteger(info.size)
-  if (sizeBytes <= 0)
-    throw new Error('读取文件大小失败')
-  return {
-    sizeBytes,
-    contentType: info.contentType || info.mime || '',
-    fileName: info.fileName || '',
-  }
-}
-
 async function finalizeStorageUpload(db, input, options = {}) {
   if (!input || typeof input !== 'object')
     throw new Error('参数必须为对象')
 
   const userId = assertUserId(input.userId)
   const reservationId = assertReservationId(input.reservationId)
-  const fileId = assertOptionalString(input.fileId, 'fileId', 1024)
-  if (!fileId)
-    throw new Error('fileId 必填')
 
   const now = input.now || Date.now()
   let file = await findStorageFileByReservationId(db, { userId, reservationId })
   if (!file)
     throw new Error('上传预留不存在')
   if (file.status === STORAGE_FILE_STATUS.ACTIVE) {
-    const quota = await syncUserStorageQuota(db, { userId, now })
+    const policy = resolveStoredFilePolicy(file)
+    const quota = policy.singleton
+      ? await replaceActiveSingletonFiles(db, {
+          currentReservationId: reservationId,
+          file,
+          now,
+          userId,
+        }, options)
+      : await syncUserStorageQuota(db, { userId, now })
     return { quota: toQuotaSnapshot(quota), file: toFileSummary(file), deduped: true }
   }
   if (file.status !== STORAGE_FILE_STATUS.RESERVED)
@@ -719,15 +718,21 @@ async function finalizeStorageUpload(db, input, options = {}) {
   const inputStorageKey = assertOptionalString(input.storageKey, 'storageKey', 1024)
   if (inputStorageKey && inputStorageKey !== file.storageKey)
     throw new Error('storageKey 与上传预留不匹配')
-  if (!fileIdMatchesStorageKey(fileId, file.storageKey))
-    throw new Error('fileId 与上传预留路径不匹配')
+
+  if (typeof options.readFileInfo !== 'function')
+    throw new Error('私有存储对象校验能力不可用')
+  if (typeof options.describeObject !== 'function')
+    throw new Error('私有存储对象描述能力不可用')
+  const objectDescriptor = options.describeObject(file.storageKey)
+  const fileId = assertOptionalString(objectDescriptor?.fileId, 'fileId', 1024)
+  if (!fileId)
+    throw new Error('私有存储对象引用无效')
 
   const lockResult = await db
     .collection(USER_STORAGE_FILES_COLLECTION)
     .where({ userId, reservationId, status: STORAGE_FILE_STATUS.RESERVED })
     .update({
       status: STORAGE_FILE_STATUS.FINALIZING,
-      fileId,
       finalizeStartedAt: now,
       updatedAt: now,
     })
@@ -741,16 +746,37 @@ async function finalizeStorageUpload(db, input, options = {}) {
     throw new Error('上传正在确认中，请稍后重试')
   }
 
-  const readFileInfo = options.readFileInfo || (fid => readCloudbaseFileInfo(options.cloudbaseApp, fid))
-  const fileInfo = await readFileInfo(fileId)
+  let fileInfo
+  try {
+    fileInfo = await options.readFileInfo(file.storageKey)
+  }
+  catch (err) {
+    await db
+      .collection(USER_STORAGE_FILES_COLLECTION)
+      .where({ userId, reservationId, status: STORAGE_FILE_STATUS.FINALIZING })
+      .update({
+        status: STORAGE_FILE_STATUS.RESERVED,
+        finalizeErrorAt: now,
+        updatedAt: now,
+      })
+    throw new Error(`确认私有存储对象失败: ${err.message || String(err)}`)
+  }
   const actualSizeBytes = assertByteSize(fileInfo.sizeBytes, 'actualSizeBytes')
   const reservedSizeBytes = safeNonNegativeInteger(file.reservedSizeBytes)
   const policy = resolveStoredFilePolicy(file)
+  const expectedContentType = normalizeMediaType(file.contentType)
+  const actualContentType = normalizeMediaType(fileInfo.contentType)
 
-  if (actualSizeBytes > reservedSizeBytes || actualSizeBytes > policy.maxBytes) {
+  if (
+    actualSizeBytes > reservedSizeBytes
+    || actualSizeBytes > policy.maxBytes
+    || (expectedContentType && expectedContentType !== actualContentType)
+  ) {
     if (options.deleteFile)
-      assertDeleteFileSucceeded(await options.deleteFile(fileId))
+      assertDeleteFileSucceeded(await options.deleteFile(file.storageKey))
     await markReservationExpired(db, { userId, reservationId, now })
+    if (expectedContentType && expectedContentType !== actualContentType)
+      throw new Error('实际文件 Content-Type 与上传预留不匹配')
     throw new Error('实际文件大小超过预留额度')
   }
 
@@ -766,6 +792,11 @@ async function finalizeStorageUpload(db, input, options = {}) {
     fileId,
     sizeBytes: actualSizeBytes,
     contentType: fileInfo.contentType || file.contentType || '',
+    storageProvider: objectDescriptor.storageProvider || '',
+    storageBucket: objectDescriptor.storageBucket || '',
+    storageRegion: objectDescriptor.storageRegion || '',
+    objectKey: objectDescriptor.objectKey || file.storageKey,
+    objectETag: assertOptionalString(fileInfo.etag, 'etag', 256),
     finalizedAt: now,
     updatedAt: now,
   }
@@ -814,8 +845,8 @@ async function replaceActiveSingletonFiles(db, { currentReservationId, file, now
     if (item.reservationId === currentReservationId)
       continue
 
-    if (options.deleteFile && item.fileId)
-      assertDeleteFileSucceeded(await options.deleteFile(item.fileId))
+    if (options.deleteFile && item.storageKey)
+      assertDeleteFileSucceeded(await options.deleteFile(item.storageKey))
 
     const result = await db
       .collection(USER_STORAGE_FILES_COLLECTION)
@@ -856,8 +887,8 @@ async function deleteStorageFile(db, input, options = {}) {
     return { quota: toQuotaSnapshot(quota), file: toFileSummary(file), deduped: true }
   }
 
-  if (options.deleteFile && file.fileId)
-    assertDeleteFileSucceeded(await options.deleteFile(file.fileId))
+  if (options.deleteFile && file.storageKey)
+    assertDeleteFileSucceeded(await options.deleteFile(file.storageKey))
 
   const result = await db
     .collection(USER_STORAGE_FILES_COLLECTION)
@@ -900,11 +931,11 @@ async function downloadStorageFile(db, input, options = {}) {
     throw new Error('文件不存在')
   if (file.status !== STORAGE_FILE_STATUS.ACTIVE)
     throw new Error(`当前文件状态不能下载: ${file.status}`)
-  if (!file.fileId)
+  if (!file.storageKey)
     throw new Error('文件对象不存在')
 
   const policy = resolveStoredFilePolicy(file)
-  const maxBytes = assertOptionalPositiveInteger(input.maxBytes, 'maxBytes', INLINE_DOWNLOAD_MAX_BYTES, policy.maxBytes)
+  const maxBytes = assertOptionalPositiveInteger(input.maxBytes, 'maxBytes', policy.maxBytes, policy.maxBytes)
   const sizeBytes = safeNonNegativeInteger(file.sizeBytes)
   if (sizeBytes <= 0)
     throw new Error('文件大小无效')
@@ -912,12 +943,25 @@ async function downloadStorageFile(db, input, options = {}) {
     throw new Error(`文件超过下载上限: ${maxBytes} bytes`)
 
   let downloadUrl = ''
-  if (options.getTempFileURL)
-    downloadUrl = await options.getTempFileURL(file.fileId)
+  let downloadUrlExpiresAt = null
+  if (options.createDownloadUrl) {
+    const signed = await options.createDownloadUrl(file.storageKey)
+    if (typeof signed === 'string') {
+      downloadUrl = signed
+    }
+    else {
+      downloadUrl = signed?.url || ''
+      downloadUrlExpiresAt = signed?.expiresAt || null
+    }
+  }
 
   let text
-  if (sizeBytes <= INLINE_DOWNLOAD_MAX_BYTES && options.downloadFile) {
-    const content = await options.downloadFile(file.fileId)
+  if (
+    sizeBytes <= INLINE_DOWNLOAD_MAX_BYTES
+    && isInlineTextContentType(file.contentType)
+    && options.downloadFile
+  ) {
+    const content = await options.downloadFile(file.storageKey)
     text = downloadFileContentToUtf8Text(content)
     const actualBytes = Buffer.byteLength(text, 'utf8')
     if (actualBytes > INLINE_DOWNLOAD_MAX_BYTES || actualBytes > maxBytes)
@@ -925,13 +969,14 @@ async function downloadStorageFile(db, input, options = {}) {
   }
 
   if (!text && !downloadUrl)
-    throw new Error('CloudBase 文件下载能力不可用')
+    throw new Error('私有存储对象下载能力不可用')
 
   const quota = await syncUserStorageQuota(db, { userId, now: input.now || Date.now() })
   return {
     file: toFileSummary(file),
     quota: toQuotaSnapshot(quota),
     ...(downloadUrl ? { downloadUrl } : {}),
+    ...(downloadUrlExpiresAt ? { downloadUrlExpiresAt } : {}),
     ...(text != null ? { text } : {}),
   }
 }
@@ -1012,5 +1057,4 @@ module.exports = {
   deleteStorageFile,
   listStorageFiles,
   cleanupExpiredReservations,
-  readCloudbaseFileInfo,
 }
