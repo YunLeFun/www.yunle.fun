@@ -47,6 +47,7 @@ const view = ref<RewardClaimCampaignView | null>(null)
 const localClaim = ref<RewardClaimResult | null>(null)
 const pageError = ref('')
 const fetching = ref(false)
+const loadFailed = ref(false)
 
 const claim = computed(() => localClaim.value ?? view.value?.viewer.claim ?? null)
 const campaign = computed(() => view.value?.campaign)
@@ -87,6 +88,13 @@ const availabilityCopy = computed(() => {
   return copies[availability.value]
 })
 
+const fallbackCopy = computed(() => loadFailed.value
+  ? {
+      title: '领取服务暂不可用',
+      description: '系统暂时无法确认这个领取链接，请稍后刷新重试。这不代表链接已失效。',
+    }
+  : availabilityCopy.value)
+
 function formatChinaTime(value?: number) {
   if (!Number.isFinite(value))
     return '-'
@@ -110,16 +118,19 @@ function safeErrorMessage(error: unknown) {
 
 async function loadCampaign() {
   if (!token.value) {
+    loadFailed.value = false
     view.value = { availability: 'unavailable', viewer: { authenticated: false } }
     return
   }
   fetching.value = true
   pageError.value = ''
+  loadFailed.value = false
   try {
     view.value = await rewardClaim.inspect(token.value)
     localClaim.value = null
   }
   catch {
+    loadFailed.value = true
     view.value = { availability: 'unavailable', viewer: { authenticated: !!user.value } }
   }
   finally {
@@ -301,10 +312,10 @@ watch(() => user.value?.id, (next, previous) => {
             <TicketCheckIcon class="size-8" aria-hidden="true" />
           </div>
           <h1 class="text-xl font-bold">
-            {{ availabilityCopy.title }}
+            {{ fallbackCopy.title }}
           </h1>
           <p class="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
-            {{ availabilityCopy.description }}
+            {{ fallbackCopy.description }}
           </p>
           <Button as-child variant="outline" class="mt-7 rounded-xl">
             <NuxtLink to="/">

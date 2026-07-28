@@ -123,6 +123,16 @@ describe('共享权益领取页', () => {
     expect(unavailable.text()).not.toContain('云乐坊内测感谢礼')
   })
 
+  it('查询服务异常时不误导用户认为链接已失效', async () => {
+    h.state.inspect.mockRejectedValue(new Error('领取服务暂不可用'))
+
+    const wrapper = await mountPage()
+
+    expect(wrapper.text()).toContain('领取服务暂不可用')
+    expect(wrapper.text()).toContain('这不代表链接已失效')
+    expect(wrapper.text()).not.toContain('领取链接不可用')
+  })
+
   it('明确失败后允许用户复用原领取记录重试', async () => {
     h.state.user.value = { id: 'user-1' }
     h.state.inspect.mockResolvedValue({
