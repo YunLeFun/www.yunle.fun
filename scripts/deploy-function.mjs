@@ -19,6 +19,7 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 import { buildCloudFunctionArtifact } from './build-cloud-function.mjs'
+import { assertFunctionEnvironmentReady } from './deploy-function-safety.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -59,9 +60,20 @@ if (functions.length === 0) {
 loadEnvFile(resolve(ROOT, '.env'))
 loadEnvFile(resolve(ROOT, '.env.local'))
 
-const envId = JSON.parse(readFileSync(resolve(ROOT, 'cloudbaserc.json'), 'utf8')).envId
+const cloudbaseConfig = JSON.parse(readFileSync(resolve(ROOT, 'cloudbaserc.json'), 'utf8'))
+const envId = cloudbaseConfig.envId
 if (!envId)
   throw new Error('cloudbaserc.json 缺少 envId')
+
+try {
+  const requiredNames = assertFunctionEnvironmentReady(cloudbaseConfig, functions, process.env)
+  if (requiredNames.length > 0)
+    console.log(`环境变量检查通过：${requiredNames.join(', ')}`)
+}
+catch (error) {
+  console.error(error instanceof Error ? error.message : error)
+  process.exit(2)
+}
 
 for (const name of functions) {
   console.log(`\n--- deploy ${name} (env ${envId}) ---`)

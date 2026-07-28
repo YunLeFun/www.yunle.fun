@@ -471,31 +471,30 @@ tcb login
 # 保留线上环境变量、HTTP 路由、权限和触发器配置。
 node scripts/build-cloud-function.mjs desktop-auth sso-ticket
 
-# 部署单个云函数（-e 可省略，CLI 会读 cloudbaserc.json 的 envId）
-tcb fn deploy account-api -e yunlefun-8g7ybcxc7345c490
-tcb fn deploy reward-claim-ops -e yunlefun-8g7ybcxc7345c490
-tcb fn deploy user-storage-api -e yunlefun-8g7ybcxc7345c490
-tcb fn deploy ai-gateway -e yunlefun-8g7ybcxc7345c490
-tcb fn deploy wxpay-order -e yunlefun-8g7ybcxc7345c490
-tcb fn deploy wxpay-notify -e yunlefun-8g7ybcxc7345c490
-tcb fn deploy iap-order -e yunlefun-8g7ybcxc7345c490
-tcb fn deploy appstore-notify -e yunlefun-8g7ybcxc7345c490
-tcb fn deploy github-api -e yunlefun-8g7ybcxc7345c490
-tcb fn deploy shortlink-resolve -e yunlefun-8g7ybcxc7345c490
-tcb fn deploy shortlink-stat -e yunlefun-8g7ybcxc7345c490
+# 部署单个云函数（脚本会校验该函数的全部环境变量占位符）
+node scripts/deploy-function.mjs account-api
+node scripts/deploy-function.mjs reward-claim-ops
+node scripts/deploy-function.mjs user-storage-api
+node scripts/deploy-function.mjs ai-gateway
+node scripts/deploy-function.mjs wxpay-order
+node scripts/deploy-function.mjs wxpay-notify
+node scripts/deploy-function.mjs iap-order
+node scripts/deploy-function.mjs appstore-notify
+node scripts/deploy-function.mjs github-api
+node scripts/deploy-function.mjs shortlink-resolve
+node scripts/deploy-function.mjs shortlink-stat
 ```
 
+> ⚠️ 不要直接执行 `tcb fn deploy` 或 `tcb fn deploy --all`。CLI 会按
+> `cloudbaserc.json` 重写函数环境变量；本地缺少 `{{env.*}}` 对应值时，可能把线上密钥覆盖为空。
+> 需要发布多个函数时，把函数名一次性传给安全脚本，例如
+> `node scripts/deploy-function.mjs account-api reward-claim-ops`。
+>
 > ⚠️ 改动了 `lib/`（同步源 `wxpay-order/lib/`）后，**所有共享 lib 的云函数都要重新部署**：
 > `wxpay-order` / `wxpay-notify` / `account-api` / `iap-order` / `appstore-notify`——
 > 只部署其中一个会导致各函数 `lib/` 版本不一致。先 `pnpm sync:wxpay-lib && pnpm test`，再逐个部署。
 >
 > `desktop-auth` 和 `sso-ticket` 虽不共享支付 `lib/`，但共同依赖 `packages/authorization-core`；修改 Client Registry 或授权核心时必须从 `.cloudbase/artifacts` 同步更新二者。`ai-gateway`、`github-api`、`user-storage-api` 各有独立 `lib/`，改自身代码只需部署对应函数；签到 / 投币 / 关注·粉丝功能是 `account-api` 本地代码、未改支付 `lib/` 时只需部署 `account-api`。
-
-或在项目根目录执行：
-
-```bash
-tcb fn deploy --all -e yunlefun-8g7ybcxc7345c490
-```
 
 ## 数据库
 

@@ -70,8 +70,11 @@ Cloudflare Pages 连接同一 `main` 分支，作为 `cloudflare-pages` preset �
 支付、账户和授权相关云函数部署在腾讯云 CloudBase，**不随前端自动发布**，改动后需单独部署：
 
 ```bash
-tcb fn deploy <function-name> -e yunlefun-8g7ybcxc7345c490
+node scripts/deploy-function.mjs <function-name>
 ```
+
+该脚本会先加载 `.env` / `.env.local`，并校验 `cloudbaserc.json` 中该函数引用的全部
+`{{env.*}}` 占位符；缺少任何变量时会在构建和部署前终止，避免把线上配置覆盖为空。
 
 `sso-ticket` 和 `desktop-auth` 依赖工作区内的 `@yunlefun/authorization-core`。修改 Client Registry
 或授权核心后，必须先生成包含 vendored core 的函数产物，再以“仅更新函数代码”的方式分别发布两个产物；

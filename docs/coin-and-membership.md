@@ -365,7 +365,7 @@ async function deductCoin(db, { userId, appId, amount, bizId, meta }) {
 1. 新建集合与索引：`app_tip_stats`（`idx_app` 唯一）、`app_supporters`（`idx_app_user` 唯一）。
 2. 安全规则：两者均 **ADMINONLY**（仅云函数读写；前端经 account-api 间接访问）。
 3. `pnpm test` 全绿。
-4. `tcb functions deploy account-api`（本期无同步库改动，仅此一个云函数）。
+4. `node scripts/deploy-function.mjs account-api`（会先校验 `cloudbaserc.json` 中的环境变量占位符，防止部署时清空既有密钥）。
 5. 前端 push main 自动部署（EdgeOne）。
 
 ---
