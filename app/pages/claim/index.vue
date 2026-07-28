@@ -54,10 +54,13 @@ const campaign = computed(() => view.value?.campaign)
 const availability = computed<RewardClaimAvailability>(
   () => view.value?.availability ?? 'unavailable',
 )
-const canClaim = computed(() =>
+const showClaimButton = computed(() =>
   availability.value === 'active'
   && isAuthenticated.value
-  && (!claim.value || claim.value.status === 'failed')
+  && (!claim.value || claim.value.status === 'failed'),
+)
+const canClaim = computed(() =>
+  showClaimButton.value
   && !rewardClaim.claiming.value,
 )
 const loginUrl = computed(() =>
@@ -278,7 +281,7 @@ watch(() => user.value?.id, (next, previous) => {
 
           <CardFooter class="flex-col gap-3 border-t border-border/70 bg-muted/35 px-6 py-5 sm:px-8">
             <Button
-              v-if="canClaim"
+              v-if="showClaimButton"
               data-testid="claim-button"
               size="lg"
               class="h-12 w-full rounded-xl text-base font-semibold"

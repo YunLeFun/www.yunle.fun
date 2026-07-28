@@ -2,7 +2,7 @@
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import { flushPromises } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import RewardClaimPage from '../../app/pages/claim/index.vue'
 
 const h = vi.hoisted(() => ({
@@ -13,7 +13,7 @@ mockNuxtImport('useRewardClaim', () => () => ({
   inspect: h.state.inspect,
   claim: h.state.claim,
   loading: ref(false),
-  claiming: ref(false),
+  claiming: h.state.claiming,
 }))
 
 vi.mock('~/composables/auth/useAuthSession', () => ({
@@ -60,6 +60,7 @@ describe('共享权益领取页', () => {
     })
     h.state.authReady = ref(true)
     h.state.user = ref<{ id: string } | null>(null)
+    h.state.claiming = ref(false)
     h.state.checkAuthStatus = vi.fn(async () => undefined)
   })
 
@@ -92,6 +93,41 @@ describe('共享权益领取页', () => {
     expect(h.state.claim).toHaveBeenCalledWith('abcdefghijklmnopqrstuvwxyz1234567890ABCDEFG')
     expect(wrapper.text()).toContain('领取成功')
     expect(wrapper.text()).toContain('当前余额 180 云币')
+  })
+
+  it('领取请求期间保留禁用按钮，避免卡片高度抖动', async () => {
+    h.state.user.value = { id: 'user-1' }
+    h.state.inspect.mockResolvedValue({
+      ...structuredClone(activeCampaign),
+      viewer: { authenticated: true },
+    })
+
+    let resolveClaim!: (result: Record<string, unknown>) => void
+    h.state.claim = vi.fn(() => {
+      h.state.claiming.value = true
+      return new Promise((resolve) => {
+        resolveClaim = (result) => {
+          h.state.claiming.value = false
+          resolve(result)
+        }
+      })
+    })
+
+    const wrapper = await mountPage()
+    await wrapper.get('[data-testid="claim-button"]').trigger('click')
+    await nextTick()
+
+    const claimingButton = wrapper.get('[data-testid="claim-button"]')
+    expect(claimingButton.text()).toContain('正在领取')
+    expect(claimingButton.attributes()).toHaveProperty('disabled')
+
+    resolveClaim({
+      claimId: 'claim-1',
+      grantId: 'grant-1',
+      status: 'succeeded',
+      balanceAfter: 180,
+    })
+    await flushPromises()
   })
 
   it('处理中状态不诱导重复领取，不可用链接不泄露活动信息', async () => {
