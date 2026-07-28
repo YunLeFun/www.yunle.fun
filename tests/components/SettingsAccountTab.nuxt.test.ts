@@ -1,6 +1,6 @@
 // @vitest-environment nuxt
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
-import { flushPromises } from '@vue/test-utils'
+import { DOMWrapper, flushPromises } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick, ref } from 'vue'
 import AccountTab from '../../app/components/settings/AccountTab.vue'
@@ -15,22 +15,10 @@ mockNuxtImport('useMembership', () => () => ({
 }))
 mockNuxtImport('useCloudbase', () => () => ({ app: { callFunction: h.s.callFunction } }))
 mockNuxtImport('useAccountAccess', () => () => ({ refresh: h.s.refreshAccountAccess }))
-mockNuxtImport('useToast', () => () => ({ add: h.s.toastAdd }))
+mockNuxtImport('useAppToast', () => () => ({ add: h.s.toastAdd }))
 
 const stubs = {
   MemberBadge: true,
-  UAlert: { props: ['title', 'description'], template: '<div>{{ title }} {{ description }}</div>' },
-  UBadge: { props: ['label'], template: '<span>{{ label }}</span>' },
-  UButton: {
-    props: ['label', 'disabled', 'loading'],
-    emits: ['click'],
-    template: '<button type="button" :disabled="disabled || loading" @click="$emit(\'click\')">{{ label }}<slot /></button>',
-  },
-  UFormField: { props: ['label'], template: '<label>{{ label }}<slot /></label>' },
-  UIcon: true,
-  UInput: true,
-  UModal: true,
-  UPageCard: { template: '<section><slot /></section>' },
 }
 
 describe('settings account deletion state', () => {
@@ -118,22 +106,25 @@ describe('settings account deletion state', () => {
       }
       throw new Error(`unexpected action: ${data.action}`)
     })
-    const interactiveStubs = {
-      ...stubs,
-      UInput: {
-        props: ['modelValue'],
-        emits: ['update:modelValue'],
-        template: '<input :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)">',
-      },
-      UModal: { template: '<div><slot name="content" /></div>' },
-    }
-    const wrapper = await mountSuspended(AccountTab, { global: { stubs: interactiveStubs } })
+    const wrapper = await mountSuspended(AccountTab, {
+      attachTo: document.body,
+      global: { stubs },
+    })
     await flushPromises()
 
-    await wrapper.get('input').setValue('注销')
-    const submit = wrapper.findAll('button').find(button => button.text().includes('进入 30 天冷静期'))
+    const openDialog = wrapper.findAll('button').find(button => button.text().includes('申请注销'))
+    expect(openDialog).toBeTruthy()
+    await openDialog!.trigger('click')
+    await flushPromises()
+
+    const input = document.querySelector<HTMLInputElement>('#account-delete-confirm')
+    expect(input).toBeTruthy()
+    await new DOMWrapper(input!).setValue('注销')
+
+    const submit = [...document.querySelectorAll('button')]
+      .find(button => button.textContent?.includes('进入 30 天冷静期'))
     expect(submit).toBeTruthy()
-    await submit!.trigger('click')
+    await new DOMWrapper(submit!).trigger('click')
     await flushPromises()
 
     expect(h.s.refreshAccountAccess).toHaveBeenCalledWith('u1', true)

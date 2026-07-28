@@ -31,7 +31,7 @@ useSeoMeta({
 
 // 方案 B：登录态就绪后自动领取每日签到云币（替代手动签到），到账时以 toast 呈现。
 // 服务端 signIn 幂等（按东八区自然日只入账一次），autoClaim 再按 uid 去重，重复触发安全。
-const toast = useToast()
+const toast = useAppToast()
 const user = useState<{ id?: string } | null>('auth_user', () => null)
 const hasUser = computed(() => Boolean(user.value?.id))
 
@@ -79,6 +79,8 @@ watch(() => user.value?.id, (id) => {
     <NuxtLayout>
       <NuxtPage />
     </NuxtLayout>
+
+    <AppToaster />
 
     <!--
       登录态会在客户端路由中间件中于 hydration 前恢复，而首页预渲染时 auth_user 恒为空。

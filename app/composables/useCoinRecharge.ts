@@ -13,7 +13,7 @@ const PENDING_RECHARGE_KEY = 'wxpay:pending-recharge'
 export function useCoinRecharge() {
   const { user } = useTcbAuth()
   const coin = useCoin()
-  const toast = useToast()
+  const toast = useAppToast()
 
   const flow = usePaymentFlow({
     pendingKey: PENDING_RECHARGE_KEY,

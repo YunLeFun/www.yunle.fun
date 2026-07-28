@@ -11,7 +11,7 @@ useSeoMeta({ title: '创建应用 - YunLeFun', description: '创建一个新应�
 
 const { user, loading: authLoading } = useTcbAuth()
 const { createApp, isSlugTaken } = useApps()
-const toast = useToast()
+const toast = useAppToast()
 const router = useRouter()
 
 // 登录守卫：会话就绪后仍未登录才跳登录（双层会话 cookie 恢复窗口内不误跳）

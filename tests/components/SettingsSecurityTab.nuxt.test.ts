@@ -22,31 +22,6 @@ const stubs = {
   SettingsSecurityBindEmail: true,
   SettingsSecurityPassword: true,
   SettingsSecurityDevices: true,
-  UBadge: {
-    props: ['label'],
-    template: '<span>{{ label }}</span>',
-  },
-  UButton: {
-    props: ['label', 'disabled', 'loading'],
-    emits: ['click'],
-    template: '<button type="button" :disabled="disabled || loading" @click="$emit(\'click\')">{{ label }}</button>',
-  },
-  UFormField: {
-    props: ['label'],
-    template: '<label>{{ label }}<slot /></label>',
-  },
-  UIcon: true,
-  UInput: {
-    props: ['modelValue'],
-    emits: ['update:modelValue'],
-    template: '<input :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)">',
-  },
-  UModal: {
-    template: '<div><slot name="content" /></div>',
-  },
-  UPageCard: {
-    template: '<section><slot /></section>',
-  },
 }
 
 describe('settings security credentials', () => {

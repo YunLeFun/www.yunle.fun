@@ -18,7 +18,7 @@ export function useTcbAuthCore() {
   const nuxtApp = useNuxtApp()
   const config = useRuntimeConfig()
   const router = useRouter()
-  const toast = useToast()
+  const toast = useAppToast()
   const { upsertMyProfile } = useUserProfile()
   const { refresh: refreshAccountAccess, clear: clearAccountAccess } = useAccountAccess()
   // 双层会话编排（开关 cookieSession 开启时生效，见 docs/cookie-session-migration.md）

@@ -9,7 +9,7 @@
 const { user, fetchUser, needsOnboarding } = useTcbAuth()
 const { uploadAvatar } = useAvatarUpload()
 const { upsertMyProfile } = useUserProfile()
-const toast = useToast()
+const toast = useAppToast()
 
 const STORAGE_PREFIX = 'ylf_onboarded_'
 const storageKey = computed(() => (user.value?.id ? `${STORAGE_PREFIX}${user.value.id}` : ''))

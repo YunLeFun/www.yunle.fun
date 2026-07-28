@@ -14,7 +14,7 @@ mockNuxtImport('useTcbAuth', () => () => ({
 }))
 mockNuxtImport('useAvatarUpload', () => () => ({ uploadAvatar: h.s.uploadAvatar }))
 mockNuxtImport('useCloudbase', () => () => ({ auth: { updateUser: h.s.updateUser } }))
-mockNuxtImport('useToast', () => () => ({ add: h.s.toastAdd }))
+mockNuxtImport('useAppToast', () => () => ({ add: h.s.toastAdd }))
 
 const stubs = {
   AvatarCropper: true,

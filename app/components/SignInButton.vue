@@ -7,7 +7,7 @@
  */
 const { user } = useTcbAuth()
 const { signedToday, reward, submitting, fetchStatus, signIn } = useSignIn()
-const toast = useToast()
+const toast = useAppToast()
 
 onMounted(() => {
   if (user.value)

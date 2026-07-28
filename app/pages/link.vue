@@ -15,7 +15,7 @@ definePageMeta({ layout: 'auth' })
 const route = useRoute()
 const { app } = useCloudbase()
 const { user } = useTcbAuth()
-const toast = useToast()
+const toast = useAppToast()
 
 /** scope → 人话权限描述 */
 const SCOPE_LABELS: Record<string, string> = {

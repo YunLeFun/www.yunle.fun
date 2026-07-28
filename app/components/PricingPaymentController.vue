@@ -14,7 +14,7 @@ const emit = defineEmits<{
 }>()
 
 const { user, authReady, checkAuthStatus } = useTcbAuthSession()
-const toast = useToast()
+const toast = useAppToast()
 const payment = usePayment()
 const showPaymentModal = ref(false)
 

@@ -14,7 +14,7 @@ const props = defineProps<{
 
 const { user } = useTcbAuth()
 const { getAppSupport, tip } = useAppTips()
-const toast = useToast()
+const toast = useAppToast()
 
 const support = ref<AppSupport | null>(null)
 const submitting = ref(false)

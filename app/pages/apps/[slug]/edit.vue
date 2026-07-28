@@ -6,7 +6,7 @@ definePageMeta({ layout: 'default' })
 const route = useRoute()
 const { user, loading: authLoading } = useTcbAuth()
 const { getMyAppBySlug, updateApp, isSlugTaken } = useApps()
-const toast = useToast()
+const toast = useAppToast()
 const router = useRouter()
 
 const slug = computed(() => route.params.slug as string)

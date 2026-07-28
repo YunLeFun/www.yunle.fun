@@ -66,7 +66,7 @@ const RE_USERNAME_START = /^[a-z]/i
 
 const { user, fetchUser, setUsername } = useTcbAuth()
 const { uploadAvatar } = useAvatarUpload()
-const toast = useToast()
+const toast = useAppToast()
 
 const editing = ref(false)
 const saving = ref(false)

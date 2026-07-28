@@ -235,7 +235,7 @@ onMounted(async () => {
     const { paid } = await coin.reconcileOrders()
     await Promise.all([coin.refresh(), loadTransactions(true), loadOrders(true), loadRewards(true)])
     if (paid > 0)
-      useToast().add({ title: '已为你补发到账', description: `${paid} 笔支付已确认入账`, color: 'success' })
+      useAppToast().add({ title: '已为你补发到账', description: `${paid} 笔支付已确认入账`, color: 'success' })
   }
   // H5 跳转回来后恢复充值结果
   const resumed = recharge.resumePending()

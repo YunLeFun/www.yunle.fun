@@ -9,7 +9,7 @@ declare const WeixinJSBridge: undefined | {
 
 const { app } = useCloudbase()
 const { user } = useTcbAuth()
-const toast = useToast()
+const toast = useAppToast()
 
 // 自定义金额（元）
 const amountYuan = ref('0.01')

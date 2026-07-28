@@ -28,7 +28,7 @@ definePageMeta({
 const router = useRouter()
 const { auth } = useCloudbase()
 const { fetchUser, isAuthenticated, user } = useTcbAuth()
-const toast = useToast()
+const toast = useAppToast()
 
 const status = ref<'checking' | 'success' | 'error'>('checking')
 const message = ref('正在处理中...')

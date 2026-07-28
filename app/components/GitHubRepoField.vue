@@ -20,7 +20,7 @@ const emit = defineEmits<{
   (e: 'update:modelValue', value: string): void
 }>()
 
-const toast = useToast()
+const toast = useAppToast()
 const { isConnected, githubLogin, refreshConnection, listRepos, connect, disconnect } = useGitHubApp()
 
 interface RepoItem {

@@ -42,7 +42,7 @@ useSeoMeta({
 
 const { access, loading, refresh, recoverAccount } = useAccountAccess()
 const { user, logout } = useTcbAuth()
-const toast = useToast()
+const toast = useAppToast()
 const recovering = ref(false)
 const showRecoverConfirm = ref(false)
 

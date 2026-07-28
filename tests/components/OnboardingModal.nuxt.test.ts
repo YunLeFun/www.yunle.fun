@@ -39,7 +39,7 @@ mockNuxtImport('useTcbAuth', () => () => ({
 }))
 mockNuxtImport('useUserProfile', () => () => ({ upsertMyProfile: h.s.upsertMyProfile }))
 mockNuxtImport('useCloudbase', () => () => ({ auth: { updateUser: h.s.updateUser }, app: {} }))
-mockNuxtImport('useToast', () => () => ({ add: h.s.toastAdd }))
+mockNuxtImport('useAppToast', () => () => ({ add: h.s.toastAdd }))
 
 function bodyText() {
   return document.body.textContent || ''

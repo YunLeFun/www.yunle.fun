@@ -44,6 +44,6 @@ useSeoMeta({
 
     <AppFooter />
 
-    <UToaster />
+    <AppToaster />
   </div>
 </template>

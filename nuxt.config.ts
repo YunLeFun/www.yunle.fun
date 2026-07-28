@@ -26,6 +26,8 @@ export default defineNuxtConfig({
     // UI 必须先于 MDC 注册，让带完整排版主题的 Prose* 组件接管 Markdown 标签。
     // 若顺序反过来，MDC 自带的无样式组件会抢先注册，文档标题/列表/表格退化为浏览器默认样式。
     '@nuxt/ui',
+    // 业务 UI 正迁移到本地 reka-ui 组件；图标仍是独立的 Nuxt 能力，不跟随 Nuxt UI 移除。
+    '@nuxt/icon',
     // Markdown 渲染（替代 @nuxt/content，见 docs/nuxt-content-removal.md）
     '@nuxtjs/mdc',
     '@vueuse/nuxt',

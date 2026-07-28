@@ -1,11 +1,15 @@
 <script setup lang="ts">
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Spinner } from '@/components/ui/spinner'
+import { Switch } from '@/components/ui/switch'
+
 /**
  * 隐私设置：控制粉丝 / 关注列表的可见性。
  * 计数（关注数 / 粉丝数）始终公开，仅「列表明细」受此开关控制。
  */
 const { user } = useTcbAuth()
 const { getProfile, upsertMyProfile } = useUserProfile()
-const toast = useToast()
+const toast = useAppToast()
 
 const hideFollowers = ref(false)
 const hideFollowing = ref(false)
@@ -49,83 +53,88 @@ async function save(field: SwitchField, value: boolean) {
 
 <template>
   <div class="space-y-6">
-    <UPageCard class="p-6">
-      <h3 class="mb-1 text-lg font-semibold">
-        列表隐私
-      </h3>
-      <p class="mb-4 text-sm text-muted">
-        控制谁能看到你的粉丝与关注列表。关注 / 粉丝<strong>数量始终公开</strong>，仅列表明细受此控制。
-      </p>
+    <Card>
+      <CardHeader>
+        <CardTitle>列表隐私</CardTitle>
+        <CardDescription>
+          控制谁能看到你的粉丝与关注列表。关注 / 粉丝<strong>数量始终公开</strong>，仅列表明细受此控制。
+        </CardDescription>
+      </CardHeader>
 
-      <div v-if="loading" class="flex justify-center py-6">
-        <UIcon name="i-lucide-loader-2" class="animate-spin text-xl text-muted" />
-      </div>
-      <div v-else class="divide-y divide-default">
-        <div class="flex items-center justify-between gap-4 py-4">
-          <div class="min-w-0">
-            <p class="text-sm font-medium">
-              隐藏粉丝列表
-            </p>
-            <p class="text-xs text-muted">
-              开启后，仅你本人可查看粉丝列表
-            </p>
-          </div>
-          <USwitch
-            v-model="hideFollowers"
-            class="shrink-0"
-            :disabled="saving"
-            @update:model-value="save('hideFollowers', $event)"
-          />
+      <CardContent>
+        <div v-if="loading" class="flex justify-center py-6">
+          <Spinner class="size-5 text-muted-foreground" />
         </div>
-        <div class="flex items-center justify-between gap-4 py-4">
-          <div class="min-w-0">
-            <p class="text-sm font-medium">
-              隐藏关注列表
-            </p>
-            <p class="text-xs text-muted">
-              开启后，仅你本人可查看关注列表
-            </p>
+        <div v-else class="divide-y divide-border">
+          <div class="flex items-center justify-between gap-4 py-4">
+            <div class="min-w-0">
+              <p class="text-sm font-medium">
+                隐藏粉丝列表
+              </p>
+              <p class="text-xs text-muted-foreground">
+                开启后，仅你本人可查看粉丝列表
+              </p>
+            </div>
+            <Switch
+              v-model="hideFollowers"
+              class="shrink-0"
+              :disabled="saving"
+              aria-label="隐藏粉丝列表"
+              @update:model-value="save('hideFollowers', $event)"
+            />
           </div>
-          <USwitch
-            v-model="hideFollowing"
-            class="shrink-0"
-            :disabled="saving"
-            @update:model-value="save('hideFollowing', $event)"
-          />
+          <div class="flex items-center justify-between gap-4 py-4">
+            <div class="min-w-0">
+              <p class="text-sm font-medium">
+                隐藏关注列表
+              </p>
+              <p class="text-xs text-muted-foreground">
+                开启后，仅你本人可查看关注列表
+              </p>
+            </div>
+            <Switch
+              v-model="hideFollowing"
+              class="shrink-0"
+              :disabled="saving"
+              aria-label="隐藏关注列表"
+              @update:model-value="save('hideFollowing', $event)"
+            />
+          </div>
         </div>
-      </div>
-    </UPageCard>
+      </CardContent>
+    </Card>
 
     <!-- 通知偏好 -->
-    <UPageCard class="p-6">
-      <h3 class="mb-1 text-lg font-semibold">
-        通知
-      </h3>
-      <p class="mb-4 text-sm text-muted">
-        控制你在站内收到的提醒。
-      </p>
+    <Card>
+      <CardHeader>
+        <CardTitle>通知</CardTitle>
+        <CardDescription>控制你在站内收到的提醒。</CardDescription>
+      </CardHeader>
 
-      <div v-if="loading" class="flex justify-center py-6">
-        <UIcon name="i-lucide-loader-2" class="animate-spin text-xl text-muted" />
-      </div>
-      <div v-else class="divide-y divide-default">
-        <div class="flex items-center justify-between gap-4 py-4">
-          <div class="min-w-0">
-            <p class="text-sm font-medium">
-              新增粉丝通知
-            </p>
-            <p class="text-xs text-muted">
-              有人关注你时收到站内通知
-            </p>
-          </div>
-          <USwitch
-            v-model="notifyOnFollow"
-            class="shrink-0"
-            :disabled="saving"
-            @update:model-value="save('notifyOnFollow', $event)"
-          />
+      <CardContent>
+        <div v-if="loading" class="flex justify-center py-6">
+          <Spinner class="size-5 text-muted-foreground" />
         </div>
-      </div>
-    </UPageCard>
+        <div v-else class="divide-y divide-border">
+          <div class="flex items-center justify-between gap-4 py-4">
+            <div class="min-w-0">
+              <p class="text-sm font-medium">
+                新增粉丝通知
+              </p>
+              <p class="text-xs text-muted-foreground">
+                有人关注你时收到站内通知
+              </p>
+            </div>
+            <Switch
+              v-model="notifyOnFollow"
+              class="shrink-0"
+              :disabled="saving"
+              aria-label="新增粉丝通知"
+              @update:model-value="save('notifyOnFollow', $event)"
+            />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   </div>
 </template>

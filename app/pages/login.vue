@@ -30,7 +30,7 @@ const {
   isAuthenticated,
 } = useTcbAuth()
 const router = useRouter()
-const toast = useToast()
+const toast = useAppToast()
 
 // 如果已登录，重定向（优先 redirect 查询参数，回退首页）
 watch(isAuthenticated, (value) => {

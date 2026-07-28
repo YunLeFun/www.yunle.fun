@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
+
 const props = defineProps<{
   provider: string
   label: string
@@ -28,7 +32,7 @@ const description = computed(() => {
   <div class="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
     <div class="flex min-w-0 flex-1 items-center gap-3">
       <div class="size-9 flex shrink-0 items-center justify-center rounded-lg bg-elevated">
-        <UIcon :name="props.icon" class="text-lg" :class="props.iconClass" />
+        <Icon :name="props.icon" class="text-lg" :class="props.iconClass" />
       </div>
       <div class="min-w-0 space-y-1">
         <p class="text-sm font-medium">
@@ -43,40 +47,35 @@ const description = computed(() => {
       </div>
     </div>
     <div class="flex shrink-0 items-center gap-2 ps-12 sm:ps-0">
-      <UBadge
-        v-if="props.providersLoading"
-        label="查询中"
-        color="info"
-        variant="subtle"
-        size="sm"
-      />
+      <Badge v-if="props.providersLoading" variant="outline">
+        查询中
+      </Badge>
       <template v-else>
-        <UBadge
-          :label="props.bound ? '已绑定' : '未绑定'"
-          :color="props.bound ? 'success' : 'warning'"
-          variant="subtle"
-          size="sm"
-        />
-        <UButton
+        <Badge :variant="props.bound ? 'secondary' : 'outline'">
+          {{ props.bound ? '已绑定' : '未绑定' }}
+        </Badge>
+        <Button
           v-if="props.bound"
-          label="解绑"
-          color="error"
-          variant="outline"
+          variant="destructive"
           size="xs"
-          icon="i-lucide-unlink"
-          :loading="props.loading"
+          :disabled="props.loading"
           @click="emit('unbind')"
-        />
-        <UButton
+        >
+          <Spinner v-if="props.loading" />
+          <Icon v-else name="i-lucide-unlink" />
+          解绑
+        </Button>
+        <Button
           v-else
-          label="绑定"
-          color="primary"
           variant="outline"
           size="xs"
-          :icon="props.icon"
-          :loading="props.loading"
+          :disabled="props.loading"
           @click="emit('bind')"
-        />
+        >
+          <Spinner v-if="props.loading" />
+          <Icon v-else :name="props.icon" />
+          绑定
+        </Button>
       </template>
     </div>
   </div>

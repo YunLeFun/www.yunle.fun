@@ -16,7 +16,7 @@ const PENDING_ORDER_KEY = 'wxpay:pending-order'
 export function usePayment() {
   const { user } = useTcbAuth()
   const membership = useMembership()
-  const toast = useToast()
+  const toast = useAppToast()
 
   const flow = usePaymentFlow({
     pendingKey: PENDING_ORDER_KEY,

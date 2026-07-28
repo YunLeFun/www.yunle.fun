@@ -19,7 +19,7 @@ const emit = defineEmits<{ (e: 'change', following: boolean): void }>()
 
 const { user } = useTcbAuth()
 const { getRelation, follow, unfollow } = useFollow()
-const toast = useToast()
+const toast = useAppToast()
 const route = useRoute()
 
 const relation = ref<FollowRelation>(props.relation ?? { isFollowing: false, isFollowedBy: false })

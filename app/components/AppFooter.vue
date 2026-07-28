@@ -56,7 +56,7 @@ const columns = [{
   ],
 }]
 
-// const toast = useToast()
+// const toast = useAppToast()
 
 // const email = ref('')
 // const loading = ref(false)

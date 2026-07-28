@@ -2,6 +2,7 @@
 import type { OAuthIdentityLike } from '~/utils/authProviders'
 import { ShieldCheckIcon } from '@lucide/vue'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
@@ -10,7 +11,16 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Separator } from '@/components/ui/separator'
+import { Spinner } from '@/components/ui/spinner'
 import {
   getBoundOAuthProviderIds,
   getOAuthIdentityName,
@@ -185,7 +195,7 @@ onMounted(async () => {
     </Card>
 
     <!-- 第三方账号 -->
-    <UPageCard v-if="isGitHubEnabled || isWeChatEnabled" class="p-4 sm:p-6">
+    <Card v-if="isGitHubEnabled || isWeChatEnabled" class="p-4 sm:p-6">
       <h3 class="mb-1 text-lg font-semibold">
         第三方账号
       </h3>
@@ -222,45 +232,40 @@ onMounted(async () => {
           @unbind="confirmUnbind('wx_open', '微信')"
         />
       </div>
-    </UPageCard>
+    </Card>
 
     <!-- 登录设备（已授权桌面 / 本地应用） -->
     <SettingsSecurityDevices />
 
     <!-- 解绑确认弹窗 -->
-    <UModal v-model:open="showUnbindConfirm">
-      <template #content>
-        <div class="p-6 space-y-4">
+    <Dialog v-model:open="showUnbindConfirm">
+      <DialogContent>
+        <DialogHeader>
           <div class="flex items-center gap-3">
             <div class="p-2 rounded-full bg-error-50 dark:bg-error-950">
-              <UIcon name="i-lucide-unlink" class="text-xl text-error" />
+              <Icon name="i-lucide-unlink" class="size-5 text-error" />
             </div>
             <div>
-              <h3 class="font-semibold">
+              <DialogTitle>
                 确认解绑
-              </h3>
-              <p class="text-sm text-muted">
+              </DialogTitle>
+              <DialogDescription>
                 解绑后将无法使用 {{ unbindTarget?.label }} 账号登录，确定要继续吗？
-              </p>
+              </DialogDescription>
             </div>
           </div>
-          <div class="flex justify-end gap-3">
-            <UButton
-              label="取消"
-              color="neutral"
-              variant="outline"
-              @click="showUnbindConfirm = false"
-            />
-            <UButton
-              label="确认解绑"
-              color="error"
-              :loading="authLoading"
-              @click="handleUnbind"
-            />
-          </div>
-        </div>
-      </template>
-    </UModal>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" :disabled="authLoading" @click="showUnbindConfirm = false">
+            取消
+          </Button>
+          <Button variant="destructive" :disabled="authLoading" @click="handleUnbind">
+            <Spinner v-if="authLoading" />
+            确认解绑
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>
 
