@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import type { AppRecord } from '~/types/app'
+import type { AppRecord, MyWorkshopOverview, WorkshopSurface } from '~/types/app'
 import type { UserProfile } from '~/types/social'
+import AppSurfaceList from '~/components/apps/AppSurfaceList.vue'
 import { isOfficialUser } from '~/config'
 import { getPublicProfilePath } from '~/utils/publicProfilePath'
 
@@ -14,7 +15,7 @@ useSeoMeta({
 })
 
 const { user, isAuthenticated, loading } = useTcbAuth()
-const { getMyApps } = useApps()
+const { getMyApps, getMyWorkshops } = useApps()
 const { isActive: isMember, state: membershipState, refresh: refreshMembership } = useMembership()
 const { balance: coinBalance, refresh: refreshAccount } = useCoin()
 const { getProfile } = useUserProfile()
@@ -43,7 +44,21 @@ const canCreate = computed(() => isOfficialUser(user.value))
 
 // 我的应用
 const myApps = ref<AppRecord[]>([])
+const myWorkshops = ref<MyWorkshopOverview>({ owned: null, joined: [] })
 const appsLoading = ref(true)
+const homeApps = computed(() => myApps.value.filter(app =>
+  (app.audience === 'public' || (!app.audience && app.isPublic))
+  && (!app.publicationStatus || app.publicationStatus === 'published'),
+))
+const workshopSurfaces = computed<WorkshopSurface[]>(() => [
+  ...(myWorkshops.value.owned ? [myWorkshops.value.owned] : []),
+  ...myWorkshops.value.joined,
+])
+const appsProfileUrl = computed(() =>
+  user.value?.login
+    ? `https://apps.yunle.fun/developer/${encodeURIComponent(user.value.login)}`
+    : 'https://apps.yunle.fun/tabs/apps',
+)
 
 // 我的公开资料（取关注 / 粉丝数）
 const myProfile = ref<UserProfile | null>(null)
@@ -60,7 +75,7 @@ function openList(type: 'following' | 'followers') {
 // 顶部数据条（点击直达 / 打开列表）
 const stats = computed<Array<{ label: string, value: number, to?: string, onClick?: () => void }>>(() => [
   { label: '云币', value: coinBalance.value, to: '/wallet' },
-  { label: '应用', value: myApps.value.length, to: '/apps' },
+  { label: '主页应用', value: homeApps.value.length, to: appsProfileUrl.value },
   { label: '关注', value: myProfile.value?.followingCount ?? 0, onClick: () => openList('following') },
   { label: '粉丝', value: myProfile.value?.followersCount ?? 0, onClick: () => openList('followers') },
 ])
@@ -70,7 +85,8 @@ const entries = computed(() => {
   const list = [
     { label: '关注动态', icon: 'i-lucide-rss', to: '/feed', color: 'var(--ylf-dopa-amber)' },
     { label: '我的钱包', icon: 'i-lucide-wallet', to: '/wallet', color: 'var(--ylf-dopa-cyan)' },
-    { label: '我的应用', icon: 'i-lucide-layout-grid', to: '/apps', color: 'var(--ylf-dopa-violet)' },
+    { label: '主页应用', icon: 'i-lucide-layout-grid', to: appsProfileUrl.value, color: 'var(--ylf-dopa-violet)' },
+    { label: '私人工坊', icon: 'i-lucide-key-round', to: 'https://apps.yunle.fun/user/workshop', color: 'var(--ylf-dopa-green)' },
     { label: '账户设置', icon: 'i-lucide-settings', to: '/settings', color: 'var(--ylf-dopa-blue)' },
     { label: '安全设置', icon: 'i-lucide-lock', to: '/settings?tab=security', color: 'var(--ylf-dopa-green)' },
   ]
@@ -86,12 +102,17 @@ onUserSession(async () => {
   refreshMembership()
   refreshAccount()
   try {
-    const [apps, profile] = await Promise.all([
+    const [appsResult, workshopsResult, profileResult] = await Promise.allSettled([
       getMyApps(),
+      getMyWorkshops(),
       user.value ? getProfile({ userId: user.value.id }) : Promise.resolve(null),
     ])
-    myApps.value = apps
-    myProfile.value = profile
+    if (appsResult.status === 'fulfilled')
+      myApps.value = appsResult.value
+    if (workshopsResult.status === 'fulfilled')
+      myWorkshops.value = workshopsResult.value
+    if (profileResult.status === 'fulfilled')
+      myProfile.value = profileResult.value
   }
   catch (err) {
     console.error('加载个人数据失败:', err)
@@ -101,8 +122,8 @@ onUserSession(async () => {
   }
 })
 
-function formatAppDate(ts: number) {
-  return new Date(ts).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
+function workshopHref(surface: WorkshopSurface) {
+  return `https://apps.yunle.fun/w/${encodeURIComponent(surface.workshop._id)}`
 }
 </script>
 
@@ -228,16 +249,21 @@ function formatAppDate(ts: number) {
         </div>
       </section>
 
-      <!-- 我的应用 -->
+      <!-- 主页应用 -->
       <section class="ylf-card rounded-3xl p-6">
         <div class="mb-4 flex items-center justify-between">
-          <h2 class="ylf-dreamy-display text-xl text-highlighted">
-            我的应用
-          </h2>
+          <div>
+            <h2 class="ylf-dreamy-display text-xl text-highlighted">
+              主页应用
+            </h2>
+            <p class="mt-1 text-xs text-muted">
+              已发布并展示在你的云乐坊个人主页
+            </p>
+          </div>
           <UButton
-            to="/apps"
-            label="查看全部"
-            icon="i-lucide-arrow-right"
+            :to="appsProfileUrl"
+            label="打开主页"
+            icon="i-lucide-external-link"
             color="neutral"
             variant="ghost"
             size="xs"
@@ -248,14 +274,14 @@ function formatAppDate(ts: number) {
         <div v-if="appsLoading" class="flex justify-center py-6">
           <UIcon name="i-lucide-loader-2" class="animate-spin text-xl text-muted" />
         </div>
-        <div v-else-if="myApps.length === 0" class="ylf-empty-state rounded-2xl py-8 text-center">
+        <div v-else-if="homeApps.length === 0" class="ylf-empty-state rounded-2xl py-8 text-center">
           <p class="mb-3 text-sm text-muted">
-            还没有发布任何应用
+            还没有在主页展示应用
           </p>
           <UButton
             v-if="canCreate"
-            to="/apps/new"
-            label="创建应用"
+            to="https://apps.yunle.fun/workshop/new"
+            label="前往云乐坊发布"
             icon="i-lucide-plus"
             color="primary"
             variant="subtle"
@@ -265,24 +291,108 @@ function formatAppDate(ts: number) {
             自助发布敬请期待 🚧
           </p>
         </div>
-        <div v-else class="space-y-1.5">
-          <NuxtLink
-            v-for="item in myApps.slice(0, 5)"
-            :key="item._id"
-            :to="`/apps/${item.slug}`"
-            class="group flex items-center gap-3 rounded-2xl p-3 transition-colors hover:bg-elevated/60"
+        <AppSurfaceList v-else :apps="homeApps.slice(0, 6)" />
+      </section>
+
+      <!-- 私人工坊 -->
+      <section class="ylf-card rounded-3xl p-6">
+        <div class="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <h2 class="ylf-dreamy-display flex items-center gap-2 text-xl text-highlighted">
+              私人工坊
+              <UIcon name="i-lucide-key-round" class="size-4 text-primary" aria-hidden="true" />
+            </h2>
+            <p class="mt-1 text-xs text-muted">
+              这里只展示你作为坊主或坊客有权查看的作品
+            </p>
+          </div>
+          <UButton
+            to="https://apps.yunle.fun/user/workshop"
+            :label="myWorkshops.owned ? '管理' : '开启'"
+            icon="i-lucide-external-link"
+            color="neutral"
+            variant="ghost"
+            size="xs"
+          />
+        </div>
+
+        <div v-if="appsLoading" class="flex justify-center py-6">
+          <UIcon name="i-lucide-loader-2" class="animate-spin text-xl text-muted" />
+        </div>
+        <div v-else-if="workshopSurfaces.length === 0" class="ylf-empty-state rounded-2xl px-4 py-8 text-center">
+          <UIcon name="i-lucide-door-open" class="mb-2 size-7 text-muted" />
+          <p class="text-sm text-muted">
+            还没有开启或加入私人工坊
+          </p>
+          <UButton
+            to="https://apps.yunle.fun/user/workshops"
+            label="查看我的工坊"
+            icon="i-lucide-arrow-right"
+            color="neutral"
+            variant="link"
+            size="xs"
+            trailing
+          />
+        </div>
+        <div v-else class="space-y-3">
+          <article
+            v-for="surface in workshopSurfaces"
+            :key="surface.workshop._id"
+            class="private-workshop"
           >
-            <div class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-elevated">
-              <img v-if="item.icon || item.logo" :src="item.icon || item.logo" :alt="item.name" class="size-6 rounded">
-              <span v-else-if="item.emoji" class="text-xl leading-none">{{ item.emoji }}</span>
-              <UIcon v-else name="i-lucide-box" class="text-base text-muted" />
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-2">
+                  <h3 class="truncate text-sm font-semibold text-highlighted">
+                    {{ surface.workshop.name }}
+                  </h3>
+                  <UBadge
+                    :label="surface.access === 'owner' ? '我的工坊' : '已加入'"
+                    :icon="surface.access === 'owner' ? 'i-lucide-crown' : 'i-lucide-key-round'"
+                    color="primary"
+                    variant="subtle"
+                    size="xs"
+                  />
+                  <UBadge
+                    v-if="surface.workshop.status === 'disabled'"
+                    label="已停用"
+                    color="neutral"
+                    variant="subtle"
+                    size="xs"
+                  />
+                </div>
+                <p v-if="surface.workshop.description" class="mt-1 line-clamp-2 text-xs leading-relaxed text-muted">
+                  {{ surface.workshop.description }}
+                </p>
+                <p v-if="surface.access === 'owner'" class="mt-1.5 text-[11px] text-dimmed">
+                  {{ surface.guestCount || 0 }} 位坊客
+                  <template v-if="surface.pendingCount">
+                    · {{ surface.pendingCount }} 个申请待处理
+                  </template>
+                </p>
+              </div>
+              <a
+                :href="workshopHref(surface)"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex size-8 shrink-0 items-center justify-center rounded-full text-muted transition hover:bg-elevated hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                :aria-label="`打开${surface.workshop.name}`"
+              >
+                <UIcon name="i-lucide-arrow-up-right" class="size-4" aria-hidden="true" />
+              </a>
             </div>
-            <div class="min-w-0 flex-1">
-              <span class="block truncate text-sm font-medium transition-colors group-hover:text-primary">{{ item.name }}</span>
-              <span class="font-mono text-xs text-muted">{{ item.slug }}</span>
-            </div>
-            <span class="shrink-0 text-xs text-muted">{{ formatAppDate(item.updatedAt) }}</span>
-          </NuxtLink>
+
+            <AppSurfaceList
+              v-if="surface.apps.length"
+              :apps="surface.apps.slice(0, 6)"
+              :show-audience="true"
+              compact
+              class="mt-3"
+            />
+            <p v-else class="mt-3 rounded-xl bg-elevated/45 px-3 py-3 text-center text-xs text-muted">
+              {{ surface.workshop.status === 'disabled' ? '工坊停用期间暂不展示作品' : '工坊里还没有可见作品' }}
+            </p>
+          </article>
         </div>
       </section>
 
@@ -294,6 +404,27 @@ function formatAppDate(ts: number) {
 <style scoped>
 .ylf-hero-shadow {
   text-shadow: 0 1px 10px rgba(0, 40, 90, 0.35);
+}
+
+.private-workshop {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--ylf-dopa-violet) 20%, var(--ui-border));
+  border-radius: 1.1rem;
+  padding: 1rem;
+  background:
+    linear-gradient(120deg, color-mix(in srgb, var(--ylf-dopa-violet) 7%, transparent), transparent 42%),
+    color-mix(in srgb, var(--ylf-surface-muted) 54%, transparent);
+}
+
+.private-workshop::before {
+  position: absolute;
+  width: 4px;
+  border-radius: 999px;
+  background: linear-gradient(var(--ylf-dopa-violet), var(--ylf-dopa-cyan));
+  content: '';
+  inset-block: 1rem;
+  inset-inline-start: 0;
 }
 
 .ylf-join-cta {

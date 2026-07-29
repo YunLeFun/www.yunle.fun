@@ -3,6 +3,7 @@ import process from 'node:process'
 import yaml from '@rollup/plugin-yaml'
 
 const DEFAULT_ACCOUNT_API_HTTP_URL = 'https://api.yunle.fun/account-api'
+const DEFAULT_APPS_PLATFORM_API_URL = 'https://apps.yunle.fun'
 const DEFAULT_CLOUDBASE_STORAGE_PUBLIC_ORIGIN
   = 'https://7975-yunlefun-8g7ybcxc7345c490-1325586649.tcb.qcloud.la'
 const EDGEONE_ACCOUNT_CLIENT_SHELL_ROUTES = [
@@ -95,6 +96,8 @@ export default defineNuxtConfig({
     // CloudBase account-api 的公开 HTTP 访问地址（server 端 SSR 代理 getProfile 用）。
     // 官方生产域名是安全的只读默认值；本地/预发可用环境变量覆盖到对应环境。
     accountApiHttpUrl: process.env.NUXT_ACCOUNT_API_HTTP_URL || DEFAULT_ACCOUNT_API_HTTP_URL,
+    // apps.yunle.fun 的受控目录 API；官网不再直读已设为 ADMINONLY 的应用/工坊集合。
+    appsPlatformApiUrl: process.env.NUXT_APPS_PLATFORM_API_URL || DEFAULT_APPS_PLATFORM_API_URL,
     // 领取页服务端只用它把可信来源 IP 签成短时匿名凭证；必须与 account-api 配置一致。
     rewardClaimRateTicketSecret: process.env.NUXT_REWARD_CLAIM_RATE_TICKET_SECRET || '',
     // nuxt-auth-utils sealed httpOnly cookie 会话（见 docs/cookie-session-migration.md · Phase 5）。

@@ -18,8 +18,9 @@ const showDeleteConfirm = ref(false)
 const isOwner = computed(() => {
   if (!user.value || !appData.value)
     return false
-  return user.value.id === appData.value.ownerId
+  return user.value.id === (appData.value.ownerUid || appData.value.ownerId)
 })
+const ownerId = computed(() => appData.value?.ownerUid || appData.value?.ownerId)
 
 useSeoMeta({
   title: computed(() => appData.value ? `${appData.value.name} - YunLeFun` : '应用 - YunLeFun'),
@@ -206,7 +207,7 @@ async function handleDelete() {
               >
                 @{{ appData.ownerLogin }}
               </NuxtLink>
-              <FollowButton v-if="!isOwner" :target-id="appData.ownerId" size="xs" />
+              <FollowButton v-if="!isOwner && ownerId" :target-id="ownerId" size="xs" />
             </div>
           </div>
 

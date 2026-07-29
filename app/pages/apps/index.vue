@@ -37,6 +37,18 @@ function formatDate(ts: number) {
     day: 'numeric',
   })
 }
+
+function audienceLabel(item: AppRecord) {
+  if (item.audience === 'workshop')
+    return '坊客专属'
+  if (item.audience === 'owner')
+    return '仅自己'
+  return '主页公开'
+}
+
+function appManagementHref(item: AppRecord) {
+  return `https://apps.yunle.fun/workshop/${encodeURIComponent(item.slug)}`
+}
 </script>
 
 <template>
@@ -58,7 +70,7 @@ function formatDate(ts: number) {
         </div>
         <UButton
           v-if="canCreate"
-          to="/apps/new"
+          to="https://apps.yunle.fun/workshop/new"
           label="创建应用"
           icon="i-lucide-plus"
           color="primary"
@@ -77,7 +89,7 @@ function formatDate(ts: number) {
             创建你的第一个应用，像管理 GitHub 仓库一样管理它们
           </p>
           <UButton
-            to="/apps/new"
+            to="https://apps.yunle.fun/workshop/new"
             label="创建第一个应用"
             icon="i-lucide-plus"
             color="primary"
@@ -99,7 +111,7 @@ function formatDate(ts: number) {
         <NuxtLink
           v-for="item in apps"
           :key="item._id"
-          :to="`/apps/${item.slug}`"
+          :to="appManagementHref(item)"
           class="block rounded-lg"
         >
           <div class="ylf-interactive-card group flex items-start gap-4 rounded-lg p-4">
@@ -122,8 +134,8 @@ function formatDate(ts: number) {
                   {{ item.name }}
                 </span>
                 <UBadge
-                  :label="item.isPublic ? '公开' : '私有'"
-                  :color="item.isPublic ? 'success' : 'neutral'"
+                  :label="audienceLabel(item)"
+                  :color="item.audience === 'public' || (!item.audience && item.isPublic) ? 'success' : 'neutral'"
                   variant="subtle"
                   size="xs"
                 />

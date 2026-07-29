@@ -57,6 +57,10 @@ function mountPage() {
           props: ['isMember'],
           template: '<span data-testid="member-avatar" :data-member="isMember ? \'true\' : \'false\'" />',
         },
+        AppSurfaceList: {
+          props: ['apps'],
+          template: '<div data-testid="app-list">{{ apps.map((app) => app.name).join(",") }}</div>',
+        },
       },
     },
   })
@@ -146,5 +150,29 @@ describe('public user profile page', () => {
     await flushPromises()
 
     expect(h.getRelation).toHaveBeenCalledWith(profile.userId)
+  })
+
+  it('renders only the homepage apps returned by the apps platform projection', async () => {
+    const profileWithLogin = { ...profile, login: 'alice' }
+    h.fetchData.value = profileWithLogin
+    h.fetchStatus.value = 'success'
+    h.fetchError.value = null
+    h.getUserApps.mockResolvedValue([{
+      _id: 'public-app',
+      ownerLogin: 'alice',
+      name: '公开主页作品',
+      slug: 'public-home-work',
+      isPublic: true,
+      audience: 'public',
+      createdAt: 1,
+      updatedAt: 2,
+    }])
+
+    const wrapper = await mountPage()
+    await flushPromises()
+
+    expect(h.getUserApps).toHaveBeenCalledWith('alice')
+    expect(wrapper.get('[data-testid="app-list"]').text()).toContain('公开主页作品')
+    expect(wrapper.text()).toContain('主页应用')
   })
 })

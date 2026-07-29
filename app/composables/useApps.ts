@@ -1,15 +1,16 @@
-import type { AppRecord, CreateAppForm } from '~/types/app'
-import { OFFICIAL_OWNER_LOGINS } from '~/config'
+import type { AppRecord, CreateAppForm, MyWorkshopOverview } from '~/types/app'
+import { isOfficialOwner } from '~/config'
 
 const COLLECTION = 'apps'
 
 /**
  * 应用数据管理 composable
- * 基于 CloudBase NoSQL 数据库
+ * 展示读取统一走 apps.yunle.fun 服务端接口；旧版编辑能力仍暂用 CloudBase。
  */
 export function useApps() {
-  const { app } = useCloudbase()
+  const { app, auth } = useCloudbase()
   const { user } = useTcbAuth()
+  const requestFetch = useRequestFetch()
   // SSR 安全：useCloudbase 在服务端返回空 app，此处惰性可空（各方法仅在客户端调用，app 必存在）
   const db = app?.database()
 
@@ -19,13 +20,9 @@ export function useApps() {
   async function getMyApps(): Promise<AppRecord[]> {
     if (!user.value)
       return []
-    const { data } = await db
-      .collection(COLLECTION)
-      .where({ ownerId: user.value.id })
-      .orderBy('updatedAt', 'desc')
-      .limit(100)
-      .get()
-    return data as AppRecord[]
+    const headers = await authorizationHeaders()
+    const response = await requestFetch<{ items: AppRecord[] }>('/api/apps-platform/mine', { headers })
+    return response.items
   }
 
   /**
@@ -34,75 +31,82 @@ export function useApps() {
    * 开发者平台尚未上线，公开展示处只上架官方应用，普通用户暂不可自助发布。
    */
   async function getOfficialApps(): Promise<AppRecord[]> {
-    const { data } = await db
-      .collection(COLLECTION)
-      .where({
-        ownerLogin: db.command.in(OFFICIAL_OWNER_LOGINS),
-        isPublic: true,
-      })
-      .orderBy('updatedAt', 'desc')
-      .limit(100)
-      .get()
-    return data as AppRecord[]
+    const response = await requestFetch<{ items: AppRecord[] }>('/api/apps-platform/public')
+    return response.items.filter(app => app.isOfficial === true || isOfficialOwner(app.ownerLogin))
   }
 
   /**
    * 根据用户名获取该用户的所有公开应用
    */
   async function getUserApps(ownerLogin: string): Promise<AppRecord[]> {
-    const { data } = await db
-      .collection(COLLECTION)
-      .where({ ownerLogin, isPublic: true })
-      .orderBy('updatedAt', 'desc')
-      .limit(100)
-      .get()
-    return data as AppRecord[]
+    try {
+      const response = await requestFetch<{ items: AppRecord[] }>('/api/apps-platform/personal', {
+        query: { login: ownerLogin },
+      })
+      return response.items
+    }
+    catch (error) {
+      // apps.yunle.fun 无法仅凭 login 解析“尚未发布过应用”的用户，主页按空列表展示。
+      if (errorStatus(error) === 404)
+        return []
+      throw error
+    }
   }
 
   /**
    * 根据 slug 获取公开应用详情（公开详情页 / 榜单用）
-   *
-   * 安全规则读分支为 `doc.isPublic == true || auth.uid == doc.ownerId`，
-   * 查询条件必须带上能命中某一分支的字段：公开读须显式 `isPublic: true`，
-   * 否则按 slug 单字段查询无法满足规则 → DATABASE_PERMISSION_DENIED。
-   * owner 读自己的（含私有）应用走 getMyAppBySlug。
    */
   async function getAppBySlug(slug: string): Promise<AppRecord | null> {
-    const { data } = await db
-      .collection(COLLECTION)
-      .where({ slug, isPublic: true })
-      .limit(1)
-      .get()
-    return (data as AppRecord[])[0] || null
+    try {
+      const response = await requestFetch<{ app: AppRecord }>(
+        `/api/apps-platform/public/${encodeURIComponent(slug)}`,
+      )
+      return response.app
+    }
+    catch (error) {
+      if (errorStatus(error) === 404)
+        return null
+      throw error
+    }
   }
 
   /**
-   * 获取当前用户自己的应用（按 slug，含私有），用于编辑等 owner 场景。
-   * 带 ownerId 命中归属读分支，可读到自己未公开的应用。
+   * 获取当前用户自己的应用（按 slug，含私有），用于 owner 场景。
    */
   async function getMyAppBySlug(slug: string): Promise<AppRecord | null> {
     if (!user.value)
       return null
-    const { data } = await db
-      .collection(COLLECTION)
-      .where({ slug, ownerId: user.value.id })
-      .limit(1)
-      .get()
-    return (data as AppRecord[])[0] || null
+    return (await getMyApps()).find(app => app.slug === slug) || null
   }
 
   /**
    * 根据文档 ID 获取应用详情（主键查询，立即一致，无索引延迟）
    */
   async function getAppById(id: string): Promise<AppRecord | null> {
-    const { data } = await db
-      .collection(COLLECTION)
-      .doc(id)
-      .get()
-    if (Array.isArray(data)) {
-      return (data as AppRecord[])[0] || null
+    if (user.value) {
+      const mine = (await getMyApps()).find(app => app._id === id)
+      if (mine)
+        return mine
     }
-    return (data as AppRecord) || null
+    return getAppBySlug(id)
+  }
+
+  /**
+   * 获取本人拥有和已加入的私人工坊，以及当前账号在其中有权查看的应用。
+   */
+  async function getMyWorkshops(): Promise<MyWorkshopOverview> {
+    if (!user.value)
+      return { owned: null, joined: [] }
+    const headers = await authorizationHeaders()
+    return requestFetch<MyWorkshopOverview>('/api/apps-platform/workshops', { headers })
+  }
+
+  async function authorizationHeaders(): Promise<Record<string, string>> {
+    const { data } = await auth.getSession()
+    const accessToken = data?.session?.access_token
+    if (!accessToken)
+      throw new Error('请先登录')
+    return { Authorization: `Bearer ${accessToken}` }
   }
 
   /**
@@ -171,9 +175,25 @@ export function useApps() {
     getAppById,
     getAppBySlug,
     getMyAppBySlug,
+    getMyWorkshops,
     createApp,
     updateApp,
     deleteApp,
     isSlugTaken,
+  }
+}
+
+function errorStatus(error: unknown): number | undefined {
+  if (!error || typeof error !== 'object')
+    return
+  const record = error as Record<string, unknown>
+  if (typeof record.statusCode === 'number')
+    return record.statusCode
+  if (typeof record.status === 'number')
+    return record.status
+  const response = record.response
+  if (response && typeof response === 'object') {
+    const status = (response as Record<string, unknown>).status
+    return typeof status === 'number' ? status : undefined
   }
 }

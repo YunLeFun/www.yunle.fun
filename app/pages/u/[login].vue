@@ -7,6 +7,7 @@
  */
 import type { AppRecord } from '~/types/app'
 import type { FollowRelation, UserProfile } from '~/types/social'
+import AppSurfaceList from '~/components/apps/AppSurfaceList.vue'
 import { displayUserName } from '~/utils/mask'
 
 definePageMeta({ layout: 'default' })
@@ -204,38 +205,50 @@ function openList(type: 'following' | 'followers') {
         </p>
       </section>
 
-      <!-- ta 的应用 -->
+      <!-- ta 的主页应用 -->
       <section class="ylf-card rounded-3xl p-6">
-        <h2 class="ylf-dreamy-display mb-4 text-xl text-highlighted">
-          {{ isSelf ? '我' : 'Ta' }}的应用
-        </h2>
+        <div class="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <h2 class="ylf-dreamy-display text-xl text-highlighted">
+              {{ isSelf ? '我' : 'Ta' }}的主页应用
+            </h2>
+            <p class="mt-1 text-xs text-muted">
+              已发布到个人主页的公开作品
+            </p>
+          </div>
+          <UButton
+            v-if="profile.login"
+            :to="`https://apps.yunle.fun/developer/${encodeURIComponent(profile.login)}`"
+            label="云乐坊主页"
+            icon="i-lucide-external-link"
+            color="neutral"
+            variant="ghost"
+            size="xs"
+          />
+        </div>
 
         <div v-if="appsLoading" class="flex justify-center py-6">
           <UIcon name="i-lucide-loader-2" class="animate-spin text-xl text-muted" />
         </div>
         <div v-else-if="userApps.length === 0" class="ylf-empty-state rounded-2xl py-8 text-center">
           <p class="text-sm text-muted">
-            还没有公开的应用
+            还没有在主页展示应用
           </p>
         </div>
-        <div v-else class="space-y-1.5">
-          <NuxtLink
-            v-for="item in userApps"
-            :key="item._id"
-            :to="`/apps/${item.slug}`"
-            class="group flex items-center gap-3 rounded-2xl p-3 transition-colors hover:bg-elevated/60"
-          >
-            <div class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-elevated">
-              <img v-if="item.icon || item.logo" :src="item.icon || item.logo" :alt="item.name" class="size-6 rounded">
-              <span v-else-if="item.emoji" class="text-xl leading-none">{{ item.emoji }}</span>
-              <UIcon v-else name="i-lucide-box" class="text-base text-muted" />
-            </div>
-            <div class="min-w-0 flex-1">
-              <span class="block truncate text-sm font-medium transition-colors group-hover:text-primary">{{ item.name }}</span>
-              <span class="font-mono text-xs text-muted">{{ item.slug }}</span>
-            </div>
-          </NuxtLink>
-        </div>
+        <template v-else>
+          <AppSurfaceList :apps="userApps.slice(0, 6)" />
+          <UButton
+            v-if="userApps.length > 6 && profile.login"
+            :to="`https://apps.yunle.fun/developer/${encodeURIComponent(profile.login)}`"
+            :label="`还有 ${userApps.length - 6} 个应用`"
+            icon="i-lucide-arrow-right"
+            color="neutral"
+            variant="link"
+            size="xs"
+            trailing
+            class="mt-3"
+          />
+        </template>
       </section>
 
       <FollowListModal v-model:open="showList" :user-id="profile.userId" :type="listType" />

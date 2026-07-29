@@ -37,7 +37,8 @@ onMounted(async () => {
       return
     }
     // 验证所有权
-    if (user.value?.id !== data.ownerId) {
+    const ownerId = data.ownerUid || data.ownerId
+    if (ownerId && user.value?.id !== ownerId) {
       toast.add({ title: '无权编辑此应用', color: 'error' })
       router.push(`/apps/${slug.value}`)
       return
