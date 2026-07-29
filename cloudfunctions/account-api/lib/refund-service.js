@@ -11,6 +11,7 @@ const {
   getMembershipRefund,
   markRefundRequestAttempt,
   markRefundRequestFailed,
+  markRefundRequestPendingConfirmation,
   prepareMembershipRefund,
 } = require('./refunds')
 const {
@@ -55,6 +56,32 @@ function normalizeWechatRefund(refund) {
   }
 }
 
+function errorCode(error) {
+  return error?.code || error?.cause?.code || ''
+}
+
+function isAmbiguousRefundRequestError(error) {
+  const message = error?.message || String(error)
+  return error?.name === 'AbortError'
+    || ['terminated', 'fetch failed', 'socket hang up'].some(part => message.toLowerCase().includes(part))
+    || new Set([
+      'ECONNRESET',
+      'EPIPE',
+      'ETIMEDOUT',
+      'UND_ERR_BODY_TIMEOUT',
+      'UND_ERR_CONNECT_TIMEOUT',
+      'UND_ERR_HEADERS_TIMEOUT',
+      'UND_ERR_SOCKET',
+    ]).has(errorCode(error))
+}
+
+function assertRefundMatchesPreparedOrder(channel, prepared) {
+  if (channel.outTradeNo !== prepared.order.outTradeNo)
+    throw new Error('微信退款响应的商户订单号不匹配')
+  if (channel.outRefundNo !== prepared.refund.outRefundNo)
+    throw new Error('微信退款响应的商户退款单号不匹配')
+}
+
 async function requestMembershipRefundForAdmin(db, input, dependencies = {}) {
   const now = Number.isFinite(input?.now) ? input.now : Date.now()
   const prepared = await prepareMembershipRefund(db, { ...input, now })
@@ -67,6 +94,7 @@ async function requestMembershipRefundForAdmin(db, input, dependencies = {}) {
   const client = createWechatClient(config, dependencies.client)
   const queryTransaction = dependencies.queryTransaction || queryTransactionByOutTradeNo
   const submitRefund = dependencies.requestRefund || requestRefund
+  const queryRefund = dependencies.queryRefund || queryRefundByOutRefundNo
 
   let channelAccepted = false
   try {
@@ -80,24 +108,50 @@ async function requestMembershipRefundForAdmin(db, input, dependencies = {}) {
     }
 
     await markRefundRequestAttempt(db, prepared.order.outTradeNo, now)
-    const response = await submitRefund(client, {
-      out_trade_no: prepared.order.outTradeNo,
-      out_refund_no: prepared.refund.outRefundNo,
-      reason: prepared.refund.reason,
-      notify_url: config.refundNotifyUrl,
-      amount: {
-        refund: prepared.order.amount,
-        total: prepared.order.amount,
-        currency: 'CNY',
-      },
-    })
+    let response
+    try {
+      response = await submitRefund(client, {
+        out_trade_no: prepared.order.outTradeNo,
+        out_refund_no: prepared.refund.outRefundNo,
+        reason: prepared.refund.reason,
+        notify_url: config.refundNotifyUrl,
+        amount: {
+          refund: prepared.order.amount,
+          total: prepared.order.amount,
+          currency: 'CNY',
+        },
+      })
+    }
+    catch (error) {
+      if (!isAmbiguousRefundRequestError(error))
+        throw error
+
+      // POST 已发送但响应体中断时，不能判断微信是否已经受理。先按稳定退款单号查单；
+      // 若渠道暂时也查不到，则保持 REQUESTED 等待回调，禁止误报失败后诱导重复提交。
+      try {
+        const queryResponse = await queryRefund(client, prepared.refund.outRefundNo)
+        const queriedChannel = normalizeWechatRefund(queryResponse)
+        assertRefundMatchesPreparedOrder(queriedChannel, prepared)
+        return await applyWechatRefundResult(db, {
+          ...queriedChannel,
+          source: 'wechat-request-reconcile',
+          now,
+        })
+      }
+      catch (queryError) {
+        const requestError = error?.message || String(error)
+        const queryErrorMessage = queryError?.message || String(queryError)
+        return markRefundRequestPendingConfirmation(db, {
+          outTradeNo: prepared.order.outTradeNo,
+          error: `微信退款请求响应中断，渠道结果待确认：${requestError}；查单失败：${queryErrorMessage}`,
+          now,
+        })
+      }
+    }
     // 接口已返回即表示外部资金动作已被微信接收；后续本地校验/落库失败不能降级为申请失败。
     channelAccepted = true
     const channel = normalizeWechatRefund(response)
-    if (channel.outTradeNo !== prepared.order.outTradeNo)
-      throw new Error('微信退款响应的商户订单号不匹配')
-    if (channel.outRefundNo !== prepared.refund.outRefundNo)
-      throw new Error('微信退款响应的商户退款单号不匹配')
+    assertRefundMatchesPreparedOrder(channel, prepared)
 
     return await applyWechatRefundResult(db, {
       ...channel,
@@ -145,6 +199,7 @@ async function queryMembershipRefundForAdmin(db, input, dependencies = {}) {
 module.exports = {
   assertTransactionMatchesRefundOrder,
   createWechatClient,
+  isAmbiguousRefundRequestError,
   normalizeWechatRefund,
   queryMembershipRefundForAdmin,
   requestMembershipRefundForAdmin,

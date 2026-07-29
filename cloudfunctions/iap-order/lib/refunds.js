@@ -208,6 +208,34 @@ async function markRefundRequestFailed(db, input) {
   })
 }
 
+async function markRefundRequestPendingConfirmation(db, input) {
+  const now = Number.isFinite(input?.now) ? input.now : Date.now()
+  const message = typeof input?.error === 'string' && input.error.trim()
+    ? input.error.trim().slice(0, 500)
+    : '微信退款请求结果待渠道确认'
+  return db.runTransaction(async (transaction) => {
+    const order = await findOrderByOutTradeNo(transaction, input?.outTradeNo)
+    if (!order?.refund)
+      throw new Error('退款意图不存在')
+    if (!['REQUESTED', 'REQUEST_FAILED'].includes(order.refund.status))
+      return refundResult(order, { deduped: true })
+    const refund = {
+      ...order.refund,
+      status: 'REQUESTED',
+      lastError: message,
+      updatedAt: now,
+      audit: appendAuditEvent(order.refund, {
+        action: 'refund.request-confirmation-pending',
+        actor: order.refund.requestedBy || '',
+        at: now,
+        message,
+      }),
+    }
+    const updatedOrder = await writeRefundState(transaction, order, refund)
+    return refundResult(updatedOrder, { reconciliationPending: true })
+  })
+}
+
 async function markManualReview(db, order, refund, now, reason) {
   const nextRefund = {
     ...refund,
@@ -434,5 +462,6 @@ module.exports = {
   getMembershipRefund,
   markRefundRequestAttempt,
   markRefundRequestFailed,
+  markRefundRequestPendingConfirmation,
   prepareMembershipRefund,
 }
