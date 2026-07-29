@@ -7,6 +7,7 @@ import {
 describe('sso explorer configuration', () => {
   it('derives only active Web SSO clients from the authorization registry', () => {
     expect(ssoExplorerApps.map(app => app.appId)).toEqual([
+      'saier',
       'cms',
       'drive',
       'dayun-kicker',
@@ -16,7 +17,7 @@ describe('sso explorer configuration', () => {
       'play',
       'support',
     ])
-    expect(ssoExplorerApps).toHaveLength(8)
+    expect(ssoExplorerApps).toHaveLength(9)
     expect(ssoExplorerApps.some(app => app.appId === 'admin')).toBe(false)
     expect(ssoExplorerApps.every(app => app.origin.startsWith('https://'))).toBe(true)
     expect(ssoExplorerApps.every(app =>
@@ -29,6 +30,11 @@ describe('sso explorer configuration', () => {
       .toBe('https://drive.yunle.fun/drive-mark.svg')
     expect(ssoExplorerApps.find(app => app.appId === 'drive')?.name)
       .toBe('云乐盘')
+    expect(ssoExplorerApps.find(app => app.appId === 'saier')).toMatchObject({
+      name: '云绘 Saier',
+      description: '在线绘画、云端工程与协作房间',
+      logoUrl: 'https://saier.yunle.fun/favicon.svg',
+    })
     expect(ssoExplorerApps.find(app => app.appId === 'dayun-kicker')?.name)
       .toBe('暴力电驴')
     expect(ssoExplorerApps.find(app => app.appId === 'home')).toMatchObject({
@@ -43,6 +49,7 @@ describe('sso explorer configuration', () => {
     expect(isSsoExplorerAppSlug('ai-sfc')).toBe(true)
     expect(isSsoExplorerAppSlug('valaxy')).toBe(false)
     expect(isSsoExplorerAppSlug('play')).toBe(true)
+    expect(isSsoExplorerAppSlug('saier')).toBe(true)
     expect(isSsoExplorerAppSlug('support')).toBe(true)
   })
 })
