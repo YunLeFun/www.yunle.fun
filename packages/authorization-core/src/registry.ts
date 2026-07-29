@@ -41,7 +41,7 @@ export const issuerCatalog = {
 
 export const productionRegistry = {
   schemaVersion: 1,
-  policyVersion: '2026-07-29.1',
+  policyVersion: '2026-07-29.2',
   issuer: 'https://www.yunle.fun',
   clients: [
     webClient({
@@ -50,6 +50,13 @@ export const productionRegistry = {
       displayName: 'YunLeFun Admin',
       origin: 'https://admin.yunle.fun',
       iconPath: '/logo.svg',
+    }),
+    webClient({
+      clientId: 'saier-web',
+      appId: 'saier',
+      displayName: '云绘 Saier',
+      origin: 'https://saier.yunle.fun',
+      iconPath: '/favicon.svg',
     }),
     webClient({
       clientId: 'cms-web',
@@ -125,7 +132,7 @@ export const productionRegistry = {
 
 export const developmentRegistry = {
   schemaVersion: 1,
-  policyVersion: '2026-07-29.1-dev',
+  policyVersion: '2026-07-29.2-dev',
   issuer: issuerCatalog.development.issuer,
   clients: [
     webClient({
@@ -134,6 +141,13 @@ export const developmentRegistry = {
       displayName: 'YunLeFun Admin',
       origin: 'https://admin.yunle.localhost:3451',
       iconPath: '/logo.svg',
+    }),
+    webClient({
+      clientId: 'saier-web',
+      appId: 'saier',
+      displayName: '云绘 Saier',
+      origin: 'https://saier.yunle.localhost:3452',
+      iconPath: '/favicon.svg',
     }),
     webClient({
       clientId: 'cms-web',

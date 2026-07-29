@@ -22,7 +22,7 @@ describe('sSO Client Registry adapter', () => {
       returnUrl: 'https://cms.yunle.fun/',
       scopes: ['identity:bootstrap'],
       consent: 'trusted',
-      policyVersion: '2026-07-26.3',
+      policyVersion: '2026-07-29.2',
     })
   })
 

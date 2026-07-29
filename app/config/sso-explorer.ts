@@ -11,6 +11,12 @@ interface SsoPresentation {
 }
 
 const presentationByAppId: Record<string, SsoPresentation> = {
+  'saier': {
+    description: '在线绘画、云端工程与协作房间',
+    fallbackMark: '绘',
+    accent: 'var(--ylf-dopa-blue)',
+    position: { x: 50, y: 91 },
+  },
   'cms': {
     description: '安全连接 GitHub 与 Valaxy 的内容编辑平台',
     fallbackMark: 'CMS',

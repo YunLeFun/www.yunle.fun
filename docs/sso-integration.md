@@ -135,6 +135,7 @@ if (authorization?.ok) {
 | clientId            | appId          | 展示名称       | production Origin                | scope                | status   |
 | ------------------- | -------------- | -------------- | -------------------------------- | -------------------- | -------- |
 | `admin-web`         | `admin`        | YunLeFun Admin | `https://admin.yunle.fun`        | `identity:bootstrap` | `active` |
+| `saier-web`         | `saier`        | 云绘 Saier     | `https://saier.yunle.fun`        | `identity:bootstrap` | `active` |
 | `cms-web`           | `cms`          | Yunle CMS      | `https://cms.yunle.fun`          | `identity:bootstrap` | `active` |
 | `drive-web`         | `drive`        | 云乐盘         | `https://drive.yunle.fun`        | `identity:bootstrap` | `active` |
 | `dayun-kicker-web`  | `dayun-kicker` | 暴力电驴       | `https://dayun-kicker.yunle.fun` | `identity:bootstrap` | `active` |
@@ -157,6 +158,12 @@ CloudBase session；治理成员与 scope 由 Support 服务端独立授权。
 `admin-web` 只完成 CloudBase UID 身份引导；管理员角色和权限继续由 Admin 的
 `admin_users.userId` 准入表即时判定。GitHub numeric ID 仅用于备用登录和高风险
 step-up。该控制面客户端不会出现在公开应用探索图谱或 Apps 工坊市场。
+
+`saier-web` 通过 Apps 宿主取得一次性 PKCE 授权码，或在独立浏览器中使用顶层回跳。
+Saier 直接调用 CloudBase storage、database 和 `saier-room-api`，因此采用授权码后建立
+自己的 CloudBase 会话，不接收或复用 Apps 的 access token、refresh token 或 session。
+其 development Origin 与 redirect URI 为 `https://saier.yunle.localhost:3452` 和
+`https://saier.yunle.localhost:3452/`。
 
 development issuer 为 `https://www.yunle.localhost:3000`，只接受 Registry 中的 `.yunle.localhost` HTTPS 回跳。production issuer 不接受本地回跳。部署统一使用：
 

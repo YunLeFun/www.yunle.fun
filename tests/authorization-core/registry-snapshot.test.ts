@@ -11,6 +11,46 @@ import {
 } from '../../packages/authorization-core/src/index'
 
 describe('production authorization registry', () => {
+  it('enables the Saier Web client with exact production and development callbacks', () => {
+    expect(productionRegistry.clients).toContainEqual({
+      clientId: 'saier-web',
+      appId: 'saier',
+      displayName: '云绘 Saier',
+      iconUrl: 'https://saier.yunle.fun/favicon.svg',
+      status: 'active',
+      adapters: [{
+        kind: 'web-sso',
+        consent: 'trusted',
+        allowedScopes: ['identity:bootstrap'],
+        origins: ['https://saier.yunle.fun'],
+        redirectUris: ['https://saier.yunle.fun/'],
+      }],
+    })
+
+    expect(developmentRegistry.clients).toContainEqual(expect.objectContaining({
+      clientId: 'saier-web',
+      appId: 'saier',
+      status: 'active',
+      adapters: [expect.objectContaining({
+        origins: ['https://saier.yunle.localhost:3452'],
+        redirectUris: ['https://saier.yunle.localhost:3452/'],
+      })],
+    }))
+
+    expect(createAuthorizationCore({ registry: productionRegistry }).authorize({
+      issuer: productionRegistry.issuer,
+      clientId: 'saier-web',
+      adapter: 'web-sso',
+      requestedScopes: ['identity:bootstrap'],
+      origin: 'https://saier.yunle.fun',
+      redirectUri: 'https://saier.yunle.fun/',
+    })).toMatchObject({
+      appId: 'saier',
+      clientId: 'saier-web',
+      scopes: ['identity:bootstrap'],
+    })
+  })
+
   it('enables the non-discoverable Admin control-plane client with exact callbacks', () => {
     expect(productionRegistry.clients).toContainEqual({
       clientId: 'admin-web',
@@ -165,6 +205,7 @@ describe('production authorization registry', () => {
       ['wenta-web', 'wenta', 'web-sso', 'identity:bootstrap', 'https://wenta.yunle.fun'],
       ['play-web', 'play', 'web-sso', 'identity:bootstrap', 'https://play.yunle.fun'],
       ['support-web', 'support', 'web-sso', 'identity:bootstrap', 'https://support.yunle.fun'],
+      ['saier-web', 'saier', 'web-sso', 'identity:bootstrap', 'https://saier.yunle.fun'],
       ['skykeeper-desktop', 'skykeeper', 'device', 'membership:read', undefined],
     ] as const
 
@@ -187,6 +228,7 @@ describe('production authorization registry', () => {
       ['wenta-web', 'wenta', 'web-sso', ['identity:bootstrap']],
       ['play-web', 'play', 'web-sso', ['identity:bootstrap']],
       ['support-web', 'support', 'web-sso', ['identity:bootstrap']],
+      ['saier-web', 'saier', 'web-sso', ['identity:bootstrap']],
       ['skykeeper-desktop', 'skykeeper', 'device', ['membership:read']],
     ])
   })
