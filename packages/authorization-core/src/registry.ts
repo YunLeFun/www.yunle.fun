@@ -41,9 +41,16 @@ export const issuerCatalog = {
 
 export const productionRegistry = {
   schemaVersion: 1,
-  policyVersion: '2026-07-26.3',
+  policyVersion: '2026-07-29.1',
   issuer: 'https://www.yunle.fun',
   clients: [
+    webClient({
+      clientId: 'admin-web',
+      appId: 'admin',
+      displayName: 'YunLeFun Admin',
+      origin: 'https://admin.yunle.fun',
+      iconPath: '/logo.svg',
+    }),
     webClient({
       clientId: 'cms-web',
       appId: 'cms',
@@ -118,9 +125,16 @@ export const productionRegistry = {
 
 export const developmentRegistry = {
   schemaVersion: 1,
-  policyVersion: '2026-07-26.3-dev',
+  policyVersion: '2026-07-29.1-dev',
   issuer: issuerCatalog.development.issuer,
   clients: [
+    webClient({
+      clientId: 'admin-web',
+      appId: 'admin',
+      displayName: 'YunLeFun Admin',
+      origin: 'https://admin.yunle.localhost:3451',
+      iconPath: '/logo.svg',
+    }),
     webClient({
       clientId: 'cms-web',
       appId: 'cms',

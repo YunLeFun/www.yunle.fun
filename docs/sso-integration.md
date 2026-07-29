@@ -2,7 +2,7 @@
 
 适用范围：云乐坊控制的第一方 Web Consumer。第三方应用不加入此信任域；开放第三方时使用同一授权核心之上的标准 OIDC Authorization Code + PKCE Adapter。
 
-当前实现由 `@yunlefun/authorization-core`、`@yunlefun/sso@0.5`、主站 `/auth/sso` 与 `sso-ticket` 组成。旧 origin-only、popup、iframe、session 转发、native bridge 和直接 ticket 通道均已删除。
+当前实现由 `@yunlefun/authorization-core`、`@yunlefun/sso@0.6`、主站 `/auth/sso` 与 `sso-ticket` 组成。旧 origin-only、popup、iframe、session 转发和直接 ticket 通道均已删除；第一方 Apps 宿主只签发与同一套 Registry、nonce 和 PKCE 绑定的一次性授权码。
 
 ## 标识与职责
 
@@ -65,7 +65,7 @@ Consumer              www.yunle.fun              sso-ticket              CloudBa
 ## Consumer 接入
 
 ```bash
-pnpm add @yunlefun/sso@^0.5.0
+pnpm add @yunlefun/sso@^0.6.0
 ```
 
 登录：
@@ -134,6 +134,7 @@ if (authorization?.ok) {
 
 | clientId            | appId          | 展示名称       | production Origin                | scope                | status   |
 | ------------------- | -------------- | -------------- | -------------------------------- | -------------------- | -------- |
+| `admin-web`         | `admin`        | YunLeFun Admin | `https://admin.yunle.fun`        | `identity:bootstrap` | `active` |
 | `cms-web`           | `cms`          | Yunle CMS      | `https://cms.yunle.fun`          | `identity:bootstrap` | `active` |
 | `drive-web`         | `drive`        | 云乐盘         | `https://drive.yunle.fun`        | `identity:bootstrap` | `active` |
 | `dayun-kicker-web`  | `dayun-kicker` | 暴力电驴       | `https://dayun-kicker.yunle.fun` | `identity:bootstrap` | `active` |
@@ -152,6 +153,10 @@ if (authorization?.ok) {
 `support-web` 使用 `https://support.yunle.fun/` 精确回跳。它只把短暂
 CloudBase access token 交给 Support BFF 兑换 HttpOnly 应用会话，随后立即清除浏览器
 CloudBase session；治理成员与 scope 由 Support 服务端独立授权。
+
+`admin-web` 只完成 CloudBase UID 身份引导；管理员角色和权限继续由 Admin 的
+`admin_users.userId` 准入表即时判定。GitHub numeric ID 仅用于备用登录和高风险
+step-up。该控制面客户端不会出现在公开应用探索图谱或 Apps 工坊市场。
 
 development issuer 为 `https://www.yunle.localhost:3000`，只接受 Registry 中的 `.yunle.localhost` HTTPS 回跳。production issuer 不接受本地回跳。部署统一使用：
 

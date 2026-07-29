@@ -11,6 +11,36 @@ import {
 } from '../../packages/authorization-core/src/index'
 
 describe('production authorization registry', () => {
+  it('enables the non-discoverable Admin control-plane client with exact callbacks', () => {
+    expect(productionRegistry.clients).toContainEqual({
+      clientId: 'admin-web',
+      appId: 'admin',
+      displayName: 'YunLeFun Admin',
+      iconUrl: 'https://admin.yunle.fun/logo.svg',
+      status: 'active',
+      adapters: [{
+        kind: 'web-sso',
+        consent: 'trusted',
+        allowedScopes: ['identity:bootstrap'],
+        origins: ['https://admin.yunle.fun'],
+        redirectUris: ['https://admin.yunle.fun/'],
+      }],
+    })
+
+    expect(createAuthorizationCore({ registry: productionRegistry }).authorize({
+      issuer: productionRegistry.issuer,
+      clientId: 'admin-web',
+      adapter: 'web-sso',
+      requestedScopes: ['identity:bootstrap'],
+      origin: 'https://admin.yunle.fun',
+      redirectUri: 'https://admin.yunle.fun/',
+    })).toMatchObject({
+      appId: 'admin',
+      clientId: 'admin-web',
+      scopes: ['identity:bootstrap'],
+    })
+  })
+
   it('enables the verified Play Web client with exact callbacks', () => {
     expect(productionRegistry.clients).toContainEqual({
       clientId: 'play-web',
@@ -126,6 +156,7 @@ describe('production authorization registry', () => {
   it('contains only the approved first-party protocol clients', () => {
     const authorization = createAuthorizationCore({ registry: productionRegistry })
     const cases = [
+      ['admin-web', 'admin', 'web-sso', 'identity:bootstrap', 'https://admin.yunle.fun'],
       ['cms-web', 'cms', 'web-sso', 'identity:bootstrap', 'https://cms.yunle.fun'],
       ['drive-web', 'drive', 'web-sso', 'identity:bootstrap', 'https://drive.yunle.fun'],
       ['dayun-kicker-web', 'dayun-kicker', 'web-sso', 'identity:bootstrap', 'https://dayun-kicker.yunle.fun'],
@@ -147,6 +178,7 @@ describe('production authorization registry', () => {
       })
       return [decision.clientId, decision.appId, decision.adapter, decision.scopes]
     })).toEqual([
+      ['admin-web', 'admin', 'web-sso', ['identity:bootstrap']],
       ['cms-web', 'cms', 'web-sso', ['identity:bootstrap']],
       ['drive-web', 'drive', 'web-sso', ['identity:bootstrap']],
       ['dayun-kicker-web', 'dayun-kicker', 'web-sso', ['identity:bootstrap']],

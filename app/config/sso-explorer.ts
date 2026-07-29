@@ -63,6 +63,9 @@ const presentationByAppId: Record<string, SsoPresentation> = {
   },
 }
 
+/** 安全控制面可参与 SSO，但不属于面向用户的公开应用探索图谱。 */
+const nonDiscoverableSsoClientIds = new Set(['admin-web'])
+
 function getWebSsoOrigin(client: (typeof productionRegistry.clients)[number]) {
   const adapter = client.adapters.find(candidate => candidate.kind === 'web-sso')
   if (!adapter || !('origins' in adapter))
@@ -73,6 +76,8 @@ function getWebSsoOrigin(client: (typeof productionRegistry.clients)[number]) {
 
 export const ssoExplorerApps: SsoExplorerApp[] = productionRegistry.clients.flatMap((client) => {
   if (client.status !== 'active')
+    return []
+  if (nonDiscoverableSsoClientIds.has(client.clientId))
     return []
 
   const origin = getWebSsoOrigin(client)
