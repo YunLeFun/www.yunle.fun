@@ -196,6 +196,10 @@ refresh token 固定为 30 天 idle / 180 天 absolute，轮换并做 grant-fami
 | `SSO_TICKET_PRIVATE_KEY_ID`          | 是   | 自定义登录私钥 ID（`private_key_id`）。CloudBase 控制台 → 登录授权 → 自定义登录 → 下载私钥获取 |
 | `SSO_TICKET_PRIVATE_KEY`             | 是   | 自定义登录私钥 PEM（`private_key`）；env 注入建议用 `\n` 转义或 base64；缺失时失败关闭         |
 | `AUTH_ISSUER_ENVIRONMENT`            | 是   | `production` 或 `development`；Web SSO 与设备授权共用，绝不信任请求参数                        |
+| `SSO_IDENTITY_SIGNING_KEY`           | 是   | Web SSO 身份断言 Ed25519 私钥；支持 PEM、JWK JSON 或其 base64，禁止进入仓库                    |
+| `SSO_IDENTITY_SIGNING_KID`           | 是   | 当前身份断言签名密钥的唯一 `kid`；每次轮换必须使用新值                                         |
+| `SSO_IDENTITY_PUBLIC_KEYS`           | 否   | 轮换期保留的旧公钥，格式为 `{ "<kid>": <public-jwk> }`；默认 `{}`                              |
+| `SSO_IDENTITY_ASSERTION_TTL_SEC`     | 否   | 身份断言寿命，30–300 秒，默认 120 秒                                                           |
 | `SSO_TICKET_REFRESH_SEC`             | 否   | 票据派生会话的可续期时长（秒），默认 30 天                                                     |
 | `SSO_ISSUE_PER_USER_PER_MINUTE`      | 否   | 每用户、每目标 origin 的签发上限，默认 10                                                      |
 | `SSO_ISSUE_PER_IP_PER_MINUTE`        | 否   | 每 IP 的签发上限，默认 30                                                                      |
@@ -205,8 +209,13 @@ refresh token 固定为 30 天 idle / 180 天 absolute，轮换并做 grant-fami
 `sso-ticket` 的用户 SSO 是两步授权码流程，私钥始终只在本函数 env：
 
 - **签发**（已认证 SDK `action='issueSsoCode'`）：uid 只从调用上下文派生；Client Registry 校验 `client_id`、issuer environment、精确 Origin/redirect URI 和开发者门禁；授权码绑定策略版本与 S256 PKCE challenge。
-- **兑换**（HTTPS `action='exchangeSsoCode'`）：Registry 与授权码绑定再次校验后事务性消费，回显已校验的具体 Origin，仅返回短暂 custom ticket。
+- **兑换**（HTTPS `action='exchangeSsoCode'`）：Registry 与授权码绑定再次校验后事务性消费；
+  服务端通过 CloudBase `getEndUserInfo(uid)` 确认顶层手机号字段存在，再返回短暂 custom
+  ticket 与绑定 `sub`、Consumer、scope、nonce 的 Ed25519 身份断言。响应不包含手机号。
+- **公钥发现**（HTTPS `GET`）：同一路径返回只含公钥的 JWKS，供 Consumer BFF 按 `kid`
+  验证身份断言；成功响应公开缓存 5 分钟。
 - 任何调用者选择 `uid`/`subject` 的输入都拒绝；主站 session 和 refresh token 不跨 origin。
+- access token payload、客户端 profile 与用户可写 metadata 均不能作为手机号验证依据。
 - `sso_login_codes` 与 `sso_security_limits` 均为 server-only；独立 `sso-security-sweeper` 每小时清理，且 `aclRule.invoke=false`。
 
 > 客户端用 `signInWithCustomTicket(() => ticket)` 换取自己独立、可同源续期的会话。设计详见 [`docs/cookie-session-migration.md`](../docs/cookie-session-migration.md)。

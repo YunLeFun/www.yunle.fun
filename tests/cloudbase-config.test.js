@@ -5,6 +5,7 @@ const config = JSON.parse(await readFile(new URL('../cloudbaserc.json', import.m
 const storageRules = JSON.parse(await readFile(new URL('../storage.rules.json', import.meta.url), 'utf8'))
 const functions = new Map(config.functions.map(item => [item.name, item]))
 const authCoreSource = await readFile(new URL('../app/composables/auth/useAuthCore.ts', import.meta.url), 'utf8')
+const ssoTicketSource = await readFile(new URL('../cloudfunctions/sso-ticket/index.js', import.meta.url), 'utf8')
 
 describe('cloudBase test identity deployment manifest', () => {
   it('keeps the default bucket public-read and server-write only', () => {
@@ -26,6 +27,10 @@ describe('cloudBase test identity deployment manifest', () => {
     })
     expect(functions.get('sso-ticket').envVariables).toMatchObject({
       AUTH_ISSUER_ENVIRONMENT: '{{env.AUTH_ISSUER_ENVIRONMENT}}',
+      SSO_IDENTITY_SIGNING_KEY: '{{env.SSO_IDENTITY_SIGNING_KEY}}',
+      SSO_IDENTITY_SIGNING_KID: '{{env.SSO_IDENTITY_SIGNING_KID}}',
+      SSO_IDENTITY_PUBLIC_KEYS: '{{env.SSO_IDENTITY_PUBLIC_KEYS}}',
+      SSO_IDENTITY_ASSERTION_TTL_SEC: '{{env.SSO_IDENTITY_ASSERTION_TTL_SEC}}',
       SSO_ISSUE_PER_USER_PER_MINUTE: '{{env.SSO_ISSUE_PER_USER_PER_MINUTE}}',
       SSO_ISSUE_PER_IP_PER_MINUTE: '{{env.SSO_ISSUE_PER_IP_PER_MINUTE}}',
       SSO_EXCHANGE_PER_IP_PER_MINUTE: '{{env.SSO_EXCHANGE_PER_IP_PER_MINUTE}}',
@@ -127,6 +132,14 @@ describe('cloudBase test identity deployment manifest', () => {
     expect(functions.get('sso-ticket').aclRule).toEqual({ invoke: 'auth != null' })
     expect(functions.get('account-api').aclRule).toEqual({ invoke: 'auth != null' })
     expect(functions.get('ai-gateway').aclRule).toEqual({ invoke: 'auth != null' })
+  })
+
+  it('publishes identity JWKS and admits a trusted phone before minting SSO credentials', () => {
+    expect(ssoTicketSource).toContain('event.httpMethod === \'GET\'')
+    expect(ssoTicketSource).toContain('identityRuntime.publicJwks()')
+    expect(ssoTicketSource).toContain('assertVerifiedPhoneForUid(contextApp.auth(), uid)')
+    expect(ssoTicketSource.indexOf('assertVerifiedPhoneForUid(contextApp.auth(), uid)'))
+      .toBeLessThan(ssoTicketSource.indexOf('const ticketResult = mintTicket(uid)'))
   })
 
   it('configures the private account access token on every restricted business function', () => {

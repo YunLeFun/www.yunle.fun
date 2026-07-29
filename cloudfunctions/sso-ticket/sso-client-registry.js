@@ -33,6 +33,8 @@ function createSsoClientRegistry(options = {}) {
   const authorization = createAuthorizationCore({ registry: snapshot })
 
   return {
+    issuer: snapshot.issuer,
+
     allowsOrigin(origin) {
       return authorization.allowsOrigin({ adapter: 'web-sso', origin })
     },

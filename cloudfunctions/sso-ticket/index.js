@@ -4,7 +4,8 @@
  * 三条受限步骤：
  *  1) `issueSsoCode` 仅接受已认证 SDK 调用，从 CloudBase 调用上下文派生当前 uid，签发绑定
  *     origin/returnUrl/nonce 的 256-bit 一次性授权码；绝不接受调用者选择 uid。
- *  2) `exchangeSsoCode` 仅接受 HTTPS 网关 POST，原子消费授权码并在同源响应中返回短暂 CloudBase ticket。
+ *  2) `exchangeSsoCode` 仅接受 HTTPS 网关 POST，原子消费授权码、从 CloudBase 服务端用户资料
+ *     确认手机号已绑定，并在同源响应中返回短暂 CloudBase ticket 和最小化身份断言。
  *  3) 测试身份 Broker 路径（action='mintForTestLease'）：只接受独立服务令牌与已预留的 lease / issuance
  *     标识，自行读取受保护状态、原子认领、签发不超过租约截止时间的 ticket，并以 AES-GCM 托管。
  *
@@ -15,6 +16,9 @@
  *   - SSO_TICKET_PRIVATE_KEY       私钥 PEM（private_key）；env 注入建议用 `\n` 转义或 base64
  *   - SSO_TICKET_REFRESH_SEC       可选，票据派生会话的可续期时长（秒），默认 30 天
  *   - AUTH_ISSUER_ENVIRONMENT      production | development；由部署决定
+ *   - SSO_IDENTITY_SIGNING_KEY     身份断言 Ed25519 私钥（PEM/JWK 或 base64）
+ *   - SSO_IDENTITY_SIGNING_KID     当前身份断言密钥 ID
+ *   - SSO_IDENTITY_PUBLIC_KEYS     可选，轮换期保留的 kid -> public JWK
  *   - TEST_BROKER_INTERNAL_TOKEN   测试身份 Broker 专用 token（不得与其它内部 token 共用）
  *   - TEST_TICKET_ESCROW_KEY       32 字节标准 base64 AES-GCM key，与 Broker 解密配置一致
  * 未配置私钥时返回 { ok:false, reason:'not_configured' }。
@@ -27,6 +31,8 @@ const { createHash } = require('node:crypto')
 const process = require('node:process')
 const cloudbase = require('@cloudbase/node-sdk')
 const { assertActiveAccountForUid } = require('./account-access')
+const { assertVerifiedPhoneForUid, IdentityAdmissionError } = require('./identity-admission')
+const { createIdentityAssertionRuntime } = require('./identity-assertion')
 const { isAnonUid, isValidTicketUid, normalizePrivateKey } = require('./mint')
 const { createSsoClientRegistry } = require('./sso-client-registry')
 const { createSsoCodeStore, SsoCodeStoreError } = require('./sso-code-store')
@@ -127,6 +133,30 @@ function getSsoClientRegistry() {
   return cachedClientRegistry
 }
 
+let cachedIdentityRuntime
+let cachedIdentityRuntimeKey = ''
+function getIdentityAssertionRuntime() {
+  const registry = getSsoClientRegistry()
+  const cacheKey = [
+    registry.issuer,
+    process.env.SSO_IDENTITY_SIGNING_KEY || '',
+    process.env.SSO_IDENTITY_SIGNING_KID || '',
+    process.env.SSO_IDENTITY_PUBLIC_KEYS || '',
+    process.env.SSO_IDENTITY_ASSERTION_TTL_SEC || '',
+  ].join('\0')
+  if (cachedIdentityRuntimeKey !== cacheKey) {
+    cachedIdentityRuntime = createIdentityAssertionRuntime({
+      issuer: registry.issuer,
+      signingKey: process.env.SSO_IDENTITY_SIGNING_KEY,
+      signingKid: process.env.SSO_IDENTITY_SIGNING_KID,
+      publicKeys: process.env.SSO_IDENTITY_PUBLIC_KEYS,
+      ttlSeconds: process.env.SSO_IDENTITY_ASSERTION_TTL_SEC,
+    })
+    cachedIdentityRuntimeKey = cacheKey
+  }
+  return cachedIdentityRuntime
+}
+
 function ssoRequestOptions() {
   return { clientRegistry: getSsoClientRegistry() }
 }
@@ -182,6 +212,9 @@ async function issueSsoCode(payload, clientAddress = 'unknown') {
 // 路径 2：HTTP Origin 与 nonce 都必须命中授权码绑定；消费成功后才铸 CloudBase ticket。
 async function exchangeSsoCode(payload, requestOrigin, clientAddress = 'unknown') {
   const request = validateExchangeRequest(payload, requestOrigin, ssoRequestOptions())
+  const identityRuntime = getIdentityAssertionRuntime()
+  if (!identityRuntime)
+    return { ok: false, reason: 'not_configured' }
   const limits = securityLimits()
   await Promise.all([
     ssoRateLimiter.consume({ scope: 'exchange-ip', key: clientAddress, limit: limits.exchangePerIp, windowMs: 60_000 }),
@@ -189,6 +222,7 @@ async function exchangeSsoCode(payload, requestOrigin, clientAddress = 'unknown'
   ])
   const { uid } = await ssoCodeStore.consume(request)
   await assertActiveAccount(uid)
+  await assertVerifiedPhoneForUid(contextApp.auth(), uid)
   auditSecurity('sso_code_consumed', {
     subject: auditId(uid),
     clientId: request.clientId,
@@ -199,7 +233,19 @@ async function exchangeSsoCode(payload, requestOrigin, clientAddress = 'unknown'
     policyVersion: request.policyVersion,
     registrationFingerprint: request.registrationFingerprint,
   })
-  return mintTicket(uid)
+  const ticketResult = mintTicket(uid)
+  if (!ticketResult.ok)
+    return ticketResult
+  return {
+    ...ticketResult,
+    identityAssertion: identityRuntime.sign({
+      subject: uid,
+      clientId: request.clientId,
+      appId: request.appId,
+      scopes: request.scopes,
+      nonce: request.nonce,
+    }),
+  }
 }
 
 // 路径 3：受管测试身份。Broker 不能传 uid 或任意过期时间；签发函数从受保护集合解析。
@@ -238,6 +284,20 @@ function httpJson(statusCode, obj, origin = '') {
       'Content-Type': 'application/json',
       'Pragma': 'no-cache',
       'Referrer-Policy': 'no-referrer',
+    },
+    body: JSON.stringify(obj),
+  }
+}
+
+function httpJwks(statusCode, obj) {
+  return {
+    statusCode,
+    headers: {
+      'Cache-Control': statusCode === 200
+        ? 'public, max-age=300, stale-while-revalidate=300'
+        : 'no-store',
+      'Content-Type': 'application/json',
+      'X-Content-Type-Options': 'nosniff',
     },
     body: JSON.stringify(obj),
   }
@@ -311,6 +371,18 @@ exports.main = async function main(event) {
       ? { statusCode: 204, headers: corsHeaders(requestOrigin), body: '' }
       : httpJson(403, { ok: false, reason: 'origin_not_allowed' })
   }
+  if (isHttp && event.httpMethod === 'GET') {
+    try {
+      const identityRuntime = getIdentityAssertionRuntime()
+      return identityRuntime
+        ? httpJwks(200, identityRuntime.publicJwks())
+        : httpJwks(503, { keys: [] })
+    }
+    catch (error) {
+      console.error('[sso-ticket] JWKS unavailable:', error && error.message)
+      return httpJwks(503, { keys: [] })
+    }
+  }
   if (isHttp && event.httpMethod !== 'POST')
     return httpJson(405, { ok: false, reason: 'method_not_allowed' })
 
@@ -347,6 +419,10 @@ exports.main = async function main(event) {
       result = { ok: false, reason: error.code }
       auditSecurity('sso_request_rejected', { reason: error.code, origin: requestOrigin || undefined })
     }
+    else if (error instanceof IdentityAdmissionError) {
+      result = { ok: false, reason: error.reason }
+      auditSecurity('sso_request_rejected', { reason: error.reason, origin: requestOrigin || undefined })
+    }
     else {
       console.error('[sso-ticket] request failed:', error && error.message)
       result = { ok: false, reason: 'error' }
@@ -359,13 +435,13 @@ exports.main = async function main(event) {
       ? 200
       : ['invalid_request', 'invalid_scope', 'client_required', 'subject_not_allowed', 'pkce_required'].includes(result.reason)
           ? 400
-          : ['client_unknown', 'client_unavailable', 'adapter_not_allowed', 'origin_not_allowed', 'return_url_not_allowed', 'client_binding_invalid', 'code_binding_invalid', 'pkce_invalid', 'forbidden', 'account_banned', 'account_deletion_pending', 'account_deletion_finalizing', 'account_access_unavailable'].includes(result.reason)
+          : ['client_unknown', 'client_unavailable', 'adapter_not_allowed', 'origin_not_allowed', 'return_url_not_allowed', 'client_binding_invalid', 'code_binding_invalid', 'pkce_invalid', 'forbidden', 'phone_verification_required', 'account_banned', 'account_deletion_pending', 'account_deletion_finalizing', 'account_access_unavailable'].includes(result.reason)
               ? 403
               : result.reason === 'rate_limited'
                 ? 429
                 : ['code_used'].includes(result.reason)
                     ? 409
-                    : ['not_configured', 'registry_invalid', 'registry_unavailable', 'error'].includes(result.reason)
+                    : ['not_configured', 'registry_invalid', 'registry_unavailable', 'identity_unavailable', 'error'].includes(result.reason)
                         ? 503
                         : 401
   const responseOrigin = payload?.action === 'exchangeSsoCode'
