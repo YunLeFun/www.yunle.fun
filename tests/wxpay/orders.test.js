@@ -207,6 +207,37 @@ describe('activateMembership', () => {
     expect(await readMembership(db, 'missing')).toBeNull()
   })
 
+  it('历史 auto-id 会员续费时迁移为 uid 主键记录', async () => {
+    const existingExpire = NOW + 12 * DAY_MS
+    const db = makeFakeDb({
+      [MEMBERSHIPS_COLLECTION]: [{
+        _id: 'legacy-member',
+        userId: 'u1',
+        planId: 'basic',
+        activeCycle: 'month',
+        expireAt: existingExpire,
+        createdAt: NOW - 20 * DAY_MS,
+        updatedAt: NOW - 10 * DAY_MS,
+      }],
+    })
+
+    const result = await activateMembership(db, {
+      userId: 'u1',
+      planId: 'basic',
+      cycle: 'month',
+      now: NOW,
+      outTradeNo: 'YLF-LEGACY',
+    })
+    const canonical = await readMembership(db, 'u1')
+
+    expect(result.expireAt).toBe(computeNewExpireAt({ current: existingExpire, cycle: 'month', now: NOW }))
+    expect(canonical).toMatchObject({
+      _id: 'u1',
+      lastOrderId: 'YLF-LEGACY',
+      expireAt: result.expireAt,
+    })
+  })
+
   it('userId 缺失抛错', async () => {
     const db = makeFakeDb()
     await expect(activateMembership(db, {
@@ -271,6 +302,10 @@ describe('activateMembership — 并发安全（CAS 重试）', () => {
           }
         },
         where() { return this },
+        limit() { return this },
+        async get() {
+          return { data: [] }
+        },
         async add() {
           addCalls++
           // 并发 insert：本次 add 前已有别的请求插入了记录 → 撞 `_id` 主键

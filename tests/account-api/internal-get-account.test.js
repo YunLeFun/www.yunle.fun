@@ -48,6 +48,32 @@ describe('account-api getAccountForUser', () => {
     expect(res).toEqual({ coin: 88, membership: { isActive: true, level: 'pro', expireAt: NOW + 100_000 } })
   })
 
+  it('兼容按 userId 保存的历史有效会员', async () => {
+    const db = makeFakeDb({
+      [MEMBERSHIPS_COLLECTION]: [{
+        _id: 'legacy-membership',
+        userId: 'legacy-user',
+        planId: 'basic',
+        expireAt: NOW + 100_000,
+      }],
+    })
+
+    const res = await handleGetAccountForUser(
+      db,
+      { serviceToken: TOKEN, userId: 'legacy-user' },
+      { expectedToken: TOKEN, now: NOW },
+    )
+
+    expect(res).toEqual({
+      coin: 0,
+      membership: {
+        isActive: true,
+        level: 'basic',
+        expireAt: NOW + 100_000,
+      },
+    })
+  })
+
   it('过期会员视为未激活', async () => {
     const db = makeFakeDb({
       [WALLET_COLLECTION]: [{ _id: 'w', userId: 'u1', balance: 10, version: 1 }],

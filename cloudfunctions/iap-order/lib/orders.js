@@ -41,9 +41,7 @@ async function findOrderByOutTradeNo(db, outTradeNo) {
 }
 
 /**
- * 按 CloudBase uid 主键读取用户会员记录。
- *
- * `user_memberships` 严格保持一个用户一条文档，且 `_id == uid`。
+ * 读取用户会员记录（优先读 `_id == uid` 的规范文档，兼容历史 `add({ userId })` 文档）。
  *
  * @param {object} db
  * @param {string} userId CloudBase uid
@@ -53,11 +51,34 @@ async function readMembership(db, userId) {
   if (!userId)
     return null
 
-  const { data } = await db
-    .collection(MEMBERSHIPS_COLLECTION)
-    .doc(userId)
+  const collection = db.collection(MEMBERSHIPS_COLLECTION)
+  const byId = await collection.doc(userId).get()
+  const canonical = firstDoc(byId?.data)
+  if (canonical && typeof canonical === 'object' && (!canonical.userId || canonical.userId === userId))
+    return { ...canonical, _id: userId, userId: canonical.userId || userId }
+
+  const { data } = await collection
+    .where({ userId })
+    .limit(10)
     .get()
-  return firstDoc(data)
+  if (!Array.isArray(data) || data.length === 0)
+    return null
+
+  return data.find(item => item?._id === userId) || data[0]
+}
+
+async function createCanonicalMembership(db, userId, payload, existing, now) {
+  const legacyFields = existing && typeof existing === 'object' ? { ...existing } : {}
+  delete legacyFields._id
+  delete legacyFields.userId
+  const canonical = {
+    ...legacyFields,
+    ...payload,
+    _id: userId,
+    createdAt: existing?.createdAt || now,
+  }
+  await db.collection(MEMBERSHIPS_COLLECTION).add(canonical)
+  return canonical
 }
 
 /**
@@ -142,9 +163,9 @@ async function activateMembership(db, { userId, planId, cycle, now, outTradeNo }
   if (!userId)
     throw new Error(`activateMembership: 订单 ${outTradeNo} 缺少 userId，无法开通会员`)
 
-  // 并发安全：read-modify-write 在跨订单同用户并发下会丢更新或撞主键。
+  // 并发安全：read-modify-write 在跨订单同用户并发下会丢更新（老用户）或撞主键（新用户）。
   // 用 compare-and-set 重试解决：
-  //   - 已存在：按 `_id == uid` 与 expireAt 做乐观锁更新
+  //   - 已存在：以读到的 expireAt 作为乐观锁条件更新，被人抢先改了就重读重试
   //   - 不存在：尝试 add；若被并发 insert 撞 `_id`，回到循环走 update 分支
   let lastError = null
   for (let attempt = 0; attempt < MEMBERSHIP_MAX_RETRY; attempt++) {
@@ -160,6 +181,22 @@ async function activateMembership(db, { userId, planId, cycle, now, outTradeNo }
             base: existing.expireAt,
           })
         : {}
+      if (existing._id !== userId) {
+        try {
+          await createCanonicalMembership(db, userId, {
+            planId: existing.planId || planId,
+            activeCycle: existing.activeCycle || cycle,
+            expireAt: existing.expireAt,
+            ...anchor,
+            lastOrderId: outTradeNo,
+            updatedAt: existing.updatedAt || now,
+          }, existing, now)
+        }
+        catch (err) {
+          lastError = err
+          continue
+        }
+      }
       return {
         planId: existing.planId || planId,
         cycle: existing.activeCycle || cycle,
@@ -200,6 +237,25 @@ async function activateMembership(db, { userId, planId, cycle, now, outTradeNo }
     }
 
     if (existing) {
+      if (existing._id !== userId) {
+        try {
+          await createCanonicalMembership(db, userId, payload, existing, now)
+          return {
+            planId,
+            cycle,
+            expireAt: newExpireAt,
+            billingAnchorDay,
+            billingAnchorIsMonthEnd,
+            membershipBefore,
+          }
+        }
+        catch (err) {
+          // 规范文档可能刚被并发请求创建，重读后走规范 update 分支
+          lastError = err
+          continue
+        }
+      }
+
       // 乐观锁：仅当 expireAt 仍是刚读到的值时才更新，防止并发覆盖
       const result = await db
         .collection(MEMBERSHIPS_COLLECTION)
