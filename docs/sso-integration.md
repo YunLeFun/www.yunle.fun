@@ -37,15 +37,18 @@ Client Registry 当前是版本库中的类型安全静态快照，不存储在 
 ## 协议流程
 
 ```text
-Consumer              www.yunle.fun              sso-ticket             CloudBase Auth
-   | client_id + scope + redirect_uri + nonce + S256  |                       |
-   |---------------- top-level redirect ------------->|                       |
-   |                         getSession / real user    |                       |
-   |                         issue code -------------->| hash-only + binding   |
-   |<--------------- #code + nonce + iss -------------|                       |
-   | POST code + verifier + complete binding -------->| consume once          |
-   |<-------------- transient custom ticket ----------|                       |
-   | signInWithCustomTicket(getTicket) -------------------------------------->|
+Consumer              www.yunle.fun              sso-ticket              CloudBase Auth
+   | client_id + scope + redirect_uri + nonce + S256   |                        |
+   |---------------- top-level redirect -------------->|                        |
+   |                         getSession / real user     |                        |
+   |                         issue code --------------->| hash-only + binding    |
+   |<--------------- #code + nonce + iss --------------|                        |
+   | POST code + verifier + complete binding --------->| consume once           |
+   |                                                   | getEndUserInfo(uid) --->|
+   |                                                   |<-- trusted phone field  |
+   |<--------- custom ticket + signed assertion -------|                        |
+   | signInWithCustomTicket(getTicket) --------------------------------------->|
+   | access token + assertion + nonce ------> Consumer BFF verifies both        |
 ```
 
 安全性质：
@@ -55,6 +58,9 @@ Consumer              www.yunle.fun              sso-ticket             CloudBas
 - 当前 tab 的 `sessionStorage` 只保存 10 分钟 transaction（nonce、PKCE verifier 和完整客户端绑定）；存储不可用时失败关闭。
 - 授权码记录只保存哈希，绑定 issuer、clientId、服务端派生 appId、scope、Origin、redirect URI、nonce、PKCE challenge、policy version 与 registration fingerprint，并在数据库事务中至多消费一次。
 - 兑换返回的 custom ticket 只存在于 `signInWithCustomTicket` 回调内。
+- `sso-ticket` 只依据 CloudBase 服务端 `getEndUserInfo(uid)` 返回的顶层手机号字段做准入；不信任 access token payload、浏览器 profile、`custom_metadata` 或 `user_metadata`。
+- 手机号只用于 Provider 侧判定，不跨应用传输。兑换响应附带最长 5 分钟的 Ed25519 身份断言，断言仅包含 `phone_number_verified: true`，并绑定 `iss`、`sub`、`aud`、`app_id`、`scope` 与本次 `nonce`。
+- Consumer BFF 必须同时验证 CloudBase access token 和身份断言，并确认两者 `sub` 一致；不能把断言当作登录凭据单独使用。
 
 ## Consumer 接入
 
@@ -89,15 +95,40 @@ const app = cloudbase.init({
 })
 const auth = app.auth({ persistence: 'local' })
 
+let identityAssertion = ''
 const authorization = consumeSsoRedirect()
 if (authorization?.ok) {
   await adoptSsoCode(auth, authorization, {
     exchangeUrl: 'https://api.yunle.fun/sso-ticket',
+    fetch: async (input, init) => {
+      const response = await fetch(input, init)
+      const payload = await response
+        .clone()
+        .json()
+        .catch(() => null)
+      identityAssertion
+        = typeof payload?.identityAssertion === 'string'
+          ? payload.identityAssertion
+          : ''
+      return response
+    },
   })
 }
 ```
 
-若应用使用自己的 BFF session，可在 CloudBase 登录成功后把当前 access token 作为一次性身份证明交给 BFF，再清除临时 CloudBase session。禁止把主站或 Consumer 的 refresh token跨 origin 发送。
+若应用使用自己的 BFF session，在 CloudBase 登录成功后把当前 access token、`identityAssertion`
+和原始 authorization `nonce` 一并交给 BFF。BFF 需要：
+
+1. 调用 CloudBase `/auth/v1/user/me` 验证 access token 并取得可信 `sub`。
+2. 从 `https://api.yunle.fun/sso-ticket` 的 `GET` 响应获取 JWKS，按 `kid` 验证
+   `alg=EdDSA`、`typ=ylf-identity+jwt` 和签名。
+3. 精确校验 `iss`、`aud`、`app_id`、`scope`、`nonce`、`phone_number_verified=true`、
+   `account_status=active`、有效期不超过 5 分钟，并要求 assertion `sub` 与 access token
+   用户一致。
+4. 建立自己的 HttpOnly session 后立即清除临时 CloudBase session。
+
+禁止把主站或 Consumer 的 refresh token 跨 origin 发送，也禁止通过 JWT payload 解码、
+手机号明文或用户可写 metadata 推断手机号已验证。
 
 ## 当前注册项
 
@@ -142,7 +173,11 @@ pnpm dev:sso
 
 该命令把同一 Nuxt Provider 暴露为 `https://www.yunle.localhost:3000`，并默认使用 `yunlefun-dev-0ge03bdod37093d1`；首次使用时在另一个终端执行 `pnpm dev:sso:trust` 信任 Caddy 本地 CA。Publishable Key 只授予客户端公开身份能力，函数私钥仍只存在于开发租户的 `sso-ticket` 环境变量中。
 
-开发租户函数发布使用独立且固定 Env ID 的 `cloudbaserc.sso-development.json`。把自定义登录私钥与独立的 `ACCOUNT_API_INTERNAL_TOKEN` 放入 gitignored 的 `.env.sso-development.local` 后执行 `pnpm deploy:sso:development`；脚本会构建并部署当前 `authorization-core`、`account-api`、`sso-ticket` 和清理函数。不要用生产 `cloudbaserc.json` 发布开发 SSO。
+开发租户函数发布使用独立且固定 Env ID 的 `cloudbaserc.sso-development.json`。把自定义登录私钥、
+独立的 `ACCOUNT_API_INTERNAL_TOKEN`、身份断言 Ed25519 私钥和 `kid` 放入 gitignored 的
+`.env.sso-development.local` 后执行 `pnpm deploy:sso:development`；脚本会构建并部署当前
+`authorization-core`、`account-api`、`sso-ticket` 和清理函数。不要用生产
+`cloudbaserc.json` 发布开发 SSO。
 
 体验套餐不能启用 CloudBase HTTP 访问服务，因此本地 Provider 的 `/api/sso-ticket` 是开发专用的传输适配器：它通过 Publishable Key 调用同一个 `sso-ticket` Event Function，并把请求包装成现有 HTTP 契约。开发租户允许公开调用该函数，但签发仍强制要求真实用户上下文，兑换仍强制校验 Registry、精确 Origin、nonce、一次性授权码和 S256 PKCE；生产清单继续保持 `auth != null` 和正式 HTTPS 网关。
 
@@ -163,7 +198,21 @@ pnpm dev:sso
 - `sso_security_limits`：server-only；跨实例持久化限流，存储不可用时失败关闭。
 - `sso-security-sweeper`：无公网调用权限，定时清理过期码与限流窗口。
 - `sso-ticket`：已认证 SDK 负责签发，HTTPS 网关负责兑换；响应必须 `no-store`。
-- `AUTH_ISSUER_ENVIRONMENT`、custom-login private key 和限流参数均由部署注入。
+- `sso-ticket` 的同一路径 `GET` 发布只含公钥的 JWKS，可缓存 5 分钟；`POST` 仍为
+  `no-store`。
+- `AUTH_ISSUER_ENVIRONMENT`、custom-login private key、身份断言 Ed25519 private key
+  和限流参数均由部署注入。
+
+### 身份断言密钥轮换
+
+1. 生成新的 Ed25519 密钥对，为新私钥设置全新 `SSO_IDENTITY_SIGNING_KID`。
+2. 把旧公钥以 `{ "<old-kid>": <public-jwk> }` 形式保留在
+   `SSO_IDENTITY_PUBLIC_KEYS`，同时切换 `SSO_IDENTITY_SIGNING_KEY`。
+3. 发布并确认 JWKS 同时包含新旧 `kid`，新断言已使用新 `kid`。
+4. 至少等待 10 分钟（两倍 JWKS 缓存窗口，且超过断言最大 5 分钟寿命）后移除旧公钥。
+
+私钥接受 PEM、JWK JSON 或其 base64 编码；公钥集合只允许 JWK。任何必填密钥配置缺失或
+解析失败时，签发和 JWKS 都失败关闭。
 
 ## 验收清单
 
@@ -173,3 +222,6 @@ pnpm dev:sso
 - 回跳 fragment 消费后立即从地址栏和 history 清除。
 - 源码、URL、日志、授权码文档及跨站消息中都不存在 session/access token/refresh token。
 - production/development issuer 与 Registry 完全隔离。
+- 未绑定手机号的用户在兑换阶段返回 `phone_verification_required`，不签发 ticket 或身份断言。
+- 身份断言不含 `phone_number`，签名、`sub`/`aud`/`nonce` 绑定、过期与未知 `kid`
+  任一校验失败时 Consumer BFF 都拒绝建立应用会话。

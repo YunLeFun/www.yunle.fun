@@ -130,6 +130,15 @@ export type {
 } from './device-grant'
 export { createEntitlementKeyring } from './entitlement'
 export type { EntitlementClaims } from './entitlement'
+export { createIdentityAssertionKeyring } from './identity-assertion'
+export type {
+  IdentityAssertionClaims,
+  IdentityAssertionKeyInput,
+  IdentityAssertionKeyring,
+  IdentityAssertionKeyringOptions,
+  SignIdentityAssertionInput,
+  VerifyIdentityAssertionInput,
+} from './identity-assertion'
 export {
   createProofOfPossessionVerifier,
   deviceJwkThumbprint,

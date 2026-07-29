@@ -61,7 +61,13 @@ const config = JSON.parse(readFileSync(CONFIG, 'utf8'))
 if (config.envId !== DEVELOPMENT_ENV_ID)
   throw new Error('Development SSO deployment manifest points to an unexpected environment')
 
-for (const name of ['ACCOUNT_API_INTERNAL_TOKEN', 'SSO_TICKET_PRIVATE_KEY_ID', 'SSO_TICKET_PRIVATE_KEY']) {
+for (const name of [
+  'ACCOUNT_API_INTERNAL_TOKEN',
+  'SSO_IDENTITY_SIGNING_KEY',
+  'SSO_IDENTITY_SIGNING_KID',
+  'SSO_TICKET_PRIVATE_KEY_ID',
+  'SSO_TICKET_PRIVATE_KEY',
+]) {
   if (!process.env[name])
     throw new Error(`${name} is required in .env.sso-development.local or the process environment`)
 }
