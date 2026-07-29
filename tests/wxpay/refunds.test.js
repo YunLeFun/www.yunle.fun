@@ -307,6 +307,76 @@ describe('微信会员退款编排', () => {
     expect(db._store[ORDERS_COLLECTION][0].refund.lastError).toContain('余额不足')
   })
 
+  it('退款 POST 响应中断时主动查单并应用渠道结果', async () => {
+    const db = makeRefundDb()
+    const queryRefund = vi.fn().mockResolvedValue({
+      out_trade_no: OUT_TRADE_NO,
+      out_refund_no: buildOutRefundNo(OUT_TRADE_NO),
+      refund_id: '50000000001',
+      status: 'PROCESSING',
+      amount: { refund: 990, total: 990 },
+    })
+
+    const result = await requestMembershipRefundForAdmin(db, {
+      ...requestInput(),
+      config: config(),
+    }, {
+      queryTransaction: vi.fn().mockResolvedValue({
+        appid: 'wx-app',
+        mchid: '1900000001',
+        out_trade_no: OUT_TRADE_NO,
+        trade_state: 'SUCCESS',
+        amount: { total: 990 },
+      }),
+      requestRefund: vi.fn().mockRejectedValue(new TypeError('terminated')),
+      queryRefund,
+    })
+
+    expect(queryRefund).toHaveBeenCalledWith(
+      expect.any(Object),
+      buildOutRefundNo(OUT_TRADE_NO),
+    )
+    expect(result).toMatchObject({
+      status: 'PROCESSING',
+      entitlementStatus: 'pending',
+    })
+    expect(db._store[ORDERS_COLLECTION][0]).toMatchObject({
+      status: 'paid',
+      refundStatus: 'PROCESSING',
+    })
+  })
+
+  it('退款 POST 响应中断且暂时查不到时保持待确认，不误报申请失败', async () => {
+    const db = makeRefundDb()
+
+    const result = await requestMembershipRefundForAdmin(db, {
+      ...requestInput(),
+      config: config(),
+    }, {
+      queryTransaction: vi.fn().mockResolvedValue({
+        appid: 'wx-app',
+        mchid: '1900000001',
+        out_trade_no: OUT_TRADE_NO,
+        trade_state: 'SUCCESS',
+        amount: { total: 990 },
+      }),
+      requestRefund: vi.fn().mockRejectedValue(new TypeError('terminated')),
+      queryRefund: vi.fn().mockRejectedValue(new Error('退款单不存在')),
+    })
+
+    expect(result).toMatchObject({
+      status: 'REQUESTED',
+      entitlementStatus: 'pending',
+      reconciliationPending: true,
+    })
+    expect(result.lastError).toContain('渠道结果待确认')
+    expect(db._store[ORDERS_COLLECTION][0]).toMatchObject({
+      status: 'paid',
+      refundStatus: 'REQUESTED',
+    })
+    expect(db._store[ORDERS_COLLECTION][0].refund.lastError).toContain('渠道结果待确认')
+  })
+
   it('主动查询 SUCCESS 会补偿完成订单和权益回滚', async () => {
     const db = makeRefundDb()
     await prepareMembershipRefund(db, requestInput())
