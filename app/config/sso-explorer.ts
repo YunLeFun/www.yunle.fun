@@ -61,6 +61,12 @@ const presentationByAppId: Record<string, SsoPresentation> = {
     accent: 'var(--ylf-dopa-pink)',
     position: { x: 86, y: 63 },
   },
+  'smap': {
+    description: '规划星际路线与模拟导航行程',
+    fallbackMark: '图',
+    accent: 'var(--ylf-dopa-cyan)',
+    position: { x: 50, y: 9 },
+  },
   'support': {
     description: '统一处理反馈、工单与帮助内容',
     fallbackMark: '助',

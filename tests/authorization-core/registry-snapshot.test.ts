@@ -49,6 +49,17 @@ describe('production authorization registry', () => {
       clientId: 'saier-web',
       scopes: ['identity:bootstrap'],
     })
+
+    expect(() => createAuthorizationCore({ registry: productionRegistry }).authorize({
+      issuer: productionRegistry.issuer,
+      clientId: 'smap-web',
+      adapter: 'web-sso',
+      requestedScopes: ['identity:bootstrap'],
+      origin: 'https://smap.yunle.fun',
+      redirectUri: 'https://smap.yunle.fun/',
+    })).toThrowError(expect.objectContaining<Partial<AuthorizationError>>({
+      code: 'redirect_uri_not_allowed',
+    }))
   })
 
   it('enables the non-discoverable Admin control-plane client with exact callbacks', () => {
@@ -151,6 +162,36 @@ describe('production authorization registry', () => {
     })
   })
 
+  it('enables the SMAP static client with its exact production callback', () => {
+    expect(productionRegistry.clients).toContainEqual({
+      clientId: 'smap-web',
+      appId: 'smap',
+      displayName: 'SMAP 星际导航',
+      iconUrl: 'https://smap.yunle.fun/smap-logo.svg',
+      status: 'active',
+      adapters: [{
+        kind: 'web-sso',
+        consent: 'trusted',
+        allowedScopes: ['identity:bootstrap'],
+        origins: ['https://smap.yunle.fun'],
+        redirectUris: ['https://smap.yunle.fun/tabs/profile'],
+      }],
+    })
+
+    expect(createAuthorizationCore({ registry: productionRegistry }).authorize({
+      issuer: productionRegistry.issuer,
+      clientId: 'smap-web',
+      adapter: 'web-sso',
+      requestedScopes: ['identity:bootstrap'],
+      origin: 'https://smap.yunle.fun',
+      redirectUri: 'https://smap.yunle.fun/tabs/profile',
+    })).toMatchObject({
+      appId: 'smap',
+      clientId: 'smap-web',
+      scopes: ['identity:bootstrap'],
+    })
+  })
+
   it('registers stable client-owned icons for every Web SSO client', () => {
     for (const client of productionRegistry.clients) {
       const adapter = client.adapters.find(candidate => candidate.kind === 'web-sso')
@@ -204,18 +245,19 @@ describe('production authorization registry', () => {
       ['home-web', 'home', 'web-sso', 'identity:bootstrap', 'https://home.yunle.fun'],
       ['wenta-web', 'wenta', 'web-sso', 'identity:bootstrap', 'https://wenta.yunle.fun'],
       ['play-web', 'play', 'web-sso', 'identity:bootstrap', 'https://play.yunle.fun'],
+      ['smap-web', 'smap', 'web-sso', 'identity:bootstrap', 'https://smap.yunle.fun', 'https://smap.yunle.fun/tabs/profile'],
       ['support-web', 'support', 'web-sso', 'identity:bootstrap', 'https://support.yunle.fun'],
       ['saier-web', 'saier', 'web-sso', 'identity:bootstrap', 'https://saier.yunle.fun'],
       ['skykeeper-desktop', 'skykeeper', 'device', 'membership:read', undefined],
     ] as const
 
-    expect(cases.map(([clientId, _appId, adapter, scope, origin]) => {
+    expect(cases.map(([clientId, _appId, adapter, scope, origin, redirectUri]) => {
       const decision = authorization.authorize({
         issuer: productionRegistry.issuer,
         clientId,
         adapter,
         requestedScopes: [scope],
-        ...(origin ? { origin, redirectUri: `${origin}/` } : {}),
+        ...(origin ? { origin, redirectUri: redirectUri ?? `${origin}/` } : {}),
       })
       return [decision.clientId, decision.appId, decision.adapter, decision.scopes]
     })).toEqual([
@@ -227,6 +269,7 @@ describe('production authorization registry', () => {
       ['home-web', 'home', 'web-sso', ['identity:bootstrap']],
       ['wenta-web', 'wenta', 'web-sso', ['identity:bootstrap']],
       ['play-web', 'play', 'web-sso', ['identity:bootstrap']],
+      ['smap-web', 'smap', 'web-sso', ['identity:bootstrap']],
       ['support-web', 'support', 'web-sso', ['identity:bootstrap']],
       ['saier-web', 'saier', 'web-sso', ['identity:bootstrap']],
       ['skykeeper-desktop', 'skykeeper', 'device', ['membership:read']],
