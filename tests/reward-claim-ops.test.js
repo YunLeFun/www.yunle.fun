@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import {
+  buildRewardClaimAlertCard,
   formatRewardClaimAlert,
   retryDelayMs,
   runRewardClaimOps,
@@ -29,6 +30,32 @@ describe('权益领取运营告警与巡检', () => {
     expect(message).not.toContain('raw-secret-token')
     expect(message).not.toContain('private-ip-hash')
     expect(message).not.toContain('private-user')
+  })
+
+  it('生成带活动详情按钮的飞书卡片', () => {
+    const card = buildRewardClaimAlertCard({
+      _id: 'alert-expired',
+      campaignId: 'campaign/beta thanks',
+      kind: 'expired',
+      payload: {
+        title: '云乐坊内测感谢礼',
+        code: 'beta-thanks-202607',
+        token: 'raw-secret-token',
+      },
+    }, 'https://admin.yunle.fun/reward-claims?from=alert')
+
+    expect(card.header).toEqual({
+      template: 'blue',
+      title: { tag: 'plain_text', content: '权益领取 · 活动已到期' },
+    })
+    expect(card.elements.at(-1)).toMatchObject({
+      tag: 'action',
+      actions: [{
+        text: { content: '查看活动详情' },
+        url: 'https://admin.yunle.fun/reward-claims/campaign%2Fbeta%20thanks',
+      }],
+    })
+    expect(JSON.stringify(card)).not.toContain('raw-secret-token')
   })
 
   it('发送成功标记 sent，失败按尝试次数退避且不阻断其他告警', async () => {
