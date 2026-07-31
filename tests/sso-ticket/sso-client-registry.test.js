@@ -22,7 +22,27 @@ describe('sSO Client Registry adapter', () => {
       returnUrl: 'https://cms.yunle.fun/',
       scopes: ['identity:bootstrap'],
       consent: 'trusted',
-      policyVersion: '2026-07-29.2',
+      policyVersion: '2026-08-01.1',
+    })
+  })
+
+  it('authorizes the exact SMAP production callback', () => {
+    const registry = createSsoClientRegistry({ issuerEnvironment: 'production' })
+
+    expect(registry.authorize({
+      clientId: 'smap-web',
+      origin: 'https://smap.yunle.fun',
+      returnUrl: 'https://smap.yunle.fun/tabs/profile',
+      scopes: ['identity:bootstrap'],
+    })).toMatchObject({
+      issuer: 'https://www.yunle.fun',
+      clientId: 'smap-web',
+      appId: 'smap',
+      origin: 'https://smap.yunle.fun',
+      returnUrl: 'https://smap.yunle.fun/tabs/profile',
+      scopes: ['identity:bootstrap'],
+      consent: 'trusted',
+      policyVersion: '2026-08-01.1',
     })
   })
 
