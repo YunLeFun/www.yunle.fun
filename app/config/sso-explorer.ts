@@ -67,6 +67,12 @@ const presentationByAppId: Record<string, SsoPresentation> = {
     accent: 'var(--ylf-dopa-cyan)',
     position: { x: 50, y: 9 },
   },
+  'fc': {
+    description: '在浏览器中重温经典红白机游戏',
+    fallbackMark: '游',
+    accent: 'var(--ylf-dopa-orange)',
+    position: { x: 50, y: 29 },
+  },
   'support': {
     description: '统一处理反馈、工单与帮助内容',
     fallbackMark: '助',
