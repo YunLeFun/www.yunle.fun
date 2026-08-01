@@ -151,6 +151,32 @@ describe('production authorization registry', () => {
     })
   })
 
+  it('enables the FC static Web client with exact callbacks', () => {
+    expect(productionRegistry.clients).toContainEqual({
+      clientId: 'fc-web',
+      appId: 'fc',
+      displayName: '怀旧游戏机',
+      iconUrl: 'https://fc.elpsy.cn/favicon.svg',
+      status: 'active',
+      adapters: [{
+        kind: 'web-sso',
+        consent: 'trusted',
+        allowedScopes: ['identity:bootstrap'],
+        origins: ['https://fc.elpsy.cn'],
+        redirectUris: ['https://fc.elpsy.cn/'],
+      }],
+    })
+
+    expect(developmentRegistry.clients).toContainEqual(expect.objectContaining({
+      clientId: 'fc-web',
+      appId: 'fc',
+      adapters: [expect.objectContaining({
+        origins: ['https://fc.yunle.localhost:3453'],
+        redirectUris: ['https://fc.yunle.localhost:3453/'],
+      })],
+    }))
+  })
+
   it('registers stable client-owned icons for every Web SSO client', () => {
     for (const client of productionRegistry.clients) {
       const adapter = client.adapters.find(candidate => candidate.kind === 'web-sso')
@@ -204,6 +230,7 @@ describe('production authorization registry', () => {
       ['home-web', 'home', 'web-sso', 'identity:bootstrap', 'https://home.yunle.fun'],
       ['wenta-web', 'wenta', 'web-sso', 'identity:bootstrap', 'https://wenta.yunle.fun'],
       ['play-web', 'play', 'web-sso', 'identity:bootstrap', 'https://play.yunle.fun'],
+      ['fc-web', 'fc', 'web-sso', 'identity:bootstrap', 'https://fc.elpsy.cn'],
       ['support-web', 'support', 'web-sso', 'identity:bootstrap', 'https://support.yunle.fun'],
       ['saier-web', 'saier', 'web-sso', 'identity:bootstrap', 'https://saier.yunle.fun'],
       ['skykeeper-desktop', 'skykeeper', 'device', 'membership:read', undefined],
@@ -227,6 +254,7 @@ describe('production authorization registry', () => {
       ['home-web', 'home', 'web-sso', ['identity:bootstrap']],
       ['wenta-web', 'wenta', 'web-sso', ['identity:bootstrap']],
       ['play-web', 'play', 'web-sso', ['identity:bootstrap']],
+      ['fc-web', 'fc', 'web-sso', ['identity:bootstrap']],
       ['support-web', 'support', 'web-sso', ['identity:bootstrap']],
       ['saier-web', 'saier', 'web-sso', ['identity:bootstrap']],
       ['skykeeper-desktop', 'skykeeper', 'device', ['membership:read']],
