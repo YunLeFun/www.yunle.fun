@@ -1,12 +1,15 @@
 import type { ClientRegistrySnapshot } from './registry-types'
 
-function webSso(origin: string) {
+function webSso(
+  origin: string,
+  redirectUris: readonly string[] = [`${origin}/`],
+) {
   return {
     kind: 'web-sso',
     consent: 'trusted',
     allowedScopes: ['identity:bootstrap'],
     origins: [origin],
-    redirectUris: [`${origin}/`],
+    redirectUris,
   } as const
 }
 
@@ -16,6 +19,7 @@ function webClient(options: {
   displayName: string
   origin: string
   iconPath: string
+  redirectUris?: readonly string[]
   status?: 'active' | 'disabled'
 }) {
   return {
@@ -24,7 +28,7 @@ function webClient(options: {
     displayName: options.displayName,
     iconUrl: new URL(options.iconPath, options.origin).toString(),
     status: options.status ?? 'active',
-    adapters: [webSso(options.origin)],
+    adapters: [webSso(options.origin, options.redirectUris)],
   } as const
 }
 
@@ -106,6 +110,14 @@ export const productionRegistry = {
       displayName: '云乐坊间',
       origin: 'https://play.yunle.fun',
       iconPath: '/favicon.svg',
+    }),
+    webClient({
+      clientId: 'smap-web',
+      appId: 'smap',
+      displayName: 'SMAP 星际导航',
+      origin: 'https://smap.yunle.fun',
+      iconPath: '/smap-logo.svg',
+      redirectUris: ['https://smap.yunle.fun/tabs/profile'],
     }),
     webClient({
       clientId: 'fc-web',

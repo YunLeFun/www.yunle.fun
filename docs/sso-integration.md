@@ -143,6 +143,7 @@ if (authorization?.ok) {
 | `home-web`          | `home`         | 云之彼端       | `https://home.yunle.fun`         | `identity:bootstrap` | `active` |
 | `wenta-web`         | `wenta`        | 问 TA          | `https://wenta.yunle.fun`        | `identity:bootstrap` | `active` |
 | `play-web`          | `play`         | 云乐坊间       | `https://play.yunle.fun`         | `identity:bootstrap` | `active` |
+| `smap-web`          | `smap`         | SMAP 星际导航  | `https://smap.yunle.fun`         | `identity:bootstrap` | `active` |
 | `support-web`       | `support`      | 云乐坊支持中心 | `https://support.yunle.fun`      | `identity:bootstrap` | `active` |
 | `skykeeper-desktop` | `skykeeper`    | Skykeeper      | 设备授权 Adapter，无 Web Origin  | `membership:read`    | `active` |
 
@@ -150,6 +151,10 @@ if (authorization?.ok) {
 关闭测试，并于 2026-07-26 激活。其 development Origin 与 redirect URI 为
 `https://play.yunle.localhost:3449` 和 `https://play.yunle.localhost:3449/`；两套 issuer
 仍保持完全隔离。
+
+`smap-web` 是纯静态 Consumer，仅接受 `https://smap.yunle.fun` Origin 与
+`https://smap.yunle.fun/tabs/profile` 精确回跳，并只请求 `identity:bootstrap`。
+默认 HTTP 本地开发环境不进入 production 或 development Registry。
 
 `support-web` 使用 `https://support.yunle.fun/` 精确回跳。它只把短暂
 CloudBase access token 交给 Support BFF 兑换 HttpOnly 应用会话，随后立即清除浏览器
