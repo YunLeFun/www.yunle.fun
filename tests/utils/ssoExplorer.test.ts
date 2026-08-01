@@ -16,9 +16,10 @@ describe('sso explorer configuration', () => {
       'wenta',
       'play',
       'smap',
+      'fc',
       'support',
     ])
-    expect(ssoExplorerApps).toHaveLength(10)
+    expect(ssoExplorerApps).toHaveLength(11)
     expect(ssoExplorerApps.some(app => app.appId === 'admin')).toBe(false)
     expect(ssoExplorerApps.every(app => app.origin.startsWith('https://'))).toBe(true)
     expect(ssoExplorerApps.every(app =>
@@ -49,6 +50,11 @@ describe('sso explorer configuration', () => {
       description: '规划星际路线与模拟导航行程',
       logoUrl: 'https://smap.yunle.fun/smap-logo.svg',
     })
+    expect(ssoExplorerApps.find(app => app.appId === 'fc')).toMatchObject({
+      name: '怀旧游戏机',
+      description: '在浏览器中重温经典红白机游戏',
+      logoUrl: 'https://fc.elpsy.cn/favicon.svg',
+    })
   })
 
   it('maps public explorer slugs without treating unrelated apps as SSO clients', () => {
@@ -57,6 +63,7 @@ describe('sso explorer configuration', () => {
     expect(isSsoExplorerAppSlug('play')).toBe(true)
     expect(isSsoExplorerAppSlug('saier')).toBe(true)
     expect(isSsoExplorerAppSlug('smap')).toBe(true)
+    expect(isSsoExplorerAppSlug('fc')).toBe(true)
     expect(isSsoExplorerAppSlug('support')).toBe(true)
   })
 })

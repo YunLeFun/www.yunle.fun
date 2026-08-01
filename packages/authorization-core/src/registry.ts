@@ -120,6 +120,13 @@ export const productionRegistry = {
       redirectUris: ['https://smap.yunle.fun/tabs/profile'],
     }),
     webClient({
+      clientId: 'fc-web',
+      appId: 'fc',
+      displayName: '怀旧游戏机',
+      origin: 'https://fc.elpsy.cn',
+      iconPath: '/favicon.svg',
+    }),
+    webClient({
       clientId: 'support-web',
       appId: 'support',
       displayName: '云乐坊支持中心',
@@ -144,7 +151,7 @@ export const productionRegistry = {
 
 export const developmentRegistry = {
   schemaVersion: 1,
-  policyVersion: '2026-07-29.2-dev',
+  policyVersion: '2026-08-01.1-dev',
   issuer: issuerCatalog.development.issuer,
   clients: [
     webClient({
@@ -208,6 +215,13 @@ export const developmentRegistry = {
       appId: 'play',
       displayName: '云乐坊间',
       origin: 'https://play.yunle.localhost:3449',
+      iconPath: '/favicon.svg',
+    }),
+    webClient({
+      clientId: 'fc-web',
+      appId: 'fc',
+      displayName: '怀旧游戏机',
+      origin: 'https://fc.yunle.localhost:3453',
       iconPath: '/favicon.svg',
     }),
     webClient({
