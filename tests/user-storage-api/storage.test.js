@@ -45,6 +45,86 @@ async function reserveBrushLibrary(db, reservationId, sizeBytes, now) {
   })
 }
 
+async function reserveAsset(db, overrides = {}) {
+  return await reserveStorageUpload(db, {
+    userId: 'u1',
+    appId: 'everything-generator',
+    contentType: 'image/webp',
+    fileName: 'cover.webp',
+    kind: STORAGE_FILE_KIND.ASSET,
+    reservationId: 'asset_reserve1',
+    sha256: 'a'.repeat(64),
+    sizeBytes: 4096,
+    now: NOW,
+    ...overrides,
+  })
+}
+
+describe('user-storage-api asset byte policy', () => {
+  it.each([
+    ['image/jpeg', 'cover.jpg'],
+    ['image/jpeg', 'cover.jpeg'],
+    ['image/png', 'cover.png'],
+    ['image/webp', 'cover.webp'],
+    ['image/svg+xml', 'cover.svg'],
+  ])('accepts %s as a private asset source', async (contentType, fileName) => {
+    const db = makeFakeDb()
+    const reserved = await reserveAsset(db, {
+      contentType,
+      fileName,
+      reservationId: `asset_${fileName.replace('.', '_')}`,
+    })
+
+    expect(reserved.file).toMatchObject({
+      appId: 'everything-generator',
+      contentType,
+      kind: STORAGE_FILE_KIND.ASSET,
+      sha256Candidate: 'a'.repeat(64),
+      slotKey: '',
+      status: STORAGE_FILE_STATUS.RESERVED,
+    })
+  })
+
+  it('rejects unsupported media, mismatched extensions, slot keys, and malformed hash candidates', async () => {
+    const cases = [
+      { contentType: 'image/gif', fileName: 'cover.gif' },
+      { contentType: 'image/png', fileName: 'cover.webp' },
+      { slotKey: 'default' },
+      { sha256: 'not-a-sha256' },
+    ]
+
+    for (const [index, overrides] of cases.entries()) {
+      await expect(reserveAsset(makeFakeDb(), {
+        ...overrides,
+        reservationId: `asset_invalid_${index}`,
+      })).rejects.toThrow()
+    }
+  })
+
+  it('keeps asset bytes non-singleton and discoverable through the generic list action', async () => {
+    const db = makeFakeDb()
+    await reserveAsset(db)
+    await finalizeStorageUpload(
+      db,
+      { userId: 'u1', reservationId: 'asset_reserve1', now: NOW + 1 },
+      privateStorageOptions({ sizeBytes: 2048, contentType: 'image/webp' }),
+    )
+
+    const listed = await listStorageFiles(db, {
+      userId: 'u1',
+      appId: 'everything-generator',
+      kind: STORAGE_FILE_KIND.ASSET,
+    })
+    expect(listed.items).toHaveLength(1)
+    expect(listed.items[0]).toMatchObject({
+      kind: STORAGE_FILE_KIND.ASSET,
+      sha256Candidate: 'a'.repeat(64),
+      sizeBytes: 2048,
+      status: STORAGE_FILE_STATUS.ACTIVE,
+    })
+  })
+})
+
 describe('user-storage-api brush library policy', () => {
   it('rejects invalid brush-library reservations before storage upload', async () => {
     const db = makeFakeDb()
