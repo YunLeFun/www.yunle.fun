@@ -74,6 +74,17 @@ describe('getVerifiedTransaction', () => {
     expect(deps.clientCalls.map(c => c.environment)).toEqual(['Production', 'Sandbox'])
   })
 
+  it('生产 401 回退沙盒（App 尚未在生产环境可用）', async () => {
+    const deps = makeDeps({
+      production: { error: Object.assign(new Error('unauthorized'), { httpStatusCode: 401 }) },
+      sandbox: {},
+    })
+    const service = createAppStoreService(CONFIG, deps)
+    const { environment } = await service.getVerifiedTransaction('888')
+    expect(environment).toBe('Sandbox')
+    expect(deps.clientCalls.map(c => c.environment)).toEqual(['Production', 'Sandbox'])
+  })
+
   it('客户端与验签器按环境缓存复用', async () => {
     const deps = makeDeps({ production: {} })
     const service = createAppStoreService(CONFIG, deps)
@@ -89,8 +100,10 @@ describe('getVerifiedTransaction', () => {
   })
 
   it('鉴权失败抛错', async () => {
+    const unauthorized = () => Object.assign(new Error('unauthorized'), { httpStatusCode: 401 })
     const deps = makeDeps({
-      production: { error: Object.assign(new Error('unauthorized'), { httpStatusCode: 401 }) },
+      production: { error: unauthorized() },
+      sandbox: { error: unauthorized() },
     })
     const service = createAppStoreService(CONFIG, deps)
     await expect(service.getVerifiedTransaction('888')).rejects.toThrow('鉴权失败')
