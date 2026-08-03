@@ -22,7 +22,7 @@ describe('sSO Client Registry adapter', () => {
       returnUrl: 'https://cms.yunle.fun/',
       scopes: ['identity:bootstrap'],
       consent: 'trusted',
-      policyVersion: '2026-08-03.1',
+      policyVersion: '2026-08-03.2',
     })
   })
 
@@ -42,7 +42,7 @@ describe('sSO Client Registry adapter', () => {
       returnUrl: 'https://smap.yunle.fun/tabs/profile',
       scopes: ['identity:bootstrap'],
       consent: 'trusted',
-      policyVersion: '2026-08-03.1',
+      policyVersion: '2026-08-03.2',
     })
   })
 
@@ -63,7 +63,7 @@ describe('sSO Client Registry adapter', () => {
         returnUrl: `${origin}/`,
         scopes: ['identity:bootstrap'],
         consent: 'trusted',
-        policyVersion: '2026-08-03.1',
+        policyVersion: '2026-08-03.2',
       })
     }
   })

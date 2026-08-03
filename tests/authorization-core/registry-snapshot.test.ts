@@ -218,6 +218,45 @@ describe('production authorization registry', () => {
     }))
   })
 
+  it('enables the personal Studio client with exact callbacks', () => {
+    expect(productionRegistry.clients).toContainEqual({
+      clientId: 'studio-web',
+      appId: 'studio',
+      displayName: 'YunYouJun Studio',
+      iconUrl: 'https://studio.yunyoujun.cn/icon.svg',
+      status: 'active',
+      adapters: [{
+        kind: 'web-sso',
+        consent: 'trusted',
+        allowedScopes: ['identity:bootstrap'],
+        origins: ['https://studio.yunyoujun.cn'],
+        redirectUris: ['https://studio.yunyoujun.cn/'],
+      }],
+    })
+
+    expect(developmentRegistry.clients).toContainEqual(expect.objectContaining({
+      clientId: 'studio-web',
+      appId: 'studio',
+      adapters: [expect.objectContaining({
+        origins: ['https://studio.yunle.localhost:3454'],
+        redirectUris: ['https://studio.yunle.localhost:3454/'],
+      })],
+    }))
+
+    expect(createAuthorizationCore({ registry: productionRegistry }).authorize({
+      issuer: productionRegistry.issuer,
+      clientId: 'studio-web',
+      adapter: 'web-sso',
+      requestedScopes: ['identity:bootstrap'],
+      origin: 'https://studio.yunyoujun.cn',
+      redirectUri: 'https://studio.yunyoujun.cn/',
+    })).toMatchObject({
+      appId: 'studio',
+      clientId: 'studio-web',
+      scopes: ['identity:bootstrap'],
+    })
+  })
+
   it('registers stable client-owned icons for every Web SSO client', () => {
     for (const client of productionRegistry.clients) {
       const adapter = client.adapters.find(candidate => candidate.kind === 'web-sso')
@@ -273,6 +312,7 @@ describe('production authorization registry', () => {
       ['play-web', 'play', 'web-sso', 'identity:bootstrap', 'https://play.yunle.fun'],
       ['smap-web', 'smap', 'web-sso', 'identity:bootstrap', 'https://smap.yunle.fun', 'https://smap.yunle.fun/tabs/profile'],
       ['fc-web', 'fc', 'web-sso', 'identity:bootstrap', 'https://fc.elpsy.cn'],
+      ['studio-web', 'studio', 'web-sso', 'identity:bootstrap', 'https://studio.yunyoujun.cn'],
       ['support-web', 'support', 'web-sso', 'identity:bootstrap', 'https://support.yunle.fun'],
       ['saier-web', 'saier', 'web-sso', 'identity:bootstrap', 'https://saier.yunle.fun'],
       ['skykeeper-desktop', 'skykeeper', 'device', 'membership:read', undefined],
@@ -298,6 +338,7 @@ describe('production authorization registry', () => {
       ['play-web', 'play', 'web-sso', ['identity:bootstrap']],
       ['smap-web', 'smap', 'web-sso', ['identity:bootstrap']],
       ['fc-web', 'fc', 'web-sso', ['identity:bootstrap']],
+      ['studio-web', 'studio', 'web-sso', ['identity:bootstrap']],
       ['support-web', 'support', 'web-sso', ['identity:bootstrap']],
       ['saier-web', 'saier', 'web-sso', ['identity:bootstrap']],
       ['skykeeper-desktop', 'skykeeper', 'device', ['membership:read']],

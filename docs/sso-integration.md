@@ -132,20 +132,21 @@ if (authorization?.ok) {
 
 ## 当前注册项
 
-| clientId            | appId          | 展示名称       | production Origin                | scope                | status   |
-| ------------------- | -------------- | -------------- | -------------------------------- | -------------------- | -------- |
-| `admin-web`         | `admin`        | YunLeFun Admin | `https://admin.yunle.fun`        | `identity:bootstrap` | `active` |
-| `saier-web`         | `saier`        | 云绘 Saier     | `https://saier.yunle.fun`        | `identity:bootstrap` | `active` |
-| `cms-web`           | `cms`          | Yunle CMS      | `https://cms.yunle.fun`          | `identity:bootstrap` | `active` |
-| `drive-web`         | `drive`        | 云乐盘         | `https://drive.yunle.fun`        | `identity:bootstrap` | `active` |
-| `dayun-kicker-web`  | `dayun-kicker` | 暴力电驴       | `https://dayun-kicker.yunle.fun` | `identity:bootstrap` | `active` |
-| `ai-sfc-web`        | `ai-sfc`       | AI 春联        | `https://ai-sfc.yunle.fun`       | `identity:bootstrap` | `active` |
-| `home-web`          | `home`         | 云之彼端       | `https://home.yunle.fun`         | `identity:bootstrap` | `active` |
-| `wenta-web`         | `wenta`        | 问 TA          | `https://wenta.yunle.fun`        | `identity:bootstrap` | `active` |
-| `play-web`          | `play`         | 云乐坊间       | `https://play.yunle.fun`         | `identity:bootstrap` | `active` |
-| `smap-web`          | `smap`         | SMAP 星际导航  | `https://smap.yunle.fun`         | `identity:bootstrap` | `active` |
-| `support-web`       | `support`      | 云乐坊支持中心 | `https://support.yunle.fun`      | `identity:bootstrap` | `active` |
-| `skykeeper-desktop` | `skykeeper`    | Skykeeper      | 设备授权 Adapter，无 Web Origin  | `membership:read`    | `active` |
+| clientId            | appId          | 展示名称         | production Origin                | scope                | status   |
+| ------------------- | -------------- | ---------------- | -------------------------------- | -------------------- | -------- |
+| `admin-web`         | `admin`        | YunLeFun Admin   | `https://admin.yunle.fun`        | `identity:bootstrap` | `active` |
+| `saier-web`         | `saier`        | 云绘 Saier       | `https://saier.yunle.fun`        | `identity:bootstrap` | `active` |
+| `cms-web`           | `cms`          | Yunle CMS        | `https://cms.yunle.fun`          | `identity:bootstrap` | `active` |
+| `drive-web`         | `drive`        | 云乐盘           | `https://drive.yunle.fun`        | `identity:bootstrap` | `active` |
+| `dayun-kicker-web`  | `dayun-kicker` | 暴力电驴         | `https://dayun-kicker.yunle.fun` | `identity:bootstrap` | `active` |
+| `ai-sfc-web`        | `ai-sfc`       | AI 春联          | `https://ai-sfc.yunle.fun`       | `identity:bootstrap` | `active` |
+| `home-web`          | `home`         | 云之彼端         | `https://home.yunle.fun`         | `identity:bootstrap` | `active` |
+| `wenta-web`         | `wenta`        | 问 TA            | `https://wenta.yunle.fun`        | `identity:bootstrap` | `active` |
+| `play-web`          | `play`         | 云乐坊间         | `https://play.yunle.fun`         | `identity:bootstrap` | `active` |
+| `smap-web`          | `smap`         | SMAP 星际导航    | `https://smap.yunle.fun`         | `identity:bootstrap` | `active` |
+| `studio-web`        | `studio`       | YunYouJun Studio | `https://studio.yunyoujun.cn`    | `identity:bootstrap` | `active` |
+| `support-web`       | `support`      | 云乐坊支持中心   | `https://support.yunle.fun`      | `identity:bootstrap` | `active` |
+| `skykeeper-desktop` | `skykeeper`    | Skykeeper        | 设备授权 Adapter，无 Web Origin  | `membership:read`    | `active` |
 
 `play-web` 已在 Play Consumer 完成回跳、nonce、PKCE、错误 Origin/redirect URI 和失败
 关闭测试，并于 2026-07-26 激活。其 development Origin 与 redirect URI 为
@@ -155,6 +156,12 @@ if (authorization?.ok) {
 `smap-web` 是纯静态 Consumer，仅接受 `https://smap.yunle.fun` Origin 与
 `https://smap.yunle.fun/tabs/profile` 精确回跳，并只请求 `identity:bootstrap`。
 默认 HTTP 本地开发环境不进入 production 或 development Registry。
+
+`studio-web` 是 YunYouJun 的个人创作运营控制面，仅接受
+`https://studio.yunyoujun.cn/` 精确回跳。Provider 只完成身份引导；Studio BFF 继续用
+CloudBase UID 白名单限制唯一 owner。该客户端不出现在公开应用探索图谱中。其 development
+Origin 与 redirect URI 为 `https://studio.yunle.localhost:3454` 和
+`https://studio.yunle.localhost:3454/`。
 
 `support-web` 使用 `https://support.yunle.fun/` 精确回跳。它只把短暂
 CloudBase access token 交给 Support BFF 兑换 HttpOnly 应用会话，随后立即清除浏览器

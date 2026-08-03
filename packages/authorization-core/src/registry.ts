@@ -47,7 +47,7 @@ export const issuerCatalog = {
 
 export const productionRegistry = {
   schemaVersion: 1,
-  policyVersion: '2026-08-03.1',
+  policyVersion: '2026-08-03.2',
   issuer: 'https://www.yunle.fun',
   clients: [
     webClient({
@@ -129,6 +129,13 @@ export const productionRegistry = {
       iconPath: '/favicon.svg',
       origins: ['https://fc.yunle.fun', 'https://fc.elpsy.cn'],
       redirectUris: ['https://fc.yunle.fun/', 'https://fc.elpsy.cn/'],
+    }),
+    webClient({
+      clientId: 'studio-web',
+      appId: 'studio',
+      displayName: 'YunYouJun Studio',
+      origin: 'https://studio.yunyoujun.cn',
+      iconPath: '/icon.svg',
     }),
     webClient({
       clientId: 'support-web',
@@ -227,6 +234,13 @@ export const developmentRegistry = {
       displayName: '怀旧游戏机',
       origin: 'https://fc.yunle.localhost:3453',
       iconPath: '/favicon.svg',
+    }),
+    webClient({
+      clientId: 'studio-web',
+      appId: 'studio',
+      displayName: 'YunYouJun Studio',
+      origin: 'https://studio.yunle.localhost:3454',
+      iconPath: '/icon.svg',
     }),
     webClient({
       clientId: 'support-web',
