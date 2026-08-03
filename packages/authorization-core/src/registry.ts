@@ -3,12 +3,13 @@ import type { ClientRegistrySnapshot } from './registry-types'
 function webSso(
   origin: string,
   redirectUris: readonly string[] = [`${origin}/`],
+  origins: readonly string[] = [origin],
 ) {
   return {
     kind: 'web-sso',
     consent: 'trusted',
     allowedScopes: ['identity:bootstrap'],
-    origins: [origin],
+    origins,
     redirectUris,
   } as const
 }
@@ -19,6 +20,7 @@ function webClient(options: {
   displayName: string
   origin: string
   iconPath: string
+  origins?: readonly string[]
   redirectUris?: readonly string[]
   status?: 'active' | 'disabled'
 }) {
@@ -28,7 +30,7 @@ function webClient(options: {
     displayName: options.displayName,
     iconUrl: new URL(options.iconPath, options.origin).toString(),
     status: options.status ?? 'active',
-    adapters: [webSso(options.origin, options.redirectUris)],
+    adapters: [webSso(options.origin, options.redirectUris, options.origins)],
   } as const
 }
 
@@ -45,7 +47,7 @@ export const issuerCatalog = {
 
 export const productionRegistry = {
   schemaVersion: 1,
-  policyVersion: '2026-08-01.1',
+  policyVersion: '2026-08-03.1',
   issuer: 'https://www.yunle.fun',
   clients: [
     webClient({
@@ -123,8 +125,10 @@ export const productionRegistry = {
       clientId: 'fc-web',
       appId: 'fc',
       displayName: '怀旧游戏机',
-      origin: 'https://fc.elpsy.cn',
+      origin: 'https://fc.yunle.fun',
       iconPath: '/favicon.svg',
+      origins: ['https://fc.yunle.fun', 'https://fc.elpsy.cn'],
+      redirectUris: ['https://fc.yunle.fun/', 'https://fc.elpsy.cn/'],
     }),
     webClient({
       clientId: 'support-web',

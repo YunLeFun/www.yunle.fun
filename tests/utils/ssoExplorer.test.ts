@@ -53,7 +53,7 @@ describe('sso explorer configuration', () => {
     expect(ssoExplorerApps.find(app => app.appId === 'fc')).toMatchObject({
       name: '怀旧游戏机',
       description: '在浏览器中重温经典红白机游戏',
-      logoUrl: 'https://fc.elpsy.cn/favicon.svg',
+      logoUrl: 'https://fc.yunle.fun/favicon.svg',
     })
   })
 

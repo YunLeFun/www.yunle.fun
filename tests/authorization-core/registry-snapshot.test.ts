@@ -197,14 +197,14 @@ describe('production authorization registry', () => {
       clientId: 'fc-web',
       appId: 'fc',
       displayName: '怀旧游戏机',
-      iconUrl: 'https://fc.elpsy.cn/favicon.svg',
+      iconUrl: 'https://fc.yunle.fun/favicon.svg',
       status: 'active',
       adapters: [{
         kind: 'web-sso',
         consent: 'trusted',
         allowedScopes: ['identity:bootstrap'],
-        origins: ['https://fc.elpsy.cn'],
-        redirectUris: ['https://fc.elpsy.cn/'],
+        origins: ['https://fc.yunle.fun', 'https://fc.elpsy.cn'],
+        redirectUris: ['https://fc.yunle.fun/', 'https://fc.elpsy.cn/'],
       }],
     })
 

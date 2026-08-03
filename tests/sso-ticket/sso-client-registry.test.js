@@ -22,7 +22,7 @@ describe('sSO Client Registry adapter', () => {
       returnUrl: 'https://cms.yunle.fun/',
       scopes: ['identity:bootstrap'],
       consent: 'trusted',
-      policyVersion: '2026-08-01.1',
+      policyVersion: '2026-08-03.1',
     })
   })
 
@@ -42,8 +42,30 @@ describe('sSO Client Registry adapter', () => {
       returnUrl: 'https://smap.yunle.fun/tabs/profile',
       scopes: ['identity:bootstrap'],
       consent: 'trusted',
-      policyVersion: '2026-08-01.1',
+      policyVersion: '2026-08-03.1',
     })
+  })
+
+  it('authorizes the FC primary and compatibility callbacks', () => {
+    const registry = createSsoClientRegistry({ issuerEnvironment: 'production' })
+
+    for (const origin of ['https://fc.yunle.fun', 'https://fc.elpsy.cn']) {
+      expect(registry.authorize({
+        clientId: 'fc-web',
+        origin,
+        returnUrl: `${origin}/`,
+        scopes: ['identity:bootstrap'],
+      })).toMatchObject({
+        issuer: 'https://www.yunle.fun',
+        clientId: 'fc-web',
+        appId: 'fc',
+        origin,
+        returnUrl: `${origin}/`,
+        scopes: ['identity:bootstrap'],
+        consent: 'trusted',
+        policyVersion: '2026-08-03.1',
+      })
+    }
   })
 
   it('requires client id, exact origin, exact redirect and explicit scope', () => {
