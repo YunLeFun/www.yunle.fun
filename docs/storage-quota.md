@@ -204,6 +204,7 @@
 
 - Saier 项目文件：`kind: "project"`，不使用 `slotKey`。
 - Saier 笔刷库：`kind: "brush-library"`、`slotKey: "default"`、固定文件名 `brush-library.saier.brushes.json`、`contentType: "application/json"`，单文件额外限制 256KiB。
+- 素材原图：`kind: "asset"`，不使用 `slotKey`，非 singleton；仅接受扩展名与 `contentType` 一致的 JPEG、PNG、WebP、SVG，沿用 200MiB 单文件上限和用户共享存储额度。可选 `sha256` 只作为客户端候选值保存，文件头、尺寸、权威哈希和 SVG 栅格预览由 Drive 素材层校验与生成。
 - `brush-library` 是 singleton：`finalizeStorageUpload` 成功后，同一 `userId + appId + kind + slotKey` 只保留最新 active 文件，并释放旧文件 quota。
 
 ### `downloadStorageFile`
@@ -270,5 +271,5 @@
 - Web 直传只为一方站点配置精确 CORS Origin，允许 `PUT` / `GET`，允许请求头 `Content-Type`；
   不使用带凭证的通配 Origin。
 
-CloudBase 默认云存储仅承载公开可读内容（例如头像）。用户项目、笔刷库等私有内容统一进入独立私有 COS，
+CloudBase 默认云存储仅承载公开可读内容（例如头像）。用户项目、笔刷库、素材原图等私有内容统一进入独立私有 COS，
 两类对象不得混存。

@@ -29,8 +29,22 @@ const STORAGE_RESERVATION_TTL_MS = 30 * 60 * 1000
 const STORAGE_QUOTA_MAX_RETRY = 5
 
 const STORAGE_FILE_KIND = Object.freeze({
+  ASSET: 'asset',
   BRUSH_LIBRARY: 'brush-library',
   PROJECT: 'project',
+})
+
+const ASSET_IMAGE_CONTENT_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/svg+xml',
+  'image/webp',
+])
+const ASSET_IMAGE_EXTENSIONS = Object.freeze({
+  'image/jpeg': new Set(['jpg', 'jpeg']),
+  'image/png': new Set(['png']),
+  'image/svg+xml': new Set(['svg']),
+  'image/webp': new Set(['webp']),
 })
 
 const SAIER_APP_ID = 'saier'
@@ -138,6 +152,11 @@ function normalizeFileName(value) {
   return cleaned || 'file'
 }
 
+function fileExtension(value) {
+  const match = String(value || '').toLowerCase().match(/\.([a-z0-9]{1,12})$/)
+  return match?.[1] || ''
+}
+
 function makeStorageKey({ userId, appId, reservationId, fileName }) {
   return [
     'user-storage',
@@ -149,6 +168,20 @@ function makeStorageKey({ userId, appId, reservationId, fileName }) {
 }
 
 function resolveStoragePolicy({ appId, contentType, fileName, kind, sizeBytes, slotKey }) {
+  if (kind === STORAGE_FILE_KIND.ASSET) {
+    if (slotKey)
+      throw new Error('asset 文件不支持 slotKey')
+    const mediaType = normalizeMediaType(contentType)
+    if (!ASSET_IMAGE_CONTENT_TYPES.has(mediaType))
+      throw new Error(`asset 不支持 contentType: ${mediaType || '(empty)'}`)
+    if (!ASSET_IMAGE_EXTENSIONS[mediaType].has(fileExtension(fileName)))
+      throw new Error('asset 文件扩展名与 contentType 不匹配')
+    return {
+      maxBytes: SINGLE_FILE_LIMIT_BYTES,
+      singleton: false,
+    }
+  }
+
   if (kind === STORAGE_FILE_KIND.BRUSH_LIBRARY) {
     if (appId !== SAIER_APP_ID)
       throw new Error('brush-library 仅支持 appId=saier')
@@ -425,6 +458,7 @@ function toFileSummary(file) {
     storageRegion: file.storageRegion || '',
     objectKey: file.objectKey || file.storageKey || '',
     objectETag: file.objectETag || '',
+    sha256Candidate: file.sha256Candidate || '',
     sizeBytes: safeNonNegativeInteger(file.sizeBytes),
     reservedSizeBytes: safeNonNegativeInteger(file.reservedSizeBytes),
     reservationExpiresAt: file.reservationExpiresAt || null,
@@ -635,6 +669,10 @@ async function reserveStorageUpload(db, input) {
 
   const storageKey = makeStorageKey({ userId, appId, reservationId, fileName })
   const reservationExpiresAt = now + STORAGE_RESERVATION_TTL_MS
+  const sha256Input = assertOptionalString(input.sha256, 'sha256', 128)
+  const sha256Candidate = kind === STORAGE_FILE_KIND.ASSET ? sha256Input.toLowerCase() : ''
+  if (sha256Candidate && !/^[a-f0-9]{64}$/.test(sha256Candidate))
+    throw new Error('sha256 必须为 64 位十六进制字符串')
 
   const quota = await tryReserveQuota(db, { userId, sizeBytes, now })
   const fileDoc = {
@@ -651,7 +689,9 @@ async function reserveStorageUpload(db, input) {
     fileId: '',
     sizeBytes: 0,
     reservedSizeBytes: sizeBytes,
-    sha256: assertOptionalString(input.sha256, 'sha256', 128),
+    ...(kind === STORAGE_FILE_KIND.ASSET
+      ? { sha256Candidate }
+      : { sha256: sha256Input }),
     reservationExpiresAt,
     createdAt: now,
     updatedAt: now,
