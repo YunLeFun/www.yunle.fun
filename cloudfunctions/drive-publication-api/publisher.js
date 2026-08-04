@@ -5,7 +5,7 @@ const { createHash, timingSafeEqual } = require('node:crypto')
 const process = require('node:process')
 
 const DEFAULT_PRIVATE_BUCKET = 'yunlefun-drive-prod-1325586649'
-const DEFAULT_PUBLIC_BUCKET = 'yunlefun-public-prod-1325586649'
+const DEFAULT_PUBLIC_BUCKET = 'yunyoujun-assets-prod-1325586649'
 const DEFAULT_REGION = 'ap-shanghai'
 const DEFAULT_PUBLIC_BASE_URL = 'https://assets.yunyoujun.cn'
 const MAX_SIMPLE_COPY_BYTES = 5 * 1024 ** 3

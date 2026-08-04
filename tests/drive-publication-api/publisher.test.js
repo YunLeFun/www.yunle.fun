@@ -14,7 +14,7 @@ const BODY = Buffer.from('yunlefun-drive-publication-smoke-v1\n')
 const SHA256 = createHash('sha256').update(BODY).digest('hex')
 const SOURCE_KEY = 'private/yunlefun/studio/smoke-test/publication-smoke.txt'
 const PUBLIC_KEY = `published/users/${USER_ID}/projects/studio/assets/smoke-test/${SHA256}.txt`
-const PUBLIC_BUCKET = 'yunlefun-public-prod-1325586649'
+const PUBLIC_BUCKET = 'yunyoujun-assets-prod-1325586649'
 
 function headers(input = {}) {
   return {
