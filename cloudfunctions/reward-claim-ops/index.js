@@ -6,7 +6,7 @@ const crypto = require('node:crypto')
 const process = require('node:process')
 const cloudbase = require('@cloudbase/node-sdk')
 
-const { formatRewardClaimAlert, runRewardClaimOps } = require('./ops')
+const { buildRewardClaimAlertCard, runRewardClaimOps } = require('./ops')
 const { createRewardClaimOpsStore } = require('./store')
 
 function requiredEnv(name) {
@@ -41,10 +41,8 @@ function createWebhookNotifier() {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        msg_type: 'text',
-        content: {
-          text: formatRewardClaimAlert(alert, adminUrl),
-        },
+        msg_type: 'interactive',
+        card: buildRewardClaimAlertCard(alert, adminUrl),
       }),
     })
     const body = await response.json().catch(() => null)
