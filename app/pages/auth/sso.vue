@@ -6,6 +6,7 @@ import {
   readSsoCodeChallenge,
   readSsoCodeChallengeMethod,
   readSsoNonce,
+  readSsoPrompt,
   readSsoRedirectUri,
   readSsoScope,
   SSO_REDIRECT_HASH_KEY,
@@ -28,10 +29,23 @@ useHead({
 const route = useRoute()
 const router = useRouter()
 const { app, auth } = useCloudbase()
-const { authReady, authStatus, checkAuthStatus } = useTcbAuthSession()
+const { authReady, authStatus, checkAuthStatus, logout, user } = useTcbAuthSession()
 
-const status = shallowRef<'checking' | 'success' | 'error'>('checking')
+const status = shallowRef<'checking' | 'confirmation' | 'success' | 'error'>('checking')
 const message = shallowRef('正在同步云乐坊账号...')
+
+interface PendingAuthorization {
+  clientId: string
+  targetOrigin: string
+  returnUrl: string
+  scope: string
+  nonce: string
+  codeChallenge: string
+}
+
+const pendingAuthorization = shallowRef<PendingAuthorization | null>(null)
+const accountSwitchAllowed = shallowRef(false)
+const currentAccountName = computed(() => user.value?.nickname || user.value?.login || '云乐坊账号')
 
 interface SsoCodeResult {
   ok?: boolean
@@ -84,10 +98,71 @@ function redirectBack(redirectUri: string, nonce: string, code: string): void {
   window.location.replace(url.toString())
 }
 
+function redirectDenied(redirectUri: string, nonce: string): void {
+  const url = new URL(redirectUri)
+  url.hash = `${SSO_REDIRECT_HASH_KEY}=${encodeSsoRedirectResult({
+    nonce,
+    issuer: window.location.origin,
+    ok: false,
+    reason: 'access_denied',
+  })}`
+  status.value = 'success'
+  message.value = '已取消授权，正在返回…'
+  window.location.replace(url.toString())
+}
+
 function rejectInvalidRequest(): void {
   status.value = 'error'
   message.value = 'SSO 请求参数无效。'
   console.warn('[sso] rejected invalid SSO v3 request')
+}
+
+async function authorize(request: PendingAuthorization): Promise<void> {
+  status.value = 'checking'
+  message.value = '正在获取一次性授权…'
+  const code = await issueSsoCode(request)
+  redirectBack(request.returnUrl, request.nonce, code)
+}
+
+async function continueWithCurrentAccount(): Promise<void> {
+  const request = pendingAuthorization.value
+  if (!request || status.value !== 'confirmation')
+    return
+  try {
+    await authorize(request)
+  }
+  catch (error) {
+    handleAuthorizationFailure(error)
+  }
+}
+
+function denyAuthorization(): void {
+  const request = pendingAuthorization.value
+  if (!request || status.value !== 'confirmation')
+    return
+  redirectDenied(request.returnUrl, request.nonce)
+}
+
+async function loginWithOtherAccount(): Promise<void> {
+  const returnTo = router.currentRoute.value.fullPath
+  status.value = 'checking'
+  message.value = '正在准备其他账号登录…'
+  try {
+    await logout()
+    await navigateTo({
+      path: '/login',
+      query: { redirect: returnTo },
+    })
+  }
+  catch (error) {
+    handleAuthorizationFailure(error)
+  }
+}
+
+function handleAuthorizationFailure(error: unknown): void {
+  console.error('[sso] authorization failed:', error)
+  status.value = 'error'
+  message.value = 'SSO 请求未获授权，请检查客户端注册或稍后重试。'
 }
 
 onMounted(async () => {
@@ -97,12 +172,17 @@ onMounted(async () => {
   const nonce = readSsoNonce(route.query.nonce)
   const codeChallenge = readSsoCodeChallenge(route.query.code_challenge)
   const codeChallengeMethod = readSsoCodeChallengeMethod(route.query.code_challenge_method)
+  const rawPrompt = Array.isArray(route.query.prompt)
+    ? String(route.query.prompt[0] ?? '')
+    : String(route.query.prompt ?? '')
+  const prompt = readSsoPrompt(rawPrompt)
   if (!clientId
     || !redirectUri
     || !scopes.length
     || !nonce
     || !codeChallenge
-    || codeChallengeMethod !== 'S256') {
+    || codeChallengeMethod !== 'S256'
+    || (rawPrompt && !prompt)) {
     rejectInvalidRequest()
     return
   }
@@ -131,20 +211,25 @@ onMounted(async () => {
       return
     }
 
-    const code = await issueSsoCode({
+    const request = {
       clientId,
       targetOrigin: new URL(redirectUri).origin,
       returnUrl: redirectUri,
       scope: scopes.join(' '),
       nonce,
       codeChallenge,
-    })
-    redirectBack(redirectUri, nonce, code)
+    }
+    pendingAuthorization.value = request
+    if (prompt === 'consent' || prompt === 'select_account') {
+      accountSwitchAllowed.value = prompt === 'select_account'
+      status.value = 'confirmation'
+      message.value = '确认用于登录的云乐坊账号。'
+      return
+    }
+    await authorize(request)
   }
   catch (error) {
-    console.error('[sso] authorization failed:', error)
-    status.value = 'error'
-    message.value = 'SSO 请求未获授权，请检查客户端注册或稍后重试。'
+    handleAuthorizationFailure(error)
   }
 })
 </script>
@@ -156,6 +241,11 @@ onMounted(async () => {
         v-if="status === 'checking'"
         name="i-lucide-loader-circle"
         class="h-14 w-14 animate-spin text-primary"
+      />
+      <UIcon
+        v-else-if="status === 'confirmation'"
+        name="i-lucide-user-round-check"
+        class="h-14 w-14 text-primary"
       />
       <UIcon
         v-else-if="status === 'success'"
@@ -176,6 +266,60 @@ onMounted(async () => {
       <p class="mx-auto max-w-full whitespace-normal break-words text-center text-sm leading-6 text-muted [overflow-wrap:anywhere]">
         {{ message }}
       </p>
+    </div>
+
+    <div v-if="status === 'confirmation'" class="w-full space-y-4 text-left">
+      <div class="flex items-center gap-3 rounded-2xl border border-default bg-default/70 p-4">
+        <img
+          v-if="user?.avatar"
+          :src="user.avatar"
+          :alt="currentAccountName"
+          class="h-11 w-11 rounded-full object-cover"
+        >
+        <div v-else class="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <UIcon name="i-lucide-user-round" class="h-5 w-5" />
+        </div>
+        <div class="min-w-0 flex-1">
+          <strong class="block truncate text-sm">{{ currentAccountName }}</strong>
+          <span v-if="user?.login" class="block truncate text-xs text-muted">@{{ user.login }}</span>
+        </div>
+      </div>
+
+      <p class="text-center text-xs leading-5 text-muted">
+        应用只会获得用于建立独立会话的一次性身份授权，不会获得密码或云乐坊长期令牌。
+      </p>
+
+      <div class="grid gap-2">
+        <UButton
+          block
+          size="lg"
+          data-testid="sso-continue-current-account"
+          @click="continueWithCurrentAccount"
+        >
+          继续使用此账号
+        </UButton>
+        <UButton
+          v-if="accountSwitchAllowed"
+          block
+          size="lg"
+          color="neutral"
+          variant="soft"
+          data-testid="sso-use-other-account"
+          @click="loginWithOtherAccount"
+        >
+          使用其他账号
+        </UButton>
+        <UButton
+          block
+          size="lg"
+          color="neutral"
+          variant="ghost"
+          data-testid="sso-deny-authorization"
+          @click="denyAuthorization"
+        >
+          取消
+        </UButton>
+      </div>
     </div>
   </div>
 </template>

@@ -83,7 +83,13 @@ describe('sSO v3 Provider page', () => {
       authReady,
       authStatus,
       isAuthenticated: computed(() => authStatus.value === 'authenticated'),
-      user: ref({ id: 'user-1' }),
+      user: ref({
+        id: 'user-1',
+        login: 'yunyou',
+        nickname: '云游君',
+        avatar: '/avatar.png',
+      }),
+      logout: vi.fn(async () => undefined),
       checkAuthStatus: vi.fn(async () => {
         callOrder.push('restore-session')
         authReady.value = true
@@ -112,6 +118,53 @@ describe('sSO v3 Provider page', () => {
       },
     })
     expect(errorSpy).not.toHaveBeenCalled()
+  })
+
+  it('shows the current account and waits for confirmation when account selection is requested', async () => {
+    const wrapper = await mount(requestRoute({ prompt: 'select_account' }))
+
+    expect(wrapper.text()).toContain('云游君')
+    expect(wrapper.text()).toContain('@yunyou')
+    expect(h.state.cloudbase.app.callFunction).not.toHaveBeenCalled()
+
+    await wrapper.get('[data-testid="sso-continue-current-account"]').trigger('click')
+    await flushPromises()
+
+    expect(h.state.cloudbase.app.callFunction).toHaveBeenCalledTimes(1)
+  })
+
+  it('honors consent without offering a Provider account switch', async () => {
+    const wrapper = await mount(requestRoute({ prompt: 'consent' }))
+
+    expect(h.state.cloudbase.app.callFunction).not.toHaveBeenCalled()
+    expect(wrapper.find('[data-testid="sso-continue-current-account"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="sso-use-other-account"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="sso-deny-authorization"]').exists()).toBe(true)
+  })
+
+  it('returns an explicit denial without issuing a code', async () => {
+    const wrapper = await mount(requestRoute({ prompt: 'consent' }))
+
+    await wrapper.get('[data-testid="sso-deny-authorization"]').trigger('click')
+    await flushPromises()
+
+    expect(h.state.cloudbase.app.callFunction).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('已取消授权')
+  })
+
+  it('clears the current Provider session before logging in with another account', async () => {
+    const wrapper = await mount(requestRoute({ prompt: 'select_account' }))
+
+    await wrapper.get('[data-testid="sso-use-other-account"]').trigger('click')
+    await flushPromises()
+
+    expect(h.state.authSession.logout).toHaveBeenCalledTimes(1)
+    const destination = h.state.navigateTo.mock.calls.at(-1)?.[0]
+    expect(destination.path).toBe('/login')
+    const preserved = new URL(destination.query.redirect, 'https://www.yunle.fun')
+    expect(preserved.pathname).toBe('/auth/sso')
+    expect(preserved.searchParams.get('prompt')).toBe('select_account')
+    expect(h.state.cloudbase.app.callFunction).not.toHaveBeenCalled()
   })
 
   it('accepts the CloudBase SDK result envelope without changing protocol semantics', async () => {
@@ -153,6 +206,7 @@ describe('sSO v3 Provider page', () => {
       requestRoute({ scope: '' }),
       requestRoute({ client_id: '' }),
       requestRoute({ code_challenge_method: 'plain' }),
+      requestRoute({ prompt: 'login' }),
     ]) {
       const wrapper = await mount(route)
       expect(wrapper.text()).toContain('SSO 请求参数无效')
