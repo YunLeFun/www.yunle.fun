@@ -14,6 +14,7 @@ const BODY = Buffer.from('yunlefun-drive-publication-smoke-v1\n')
 const SHA256 = createHash('sha256').update(BODY).digest('hex')
 const SOURCE_KEY = 'private/yunlefun/studio/smoke-test/publication-smoke.txt'
 const PUBLIC_KEY = `published/users/${USER_ID}/projects/studio/assets/smoke-test/${SHA256}.txt`
+const PUBLIC_BUCKET = 'yunlefun-public-prod-1325586649'
 
 function headers(input = {}) {
   return {
@@ -32,7 +33,7 @@ function makeCos() {
   return {
     getObjectStream: vi.fn(() => Readable.from(BODY)),
     headObject: vi.fn(async ({ Bucket }) => {
-      if (Bucket.startsWith('7975-')) {
+      if (Bucket === PUBLIC_BUCKET) {
         if (!target)
           throw Object.assign(new Error('not found'), { code: 'NoSuchKey', statusCode: 404 })
         return { ETag: '"target-etag"', headers: target }
@@ -84,7 +85,7 @@ describe('drive publication COS broker', () => {
     await expect(publisher(cos)(event())).resolves.toEqual({
       deduped: false,
       publicKey: PUBLIC_KEY,
-      publicUrl: `https://7975-yunlefun-8g7ybcxc7345c490-1325586649.tcb.qcloud.la/${PUBLIC_KEY}`,
+      publicUrl: `https://assets.yunyoujun.cn/${PUBLIC_KEY}`,
       status: 'ready',
     })
     expect(cos.putObjectCopy).toHaveBeenCalledWith(expect.objectContaining({

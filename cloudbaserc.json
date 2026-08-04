@@ -147,7 +147,7 @@
     },
     {
       "name": "drive-publication-api",
-      "description": "Drive 私有源到 CloudBase 公共只读存储的最小权限发布代理",
+      "description": "Drive 私有源到 YunLeFun 公共只读存储的最小权限发布代理",
       "timeout": 120,
       "runtime": "Nodejs18.15",
       "handler": "index.main",
@@ -158,9 +158,9 @@
       "envVariables": {
         "DRIVE_PRIVATE_COS_BUCKET": "yunlefun-drive-prod-1325586649",
         "DRIVE_PRIVATE_COS_REGION": "ap-shanghai",
-        "DRIVE_PUBLIC_COS_BUCKET": "7975-yunlefun-8g7ybcxc7345c490-1325586649",
+        "DRIVE_PUBLIC_COS_BUCKET": "yunlefun-public-prod-1325586649",
         "DRIVE_PUBLIC_COS_REGION": "ap-shanghai",
-        "DRIVE_PUBLIC_BASE_URL": "https://7975-yunlefun-8g7ybcxc7345c490-1325586649.tcb.qcloud.la",
+        "DRIVE_PUBLIC_BASE_URL": "https://assets.yunyoujun.cn",
         "DRIVE_PUBLISH_ALLOWED_USER_IDS": "{{env.DRIVE_PUBLISH_ALLOWED_USER_IDS}}",
         "DRIVE_PUBLISH_SOURCE_TENANT_ID": "yunlefun",
         "DRIVE_PUBLISH_INTERNAL_TOKEN": "{{env.DRIVE_PUBLISH_INTERNAL_TOKEN}}"
