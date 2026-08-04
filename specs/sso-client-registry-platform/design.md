@@ -1,6 +1,6 @@
 # SSO Client Registry 平台化设计
 
-状态：Confirmed（2026-08-03）
+状态：Confirmed；运行时 shadow 部分由 P1.1 静态发布决策取代（2026-08-04）
 对应需求：`requirements.md` R1–R10
 
 ## 1. 归属决策
@@ -27,18 +27,17 @@ flowchart LR
   GENERATED --> WWW["www / explore"]
   GENERATED --> TICKET["sso-ticket<br/>静态裁决"]
   GENERATED --> DESKTOP["desktop-auth<br/>静态裁决"]
-  DB -->|"冷启动 / TTL 影子读取"| TICKET
-  DB -->|"冷启动 / TTL 影子读取"| DESKTOP
-  TICKET -->|"一致 / 漂移 / 无效事件"| LOGS["CloudBase Logs"]
-  DESKTOP -->|"一致 / 漂移 / 无效事件"| LOGS
+  DB -->|"私有活动信封"| COMPARE["CI / 部署 smoke<br/>显式 compare"]
+  GENERATED --> COMPARE
+  COMPARE -->|"一致 / 漂移 / 无效"| LOGS["发布门禁 / 告警"]
 ```
 
 核心原则：
 
 1. **管理源与裁决源分离**：P1 的管理源是 NoSQL，裁决源仍是编译期静态快照。
-2. **发布而非实时配置**：草稿不会被运行时读取，只有已签名活动快照可进入影子链路。
+2. **发布而非实时配置**：草稿和活动快照不会被授权运行时读取，只有 generated JSON 随部署进入裁决。
 3. **同环境读取**：production 与 development 各自在自己的 CloudBase 环境保存 Registry，不跨环境读库。
-4. **无请求级数据库依赖**：授权请求只触发有界、单飞的缓存刷新。
+4. **无请求级数据库依赖**：shadow compare 由 CI、部署 smoke 或独立任务执行，不挂接授权请求。
 5. **Consumer 无平台依赖**：Consumer 继续只配置 `clientId`、scope 和精确 callback。
 
 ## 3. 模块边界
@@ -60,9 +59,6 @@ flowchart LR
 - `registry-trust.ts`
   - 保存经过代码评审的 environment -> keyId -> public JWK 信任锚
   - 只在 Registry 签名密钥轮换时修改，不随客户端配置变化
-- `registry-shadow.ts`
-  - 接收数据库加载 adapter，不直接依赖 CloudBase SDK
-  - 提供 TTL、single-flight、超时、漂移分类和日志去重
 - `generated/production-registry.json`
 - `generated/development-registry.json`
   - 保存签名发布信封及其 Registry 内容
@@ -110,13 +106,7 @@ flowchart LR
 
 ### 3.4 授权函数适配
 
-`sso-ticket` 与 `desktop-auth` 各增加很薄的 CloudBase store adapter：
-
-1. 从本环境的活动指针读取 snapshotId。
-2. 读取对应不可变快照。
-3. 把签名信封交给 `authorization-core` 校验和比较。
-
-两个函数继续把 `productionRegistry` / `developmentRegistry` 传给 `createAuthorizationCore`；平台快照绝不进入 P1 的 `authorize()` 裁决参数。
+`sso-ticket` 与 `desktop-auth` 只把 `productionRegistry` / `developmentRegistry` 传给 `createAuthorizationCore`。它们不携带 CloudBase shadow store adapter，不读取活动指针或快照；签名信封的读取、验证与比较由 `scripts/sso-registry.mjs compare` 在授权请求之外完成。
 
 ## 4. NoSQL 数据设计
 
@@ -253,7 +243,7 @@ signature = Ed25519.sign(
 
 禁止复用身份断言、desktop entitlement 或 custom ticket 的签名密钥。
 
-签名公钥作为非秘密信任锚进入 `authorization-core/registry-trust.ts`。运行时和普通
+签名公钥作为非秘密信任锚进入 `authorization-core/registry-trust.ts`。导出、compare 和普通
 PR CI 只信任该目录中已经代码评审的 keyId；数据库返回的公钥不得建立信任。密钥轮换
 需要先提交新公钥、发布验证方，再切换管理函数私钥，最后在观察窗口后移除旧公钥。
 
@@ -265,7 +255,7 @@ activationSignature = Ed25519.sign(
 )
 ```
 
-generated 信封记录导出时的 `generation`，运行时拒绝低于编译期 minimumGeneration 的活动指针。合法回滚会创建更高 generation 的新活动指针，因此不会被误判为重放。
+generated 信封记录导出时的 `generation`，导出和 compare 拒绝低于编译期 minimumGeneration 的活动指针。合法回滚会创建更高 generation 的新活动指针，因此不会被误判为重放。
 
 ## 6. 发布事务
 
@@ -294,38 +284,22 @@ generated 信封记录导出时的 `generation`，运行时拒绝低于编译期
 4. 原子更新状态并写入审计事件。
 5. 不修改目标历史快照，也不伪造新的 policyVersion。
 
-## 7. 影子加载
+## 7. Shadow compare
 
-`createRegistryShadowObserver()` 维护每个函数实例内的缓存：
+`scripts/sso-registry.mjs compare --environment <environment>` 通过私有 `getActiveEnvelope` 读取活动信封，在代码信任锚下验证 Schema、签名、environment、issuer 和 generation，再与仓库 generated JSON 做字节级比较。
 
-- 默认 TTL：300 秒
-- 单飞刷新：同一实例同时只有一个数据库加载 Promise
-- 有界等待：单次请求最多等待 250ms；超时后继续静态裁决
-- 日志去重：同一 hash/status 变化时记录，避免每个请求刷屏
-- 最后成功快照只用于比较，不用于授权
-
-事件分类：
-
-- `registry_shadow_match`
-- `registry_shadow_display_drift`
-- `registry_shadow_security_drift`
-- `registry_shadow_unavailable`
-- `registry_shadow_invalid`
-- `registry_shadow_signature_invalid`
-- `registry_shadow_activation_replayed`
-
-事件只记录 environment、snapshotId、generation、policyVersion、哈希和错误码，不记录完整 Registry、签名或任何密钥。
+该命令由受保护 CI、部署 smoke 或独立受控监控任务执行。成功记录 match；漂移、不可用、签名错误或重放使发布门禁失败或触发告警。日志只记录 environment、snapshotId、generation、policyVersion、哈希和错误码，不记录完整 Registry、签名或任何密钥。
 
 ## 8. 权限与威胁模型
 
 | 威胁                   | 防护                                              |
 | ---------------------- | ------------------------------------------------- |
 | 普通用户读写 Registry  | 四个集合 ADMINONLY，发布函数无客户端调用权限      |
-| 数据库文档被直接篡改   | 快照与活动指针分别签名，运行时使用独立公钥验证    |
+| 数据库文档被直接篡改   | 快照与活动指针分别签名，compare 使用独立公钥验证  |
 | 旧快照重放             | 签名 generation + 编译期 minimumGeneration        |
 | 并行发布覆盖           | baseSnapshotId 乐观锁 + NoSQL 事务                |
 | 发布函数私钥泄露       | 独立密钥、只存函数 env、日志与响应禁止输出        |
-| 数据库或网络故障       | 静态 Registry 继续裁决，影子刷新超时并降级        |
+| 数据库或网络故障       | 当前静态授权不受影响，compare 阻止发布或告警      |
 | 主站与云函数白名单漂移 | 同一 generated JSON、构建 vendoring 和 CI compare |
 | Consumer 伪造业务归属  | appId 继续只由 Registry 从 clientId 派生          |
 
@@ -356,8 +330,8 @@ generated 信封记录导出时的 `generation`，运行时拒绝低于编译期
 4. 从当前静态 Registry 创建首个草稿。
 5. 发布首个签名快照。
 6. 导出 generated JSON，验证所有 registration fingerprint 不变。
-7. 发布主站与两个授权函数，开启影子观察。
-8. 验证 match、数据库不可用、签名错误和活动指针重放场景。
+7. 发布主站与两个授权函数，并在部署 smoke 中显式执行 compare。
+8. 验证 match、数据库不可用、签名错误和活动指针重放均只影响发布门禁或告警。
 
 production 与 development 独立执行，不把 production 私钥、快照或活动状态复制到 development。
 
@@ -381,7 +355,7 @@ production 与 development 独立执行，不把 production 私钥、快照或�
 
 ### P1 立即切换动态裁决
 
-拒绝。先通过影子期验证数据、签名、缓存、故障与回滚，再单独评审切换。
+拒绝。先通过独立 compare 验证数据、签名、故障与回滚，再单独评审切换。
 
 ## 11. 测试策略
 
@@ -390,10 +364,10 @@ production 与 development 独立执行，不把 production 私钥、快照或�
 - 签名测试：正确、错误 key、内容篡改、错误 domain separator
 - 发布事务测试：幂等、并发 base 冲突、事务回滚
 - 回滚测试：generation 递增、历史快照不变
-- shadow 测试：match、展示漂移、安全漂移、超时、单飞、签名错误、重放
+- compare 测试：match、展示漂移、安全漂移、签名错误、重放和管理面不可用
 - 兼容性测试：所有现有 production/development 客户端授权结果和 fingerprint 不变
 - 构建测试：主站、`sso-ticket`、`desktop-auth` 使用同一 generated 信封
-- 生产 smoke：活动快照加载成功且只产生 match，不改变授权响应
+- 生产 smoke：显式 compare 成功且授权请求不读取 Registry 管理数据库
 
 ## 12. 上线与回退
 
@@ -403,7 +377,7 @@ production 与 development 独立执行，不把 production 私钥、快照或�
 2. `sso-registry-admin`
 3. 首次签名快照与 generated 文件
 4. 主站
-5. `sso-ticket`、`desktop-auth` 影子代码
-6. 生产 smoke 与观察
+5. `sso-ticket`、`desktop-auth` 静态产物
+6. 生产 compare smoke 与观察
 
-P1 回退只需关闭 shadow observer 或回滚授权函数代码；静态 Registry 始终存在，因此不需要修改数据库即可恢复原行为。管理数据保留供修复后继续使用。
+P1 回退使用最后已验证的 generated JSON 对应提交或产物；静态 Registry 始终存在，管理数据库故障不需要改授权函数即可维持现有行为。管理数据保留供修复后继续使用。

@@ -191,12 +191,8 @@ function parseClient(value: unknown, environment: RegistryEnvironment, path: str
   }
 }
 
-export function parseRegistryEnvironment(value: unknown, path = '$.environment'): RegistryEnvironment {
+function parseRegistryEnvironment(value: unknown, path = '$.environment'): RegistryEnvironment {
   return enumValue(value, ['development', 'production'] as const, path)
-}
-
-export function issuerForRegistryEnvironment(environment: RegistryEnvironment): string {
-  return ISSUERS[environment]
 }
 
 export function parseClientRegistrySnapshot(value: unknown, options: {
@@ -282,7 +278,7 @@ export function parseRegistrySnapshotRecord(value: unknown, options: {
   }
 }
 
-export function parseRegistryActivationRecord(value: unknown, options: {
+function parseRegistryActivationRecord(value: unknown, options: {
   environment: RegistryEnvironment
   path?: string
 }): RegistryActivationRecord {

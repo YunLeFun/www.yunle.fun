@@ -5,7 +5,7 @@
 对应设计：`design.md`
 
 - [x] 1. 将已确认的需求与设计落入 Provider 仓库
-  - 保留 P1 静态裁决、NoSQL 管理源、签名快照和影子验证边界
+  - 保留 P1 静态裁决、NoSQL 管理源、签名快照和显式 compare 边界
   - 明确 Provider、CloudBase、未来 Admin UI 与 Consumer 的所有权
   - _Requirements: R1–R10_
 
@@ -44,27 +44,26 @@
   - 输出/比较字节稳定产物且不接触签名私钥
   - _Requirements: R2, R5, R9, R10_
 
-- [x] 7. 实现纯内核影子观察器
-  - 实现 TTL、single-flight、250ms 有界等待和状态去重
-  - 分类 match、display drift、security drift、不可用、无效、签名失败和重放
-  - 平台结果只用于比较，永不进入 P1 authorize 裁决参数
+- [x] 7. 将 shadow compare 收敛到显式发布门禁
+  - 复用签名活动信封验证和确定性 generated JSON 比较
+  - 由 CLI、CI、部署 smoke 或独立监控执行，不挂接授权请求
+  - 删除运行时 observer、CloudBase shadow adapter 和环境开关
   - _Requirements: R6, R10_
 
-- [x] 8. 接入 `sso-ticket` 与 `desktop-auth`
-  - 增加只读 CloudBase store adapter
-  - 在冷启动/TTL 到期触发观察，不按请求实时查库
-  - 数据库或验签异常时继续使用现有静态 Registry
-  - 增加适配器与授权不变回归测试
+- [x] 8. 保持 `sso-ticket` 与 `desktop-auth` 静态只读
+  - 两个函数只 vendoring authorization-core 与 generated JSON
+  - 请求入口不读取 Registry 管理数据库或等待 compare
+  - 增加云函数 artifact 与部署清单回归测试
   - _Requirements: R6, R9, R10_
 
 - [x] 9. 补齐资源与部署契约
   - 声明四个 ADMINONLY 集合及必要索引
-  - 在 production/development 清单中声明 Event Function、独立密钥和影子开关
+  - 在 production/development 清单中声明 Event Function 与独立密钥
   - 更新环境变量示例、云函数文档、密钥轮换与回退说明
   - _Requirements: R4, R7, R8, R10_
 
 - [x] 10. 完成验证与 CloudBase 代码审查
-  - 运行 authorization-core、admin、shadow、sso-ticket、desktop-auth 定向测试
+  - 运行 authorization-core、admin、compare、sso-ticket、desktop-auth 定向测试
   - 运行 lint、typecheck、全量 test、build 和 `git diff --check`
   - 按 CloudBase code-review 规则检查权限、集合、函数类型和 SDK 使用
   - _Requirements: R1–R10_
@@ -73,5 +72,5 @@
   - 分别生成并托管 production/development 独立 Registry 私钥
   - 创建集合、索引和 ADMINONLY 权限并部署管理函数
   - seed、发布、导出首个签名快照并提交公钥信任锚
-  - 先发布验证方，再开启 shadow，完成 match/故障/篡改/回滚 smoke
+  - 先发布验证方，再通过独立 compare 完成 match/故障/篡改/回滚 smoke
   - _Requirements: R4, R6, R7, R8, R9, R10_

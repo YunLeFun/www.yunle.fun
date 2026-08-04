@@ -18,7 +18,6 @@ const {
   createProofOfPossessionVerifier,
   deviceJwkThumbprint,
 } = require('@yunlefun/authorization-core')
-const { createCloudBaseRegistryShadow } = require('@yunlefun/cloudbase-registry-shadow')
 
 const { assertActiveAccountForUid, getAccountForUid } = require('./lib/account-proxy')
 const { createDesktopClientRegistry } = require('./lib/client-registry')
@@ -45,30 +44,6 @@ const {
 const app = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV })
 const db = app.database()
 const callAccountApi = data => app.callFunction({ name: 'account-api', data }).then(result => result.result)
-
-let registryShadow
-function getRegistryShadow() {
-  if (registryShadow)
-    return registryShadow
-  registryShadow = createCloudBaseRegistryShadow({
-    db,
-    environment: issuerEnvironment(),
-    enabled: process.env.SSO_REGISTRY_SHADOW_ENABLED === 'true',
-    logPrefix: 'desktop-auth',
-    logger: console,
-  })
-  return registryShadow
-}
-
-async function observeRegistryShadow() {
-  try {
-    return await getRegistryShadow().observe()
-  }
-  catch (error) {
-    console.warn('[desktop-auth] registry_shadow observer failure', error?.code || error?.message || 'unknown')
-    return null
-  }
-}
 
 function decodeSigningKey(raw) {
   const value = String(raw).trim()
@@ -331,7 +306,6 @@ exports.main = async (event) => {
   const isHttp = !!event?.httpMethod
   if (isHttp && event.httpMethod === 'OPTIONS')
     return httpResponse(204, {})
-  await observeRegistryShadow()
 
   let payload = event || {}
   if (isHttp) {
@@ -361,9 +335,7 @@ exports.main = async (event) => {
 
 exports._private = {
   buildEntitlement,
-  getRegistryShadow,
   handleHttp,
   handleSdk,
-  observeRegistryShadow,
   statusForError,
 }

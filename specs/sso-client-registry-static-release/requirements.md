@@ -8,7 +8,7 @@
 
 ## 1. 背景与决策
 
-P1 已实现 NoSQL 草稿、严格 Schema、不可变签名快照、generated JSON、影子验证与回滚边界。当前 Registry 约 12 个客户端、生产 generated JSON 约 6.9 KiB；没有必要为了免部署而把数据库引入授权关键路径。
+P1 已实现 NoSQL 草稿、严格 Schema、不可变签名快照、generated JSON、显式 shadow compare 与回滚边界。当前 Registry 约 12 个客户端、production generated JSON 为 KiB 级；没有必要为了免部署而把数据库引入授权关键路径。
 
 P1.1 继续让 generated 静态 JSON 成为唯一生产授权裁决源。管理平台负责草稿、校验、差异、审批、签名快照和审计；production 审批通过后，由受保护 CI 自动生成确定性 JSON、完成验证并部署到静态消费者。
 
@@ -139,9 +139,9 @@ production 部署只能从受保护默认分支上的准确 merge commit 执行�
 
 CI dispatch、PR、合并、部署回执均必须按 releaseIntentId 幂等重试。
 
-### R9. Shadow 与一致性
+### R9. Shadow compare 与一致性
 
-P1 shadow observer 保留，但只用于比较。已批准、尚未部署的快照与当前静态 Registry 不一致时，应分类为 `pending_release`，不得误报为未知安全篡改。
+Shadow compare 由 `scripts/sso-registry.mjs compare` 在 CI、部署 smoke 或独立受控监控任务中显式执行，不挂接 `sso-ticket`、`desktop-auth` 请求入口。已批准、尚未部署的快照与当前静态 Registry 不一致时，应分类为 `pending_release`，不得误报为未知安全篡改。
 
 部署完成后，仓库 generated JSON、发布意图、活动平台快照和已部署消费者的 contentHash/securityHash 必须一致；CI 或 smoke 发现不一致时不得标记 deployed。
 
@@ -149,7 +149,7 @@ P1 shadow observer 保留，但只用于比较。已批准、尚未部署的快�
 
 正式授权热路径不得增加数据库、邮件或 CI 依赖。静态 Registry 在实例初始化时解析并构建 Map/Set；普通授权保持 O(1) 查询。
 
-新增云成本仅在草稿、审批、发布、CI dispatch、shadow 和部署时产生。邮件与 CI 失败重试必须有次数、退避和幂等限制。
+新增云成本仅在草稿、审批、发布、CI dispatch、显式 compare 和部署时产生。邮件与 CI 失败重试必须有次数、退避和幂等限制。
 
 ### R11. 审计与隐私
 
@@ -172,7 +172,7 @@ P1 shadow observer 保留，但只用于比较。已批准、尚未部署的快�
 11. 当发布 PR 合并时，部署应只使用该 merge commit，并在全部 smoke 成功后标记 releaseIntent deployed。
 12. 当某个消费者部署失败时，系统应记录已成功和失败的消费者版本，停止标记 deployed 并支持从同一提交幂等重试。
 13. 当常规 rollback 被请求时，系统应对历史快照执行同一 production 邮件审批、生成、检查和部署流程。
-14. 当 shadow 比较到待部署的已批准快照时，系统应记录 pending_release；部署完成后应恢复 match。
+14. 当 CI、部署 smoke 或独立监控执行 compare 并发现待部署的已批准快照时，系统应记录 pending_release；部署完成后应恢复 match。
 15. 当管理员换绑已验证邮箱时，下一次审批应发送到新邮箱且无需代码变更。
 16. 当 Registry 客户端数量增长时，普通授权应继续通过预构建 Map/Set 查询，不遍历数据库或远程 Registry。
 

@@ -39,7 +39,7 @@ function publicKey(input: RegistryKeyInput): KeyObject {
   return createPublicKey({ key: input, format: 'jwk' } as never)
 }
 
-export function registrySnapshotSigningJson(snapshot: Omit<RegistrySnapshotRecord, 'signature'>): string {
+function registrySnapshotSigningJson(snapshot: Omit<RegistrySnapshotRecord, 'signature'>): string {
   return canonicalJson({
     environment: snapshot.environment,
     snapshotId: snapshot.snapshotId,
@@ -58,7 +58,7 @@ export function registrySnapshotSigningJson(snapshot: Omit<RegistrySnapshotRecor
   })
 }
 
-export function registryActivationSigningJson(activation: Omit<RegistryActivationRecord, 'activationSignature'>): string {
+function registryActivationSigningJson(activation: Omit<RegistryActivationRecord, 'activationSignature'>): string {
   return canonicalJson({
     environment: activation.environment,
     generation: activation.generation,
@@ -96,7 +96,7 @@ export function verifyRegistrySnapshotSignature(snapshot: RegistrySnapshotRecord
   )
 }
 
-export function verifyRegistryActivationSignature(activation: RegistryActivationRecord, key: RegistryKeyInput): boolean {
+function verifyRegistryActivationSignature(activation: RegistryActivationRecord, key: RegistryKeyInput): boolean {
   const { activationSignature, ...unsigned } = activation
   return verify(
     null,

@@ -6,7 +6,6 @@ import { describe, expect, it } from 'vitest'
 import {
   createAuthorizationCore,
   developmentRegistry,
-  issuerCatalog,
   productionRegistry,
 } from '../../packages/authorization-core/src/index'
 
@@ -410,17 +409,6 @@ describe('production authorization registry', () => {
   })
 
   it('keeps local callbacks in the development issuer only', () => {
-    expect(issuerCatalog).toEqual({
-      production: {
-        environment: 'production',
-        issuer: 'https://www.yunle.fun',
-      },
-      development: {
-        environment: 'development',
-        issuer: 'https://www.yunle.localhost:3000',
-      },
-    })
-
     expect(createAuthorizationCore({ registry: developmentRegistry }).authorize({
       issuer: 'https://www.yunle.localhost:3000',
       clientId: 'ai-sfc-web',

@@ -253,9 +253,6 @@ importers:
       '@vue/test-utils':
         specifier: 'catalog:'
         version: 2.4.11(@vue/compiler-dom@3.5.40)(@vue/server-renderer@3.5.40)(vue@3.5.40(typescript@5.9.3))
-      '@yunlefun/cloudbase-registry-shadow':
-        specifier: workspace:*
-        version: link:packages/cloudbase-registry-shadow
       baseline-browser-mapping:
         specifier: 'catalog:'
         version: 2.11.1
@@ -288,12 +285,6 @@ importers:
         version: 3.3.8(typescript@5.9.3)
 
   packages/authorization-core: {}
-
-  packages/cloudbase-registry-shadow:
-    dependencies:
-      '@yunlefun/authorization-core':
-        specifier: workspace:*
-        version: link:../authorization-core
 
 packages:
 

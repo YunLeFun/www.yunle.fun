@@ -61,7 +61,6 @@
     "@rollup/plugin-yaml": "catalog:",
     "@types/qrcode": "catalog:",
     "@vue/test-utils": "catalog:",
-    "@yunlefun/cloudbase-registry-shadow": "workspace:*",
     "baseline-browser-mapping": "catalog:",
     "eslint": "catalog:",
     "eslint-plugin-format": "catalog:",

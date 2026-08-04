@@ -36,15 +36,17 @@ describe('sso-registry-admin deployment contract', () => {
     )
   })
 
-  it('keeps shadow mode explicitly disabled in checked-in deploy manifests', () => {
+  it('keeps Registry shadow database reads outside authorization request runtimes', () => {
     const production = config('cloudbaserc.json')
     for (const name of ['desktop-auth', 'sso-ticket']) {
-      expect(production.functions.find(fn => fn.name === name)?.envVariables)
-        .toMatchObject({ SSO_REGISTRY_SHADOW_ENABLED: 'false' })
+      expect(
+        production.functions.find(fn => fn.name === name)?.envVariables,
+      ).not.toHaveProperty('SSO_REGISTRY_SHADOW_ENABLED')
     }
     const development = config('cloudbaserc.sso-development.json')
-    expect(development.functions.find(fn => fn.name === 'sso-ticket')?.envVariables)
-      .toMatchObject({ SSO_REGISTRY_SHADOW_ENABLED: 'false' })
+    expect(
+      development.functions.find(fn => fn.name === 'sso-ticket')?.envVariables,
+    ).not.toHaveProperty('SSO_REGISTRY_SHADOW_ENABLED')
   })
 
   it('declares four ADMINONLY collections with the required unique sequence index', () => {

@@ -110,5 +110,3 @@ exports.main = async (event, context) => {
     return { ok: false, error: code }
   }
 }
-
-exports._private = { createTrustAnchors, decodeKey, loadService }

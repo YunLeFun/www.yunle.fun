@@ -183,34 +183,20 @@ export type { RefreshTokenRecord } from './refresh-grant'
 export {
   developmentRegistry,
   developmentRegistryArtifact,
-  issuerCatalog,
   productionRegistry,
   productionRegistryArtifact,
 } from './registry'
 export {
-  canonicalizeRegistry,
   canonicalJson,
   canonicalRegistryJson,
   hashRegistry,
-  registrySecurityProjection,
 } from './registry-canonical'
 export {
-  issuerForRegistryEnvironment,
   parseClientRegistrySnapshot,
   parseGeneratedRegistryArtifact,
-  parseRegistryActivationRecord,
-  parseRegistryActiveEnvelope,
-  parseRegistryEnvironment,
   parseRegistrySnapshotRecord,
   RegistryValidationError,
 } from './registry-schema'
-export { createRegistryShadowObserver } from './registry-shadow'
-export type {
-  RegistryShadowEvent,
-  RegistryShadowEventName,
-  RegistryShadowObserver,
-  RegistryShadowStatus,
-} from './registry-shadow'
 export {
   signRegistryActivation,
   signRegistrySnapshot,

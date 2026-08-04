@@ -9,7 +9,7 @@ import { createHash } from 'node:crypto'
 type JsonPrimitive = boolean | null | number | string
 type JsonValue = JsonPrimitive | readonly JsonValue[] | { readonly [key: string]: JsonValue }
 
-export function compareUnicodeCodePoints(left: string, right: string): number {
+function compareUnicodeCodePoints(left: string, right: string): number {
   const leftPoints = [...left].map(character => character.codePointAt(0) ?? 0)
   const rightPoints = [...right].map(character => character.codePointAt(0) ?? 0)
   const length = Math.min(leftPoints.length, rightPoints.length)
@@ -86,7 +86,7 @@ export function canonicalRegistryJson(registry: ClientRegistrySnapshot): string 
   return canonicalJson(canonicalizeRegistry(registry) as unknown as JsonValue)
 }
 
-export function registrySecurityProjection(registry: ClientRegistrySnapshot): JsonValue {
+function registrySecurityProjection(registry: ClientRegistrySnapshot): JsonValue {
   const canonical = canonicalizeRegistry(registry)
   return {
     issuer: canonical.issuer,
@@ -105,7 +105,7 @@ export function registrySecurityProjection(registry: ClientRegistrySnapshot): Js
   }
 }
 
-export function sha256(value: string): string {
+function sha256(value: string): string {
   return createHash('sha256').update(value).digest('hex')
 }
 

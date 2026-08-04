@@ -1,6 +1,6 @@
 # SSO Client Registry 静态发布自动化设计
 
-状态：Pending confirmation
+状态：Confirmed（2026-08-04）
 
 对应需求：`requirements.md` R1–R11
 
@@ -276,17 +276,17 @@ GitHub production Environment 只向部署 job 暴露 CloudBase 凭据，且只�
 
 实际部署前必须再次执行 CloudBase Deployment Gate，包括环境 ID、函数权限、hosting headers、production secrets、回退 commit 和 smoke 清单确认。
 
-## 9. Shadow、回滚与应急
+## 9. Shadow compare、回滚与应急
 
-### 9.1 Shadow
+### 9.1 Shadow compare
 
-P1 shadow 继续 300 秒 TTL、single-flight 和静态裁决。Observer 获得 release status 后分类：
+`scripts/sso-registry.mjs compare` 通过私有管理函数取得已签名活动信封，在本地信任锚下验签，并与仓库 generated JSON 做字节级比较。它只在 CI、部署 smoke 或独立受控监控任务中运行：
 
 - 已批准但未部署：`registry_shadow_pending_release`
 - 意图 deployed 且仍漂移：`registry_shadow_security_drift` 高优先级
 - deployed 且一致：`registry_shadow_match`
 
-shadow 故障不影响授权。
+授权函数不打包 shadow adapter、不读取 Registry 管理集合，也不等待 compare；compare 故障只阻止发布或触发告警，不影响当前授权。
 
 ### 9.2 常规回滚
 
@@ -334,7 +334,7 @@ break-glass 不创建或篡改历史快照，不从数据库动态改变授权�
 - PR：新 commit required checks、auto-merge 条件和 Conventional Commit。
 - Deploy：manifest/intent/commitSha 不一致、环境 secrets 边界、concurrency、部分失败与同 SHA 重试。
 - Compatibility：所有现有授权决定、registration fingerprint 与主站公开配置不变。
-- Shadow：pending_release、match、deployed drift、数据库/签名故障仍静态裁决。
+- Shadow compare：pending_release、match、deployed drift、数据库/签名故障只阻止发布或告警。
 - Rollback：历史快照、新 generation、邮件审批、PR、部署回执与 break-glass 审计。
 - 全量 lint、typecheck、test、build、CloudBase code review 和 development smoke。
 

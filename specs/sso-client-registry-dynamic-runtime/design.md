@@ -17,12 +17,12 @@
           ↓
 授权函数构建期加载 → Map 索引 → 生产裁决
 
-CloudBase 活动快照 ──shadow only──> 差异与告警
+CloudBase 活动快照 ──CI / smoke compare──> 差异与告警
 ```
 
 - `authorization-core` 拥有 Schema、规范化、hash、签名验证和 O(1) 授权索引。
 - `sso-registry-admin` 只处理草稿、快照、审计与受门禁的发布意图。
-- `sso-ticket`、`desktop-auth` 只由 generated JSON 裁决；shadow adapter 不得替换授权核心。
+- `sso-ticket`、`desktop-auth` 只由 generated JSON 裁决，不打包或调用 shadow adapter。
 - CI 是 production 产物进入运行时的唯一部署通道。
 - 代码内信任锚、签名快照和历史版本保留回滚能力。
 
@@ -47,6 +47,6 @@ CloudBase 活动快照 ──shadow only──> 差异与告警
 3. production 已验证邮箱审批与幂等发布事务；
 4. 授权数据与公开展示投影的严格分离；
 5. 容量上限、读取成本、SLO、告警、演练和显式静态应急路径；
-6. development 验证和 production shadow 观察后的独立切换审批。
+6. development 验证和 production 独立 compare 观察后的独立切换审批。
 
 在这些条件重新确认前，不创建动态运行时模块、公开接口或租约续签任务。

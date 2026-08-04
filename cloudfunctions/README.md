@@ -32,6 +32,8 @@
 > `wxpay-notify` / `account-api` / `iap-order` / `appstore-notify`；`account-api` 无需任何 `WX_*` 环境变量。
 > `sso-registry-admin`、`sso-ticket` 与 `desktop-auth` 都消费 `packages/authorization-core`；Schema、签名、Client Registry、issuer、授权状态机与 scope/consent 只有一份深层实现。部署脚本会把构建后的 core vendoring 到函数 artifact。
 
+云函数入口有意保持为 Nodejs18.15 Event Function 可直接执行的 CommonJS JavaScript；共享领域逻辑、安全规则和可复用类型优先放入 TypeScript `authorization-core`，再以编译产物 vendoring。只有在统一了逐函数编译、source map、artifact 和线上报错映射后，才考虑迁移入口源码，避免仅为语法改造增加部署层。
+
 ## 环境变量配置
 
 在 [CloudBase 控制台 - 云函数](https://tcb.cloud.tencent.com/dev?envId=yunlefun-8g7ybcxc7345c490#/scf) 中，点击对应云函数进入详情页，在「函数配置」中设置环境变量。（`shortlink-resolve` / `shortlink-stat` 无需环境变量。）
@@ -185,7 +187,6 @@ CloudBase/SCF 运行时临时凭证；运行身份只授予 `ses:SendEmail` 与 
 | `DESKTOP_AUTH_VERIFICATION_URL`    | 否   | 设备授权页地址，默认 `https://www.yunle.fun/link`                                                                               |
 | `DESKTOP_AUTH_PUBLIC_KEYS`         | 否   | 退役公钥集 JSON（`kid → jwk`），轮换期内仍能验签旧 entitlement                                                                  |
 | `DESKTOP_AUTH_ENTITLEMENT_TTL_SEC` | 否   | entitlement 有效期（秒），默认见 `lib/validation.js`                                                                            |
-| `SSO_REGISTRY_SHADOW_ENABLED`      | 否   | Registry 影子校验开关；只有签名快照与代码信任锚就绪后才设为 `true`，默认 `false`                                                |
 
 refresh token 固定为 30 天 idle / 180 天 absolute，轮换并做 grant-family 重用检测；策略与 TTL 不由请求或部署变量放宽。`desktop-auth` 只授予 `skykeeper-desktop` 的 `membership:read`，没有通用扣币 action。
 
@@ -207,7 +208,6 @@ refresh token 固定为 30 天 idle / 180 天 absolute，轮换并做 grant-fami
 | `SSO_ISSUE_PER_IP_PER_MINUTE`        | 否   | 每 IP 的签发上限，默认 30                                                                      |
 | `SSO_EXCHANGE_PER_IP_PER_MINUTE`     | 否   | 每 IP 的兑换上限，默认 60                                                                      |
 | `SSO_EXCHANGE_PER_ORIGIN_PER_MINUTE` | 否   | 每 Consumer origin 的兑换上限，默认 300                                                        |
-| `SSO_REGISTRY_SHADOW_ENABLED`        | 否   | Registry 影子校验开关；异常时仍由编译期静态 Registry 裁决，默认 `false`                        |
 
 `sso-ticket` 的用户 SSO 是两步授权码流程，私钥始终只在本函数 env：
 
@@ -233,7 +233,7 @@ refresh token 固定为 30 天 idle / 180 天 absolute，轮换并做 grant-fami
 
 该函数是 Nodejs18.15 Event Function，`aclRule.invoke=false`，不绑定 HTTP 网关，也不允许浏览器 SDK 调用。受信任发布者通过 CloudBase 管理凭据执行 `scripts/sso-registry.mjs`；所有请求必须带 operator 与 change reason。私钥只存在于函数环境变量，生成产物、数据库、响应与日志都不包含私钥。
 
-P1 的 `generated/*.json` 初始为 `minimumGeneration=0`、`activeEnvelope=null` 的静态 bootstrap。完成独立密钥托管、集合初始化、首次发布和公钥代码评审后，使用 `export` 生成带签名信封的产物，再分别开启两个授权函数的 shadow 开关。shadow 只比较，不改变授权结果。
+P1 的 `generated/*.json` 初始为 `minimumGeneration=0`、`activeEnvelope=null` 的静态 bootstrap。完成独立密钥托管、集合初始化、首次发布和公钥代码评审后，使用 `export` 生成带签名信封的产物。`pnpm sso:registry compare --environment <environment>` 由 CI、部署 smoke 或受控运维任务显式执行 shadow compare；授权请求本身不读取 Registry 管理数据库。
 
 ### github-api 环境变量
 
@@ -520,7 +520,7 @@ node scripts/deploy-function.mjs shortlink-stat
 > `wxpay-order` / `wxpay-notify` / `account-api` / `iap-order` / `appstore-notify`——
 > 只部署其中一个会导致各函数 `lib/` 版本不一致。先 `pnpm sync:wxpay-lib && pnpm test`，再逐个部署。
 >
-> `sso-registry-admin`、`desktop-auth` 和 `sso-ticket` 共同依赖 `packages/authorization-core`；修改 Registry Schema、签名或影子观察器时必须从 `.cloudbase/artifacts` 同步更新三者。`ai-gateway`、`github-api`、`user-storage-api` 各有独立 `lib/`，改自身代码只需部署对应函数；签到 / 投币 / 关注·粉丝功能是 `account-api` 本地代码、未改支付 `lib/` 时只需部署 `account-api`。
+> `sso-registry-admin`、`desktop-auth` 和 `sso-ticket` 共同依赖 `packages/authorization-core`；修改 Registry Schema、签名或 generated 产物时必须从 `.cloudbase/artifacts` 同步更新三者。`ai-gateway`、`github-api`、`user-storage-api` 各有独立 `lib/`，改自身代码只需部署对应函数；签到 / 投币 / 关注·粉丝功能是 `account-api` 本地代码、未改支付 `lib/` 时只需部署 `account-api`。
 
 ## 数据库
 
