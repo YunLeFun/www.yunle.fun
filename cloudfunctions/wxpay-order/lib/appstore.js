@@ -51,7 +51,7 @@ function loadAppleRootCertificates() {
  * 创建 App Store 校验服务。
  *
  * @param {object} config
- * @param {string} config.issuerId App Store Connect API Issuer ID
+ * @param {string} config.issuerId App Store Connect「App 内购买」Issuer ID
  * @param {string} config.keyId API Key ID
  * @param {string} config.privateKeyPem .p8 私钥内容（PEM）
  * @param {string} config.bundleId App 的 bundle ID
@@ -109,6 +109,11 @@ function createAppStoreService(config, deps = {}) {
       catch (err) {
         // 该环境无此交易 → 回退下一个环境
         if (err?.httpStatusCode === 404 || err?.apiError === API_ERROR_TRANSACTION_ID_NOT_FOUND)
+          continue
+        // App 尚未在生产环境可用时，App 内购买专用 Key 可能在 Production
+        // 返回 401，但同一 Key 可正常查询 Sandbox。生产鉴权失败不能阻断
+        // Sandbox 补单；若 Sandbox 也返回 401，才判定整组凭据无效。
+        if (err?.httpStatusCode === 401 && environment === Environment.PRODUCTION)
           continue
         if (err?.httpStatusCode === 401)
           throw new Error('App Store Server API 鉴权失败，请检查 APPSTORE_* 配置')

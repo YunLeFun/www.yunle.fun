@@ -161,15 +161,16 @@ CloudBase/SCF 运行时临时凭证；运行身份只授予 `ses:SendEmail` 与 
 
 ### iap-order 环境变量
 
-| 变量名                  | 说明                                        | 获取方式                                                      |
-| ----------------------- | ------------------------------------------- | ------------------------------------------------------------- |
-| `APPSTORE_ISSUER_ID`    | App Store Connect API 的 Issuer ID          | App Store Connect → 用户与访问 → 集成 → App Store Connect API |
-| `APPSTORE_KEY_ID`       | 上述 API 密钥的 Key ID                      | 同上，创建密钥后显示                                          |
-| `APPSTORE_PRIVATE_KEY`  | `.p8` 私钥内容（PEM，含 `BEGIN/END` 行）    | 创建密钥时下载的 `AuthKey_xxx.p8` 完整内容                    |
-| `APPSTORE_BUNDLE_ID`    | App 的 Bundle ID，默认 `fun.yunle.apps`     | Xcode 项目 / App Store Connect                                |
-| `APPSTORE_APP_APPLE_ID` | App 的 Apple ID（纯数字），生产通知验签需要 | App Store Connect → App 信息 → 通用信息 → Apple ID            |
+| 变量名                  | 说明                                        | 获取方式                                           |
+| ----------------------- | ------------------------------------------- | -------------------------------------------------- |
+| `APPSTORE_ISSUER_ID`    | App 内购买密钥页的 Issuer ID                | App Store Connect → 用户与访问 → 集成 → App 内购买 |
+| `APPSTORE_KEY_ID`       | App 内购买专用密钥的 Key ID                 | 同上，生成 App 内购买项目密钥后显示                |
+| `APPSTORE_PRIVATE_KEY`  | `.p8` 私钥内容（PEM，含 `BEGIN/END` 行）    | 创建密钥时下载的 `SubscriptionKey_xxx.p8` 完整内容 |
+| `APPSTORE_BUNDLE_ID`    | App 的 Bundle ID，默认 `fun.yunle.apps`     | Xcode 项目 / App Store Connect                     |
+| `APPSTORE_APP_APPLE_ID` | App 的 Apple ID（纯数字），生产通知验签需要 | App Store Connect → App 信息 → 通用信息 → Apple ID |
 
 > `iap-order` 与 `appstore-notify` 共用同一组 `APPSTORE_*`，两个函数都要配齐。本地开发可用 `APPSTORE_PRIVATE_KEY_FILE` 指向 `.p8` 文件路径（见 `.env.example`），云端则直接填 `APPSTORE_PRIVATE_KEY` 内容。
+> 普通的 “App Store Connect API” 团队密钥不能用于 App Store Server API；必须使用“App 内购买”页生成的专用密钥。
 
 ### appstore-notify 环境变量
 

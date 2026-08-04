@@ -10,8 +10,8 @@
  *（见 lib/appstore.js 注释）。客户端应在本函数返回成功后再 finishTransaction。
  *
  * 环境变量：
- *   - APPSTORE_ISSUER_ID    App Store Connect API Issuer ID
- *   - APPSTORE_KEY_ID       API Key ID
+ *   - APPSTORE_ISSUER_ID    App Store Connect「App 内购买」Issuer ID
+ *   - APPSTORE_KEY_ID       App 内购买专用 Key ID
  *   - APPSTORE_PRIVATE_KEY  .p8 私钥内容（PEM，含 BEGIN/END 行）
  *   - APPSTORE_BUNDLE_ID    默认 fun.yunle.apps
  *   - APPSTORE_APP_APPLE_ID App Store 的 app Apple ID（可选，生产通知验签需要）
