@@ -1,5 +1,6 @@
 import type {
   AuthorizationAdapter,
+  ClientAdapterRegistration,
   ClientRegistration,
   ClientRegistrySnapshot,
   ConsentMode,
@@ -46,6 +47,19 @@ export class AuthorizationError extends Error {
   }
 }
 
+interface IndexedAdapter {
+  registration: ClientAdapterRegistration
+  allowedScopes: ReadonlySet<string>
+  origins: ReadonlySet<string>
+  redirectUris: ReadonlySet<string>
+  registrationFingerprint: string
+}
+
+interface IndexedClient {
+  registration: ClientRegistration
+  adapters: ReadonlyMap<AuthorizationAdapter, IndexedAdapter>
+}
+
 /**
  * Creates the authorization policy interface used by protocol adapters.
  *
@@ -54,42 +68,67 @@ export class AuthorizationError extends Error {
  */
 export function createAuthorizationCore(options: CreateAuthorizationCoreOptions): AuthorizationCore {
   const registry = options.registry
-  const clients = new Map<string, ClientRegistration>()
+  const clients = new Map<string, IndexedClient>()
+  const activeOrigins = new Map<AuthorizationAdapter, Set<string>>()
   for (const client of registry.clients) {
     if (clients.has(client.clientId))
       throw new AuthorizationError('registry_invalid')
-    clients.set(client.clientId, client)
+    const adapters = new Map<AuthorizationAdapter, IndexedAdapter>()
+    for (const adapter of client.adapters) {
+      if (adapters.has(adapter.kind))
+        throw new AuthorizationError('registry_invalid')
+      const origins = new Set(adapter.origins ?? [])
+      const indexedAdapter: IndexedAdapter = {
+        registration: adapter,
+        allowedScopes: new Set(adapter.allowedScopes),
+        origins,
+        redirectUris: new Set(adapter.redirectUris ?? []),
+        registrationFingerprint: createHash('sha256').update(JSON.stringify({
+          adapter: adapter.kind,
+          allowedScopes: [...adapter.allowedScopes].sort(),
+          appId: client.appId,
+          clientId: client.clientId,
+          consent: adapter.consent,
+          issuer: registry.issuer,
+          status: client.status,
+        })).digest('hex'),
+      }
+      adapters.set(adapter.kind, indexedAdapter)
+      if (client.status === 'active') {
+        const adapterOrigins = activeOrigins.get(adapter.kind) ?? new Set<string>()
+        for (const origin of origins)
+          adapterOrigins.add(origin)
+        activeOrigins.set(adapter.kind, adapterOrigins)
+      }
+    }
+    clients.set(client.clientId, { registration: client, adapters })
   }
 
   return {
     allowsOrigin(request) {
-      return [...clients.values()].some(client =>
-        client.status === 'active'
-        && client.adapters.some(adapter =>
-          adapter.kind === request.adapter
-          && adapter.origins?.includes(request.origin),
-        ),
-      )
+      return activeOrigins.get(request.adapter)?.has(request.origin) ?? false
     },
 
     authorize(request) {
       if (request.issuer !== registry.issuer)
         throw new AuthorizationError('issuer_mismatch')
 
-      const client = clients.get(request.clientId)
-      if (!client)
+      const indexedClient = clients.get(request.clientId)
+      if (!indexedClient)
         throw new AuthorizationError('client_unknown')
+      const client = indexedClient.registration
       if (client.status !== 'active')
         throw new AuthorizationError('client_unavailable')
 
-      const adapter = client.adapters.find(candidate => candidate.kind === request.adapter)
-      if (!adapter)
+      const indexedAdapter = indexedClient.adapters.get(request.adapter)
+      if (!indexedAdapter)
         throw new AuthorizationError('adapter_not_allowed')
+      const adapter = indexedAdapter.registration
 
       if (adapter.kind === 'web-sso') {
-        if (!request.origin || !adapter.origins?.includes(request.origin))
+        if (!request.origin || !indexedAdapter.origins.has(request.origin))
           throw new AuthorizationError('origin_not_allowed')
-        if (!request.redirectUri || !adapter.redirectUris?.includes(request.redirectUri))
+        if (!request.redirectUri || !indexedAdapter.redirectUris.has(request.redirectUri))
           throw new AuthorizationError('redirect_uri_not_allowed')
       }
 
@@ -97,7 +136,7 @@ export function createAuthorizationCore(options: CreateAuthorizationCoreOptions)
         throw new AuthorizationError('invalid_scope')
 
       const scopes = [...new Set(request.requestedScopes)]
-      if (scopes.some(scope => !adapter.allowedScopes.includes(scope)))
+      if (scopes.some(scope => !indexedAdapter.allowedScopes.has(scope)))
         throw new AuthorizationError('invalid_scope')
 
       return {
@@ -109,15 +148,7 @@ export function createAuthorizationCore(options: CreateAuthorizationCoreOptions)
         consent: adapter.consent,
         scopes,
         policyVersion: registry.policyVersion,
-        registrationFingerprint: createHash('sha256').update(JSON.stringify({
-          adapter: adapter.kind,
-          allowedScopes: [...adapter.allowedScopes].sort(),
-          appId: client.appId,
-          clientId: client.clientId,
-          consent: adapter.consent,
-          issuer: registry.issuer,
-          status: client.status,
-        })).digest('hex'),
+        registrationFingerprint: indexedAdapter.registrationFingerprint,
       }
     },
   }
@@ -151,15 +182,42 @@ export { createRefreshGrantMachine } from './refresh-grant'
 export type { RefreshTokenRecord } from './refresh-grant'
 export {
   developmentRegistry,
-  issuerCatalog,
+  developmentRegistryArtifact,
   productionRegistry,
+  productionRegistryArtifact,
 } from './registry'
+export {
+  canonicalJson,
+  canonicalRegistryJson,
+  hashRegistry,
+} from './registry-canonical'
+export {
+  parseClientRegistrySnapshot,
+  parseGeneratedRegistryArtifact,
+  parseRegistrySnapshotRecord,
+  RegistryValidationError,
+} from './registry-schema'
+export {
+  signRegistryActivation,
+  signRegistrySnapshot,
+  verifyRegistryActiveEnvelope,
+  verifyRegistrySnapshotSignature,
+} from './registry-signature'
+export type { RegistryKeyInput } from './registry-signature'
+export { hasRegistryTrustAnchor, registryTrustAnchors } from './registry-trust'
 export type {
   AuthorizationAdapter,
   ClientAdapterRegistration,
   ClientRegistration,
   ClientRegistrySnapshot,
   ConsentMode,
+  GeneratedRegistryArtifact,
+  RegistryActivationRecord,
+  RegistryActiveEnvelope,
+  RegistryEnvironment,
+  RegistryPublicKey,
+  RegistrySnapshotRecord,
+  RegistryTrustAnchors,
 } from './registry-types'
 export { createWebSsoCodeMachine } from './web-sso-code'
 export type {

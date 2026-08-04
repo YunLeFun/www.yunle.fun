@@ -6,7 +6,6 @@ import { describe, expect, it } from 'vitest'
 import {
   createAuthorizationCore,
   developmentRegistry,
-  issuerCatalog,
   productionRegistry,
 } from '../../packages/authorization-core/src/index'
 
@@ -203,8 +202,8 @@ describe('production authorization registry', () => {
         kind: 'web-sso',
         consent: 'trusted',
         allowedScopes: ['identity:bootstrap'],
-        origins: ['https://fc.yunle.fun', 'https://fc.elpsy.cn'],
-        redirectUris: ['https://fc.yunle.fun/', 'https://fc.elpsy.cn/'],
+        origins: ['https://fc.elpsy.cn', 'https://fc.yunle.fun'],
+        redirectUris: ['https://fc.elpsy.cn/', 'https://fc.yunle.fun/'],
       }],
     })
 
@@ -267,7 +266,7 @@ describe('production authorization registry', () => {
       if (!('iconUrl' in client))
         continue
 
-      expect(new URL(client.iconUrl).origin).toBe(adapter.origins[0])
+      expect(adapter.origins).toContain(new URL(client.iconUrl).origin)
       expect(new URL(client.iconUrl).search).toBe('')
     }
   })
@@ -360,18 +359,56 @@ describe('production authorization registry', () => {
     }))
   })
 
-  it('keeps local callbacks in the development issuer only', () => {
-    expect(issuerCatalog).toEqual({
-      production: {
-        environment: 'production',
-        issuer: 'https://www.yunle.fun',
-      },
-      development: {
-        environment: 'development',
-        issuer: 'https://www.yunle.localhost:3000',
+  it('does not rescan Registry arrays on the authorization hot path', () => {
+    let initialized = false
+    let hotPathScans = 0
+    const tracked = <T>(values: T[]): T[] => new Proxy(values, {
+      get(target, property, receiver) {
+        if (initialized && (property === Symbol.iterator || ['find', 'includes', 'some'].includes(String(property))))
+          hotPathScans += 1
+        return Reflect.get(target, property, receiver)
       },
     })
+    const adapter = {
+      kind: 'web-sso' as const,
+      consent: 'trusted' as const,
+      allowedScopes: tracked(['identity:bootstrap']),
+      origins: tracked(['https://sample.yunle.fun']),
+      redirectUris: tracked(['https://sample.yunle.fun/']),
+    }
+    const authorization = createAuthorizationCore({
+      registry: {
+        schemaVersion: 1,
+        policyVersion: '2026-08-03.1',
+        issuer: 'https://www.yunle.fun',
+        clients: tracked([{
+          clientId: 'sample-web',
+          appId: 'sample',
+          displayName: 'Sample',
+          iconUrl: 'https://sample.yunle.fun/icon.svg',
+          status: 'active',
+          adapters: tracked([adapter]),
+        }]),
+      },
+    })
+    initialized = true
 
+    expect(authorization.allowsOrigin({
+      adapter: 'web-sso',
+      origin: 'https://sample.yunle.fun',
+    })).toBe(true)
+    expect(authorization.authorize({
+      issuer: 'https://www.yunle.fun',
+      clientId: 'sample-web',
+      adapter: 'web-sso',
+      requestedScopes: ['identity:bootstrap'],
+      origin: 'https://sample.yunle.fun',
+      redirectUri: 'https://sample.yunle.fun/',
+    })).toMatchObject({ clientId: 'sample-web', appId: 'sample' })
+    expect(hotPathScans).toBe(0)
+  })
+
+  it('keeps local callbacks in the development issuer only', () => {
     expect(createAuthorizationCore({ registry: developmentRegistry }).authorize({
       issuer: 'https://www.yunle.localhost:3000',
       clientId: 'ai-sfc-web',

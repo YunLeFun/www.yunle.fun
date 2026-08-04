@@ -18,7 +18,7 @@ import { dirname, resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
-import { buildCloudFunctionArtifact } from './build-cloud-function.mjs'
+import { buildCloudFunctionArtifacts } from './build-cloud-function.mjs'
 import { assertFunctionEnvironmentReady } from './deploy-function-safety.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -75,9 +75,10 @@ catch (error) {
   process.exit(2)
 }
 
-for (const name of functions) {
+const artifacts = buildCloudFunctionArtifacts(functions)
+for (const [index, name] of functions.entries()) {
   console.log(`\n--- deploy ${name} (env ${envId}) ---`)
-  const artifact = buildCloudFunctionArtifact(name)
+  const artifact = artifacts[index]
   const result = spawnSync('tcb', ['fn', 'deploy', name, '--dir', artifact, '--envId', envId, '--force'], {
     cwd: ROOT,
     stdio: 'inherit',

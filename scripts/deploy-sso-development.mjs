@@ -76,6 +76,20 @@ runTcb(['fn', 'deploy', 'account-api', '--dir', resolve(ROOT, 'cloudfunctions/ac
 const ticketArtifact = buildCloudFunctionArtifact('sso-ticket')
 runTcb(['fn', 'deploy', 'sso-ticket', '--dir', ticketArtifact, '--path', '/sso-ticket', '--force'])
 runTcb(['fn', 'deploy', 'sso-security-sweeper', '--dir', resolve(ROOT, 'cloudfunctions/sso-security-sweeper'), '--force'])
-runTcb(['config', 'update', 'fn', '--all'])
+const hasRegistryKey = Boolean(process.env.SSO_REGISTRY_SIGNING_KEY)
+const hasRegistryKid = Boolean(process.env.SSO_REGISTRY_SIGNING_KID)
+if (hasRegistryKey !== hasRegistryKid)
+  throw new Error('SSO_REGISTRY_SIGNING_KEY and SSO_REGISTRY_SIGNING_KID must be configured together')
+const configuredFunctions = ['account-api', 'sso-ticket', 'sso-security-sweeper']
+if (hasRegistryKey && hasRegistryKid) {
+  const registryArtifact = buildCloudFunctionArtifact('sso-registry-admin')
+  runTcb(['fn', 'deploy', 'sso-registry-admin', '--dir', registryArtifact, '--force'])
+  configuredFunctions.push('sso-registry-admin')
+}
+else {
+  console.warn('Registry signing key is absent; skipping sso-registry-admin deployment')
+}
+for (const name of configuredFunctions)
+  runTcb(['config', 'update', 'fn', name])
 
 console.log(`Development SSO functions deployed to ${DEVELOPMENT_ENV_ID}`)

@@ -28,11 +28,12 @@ describe('local SSO Provider entrypoint', () => {
   it('pins development deployments away from the production tenant', () => {
     expect(packageManifest.scripts['deploy:sso:development']).toBe('node scripts/deploy-sso-development.mjs')
     expect(deployment.envId).toBe('yunlefun-dev-0ge03bdod37093d1')
-    expect(deployment.functions.map(item => item.name)).toEqual(['account-api', 'sso-ticket', 'sso-security-sweeper'])
-    expect(deployment.functions[1]).toMatchObject({
+    expect(deployment.functions.map(item => item.name)).toEqual(['sso-registry-admin', 'account-api', 'sso-ticket', 'sso-security-sweeper'])
+    const ticket = deployment.functions.find(item => item.name === 'sso-ticket')
+    expect(ticket).toMatchObject({
       aclRule: { invoke: true },
     })
-    expect(deployment.functions[1].envVariables).toMatchObject({
+    expect(ticket.envVariables).toMatchObject({
       SSO_TICKET_PRIVATE_KEY_ID: '{{env.SSO_TICKET_PRIVATE_KEY_ID}}',
       SSO_TICKET_PRIVATE_KEY: '{{env.SSO_TICKET_PRIVATE_KEY}}',
       AUTH_ISSUER_ENVIRONMENT: 'development',
@@ -40,6 +41,7 @@ describe('local SSO Provider entrypoint', () => {
     })
     expect(deployer).toContain('if (config.envId !== DEVELOPMENT_ENV_ID)')
     expect(deployer).toContain('\'.env.sso-development.local\'')
-    expect(deployer).toContain('runTcb([\'config\', \'update\', \'fn\', \'--all\'])')
+    expect(deployer).toContain('runTcb([\'fn\', \'deploy\', \'sso-registry-admin\', \'--dir\', registryArtifact, \'--force\'])')
+    expect(deployer).toContain('runTcb([\'config\', \'update\', \'fn\', name])')
   })
 })

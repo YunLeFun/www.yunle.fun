@@ -162,6 +162,21 @@
       }
     },
     {
+      "name": "sso-registry-admin",
+      "timeout": 30,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true,
+      "aclRule": {
+        "invoke": false
+      },
+      "envVariables": {
+        "SSO_REGISTRY_SIGNING_KEY": "{{env.SSO_REGISTRY_SIGNING_KEY}}",
+        "SSO_REGISTRY_SIGNING_KID": "{{env.SSO_REGISTRY_SIGNING_KID}}",
+        "AUTH_ISSUER_ENVIRONMENT": "{{env.AUTH_ISSUER_ENVIRONMENT}}"
+      }
+    },
+    {
       "name": "desktop-auth",
       "timeout": 10,
       "runtime": "Nodejs18.15",

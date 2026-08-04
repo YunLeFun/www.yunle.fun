@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const ARTIFACT_ROOT = resolve(ROOT, '.cloudbase/artifacts')
-const CORE_FUNCTIONS = new Set(['desktop-auth', 'sso-ticket'])
+const CORE_FUNCTIONS = new Set(['desktop-auth', 'sso-registry-admin', 'sso-ticket'])
 
 function run(command, args) {
   const result = spawnSync(command, args, {
@@ -43,15 +43,10 @@ function copyAuthorizationCore(artifactDirectory) {
   }, null, 2)}\n`)
 }
 
-export function buildCloudFunctionArtifact(functionName) {
-  if (!CORE_FUNCTIONS.has(functionName))
-    return resolve(ROOT, 'cloudfunctions', functionName)
-
+function buildCoreFunctionArtifact(functionName) {
   const source = resolve(ROOT, 'cloudfunctions', functionName)
   if (!existsSync(source))
     throw new Error(`unknown cloud function: ${functionName}`)
-
-  run('pnpm', ['build:authorization-core'])
 
   const artifact = resolve(ARTIFACT_ROOT, functionName)
   rmSync(artifact, { recursive: true, force: true })
@@ -69,10 +64,26 @@ export function buildCloudFunctionArtifact(functionName) {
   return artifact
 }
 
+export function buildCloudFunctionArtifacts(functionNames) {
+  const names = [...functionNames]
+  if (names.some(functionName => CORE_FUNCTIONS.has(functionName)))
+    run('pnpm', ['build:authorization-core'])
+
+  return names.map((functionName) => {
+    if (!CORE_FUNCTIONS.has(functionName))
+      return resolve(ROOT, 'cloudfunctions', functionName)
+    return buildCoreFunctionArtifact(functionName)
+  })
+}
+
+export function buildCloudFunctionArtifact(functionName) {
+  return buildCloudFunctionArtifacts([functionName])[0]
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const functions = process.argv.slice(2)
   if (!functions.length)
     throw new Error('usage: node scripts/build-cloud-function.mjs <function...>')
-  for (const functionName of functions)
-    console.log(buildCloudFunctionArtifact(functionName))
+  for (const artifact of buildCloudFunctionArtifacts(functions))
+    console.log(artifact)
 }

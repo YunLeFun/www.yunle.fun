@@ -20,6 +20,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "sync:wxpay-lib": "node scripts/sync-wxpay-lib.mjs",
+    "sso:registry": "node scripts/sso-registry.mjs",
     "ci": "npm i -g corepack && pnpm install"
   },
   "dependencies": {
