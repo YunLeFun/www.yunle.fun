@@ -30,6 +30,7 @@ const { Buffer } = require('node:buffer')
 const { createHash } = require('node:crypto')
 const process = require('node:process')
 const cloudbase = require('@cloudbase/node-sdk')
+const { createCloudBaseRegistryShadow } = require('@yunlefun/cloudbase-registry-shadow')
 const { assertActiveAccountForUid } = require('./account-access')
 const { assertVerifiedPhoneForUid, IdentityAdmissionError } = require('./identity-admission')
 const { createIdentityAssertionRuntime } = require('./identity-assertion')
@@ -56,6 +57,31 @@ const db = contextApp.database()
 const ssoCodeStore = createSsoCodeStore(db)
 const ssoRateLimiter = createSsoRateLimiter(db)
 const callAccountApi = data => contextApp.callFunction({ name: 'account-api', data }).then(r => r.result)
+
+let registryShadow
+function getRegistryShadow() {
+  if (registryShadow)
+    return registryShadow
+  const environment = process.env.AUTH_ISSUER_ENVIRONMENT === 'development' ? 'development' : 'production'
+  registryShadow = createCloudBaseRegistryShadow({
+    db,
+    environment,
+    enabled: process.env.SSO_REGISTRY_SHADOW_ENABLED === 'true',
+    logPrefix: 'sso-ticket',
+    logger: console,
+  })
+  return registryShadow
+}
+
+async function observeRegistryShadow() {
+  try {
+    return await getRegistryShadow().observe()
+  }
+  catch (error) {
+    console.warn('[sso-ticket] registry_shadow observer failure', error?.code || error?.message || 'unknown')
+    return null
+  }
+}
 
 function assertActiveAccount(uid) {
   return assertActiveAccountForUid(callAccountApi, {
@@ -371,6 +397,7 @@ exports.main = async function main(event) {
       ? { statusCode: 204, headers: corsHeaders(requestOrigin), body: '' }
       : httpJson(403, { ok: false, reason: 'origin_not_allowed' })
   }
+  await observeRegistryShadow()
   if (isHttp && event.httpMethod === 'GET') {
     try {
       const identityRuntime = getIdentityAssertionRuntime()
@@ -451,4 +478,4 @@ exports.main = async function main(event) {
   return isHttp ? httpJson(status, result, responseOrigin) : result
 }
 
-exports._private = { exchangeSsoCode, issueSsoCode, mintForTestLease, mintTicket, testLeaseHttpStatus }
+exports._private = { exchangeSsoCode, getRegistryShadow, issueSsoCode, mintForTestLease, mintTicket, observeRegistryShadow, testLeaseHttpStatus }

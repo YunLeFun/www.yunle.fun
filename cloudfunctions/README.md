@@ -18,6 +18,7 @@
 | `ai-gateway`                 | 通用「登录计费 + 受控 AI 生成」网关：验登录 + 按 `appId` 服务端计价 + 管理员身份调 AI + `bizId` 幂等扣费 | 登录态 `/v1/functions` | 30s  |
 | `iap-order`                  | Apple 内购（IAP）凭据校验 + 权益发放                                                                     | SDK `callFunction`     | 30s  |
 | `appstore-notify`            | 接收 App Store Server Notifications V2（退款 / 撤销自动处理）                                            | HTTP 访问服务          | 30s  |
+| `sso-registry-admin`         | 管理 SSO Client Registry 草稿、签名快照、活动指针、回滚与审计                                            | 管理面调用（私有）     | 30s  |
 | `desktop-auth`               | 桌面 / 本地应用登录授权（设备授权码 + Ed25519 离线 entitlement）                                         | SDK + HTTP 双入口      | 10s  |
 | `shortlink-resolve`          | 短链只读解析：按 `(domain, slug)` 读 `short_links` 返回跳转目标，供 EdgeOne 跳转函数回源                 | HTTP 访问服务          | 10s  |
 | `shortlink-stat`             | 短链点击统计：接收 EdgeOne 跳转函数上报，分片 CAS 累加到 `shortlink_stats`；admin 经 SDK 读              | HTTP（写）+ SDK（读）  | 10s  |
@@ -29,7 +30,7 @@
 > 云币 + 跨应用会员的整体设计见 [`docs/coin-and-membership.md`](../docs/coin-and-membership.md)。
 > 其中 5 个支付 / 账户函数共享同一份 `lib/`：权威源在 `cloudfunctions/wxpay-order/lib`，`pnpm sync:wxpay-lib` 同步到
 > `wxpay-notify` / `account-api` / `iap-order` / `appstore-notify`；`account-api` 无需任何 `WX_*` 环境变量。
-> `sso-ticket` 与 `desktop-auth` 都是 `packages/authorization-core` 的 CloudBase Adapter；Client Registry、issuer、授权状态机、scope/consent 与 entitlement keyring 只有一份深层实现。部署脚本会把构建后的 core vendoring 到函数 artifact。
+> `sso-registry-admin`、`sso-ticket` 与 `desktop-auth` 都消费 `packages/authorization-core`；Schema、签名、Client Registry、issuer、授权状态机与 scope/consent 只有一份深层实现。部署脚本会把构建后的 core vendoring 到函数 artifact。
 
 ## 环境变量配置
 
@@ -184,6 +185,7 @@ CloudBase/SCF 运行时临时凭证；运行身份只授予 `ses:SendEmail` 与 
 | `DESKTOP_AUTH_VERIFICATION_URL`    | 否   | 设备授权页地址，默认 `https://www.yunle.fun/link`                                                                               |
 | `DESKTOP_AUTH_PUBLIC_KEYS`         | 否   | 退役公钥集 JSON（`kid → jwk`），轮换期内仍能验签旧 entitlement                                                                  |
 | `DESKTOP_AUTH_ENTITLEMENT_TTL_SEC` | 否   | entitlement 有效期（秒），默认见 `lib/validation.js`                                                                            |
+| `SSO_REGISTRY_SHADOW_ENABLED`      | 否   | Registry 影子校验开关；只有签名快照与代码信任锚就绪后才设为 `true`，默认 `false`                                                |
 
 refresh token 固定为 30 天 idle / 180 天 absolute，轮换并做 grant-family 重用检测；策略与 TTL 不由请求或部署变量放宽。`desktop-auth` 只授予 `skykeeper-desktop` 的 `membership:read`，没有通用扣币 action。
 
@@ -205,6 +207,7 @@ refresh token 固定为 30 天 idle / 180 天 absolute，轮换并做 grant-fami
 | `SSO_ISSUE_PER_IP_PER_MINUTE`        | 否   | 每 IP 的签发上限，默认 30                                                                      |
 | `SSO_EXCHANGE_PER_IP_PER_MINUTE`     | 否   | 每 IP 的兑换上限，默认 60                                                                      |
 | `SSO_EXCHANGE_PER_ORIGIN_PER_MINUTE` | 否   | 每 Consumer origin 的兑换上限，默认 300                                                        |
+| `SSO_REGISTRY_SHADOW_ENABLED`        | 否   | Registry 影子校验开关；异常时仍由编译期静态 Registry 裁决，默认 `false`                        |
 
 `sso-ticket` 的用户 SSO 是两步授权码流程，私钥始终只在本函数 env：
 
@@ -219,6 +222,18 @@ refresh token 固定为 30 天 idle / 180 天 absolute，轮换并做 grant-fami
 - `sso_login_codes` 与 `sso_security_limits` 均为 server-only；独立 `sso-security-sweeper` 每小时清理，且 `aclRule.invoke=false`。
 
 > 客户端用 `signInWithCustomTicket(() => ticket)` 换取自己独立、可同源续期的会话。设计详见 [`docs/cookie-session-migration.md`](../docs/cookie-session-migration.md)。
+
+### sso-registry-admin 环境变量与权限
+
+| 变量名                     | 必填 | 说明                                                                                         |
+| -------------------------- | ---- | -------------------------------------------------------------------------------------------- |
+| `SSO_REGISTRY_SIGNING_KEY` | 是   | Registry 专用 Ed25519 私钥（PEM/JWK 或 base64）；不得复用身份断言、entitlement 或 ticket key |
+| `SSO_REGISTRY_SIGNING_KID` | 是   | 当前 Registry 签名密钥 ID；轮换时必须先提交新公钥信任锚                                      |
+| `AUTH_ISSUER_ENVIRONMENT`  | 是   | 固定 `production` 或 `development`，不得来自请求                                             |
+
+该函数是 Nodejs18.15 Event Function，`aclRule.invoke=false`，不绑定 HTTP 网关，也不允许浏览器 SDK 调用。受信任发布者通过 CloudBase 管理凭据执行 `scripts/sso-registry.mjs`；所有请求必须带 operator 与 change reason。私钥只存在于函数环境变量，生成产物、数据库、响应与日志都不包含私钥。
+
+P1 的 `generated/*.json` 初始为 `minimumGeneration=0`、`activeEnvelope=null` 的静态 bootstrap。完成独立密钥托管、集合初始化、首次发布和公钥代码评审后，使用 `export` 生成带签名信封的产物，再分别开启两个授权函数的 shadow 开关。shadow 只比较，不改变授权结果。
 
 ### github-api 环境变量
 
@@ -478,7 +493,7 @@ tcb login
 # Client Registry / authorization-core 变更先生成 vendored 产物。
 # 随后使用 CloudBase 的“仅更新函数代码”能力上传对应 artifact，
 # 保留线上环境变量、HTTP 路由、权限和触发器配置。
-node scripts/build-cloud-function.mjs desktop-auth sso-ticket
+node scripts/build-cloud-function.mjs sso-registry-admin desktop-auth sso-ticket
 
 # 部署单个云函数（脚本会校验该函数的全部环境变量占位符）
 node scripts/deploy-function.mjs account-api
@@ -492,6 +507,8 @@ node scripts/deploy-function.mjs appstore-notify
 node scripts/deploy-function.mjs github-api
 node scripts/deploy-function.mjs shortlink-resolve
 node scripts/deploy-function.mjs shortlink-stat
+# 仅在集合、权限、独立密钥和代码信任锚均就绪后：
+# node scripts/deploy-function.mjs sso-registry-admin
 ```
 
 > ⚠️ 不要直接执行 `tcb fn deploy` 或 `tcb fn deploy --all`。CLI 会按
@@ -503,9 +520,28 @@ node scripts/deploy-function.mjs shortlink-stat
 > `wxpay-order` / `wxpay-notify` / `account-api` / `iap-order` / `appstore-notify`——
 > 只部署其中一个会导致各函数 `lib/` 版本不一致。先 `pnpm sync:wxpay-lib && pnpm test`，再逐个部署。
 >
-> `desktop-auth` 和 `sso-ticket` 虽不共享支付 `lib/`，但共同依赖 `packages/authorization-core`；修改 Client Registry 或授权核心时必须从 `.cloudbase/artifacts` 同步更新二者。`ai-gateway`、`github-api`、`user-storage-api` 各有独立 `lib/`，改自身代码只需部署对应函数；签到 / 投币 / 关注·粉丝功能是 `account-api` 本地代码、未改支付 `lib/` 时只需部署 `account-api`。
+> `sso-registry-admin`、`desktop-auth` 和 `sso-ticket` 共同依赖 `packages/authorization-core`；修改 Registry Schema、签名或影子观察器时必须从 `.cloudbase/artifacts` 同步更新三者。`ai-gateway`、`github-api`、`user-storage-api` 各有独立 `lib/`，改自身代码只需部署对应函数；签到 / 投币 / 关注·粉丝功能是 `account-api` 本地代码、未改支付 `lib/` 时只需部署 `account-api`。
 
 ## 数据库
+
+### SSO Client Registry
+
+以下集合必须先创建并设置为 **ADMINONLY**；运行时代码不会假设 `db.collection().add()` 可以自动创建集合。完整字段、索引和威胁模型见 [`specs/sso-client-registry-platform/design.md`](../specs/sso-client-registry-platform/design.md)，机器可读清单由 `sso-registry-admin/store.js` 导出。
+
+| 集合                      | 用途               | 索引                                                                          |
+| ------------------------- | ------------------ | ----------------------------------------------------------------------------- |
+| `sso_registry_drafts`     | 草稿与校验结果     | `environment + status + updatedAt DESC`                                       |
+| `sso_registry_snapshots`  | 不可变签名快照     | 唯一 `environment + sequence DESC`；另含 policyVersion / contentHash 查询索引 |
+| `sso_registry_state`      | 每环境唯一活动指针 | 文档 ID 固定为 environment，无附加索引                                        |
+| `sso_registry_audit_logs` | 发布与回滚审计     | `environment + createdAt DESC`、`environment + operator + createdAt DESC`     |
+
+创建 production/development 资源、设置 ADMINONLY、生成和托管独立私钥均属于上线操作，必须分别确认。常用本地命令：
+
+```bash
+pnpm sso:registry validate packages/authorization-core/src/generated/production-registry.json --environment production
+pnpm sso:registry seed --environment development --operator <operator> --reason <reason>
+# 审阅 dry-run 后才加 --apply
+```
 
 支付订单存储在 CloudBase NoSQL `orders` 集合中，已创建以下索引：
 

@@ -162,6 +162,21 @@
       }
     },
     {
+      "name": "sso-registry-admin",
+      "timeout": 30,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true,
+      "aclRule": {
+        "invoke": false
+      },
+      "envVariables": {
+        "SSO_REGISTRY_SIGNING_KEY": "{{env.SSO_REGISTRY_SIGNING_KEY}}",
+        "SSO_REGISTRY_SIGNING_KID": "{{env.SSO_REGISTRY_SIGNING_KID}}",
+        "AUTH_ISSUER_ENVIRONMENT": "{{env.AUTH_ISSUER_ENVIRONMENT}}"
+      }
+    },
+    {
       "name": "desktop-auth",
       "timeout": 10,
       "runtime": "Nodejs18.15",
@@ -173,6 +188,7 @@
         "DESKTOP_AUTH_PUBLIC_KEYS": "{{env.DESKTOP_AUTH_PUBLIC_KEYS}}",
         "ACCOUNT_API_INTERNAL_TOKEN": "{{env.ACCOUNT_API_INTERNAL_TOKEN}}",
         "AUTH_ISSUER_ENVIRONMENT": "{{env.AUTH_ISSUER_ENVIRONMENT}}",
+        "SSO_REGISTRY_SHADOW_ENABLED": "false",
         "DESKTOP_AUTH_CANONICAL_URL": "https://api.yunle.fun/desktop-auth",
         "DESKTOP_AUTH_VERIFICATION_URL": "https://www.yunle.fun/link"
       }
@@ -191,6 +207,7 @@
         "SSO_TICKET_PRIVATE_KEY": "{{env.SSO_TICKET_PRIVATE_KEY}}",
         "SSO_TICKET_REFRESH_SEC": "{{env.SSO_TICKET_REFRESH_SEC}}",
         "AUTH_ISSUER_ENVIRONMENT": "{{env.AUTH_ISSUER_ENVIRONMENT}}",
+        "SSO_REGISTRY_SHADOW_ENABLED": "false",
         "SSO_IDENTITY_SIGNING_KEY": "{{env.SSO_IDENTITY_SIGNING_KEY}}",
         "SSO_IDENTITY_SIGNING_KID": "{{env.SSO_IDENTITY_SIGNING_KID}}",
         "SSO_IDENTITY_PUBLIC_KEYS": "{{env.SSO_IDENTITY_PUBLIC_KEYS}}",

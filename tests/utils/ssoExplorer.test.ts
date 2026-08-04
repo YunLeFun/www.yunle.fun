@@ -63,7 +63,7 @@ describe('sso explorer configuration', () => {
     expect(isSsoExplorerAppSlug('play')).toBe(true)
     expect(isSsoExplorerAppSlug('saier')).toBe(true)
     expect(isSsoExplorerAppSlug('smap')).toBe(true)
-    expect(isSsoExplorerAppSlug('fc')).toBe(true)
     expect(isSsoExplorerAppSlug('support')).toBe(true)
+    expect(isSsoExplorerAppSlug('fc')).toBe(true)
   })
 })

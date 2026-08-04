@@ -5,6 +5,21 @@
   "functionRoot": "./cloudfunctions",
   "functions": [
     {
+      "name": "sso-registry-admin",
+      "timeout": 30,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true,
+      "aclRule": {
+        "invoke": false
+      },
+      "envVariables": {
+        "SSO_REGISTRY_SIGNING_KEY": "{{env.SSO_REGISTRY_SIGNING_KEY}}",
+        "SSO_REGISTRY_SIGNING_KID": "{{env.SSO_REGISTRY_SIGNING_KID}}",
+        "AUTH_ISSUER_ENVIRONMENT": "development"
+      }
+    },
+    {
       "name": "account-api",
       "timeout": 10,
       "runtime": "Nodejs18.15",
@@ -31,6 +46,7 @@
         "SSO_TICKET_PRIVATE_KEY": "{{env.SSO_TICKET_PRIVATE_KEY}}",
         "SSO_TICKET_REFRESH_SEC": "2592000",
         "AUTH_ISSUER_ENVIRONMENT": "development",
+        "SSO_REGISTRY_SHADOW_ENABLED": "false",
         "SSO_IDENTITY_SIGNING_KEY": "{{env.SSO_IDENTITY_SIGNING_KEY}}",
         "SSO_IDENTITY_SIGNING_KID": "{{env.SSO_IDENTITY_SIGNING_KID}}",
         "SSO_IDENTITY_PUBLIC_KEYS": "{{env.SSO_IDENTITY_PUBLIC_KEYS}}",

@@ -15,7 +15,8 @@ import { fileURLToPath } from 'node:url'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const ARTIFACT_ROOT = resolve(ROOT, '.cloudbase/artifacts')
-const CORE_FUNCTIONS = new Set(['desktop-auth', 'sso-ticket'])
+const CORE_FUNCTIONS = new Set(['desktop-auth', 'sso-registry-admin', 'sso-ticket'])
+const REGISTRY_SHADOW_FUNCTIONS = new Set(['desktop-auth', 'sso-ticket'])
 
 function run(command, args) {
   const result = spawnSync(command, args, {
@@ -43,6 +44,25 @@ function copyAuthorizationCore(artifactDirectory) {
   }, null, 2)}\n`)
 }
 
+function copyRegistryShadow(artifactDirectory) {
+  const source = resolve(ROOT, 'packages/cloudbase-registry-shadow')
+  const vendor = join(artifactDirectory, 'vendor/cloudbase-registry-shadow')
+  mkdirSync(vendor, { recursive: true })
+  cpSync(join(source, 'index.js'), join(vendor, 'index.js'))
+
+  const packageJson = JSON.parse(readFileSync(join(source, 'package.json'), 'utf8'))
+  writeFileSync(join(vendor, 'package.json'), `${JSON.stringify({
+    name: packageJson.name,
+    version: packageJson.version,
+    private: true,
+    type: packageJson.type,
+    main: packageJson.main,
+    dependencies: {
+      '@yunlefun/authorization-core': 'file:../authorization-core',
+    },
+  }, null, 2)}\n`)
+}
+
 export function buildCloudFunctionArtifact(functionName) {
   if (!CORE_FUNCTIONS.has(functionName))
     return resolve(ROOT, 'cloudfunctions', functionName)
@@ -61,10 +81,14 @@ export function buildCloudFunctionArtifact(functionName) {
     filter: path => !path.split('/').includes('node_modules'),
   })
   copyAuthorizationCore(artifact)
+  if (REGISTRY_SHADOW_FUNCTIONS.has(functionName))
+    copyRegistryShadow(artifact)
 
   const manifestPath = join(artifact, 'package.json')
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
   manifest.dependencies['@yunlefun/authorization-core'] = 'file:vendor/authorization-core'
+  if (REGISTRY_SHADOW_FUNCTIONS.has(functionName))
+    manifest.dependencies['@yunlefun/cloudbase-registry-shadow'] = 'file:vendor/cloudbase-registry-shadow'
   writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
   return artifact
 }

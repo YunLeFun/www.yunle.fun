@@ -1,0 +1,13 @@
+{
+  "name": "@yunlefun/cloudbase-registry-shadow",
+  "type": "commonjs",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./index.js",
+  "files": [
+    "index.js"
+  ],
+  "dependencies": {
+    "@yunlefun/authorization-core": "workspace:*"
+  }
+}
