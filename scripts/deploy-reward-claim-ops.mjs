@@ -8,9 +8,9 @@ export const REWARD_CLAIM_OPS_DEPLOYMENT_PLAN = {
   defaultMode: 'dry-run',
   function: 'reward-claim-ops',
   trigger: {
-    name: 'rewardClaimOpsEveryFiveMinutes',
+    name: 'rewardClaimOpsEveryMinute',
     type: 'timer',
-    config: '0 */5 * * * * *',
+    config: '0 * * * * * *',
   },
   requiredEnvironmentVariables: [
     'ACCOUNT_API_INTERNAL_TOKEN',
