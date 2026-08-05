@@ -11,6 +11,7 @@ const {
 const SSO_LOGIN_CODE_COLLECTION = 'sso_login_codes'
 const SSO_LOGIN_CODE_SCHEMA_VERSION = 4
 const DEFAULT_CODE_TTL_MS = 60_000
+const TEST_LEASE_ID_RE = /^[\w:-]{4,128}$/
 
 const SSO_LOGIN_CODE_COLLECTION_MANIFEST = {
   collection: SSO_LOGIN_CODE_COLLECTION,
@@ -127,7 +128,8 @@ function createSsoCodeStore(database, options = {}) {
         || typeof input.policyVersion !== 'string'
         || !input.policyVersion
         || typeof input.registrationFingerprint !== 'string'
-        || !input.registrationFingerprint) {
+        || !input.registrationFingerprint
+        || (input.testLeaseId !== undefined && !TEST_LEASE_ID_RE.test(input.testLeaseId))) {
         throw new SsoCodeStoreError('client_binding_invalid', 'authorization code client binding is invalid')
       }
       const issuedAt = now()
@@ -155,6 +157,7 @@ function createSsoCodeStore(database, options = {}) {
           recordType: 'sso_login_code',
           schemaVersion: SSO_LOGIN_CODE_SCHEMA_VERSION,
           ...record,
+          ...(input.testLeaseId ? { testLeaseId: input.testLeaseId } : {}),
           version: 1,
         })
       })
@@ -165,6 +168,7 @@ function createSsoCodeStore(database, options = {}) {
       const id = codeId(input.code)
       const consumedAt = now()
       let uid = ''
+      let testLeaseId
       await database.runTransaction(async (transaction) => {
         const record = await readDocument(transaction, id)
         if (!record)
@@ -196,13 +200,18 @@ function createSsoCodeStore(database, options = {}) {
         if (typeof transition.subject !== 'string' || !transition.subject)
           throw new SsoCodeStoreError('code_invalid', 'authorization code subject is invalid')
         uid = transition.subject
+        if (record.testLeaseId !== undefined) {
+          if (typeof record.testLeaseId !== 'string' || !TEST_LEASE_ID_RE.test(record.testLeaseId))
+            throw new SsoCodeStoreError('code_invalid', 'authorization code test lease binding is invalid')
+          testLeaseId = record.testLeaseId
+        }
         await updateDocument(transaction, id, {
           status: transition.next.status,
           consumedAt: transition.next.consumedAt,
           version: Number(record.version || 0) + 1,
         })
       })
-      return { uid }
+      return { uid, ...(testLeaseId ? { testLeaseId } : {}) }
     },
 
     async sweepExpired(input) {

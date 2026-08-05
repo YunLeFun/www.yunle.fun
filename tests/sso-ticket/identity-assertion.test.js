@@ -24,12 +24,21 @@ describe('sso-ticket identity assertion runtime', () => {
       now: () => 1_000,
     })
 
+    expect(() => runtime.sign({
+      subject: 'user-1',
+      clientId: 'cms-web',
+      appId: 'cms',
+      scopes: ['identity:bootstrap'],
+      nonce: 'n'.repeat(32),
+    })).toThrow(/phone verification admission/i)
+
     const token = runtime.sign({
       subject: 'user-1',
       clientId: 'cms-web',
       appId: 'cms',
       scopes: ['identity:bootstrap'],
       nonce: 'n'.repeat(32),
+      phoneNumberVerified: true,
     })
     const claims = JSON.parse(
       Buffer.from(token.split('.')[1], 'base64url').toString('utf8'),
@@ -43,6 +52,19 @@ describe('sso-ticket identity assertion runtime', () => {
       exp: 121,
     })
     expect(claims).not.toHaveProperty('phone_number')
+    const leaseBoundToken = runtime.sign({
+      subject: 'user-1',
+      clientId: 'cms-web',
+      appId: 'cms',
+      scopes: ['identity:bootstrap'],
+      nonce: 'n'.repeat(32),
+      phoneNumberVerified: true,
+      expiresAtLimit: 31_000,
+    })
+    const leaseBoundClaims = JSON.parse(
+      Buffer.from(leaseBoundToken.split('.')[1], 'base64url').toString('utf8'),
+    )
+    expect(leaseBoundClaims.exp).toBe(31)
     expect(runtime.publicJwks()).toEqual({
       keys: [
         expect.objectContaining({

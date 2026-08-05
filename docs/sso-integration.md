@@ -58,9 +58,30 @@ Consumer              www.yunle.fun              sso-ticket              CloudBa
 - 当前 tab 的 `sessionStorage` 只保存 10 分钟 transaction（nonce、PKCE verifier 和完整客户端绑定）；存储不可用时失败关闭。
 - 授权码记录只保存哈希，绑定 issuer、clientId、服务端派生 appId、scope、Origin、redirect URI、nonce、PKCE challenge、policy version 与 registration fingerprint，并在数据库事务中至多消费一次。
 - 兑换返回的 custom ticket 只存在于 `signInWithCustomTicket` 回调内。
-- `sso-ticket` 只依据 CloudBase 服务端 `getEndUserInfo(uid)` 返回的顶层手机号字段做准入；不信任 access token payload、浏览器 profile、`custom_metadata` 或 `user_metadata`。
-- 手机号只用于 Provider 侧判定，不跨应用传输。兑换响应附带最长 5 分钟的 Ed25519 身份断言，断言仅包含 `phone_number_verified: true`，并绑定 `iss`、`sub`、`aud`、`app_id`、`scope` 与本次 `nonce`。
+- 普通账号只依据 CloudBase 服务端 `getEndUserInfo(uid)` 返回的顶层手机号字段做准入；不信任 access token payload、浏览器 profile、`custom_metadata` 或 `user_metadata`。受管测试号是唯一例外：必须同时满足精确的活动测试租约和 admin 持久化的 `authProfile.virtualPhoneBound=true`，且虚拟手机号不写入 CloudBase Auth。
+- 手机号或虚拟绑定只在 Provider 侧归约为显式的验证事实，不跨应用传输。兑换响应附带最长 5 分钟的 Ed25519 身份断言，断言仅包含 `phone_number_verified: true`，并绑定 `iss`、`sub`、`aud`、`app_id`、`scope` 与本次 `nonce`；关闭虚拟绑定后，后续验证码、授权码兑换和断言签发立即失败关闭。
 - Consumer BFF 必须同时验证 CloudBase access token 和身份断言，并确认两者 `sub` 一致；不能把断言当作登录凭据单独使用。
+
+### 移动客户端账号切换
+
+云乐坊 App 内的第一方 Consumer 可以通过统一 `HostRuntime` 协议请求当前账号授权，或使用
+`prompt=select_account` 切换其他账号。其他账号登录必须在平台系统认证组件中完成：iOS 使用
+`ASWebAuthenticationSession`，Android 使用 Custom Tabs；用户名、密码、Provider Cookie
+和 CloudBase 会话不得进入宿主自定义 WebView。
+
+系统认证请求保留原始 `client_id`、HTTPS `redirect_uri`、scope、nonce 与 S256 PKCE，另带
+经过严格校验的 `native_callback_uri=yunlefun://auth/sso?state=<256-bit-state>`。Provider 完成
+正常授权后，把原 HTTPS fragment 结果编码为原生回调的 `result` 参数。原生端必须精确校验
+state、issuer、原 redirect URI、nonce 和 256-bit code，并拒绝任何 access token、refresh token、
+ticket、session、额外 callback 参数或非 HTTPS 结果 URL。该 callback 只是系统浏览器到 App 的
+结果传输层，不是 Registry 中的新 redirect URI，不改变 code 的绑定和消费规则。
+
+发布时必须遵循以下顺序，避免已安装客户端调用尚不存在的回调传输：
+
+1. 先发布 Provider `/auth/sso` 的 `native_callback_uri` 校验与结果封装；
+2. 再发布 Consumer 的 HostRuntime `select_account` 接入与 Web 降级逻辑；
+3. 最后发布 iOS / Android 客户端，并分别验证授权当前账号、切换其他账号、取消、伪造 state、
+   返回按钮、超时和一次性 code 重放。
 
 ## Consumer 接入
 
@@ -246,6 +267,6 @@ pnpm dev:sso
 - 回跳 fragment 消费后立即从地址栏和 history 清除。
 - 源码、URL、日志、授权码文档及跨站消息中都不存在 session/access token/refresh token。
 - production/development issuer 与 Registry 完全隔离。
-- 未绑定手机号的用户在兑换阶段返回 `phone_verification_required`，不签发 ticket 或身份断言。
+- 普通用户未绑定真实手机号时在兑换阶段返回 `phone_verification_required`；测试号未开启虚拟手机绑定、租约失效或绑定关系不一致时同样不签发验证码、ticket 或身份断言。
 - 身份断言不含 `phone_number`，签名、`sub`/`aud`/`nonce` 绑定、过期与未知 `kid`
   任一校验失败时 Consumer BFF 都拒绝建立应用会话。

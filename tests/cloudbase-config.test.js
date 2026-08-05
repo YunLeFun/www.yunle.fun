@@ -52,6 +52,12 @@ describe('cloudBase test identity deployment manifest', () => {
     }
   })
 
+  it('passes an explicit phone verification admission fact into identity assertions', () => {
+    expect(ssoTicketSource).toMatch(/resolvePhoneVerificationAdmission/)
+    expect(ssoTicketSource).toMatch(/phoneNumberVerified:\s*phoneAdmission\.phoneNumberVerified/)
+    expect(ssoTicketSource).not.toMatch(/phoneNumberVerified:\s*true/)
+  })
+
   it('runs the HMAC-authenticated sweep every minute', () => {
     expect(functions.get('test-identity-sweeper')).toMatchObject({
       aclRule: { invoke: false },
@@ -134,12 +140,15 @@ describe('cloudBase test identity deployment manifest', () => {
     expect(functions.get('ai-gateway').aclRule).toEqual({ invoke: 'auth != null' })
   })
 
-  it('publishes identity JWKS and admits a trusted phone before minting SSO credentials', () => {
+  it('publishes identity JWKS and admits a trusted phone fact before minting SSO credentials', () => {
     expect(ssoTicketSource).toContain('event.httpMethod === \'GET\'')
     expect(ssoTicketSource).toContain('identityRuntime.publicJwks()')
-    expect(ssoTicketSource).toContain('assertVerifiedPhoneForUid(contextApp.auth(), uid)')
-    expect(ssoTicketSource.indexOf('assertVerifiedPhoneForUid(contextApp.auth(), uid)'))
-      .toBeLessThan(ssoTicketSource.indexOf('const ticketResult = mintTicket(uid)'))
+    expect(ssoTicketSource).toContain('const phoneAdmission = await resolvePhoneVerificationAdmission({')
+    expect(ssoTicketSource.indexOf('const phoneAdmission = await resolvePhoneVerificationAdmission({'))
+      .toBeLessThan(ssoTicketSource.indexOf('const ticketResult = mintTicket(uid, testLeaseBinding?.expiresAt)'))
+    expect(ssoTicketSource).toContain('createNativeTestSsoLeaseStore(db).resolve({')
+    expect(ssoTicketSource.indexOf('createNativeTestSsoLeaseStore(db).resolve({'))
+      .toBeLessThan(ssoTicketSource.indexOf('const ticketResult = mintTicket(uid, testLeaseBinding?.expiresAt)'))
   })
 
   it('configures the private account access token on every restricted business function', () => {

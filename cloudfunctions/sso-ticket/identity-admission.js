@@ -52,9 +52,18 @@ async function assertVerifiedPhoneForUid(auth, uid) {
   return { phoneNumberVerified: true }
 }
 
+async function resolvePhoneVerificationAdmission({ auth, uid, testLeaseBinding }) {
+  if (!testLeaseBinding)
+    return assertVerifiedPhoneForUid(auth, uid)
+  if (testLeaseBinding.phoneNumberVerified !== true)
+    throw new IdentityAdmissionError('phone_verification_required')
+  return { phoneNumberVerified: true }
+}
+
 module.exports = {
   IdentityAdmissionError,
   assertVerifiedPhoneForUid,
   hasTrustedPhoneCredential,
   profileMatchesSubject,
+  resolvePhoneVerificationAdmission,
 }

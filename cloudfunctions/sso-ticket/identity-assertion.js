@@ -73,12 +73,24 @@ function createIdentityAssertionRuntime(options) {
   const ttlSeconds = assertionTtlSeconds(options.ttlSeconds)
   return {
     sign(input) {
+      const now = (options.now || Date.now)()
+      const { expiresAtLimit, phoneNumberVerified, ...claims } = input
+      if (phoneNumberVerified !== true)
+        throw new TypeError('phone verification admission is required')
+      let effectiveTtlSeconds = ttlSeconds
+      if (expiresAtLimit !== undefined) {
+        if (!Number.isSafeInteger(expiresAtLimit) || expiresAtLimit <= now)
+          throw new TypeError('identity assertion expiry limit is invalid')
+        effectiveTtlSeconds = Math.min(ttlSeconds, Math.floor((expiresAtLimit - now) / 1000))
+        if (effectiveTtlSeconds < 1)
+          throw new TypeError('identity assertion expiry limit is too short')
+      }
       return keyring.signIdentityAssertion({
-        ...input,
-        phoneNumberVerified: true,
+        ...claims,
+        phoneNumberVerified,
         accountStatus: 'active',
-        now: (options.now || Date.now)(),
-        ttlSeconds,
+        now,
+        ttlSeconds: effectiveTtlSeconds,
       })
     },
     publicJwks: () => keyring.publicJwks(),

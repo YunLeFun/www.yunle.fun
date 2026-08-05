@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   assertVerifiedPhoneForUid,
   IdentityAdmissionError,
+  resolvePhoneVerificationAdmission,
 } from '../../cloudfunctions/sso-ticket/identity-admission.js'
 
 describe('sso-ticket verified-phone admission', () => {
@@ -54,5 +55,21 @@ describe('sso-ticket verified-phone admission', () => {
     }, 'user-1')).rejects.toMatchObject({
       reason: 'identity_unavailable',
     })
+  })
+
+  it('accepts only an explicit verified fact from a protected test lease binding', async () => {
+    const auth = { getEndUserInfo: vi.fn() }
+    await expect(resolvePhoneVerificationAdmission({
+      auth,
+      uid: 'uid_native_test',
+      testLeaseBinding: { phoneNumberVerified: true },
+    })).resolves.toEqual({ phoneNumberVerified: true })
+    expect(auth.getEndUserInfo).not.toHaveBeenCalled()
+
+    await expect(resolvePhoneVerificationAdmission({
+      auth,
+      uid: 'uid_native_test',
+      testLeaseBinding: {},
+    })).rejects.toMatchObject({ reason: 'phone_verification_required' })
   })
 })

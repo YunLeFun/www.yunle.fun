@@ -214,6 +214,24 @@ describe('sSO v3 Provider page', () => {
     expect(h.state.cloudbase.app.callFunction).not.toHaveBeenCalled()
   })
 
+  it('rejects a forged native result callback before issuing a code', async () => {
+    const wrapper = await mount(requestRoute({
+      native_callback_uri: `yunlefun://evil/sso?state=${'s'.repeat(43)}`,
+    }))
+
+    expect(wrapper.text()).toContain('SSO 请求参数无效')
+    expect(h.state.cloudbase.app.callFunction).not.toHaveBeenCalled()
+  })
+
+  it('accepts a native result callback only for explicit account selection', async () => {
+    const wrapper = await mount(requestRoute({
+      native_callback_uri: `yunlefun://auth/sso?state=${'s'.repeat(43)}`,
+    }))
+
+    expect(wrapper.text()).toContain('SSO 请求参数无效')
+    expect(h.state.cloudbase.app.callFunction).not.toHaveBeenCalled()
+  })
+
   it('never redirects to a callback rejected by the authoritative registry', async () => {
     h.state.functionResponse = { ok: false, reason: 'origin_not_allowed' }
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)

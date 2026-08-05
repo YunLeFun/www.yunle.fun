@@ -12,6 +12,10 @@ import {
   SSO_REDIRECT_HASH_KEY,
 } from '@yunlefun/sso/protocol'
 import { useTcbAuthSession } from '~/composables/auth/useAuthSession'
+import {
+  buildNativeSsoCallbackUrl,
+  readNativeSsoCallbackUri,
+} from '~/utils/native-sso-callback'
 
 definePageMeta({
   layout: 'auth',
@@ -46,6 +50,7 @@ interface PendingAuthorization {
 const pendingAuthorization = shallowRef<PendingAuthorization | null>(null)
 const accountSwitchAllowed = shallowRef(false)
 const currentAccountName = computed(() => user.value?.nickname || user.value?.login || '云乐坊账号')
+let nativeCallbackUri: string | null = null
 
 interface SsoCodeResult {
   ok?: boolean
@@ -95,7 +100,7 @@ function redirectBack(redirectUri: string, nonce: string, code: string): void {
   })}`
   status.value = 'success'
   message.value = '账号已同步，正在返回…'
-  window.location.replace(url.toString())
+  window.location.replace(resultDestination(url.toString()))
 }
 
 function redirectDenied(redirectUri: string, nonce: string): void {
@@ -108,7 +113,13 @@ function redirectDenied(redirectUri: string, nonce: string): void {
   })}`
   status.value = 'success'
   message.value = '已取消授权，正在返回…'
-  window.location.replace(url.toString())
+  window.location.replace(resultDestination(url.toString()))
+}
+
+function resultDestination(resultUrl: string): string {
+  return nativeCallbackUri
+    ? buildNativeSsoCallbackUrl(nativeCallbackUri, resultUrl)
+    : resultUrl
 }
 
 function rejectInvalidRequest(): void {
@@ -176,16 +187,25 @@ onMounted(async () => {
     ? String(route.query.prompt[0] ?? '')
     : String(route.query.prompt ?? '')
   const prompt = readSsoPrompt(rawPrompt)
+  const rawNativeCallback = Array.isArray(route.query.native_callback_uri)
+    ? String(route.query.native_callback_uri[0] ?? '')
+    : String(route.query.native_callback_uri ?? '')
+  const parsedNativeCallback = rawNativeCallback
+    ? readNativeSsoCallbackUri(rawNativeCallback)
+    : null
   if (!clientId
     || !redirectUri
     || !scopes.length
     || !nonce
     || !codeChallenge
     || codeChallengeMethod !== 'S256'
-    || (rawPrompt && !prompt)) {
+    || (rawPrompt && !prompt)
+    || (rawNativeCallback && !parsedNativeCallback)
+    || (parsedNativeCallback && prompt !== 'select_account')) {
     rejectInvalidRequest()
     return
   }
+  nativeCallbackUri = parsedNativeCallback
 
   try {
     if (!authReady.value)

@@ -209,17 +209,23 @@ refresh token 固定为 30 天 idle / 180 天 absolute，轮换并做 grant-fami
 | `SSO_ISSUE_PER_IP_PER_MINUTE`        | 否   | 每 IP 的签发上限，默认 30                                                                      |
 | `SSO_EXCHANGE_PER_IP_PER_MINUTE`     | 否   | 每 IP 的兑换上限，默认 60                                                                      |
 | `SSO_EXCHANGE_PER_ORIGIN_PER_MINUTE` | 否   | 每 Consumer origin 的兑换上限，默认 300                                                        |
+| `TEST_BROKER_INTERNAL_TOKEN`         | 是   | 测试身份 Broker 签票专用内部令牌；不得与其他内部令牌复用                                       |
+| `NATIVE_SSO_TEST_INTERNAL_TOKEN`     | 是   | admin 原生测试 SSO 签码专用内部令牌；不得与 Broker 签票令牌复用                                |
+| `TEST_TICKET_ESCROW_KEY`             | 是   | 测试票据托管用 32 字节标准 base64 AES-GCM 密钥；与 admin Broker 解密配置一致                   |
 
 `sso-ticket` 的用户 SSO 是两步授权码流程，私钥始终只在本函数 env：
 
 - **签发**（已认证 SDK `action='issueSsoCode'`）：uid 只从调用上下文派生；Client Registry 校验 `client_id`、issuer environment、精确 Origin/redirect URI 和开发者门禁；授权码绑定策略版本与 S256 PKCE challenge。
 - **兑换**（HTTPS `action='exchangeSsoCode'`）：Registry 与授权码绑定再次校验后事务性消费；
-  服务端通过 CloudBase `getEndUserInfo(uid)` 确认顶层手机号字段存在，再返回短暂 custom
-  ticket 与绑定 `sub`、Consumer、scope、nonce 的 Ed25519 身份断言。响应不包含手机号。
+  普通用户必须由 CloudBase `getEndUserInfo(uid)` 的顶层手机号字段确认；受管测试号只能由活动租约
+  中 `authProfile.virtualPhoneBound=true` 的受保护记录确认。两条路径都只向签名器传递显式的
+  `phoneNumberVerified` 准入事实，再返回短暂 custom ticket 与绑定 `sub`、Consumer、scope、nonce
+  的 Ed25519 身份断言。响应不包含手机号。
 - **公钥发现**（HTTPS `GET`）：同一路径返回只含公钥的 JWKS，供 Consumer BFF 按 `kid`
   验证身份断言；成功响应公开缓存 5 分钟。
 - 任何调用者选择 `uid`/`subject` 的输入都拒绝；主站 session 和 refresh token 不跨 origin。
-- access token payload、客户端 profile 与用户可写 metadata 均不能作为手机号验证依据。
+- access token payload、客户端 profile 与用户可写 metadata 均不能作为手机号验证依据；虚拟手机
+  绑定只对精确的受管测试租约生效，关闭后后续验证码、授权码兑换和身份断言立即失败关闭。
 - `sso_login_codes` 与 `sso_security_limits` 均为 server-only；独立 `sso-security-sweeper` 每小时清理，且 `aclRule.invoke=false`。
 
 > 客户端用 `signInWithCustomTicket(() => ticket)` 换取自己独立、可同源续期的会话。设计详见 [`docs/cookie-session-migration.md`](../docs/cookie-session-migration.md)。
