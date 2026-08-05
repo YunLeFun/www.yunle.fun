@@ -1,4 +1,4 @@
-/** Private one-minute reward-claim reconciliation, expiry and ops-alert worker. */
+/** Private five-minute reward-claim reconciliation, expiry and ops-alert worker. */
 
 'use strict'
 

@@ -136,7 +136,16 @@ async function handlePrepareSyntheticBaseline(db, event, options = {}) {
     const currentBalance = wallet?.balance || 0
     const amount = baseline - currentBalance
     if (amount === 0) {
-      outcome = { balance: baseline, deduped: true }
+      if (!wallet) {
+        await setRef(walletRef, {
+          userId: input.userId,
+          balance: baseline,
+          version: 1,
+          createdAt: input.now,
+          updatedAt: input.now,
+        })
+      }
+      outcome = { balance: baseline, deduped: Boolean(wallet) }
       return
     }
 

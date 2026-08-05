@@ -8,10 +8,10 @@ import { REWARD_CLAIM_OPS_DEPLOYMENT_PLAN } from '../scripts/deploy-reward-claim
 const execFileAsync = promisify(execFile)
 
 describe('权益领取定时函数部署门禁', () => {
-  it('声明私有一分钟触发器与所需独立密钥', () => {
+  it('声明私有五分钟触发器与所需独立密钥', () => {
     expect(REWARD_CLAIM_OPS_DEPLOYMENT_PLAN).toMatchObject({
       function: 'reward-claim-ops',
-      trigger: { config: '0 * * * * * *' },
+      trigger: { config: '0 */5 * * * * *' },
     })
     expect(REWARD_CLAIM_OPS_DEPLOYMENT_PLAN.requiredEnvironmentVariables)
       .toEqual(expect.arrayContaining([

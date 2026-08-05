@@ -1035,12 +1035,7 @@ function createRewardClaimCampaignService(deps) {
         status: 'failed',
         limit: 100,
       })
-      const unknown = await deps.store.listClaims({
-        campaignId: campaign._id,
-        status: 'processing',
-        limit: 100,
-      })
-      const recentFailureCount = [...failed.items, ...unknown.items]
+      const recentFailureCount = [...failed.items, ...processing.items]
         .filter(item => item.updatedAt >= at - 600_000)
         .filter(item => item.status === 'failed' || item.processingReason === 'unknown')
         .length

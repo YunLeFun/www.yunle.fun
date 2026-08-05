@@ -164,6 +164,43 @@ describe('account-api synthetic mutation guard', () => {
     })
   })
 
+  it('creates a durable wallet for a zero-coin baseline', async () => {
+    const db = syntheticDb({
+      identity: {
+        source: 'managed',
+        status: 'disabled',
+        activeLeaseId: undefined,
+        baseline: { coin: 0, enabled: true },
+      },
+      wallet: null,
+    })
+    const input = {
+      serviceToken: CLEANUP_TOKEN,
+      identityId: 'identity_01',
+      userId: 'test_uid_01',
+      identityVersion: 8,
+    }
+
+    const first = await handlePrepareSyntheticBaseline(db, input, {
+      expectedToken: CLEANUP_TOKEN,
+      now: NOW,
+    })
+    const replay = await handlePrepareSyntheticBaseline(db, input, {
+      expectedToken: CLEANUP_TOKEN,
+      now: NOW + 1,
+    })
+
+    expect(first).toEqual({ balance: 0, deduped: false })
+    expect(replay).toEqual({ balance: 0, deduped: true })
+    expect(db._store[WALLET_COLLECTION]).toHaveLength(1)
+    expect(db._store[WALLET_COLLECTION][0]).toMatchObject({
+      userId: 'test_uid_01',
+      balance: 0,
+      version: 1,
+    })
+    expect(db._store[COIN_TX_COLLECTION] ?? []).toHaveLength(0)
+  })
+
   it('reduces an existing disabled wallet to the exact protected baseline', async () => {
     const db = syntheticDb({
       identity: {
