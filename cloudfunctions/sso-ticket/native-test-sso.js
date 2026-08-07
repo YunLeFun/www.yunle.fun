@@ -7,6 +7,20 @@ const { assertNoCallerSelectedSubject } = require('./sso-request')
 
 const REF_RE = /^[\w:-]{4,128}$/
 const MAX_LEASE_MS = 15 * 60 * 1000
+const NATIVE_TEST_SSO_BINDINGS = Object.freeze([
+  Object.freeze({
+    clientId: 'cms-web',
+    appId: 'cms',
+    targetOrigin: 'https://cms.yunle.fun',
+    returnUrl: 'https://cms.yunle.fun/',
+  }),
+  Object.freeze({
+    clientId: 'ai-sfc-web',
+    appId: 'ai-sfc',
+    targetOrigin: 'https://ai-sfc.yunle.fun',
+    returnUrl: 'https://ai-sfc.yunle.fun/',
+  }),
+])
 
 class NativeTestSsoError extends Error {
   constructor(reason, message = reason) {
@@ -37,7 +51,7 @@ async function issueSsoCodeForTestLease(payload, deps) {
     throw new NativeTestSsoError('invalid_request')
 
   const request = deps.validateRequest(payload)
-  assertExactCmsRequest(request)
+  assertExactNativeTestRequest(request)
   const binding = await deps.resolveLease({ leaseId, request, now: deps.now() })
   if (!binding || !isValidTicketUid(binding.uid))
     throw new NativeTestSsoError('test_lease_binding_invalid')
@@ -55,7 +69,7 @@ async function issueSsoCodeForTestLease(payload, deps) {
 
 function validateNativeTestSsoContext(context, leaseId, request, now) {
   const { lease, identity } = context || {}
-  assertExactCmsRequest(request)
+  assertExactNativeTestRequest(request)
   if (!REF_RE.test(leaseId)
     || !lease
     || lease._id !== leaseId
@@ -90,13 +104,16 @@ function validateNativeTestSsoContext(context, leaseId, request, now) {
   }
 }
 
-function assertExactCmsRequest(request) {
-  if (!request
+function assertExactNativeTestRequest(request) {
+  const binding = request && NATIVE_TEST_SSO_BINDINGS.find(candidate => (
+    candidate.clientId === request.clientId
+    && candidate.appId === request.appId
+    && candidate.targetOrigin === request.targetOrigin
+    && candidate.returnUrl === request.returnUrl
+  ))
+  if (!binding
     || request.mode !== 'redirect'
-    || request.clientId !== 'cms-web'
-    || request.appId !== 'cms'
     || request.issuer !== 'https://www.yunle.fun'
-    || request.targetOrigin !== 'https://cms.yunle.fun'
     || !Array.isArray(request.scopes)
     || request.scopes.length !== 1
     || request.scopes[0] !== 'identity:bootstrap') {
@@ -121,7 +138,7 @@ function isExactLeaseTarget(target) {
 module.exports = {
   MAX_LEASE_MS,
   NativeTestSsoError,
-  assertExactCmsRequest,
+  assertExactNativeTestRequest,
   issueSsoCodeForTestLease,
   validateNativeTestSsoContext,
 }

@@ -22,6 +22,13 @@ const request = {
   policyVersion: 'registry-v1',
   registrationFingerprint: 'f'.repeat(64),
 }
+const aiRequest = {
+  ...request,
+  clientId: 'ai-sfc-web',
+  appId: 'ai-sfc',
+  targetOrigin: 'https://ai-sfc.yunle.fun',
+  returnUrl: 'https://ai-sfc.yunle.fun/',
+}
 const lease = {
   _id: 'lease_native_01',
   identityId: 'identity_native_01',
@@ -122,6 +129,11 @@ describe('native test SSO lease admission', () => {
       expiresAt: lease.expiresAt,
       phoneNumberVerified: true,
     })
+    expect(validateNativeTestSsoContext({ lease, identity }, lease._id, aiRequest, NOW)).toEqual({
+      uid: identity.uid,
+      expiresAt: lease.expiresAt,
+      phoneNumberVerified: true,
+    })
     expect(() => validateNativeTestSsoContext({
       lease: { ...lease, status: 'revoking' },
       identity,
@@ -129,6 +141,10 @@ describe('native test SSO lease admission', () => {
     expect(() => validateNativeTestSsoContext({ lease, identity }, lease._id, {
       ...request,
       targetOrigin: 'https://evil.example',
+    }, NOW)).toThrowError(expect.objectContaining({ reason: 'test_lease_binding_invalid' }))
+    expect(() => validateNativeTestSsoContext({ lease, identity }, lease._id, {
+      ...aiRequest,
+      returnUrl: 'https://cms.yunle.fun/',
     }, NOW)).toThrowError(expect.objectContaining({ reason: 'test_lease_binding_invalid' }))
     expect(() => validateNativeTestSsoContext({
       lease,
