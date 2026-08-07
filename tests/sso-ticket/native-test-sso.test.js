@@ -44,6 +44,14 @@ const lease = {
   expiresAt: NOW + 900_000,
   sessionNotAfter: NOW + 900_000,
 }
+const aiLease = {
+  ...lease,
+  target: {
+    ...lease.target,
+    platformAppId: 'ai-sfc',
+    origin: 'https://ai-sfc.yunle.fun',
+  },
+}
 const identity = {
   _id: 'identity_native_01',
   uid: 'uid_native_test',
@@ -129,11 +137,15 @@ describe('native test SSO lease admission', () => {
       expiresAt: lease.expiresAt,
       phoneNumberVerified: true,
     })
-    expect(validateNativeTestSsoContext({ lease, identity }, lease._id, aiRequest, NOW)).toEqual({
+    expect(validateNativeTestSsoContext({ lease: aiLease, identity }, lease._id, aiRequest, NOW)).toEqual({
       uid: identity.uid,
       expiresAt: lease.expiresAt,
       phoneNumberVerified: true,
     })
+    expect(() => validateNativeTestSsoContext({ lease, identity }, lease._id, aiRequest, NOW))
+      .toThrowError(expect.objectContaining({ reason: 'test_lease_binding_invalid' }))
+    expect(() => validateNativeTestSsoContext({ lease: aiLease, identity }, lease._id, request, NOW))
+      .toThrowError(expect.objectContaining({ reason: 'test_lease_binding_invalid' }))
     expect(() => validateNativeTestSsoContext({
       lease: { ...lease, status: 'revoking' },
       identity,
