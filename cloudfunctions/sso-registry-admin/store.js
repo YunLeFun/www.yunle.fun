@@ -3,7 +3,10 @@
 'use strict'
 
 const COLLECTIONS = Object.freeze({
+  approvals: 'sso_registry_publish_approvals',
   drafts: 'sso_registry_drafts',
+  intents: 'sso_registry_release_intents',
+  outbox: 'sso_registry_release_outbox',
   snapshots: 'sso_registry_snapshots',
   state: 'sso_registry_state',
   audit: 'sso_registry_audit_logs',
@@ -75,12 +78,75 @@ const SSO_REGISTRY_COLLECTION_MANIFESTS = Object.freeze([
       ],
     }],
   },
+  {
+    collection: COLLECTIONS.approvals,
+    access: 'ADMINONLY',
+    indexes: [{
+      name: 'environment_status_expires',
+      unique: false,
+      fields: [
+        { field: 'environment', order: 'asc' },
+        { field: 'status', order: 'asc' },
+        { field: 'expiresAt', order: 'asc' },
+      ],
+    }, {
+      name: 'draft_created',
+      unique: false,
+      fields: [
+        { field: 'draftId', order: 'asc' },
+        { field: 'createdAt', order: 'desc' },
+      ],
+    }, {
+      name: 'approver_created',
+      unique: false,
+      fields: [
+        { field: 'approverUid', order: 'asc' },
+        { field: 'createdAt', order: 'desc' },
+      ],
+    }],
+  },
+  {
+    collection: COLLECTIONS.intents,
+    access: 'ADMINONLY',
+    indexes: [{
+      name: 'environment_status_updated',
+      unique: false,
+      fields: [
+        { field: 'environment', order: 'asc' },
+        { field: 'status', order: 'asc' },
+        { field: 'updatedAt', order: 'desc' },
+      ],
+    }, {
+      name: 'snapshot_created',
+      unique: false,
+      fields: [
+        { field: 'snapshotId', order: 'asc' },
+        { field: 'createdAt', order: 'desc' },
+      ],
+    }],
+  },
+  {
+    collection: COLLECTIONS.outbox,
+    access: 'ADMINONLY',
+    indexes: [{
+      name: 'status_next_attempt',
+      unique: false,
+      fields: [
+        { field: 'status', order: 'asc' },
+        { field: 'nextAttemptAt', order: 'asc' },
+      ],
+    }],
+  },
 ])
 
 function row(result) {
   if (Array.isArray(result?.data))
     return result.data[0] || null
   return result?.data && typeof result.data === 'object' ? result.data : null
+}
+
+function rows(result) {
+  return Array.isArray(result?.data) ? result.data : []
 }
 
 function withoutId(value) {
@@ -135,6 +201,57 @@ function createRegistryStore(database, source = database) {
     },
     async putAudit(id, document) {
       assertDatabaseResult(await ref(COLLECTIONS.audit, id).set(withoutId(document)))
+    },
+    async getApproval(id) {
+      return withoutId(row(await ref(COLLECTIONS.approvals, id).get()))
+    },
+    async putApproval(id, document) {
+      assertDatabaseResult(await ref(COLLECTIONS.approvals, id).set(withoutId(document)))
+    },
+    async updateApproval(id, fields) {
+      assertDatabaseResult(await ref(COLLECTIONS.approvals, id).update(withoutId(fields)), true)
+    },
+    async findPendingApprovalByDraft(environment, draftId) {
+      const result = await source.collection(COLLECTIONS.approvals)
+        .where({
+          environment,
+          draftId,
+          status: database.command.in(['delivery_pending', 'pending']),
+        })
+        .orderBy('createdAt', 'desc')
+        .limit(1)
+        .get()
+      const found = rows(result)[0]
+      return found ? { approvalId: found._id, ...withoutId(found) } : null
+    },
+    async getReleaseIntent(id) {
+      return withoutId(row(await ref(COLLECTIONS.intents, id).get()))
+    },
+    async putReleaseIntent(id, document) {
+      assertDatabaseResult(await ref(COLLECTIONS.intents, id).set(withoutId(document)))
+    },
+    async updateReleaseIntent(id, fields) {
+      assertDatabaseResult(await ref(COLLECTIONS.intents, id).update(withoutId(fields)), true)
+    },
+    async getOutbox(id) {
+      return withoutId(row(await ref(COLLECTIONS.outbox, id).get()))
+    },
+    async putOutbox(id, document) {
+      assertDatabaseResult(await ref(COLLECTIONS.outbox, id).set(withoutId(document)))
+    },
+    async updateOutbox(id, fields) {
+      assertDatabaseResult(await ref(COLLECTIONS.outbox, id).update(withoutId(fields)), true)
+    },
+    async listReadyOutbox(timestamp, limit = 10) {
+      const result = await source.collection(COLLECTIONS.outbox)
+        .where({
+          status: database.command.in(['pending', 'retry']),
+          nextAttemptAt: database.command.lte(timestamp),
+        })
+        .orderBy('nextAttemptAt', 'asc')
+        .limit(limit)
+        .get()
+      return rows(result).map(document => ({ releaseIntentId: document._id, ...withoutId(document) }))
     },
     transaction(operation) {
       return database.runTransaction(transaction => operation(createRegistryStore(database, transaction)))

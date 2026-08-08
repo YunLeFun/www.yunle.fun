@@ -2,6 +2,8 @@
 
 状态：Confirmed（2026-08-03）
 
+实现状态：代码与回归测试完成；development 资源 rollout 待完成，production 未推进
+
 阶段：P1.1（生产邮件审批与静态产物自动发布）
 
 前置阶段：`../sso-client-registry-platform/`

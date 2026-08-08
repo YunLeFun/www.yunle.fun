@@ -66,6 +66,19 @@ export interface RegistryActiveEnvelope {
   snapshot: RegistrySnapshotRecord
 }
 
+export interface RegistryReleaseIntentManifest {
+  environment: RegistryEnvironment
+  approvalId: string | null
+  snapshotId: string
+  generation: number
+  policyVersion: string
+  contentHash: string
+  securityHash: string
+  baseCommitSha: string
+  manifestKeyId: string
+  manifestSignature: string
+}
+
 export interface GeneratedRegistryArtifact {
   formatVersion: 1
   environment: RegistryEnvironment

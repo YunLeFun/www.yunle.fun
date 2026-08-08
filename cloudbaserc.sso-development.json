@@ -14,9 +14,32 @@
         "invoke": false
       },
       "envVariables": {
+        "SSO_REGISTRY_CI_TOKEN": "{{env.SSO_REGISTRY_CI_TOKEN}}",
         "SSO_REGISTRY_SIGNING_KEY": "{{env.SSO_REGISTRY_SIGNING_KEY}}",
         "SSO_REGISTRY_SIGNING_KID": "{{env.SSO_REGISTRY_SIGNING_KID}}",
         "AUTH_ISSUER_ENVIRONMENT": "development"
+      }
+    },
+    {
+      "name": "sso-registry-release-dispatcher",
+      "timeout": 30,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true,
+      "aclRule": {
+        "invoke": false
+      },
+      "triggers": [
+        {
+          "name": "ssoRegistryReleaseDispatch",
+          "type": "timer",
+          "config": "0 */2 * * * * *"
+        }
+      ],
+      "envVariables": {
+        "SSO_REGISTRY_GITHUB_APP_ID": "{{env.SSO_REGISTRY_GITHUB_APP_ID}}",
+        "SSO_REGISTRY_GITHUB_APP_INSTALLATION_ID": "{{env.SSO_REGISTRY_GITHUB_APP_INSTALLATION_ID}}",
+        "SSO_REGISTRY_GITHUB_APP_PRIVATE_KEY": "{{env.SSO_REGISTRY_GITHUB_APP_PRIVATE_KEY}}"
       }
     },
     {

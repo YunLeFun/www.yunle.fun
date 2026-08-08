@@ -1,0 +1,192 @@
+name: Registry Deploy
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - packages/authorization-core/src/generated/*-registry.json
+      - packages/authorization-core/src/generated/*-release.json
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.release.outputs.environment }}
+      release-intent-id: ${{ steps.release.outputs.release-intent-id }}
+    steps:
+      - name: Checkout exact merge commit
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify signed release before environment secrets
+        id: release
+        run: |
+          mapfile -t release_files < <(git diff --name-only HEAD^ HEAD -- 'packages/authorization-core/src/generated/*-release.json')
+          test "${#release_files[@]}" -eq 1
+          release_file="${release_files[0]}"
+          environment="$(jq -r '.environment' "$release_file")"
+          test "$environment" = development || test "$environment" = production
+          pnpm sso:registry verify-release "$release_file" --environment "$environment"
+          test "$(jq -r '.intent.baseCommitSha' "$release_file")" = "$(git rev-parse HEAD^)"
+          echo "environment=$environment" >> "$GITHUB_OUTPUT"
+          echo "release-intent-id=$(jq -r '.releaseIntentId' "$release_file")" >> "$GITHUB_OUTPUT"
+
+  deploy-development:
+    needs: inspect
+    if: ${{ needs.inspect.outputs.environment == 'development' }}
+    runs-on: ubuntu-latest
+    environment: development
+    concurrency:
+      group: sso-registry-development
+      cancel-in-progress: false
+    env:
+      ACCOUNT_API_INTERNAL_TOKEN: ${{ secrets.ACCOUNT_API_INTERNAL_TOKEN }}
+      CLOUDBASE_API_KEY: ${{ secrets.CLOUDBASE_API_KEY }}
+      CLOUDBASE_ENV_ID: ${{ vars.CLOUDBASE_ENV_ID }}
+      SSO_REGISTRY_CI_TOKEN: ${{ secrets.SSO_REGISTRY_CI_TOKEN }}
+      SSO_IDENTITY_PUBLIC_KEYS: ${{ secrets.SSO_IDENTITY_PUBLIC_KEYS }}
+      SSO_IDENTITY_SIGNING_KEY: ${{ secrets.SSO_IDENTITY_SIGNING_KEY }}
+      SSO_IDENTITY_SIGNING_KID: ${{ secrets.SSO_IDENTITY_SIGNING_KID }}
+      SSO_TICKET_PRIVATE_KEY: ${{ secrets.SSO_TICKET_PRIVATE_KEY }}
+      SSO_TICKET_PRIVATE_KEY_ID: ${{ secrets.SSO_TICKET_PRIVATE_KEY_ID }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Record exact merged commit
+        run: >-
+          pnpm sso:registry record-ci --environment development
+          --release-intent "${{ needs.inspect.outputs.release-intent-id }}"
+          --status merged --merge-commit "${{ github.sha }}"
+          --operator github-actions --reason "generated release merged"
+      - name: Record deployment start
+        run: >-
+          pnpm sso:registry record-deployment --environment development
+          --release-intent "${{ needs.inspect.outputs.release-intent-id }}"
+          --status deploying --merge-commit "${{ github.sha }}"
+          --consumers '{}'
+          --operator github-actions --reason "development deployment started"
+      - name: Build and deploy exact development consumers
+        run: |
+          pnpm build
+          node scripts/deploy-registry-consumers.mjs development
+          pnpm sso:registry compare --environment development --operator github-actions --reason "development deployment smoke"
+      - name: Record development deployment
+        run: >-
+          pnpm sso:registry record-deployment --environment development
+          --release-intent "${{ needs.inspect.outputs.release-intent-id }}"
+          --status deployed --merge-commit "${{ github.sha }}"
+          --consumers '{"sso-ticket":"${{ github.sha }}"}'
+          --operator github-actions --reason "development deployment smoke passed"
+      - name: Record development failure
+        if: ${{ failure() }}
+        continue-on-error: true
+        run: >-
+          pnpm sso:registry record-deployment --environment development
+          --release-intent "${{ needs.inspect.outputs.release-intent-id }}"
+          --status deployment_failed --merge-commit "${{ github.sha }}"
+          --consumers '{}'
+          --failure registry_development_deployment_failed
+          --operator github-actions --reason "development deployment failed"
+
+  deploy-production:
+    needs: inspect
+    if: >-
+      ${{ needs.inspect.outputs.environment == 'production'
+      && vars.SSO_REGISTRY_PRODUCTION_DEPLOY_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency:
+      group: sso-registry-production
+      cancel-in-progress: false
+    env:
+      ACCOUNT_API_INTERNAL_TOKEN: ${{ secrets.ACCOUNT_API_INTERNAL_TOKEN }}
+      AUTH_ISSUER_ENVIRONMENT: production
+      CLOUDBASE_API_KEY: ${{ secrets.CLOUDBASE_API_KEY }}
+      CLOUDBASE_ENV_ID: ${{ vars.CLOUDBASE_ENV_ID }}
+      DESKTOP_AUTH_PUBLIC_KEYS: ${{ secrets.DESKTOP_AUTH_PUBLIC_KEYS }}
+      DESKTOP_AUTH_SIGNING_KEY: ${{ secrets.DESKTOP_AUTH_SIGNING_KEY }}
+      DESKTOP_AUTH_SIGNING_KID: ${{ secrets.DESKTOP_AUTH_SIGNING_KID }}
+      NATIVE_SSO_TEST_INTERNAL_TOKEN: ${{ secrets.NATIVE_SSO_TEST_INTERNAL_TOKEN }}
+      SSO_EXCHANGE_PER_IP_PER_MINUTE: ${{ vars.SSO_EXCHANGE_PER_IP_PER_MINUTE }}
+      SSO_EXCHANGE_PER_ORIGIN_PER_MINUTE: ${{ vars.SSO_EXCHANGE_PER_ORIGIN_PER_MINUTE }}
+      SSO_IDENTITY_ASSERTION_TTL_SEC: ${{ vars.SSO_IDENTITY_ASSERTION_TTL_SEC }}
+      SSO_IDENTITY_PUBLIC_KEYS: ${{ secrets.SSO_IDENTITY_PUBLIC_KEYS }}
+      SSO_IDENTITY_SIGNING_KEY: ${{ secrets.SSO_IDENTITY_SIGNING_KEY }}
+      SSO_IDENTITY_SIGNING_KID: ${{ secrets.SSO_IDENTITY_SIGNING_KID }}
+      SSO_ISSUE_PER_IP_PER_MINUTE: ${{ vars.SSO_ISSUE_PER_IP_PER_MINUTE }}
+      SSO_ISSUE_PER_USER_PER_MINUTE: ${{ vars.SSO_ISSUE_PER_USER_PER_MINUTE }}
+      SSO_REGISTRY_CI_TOKEN: ${{ secrets.SSO_REGISTRY_CI_TOKEN }}
+      SSO_TICKET_PRIVATE_KEY: ${{ secrets.SSO_TICKET_PRIVATE_KEY }}
+      SSO_TICKET_PRIVATE_KEY_ID: ${{ secrets.SSO_TICKET_PRIVATE_KEY_ID }}
+      SSO_TICKET_REFRESH_SEC: ${{ vars.SSO_TICKET_REFRESH_SEC }}
+      TEST_BROKER_INTERNAL_TOKEN: ${{ secrets.TEST_BROKER_INTERNAL_TOKEN }}
+      TEST_TICKET_ESCROW_KEY: ${{ secrets.TEST_TICKET_ESCROW_KEY }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Record exact merged commit
+        run: >-
+          pnpm sso:registry record-ci --environment production
+          --release-intent "${{ needs.inspect.outputs.release-intent-id }}"
+          --status merged --merge-commit "${{ github.sha }}"
+          --operator github-actions --reason "generated release merged"
+      - name: Record deployment start
+        run: >-
+          pnpm sso:registry record-deployment --environment production
+          --release-intent "${{ needs.inspect.outputs.release-intent-id }}"
+          --status deploying --merge-commit "${{ github.sha }}"
+          --consumers '{}'
+          --operator github-actions --reason "production deployment started"
+      - name: Build and deploy exact production consumers
+        run: |
+          pnpm build
+          node scripts/deploy-registry-consumers.mjs production
+          pnpm sso:registry compare --environment production --operator github-actions --reason "production deployment smoke"
+      - name: Record production deployment
+        run: >-
+          pnpm sso:registry record-deployment --environment production
+          --release-intent "${{ needs.inspect.outputs.release-intent-id }}"
+          --status deployed --merge-commit "${{ github.sha }}"
+          --consumers '{"desktop-auth":"${{ github.sha }}","sso-ticket":"${{ github.sha }}","www":"${{ github.sha }}"}'
+          --operator github-actions --reason "production deployment smoke passed"
+      - name: Record production failure
+        if: ${{ failure() }}
+        continue-on-error: true
+        run: >-
+          pnpm sso:registry record-deployment --environment production
+          --release-intent "${{ needs.inspect.outputs.release-intent-id }}"
+          --status deployment_failed --merge-commit "${{ github.sha }}"
+          --consumers '{}'
+          --failure registry_production_deployment_failed
+          --operator github-actions --reason "production deployment failed"

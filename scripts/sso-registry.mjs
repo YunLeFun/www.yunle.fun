@@ -1,11 +1,15 @@
 #!/usr/bin/env node
 
+import { Buffer } from 'node:buffer'
 import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
+
+import { createVerifiedRegistryArtifact } from './lib/sso-registry-artifact.mjs'
+import { createReleaseArtifacts } from './lib/sso-registry-release.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const require = createRequire(import.meta.url)
@@ -22,6 +26,15 @@ function usage() {
   return `Usage:
   node scripts/sso-registry.mjs validate <file> --environment <production|development>
   node scripts/sso-registry.mjs seed --environment <env> --operator <id> --reason <text> [--apply]
+  node scripts/sso-registry.mjs diff --environment <env> --draft <id> --operator <id> --reason <text>
+  node scripts/sso-registry.mjs request-approval --environment production --draft <id> --base-commit <sha> --operator <id> --reason <text>
+  SSO_REGISTRY_APPROVAL_CODE=<code> node scripts/sso-registry.mjs approve --environment production --approval <id> --operator <id> --reason <text>
+  node scripts/sso-registry.mjs queue --environment development --draft <id> --base-commit <sha> --operator <id> --reason <text>
+  node scripts/sso-registry.mjs rollback-approval --environment <env> --snapshot <id> --base-commit <sha> --operator <id> --reason <text>
+  node scripts/sso-registry.mjs release-export --environment <env> --release-intent <id> --operator <id> --reason <text>
+  node scripts/sso-registry.mjs verify-release <file> --environment <env>
+  node scripts/sso-registry.mjs record-ci --environment <env> --release-intent <id> --status <status> --operator <id> --reason <text> [--run-id <id>] [--pr <number>] [--merge-commit <sha>]
+  node scripts/sso-registry.mjs record-deployment --environment <env> --release-intent <id> --status <status> --merge-commit <sha> --consumers <json> --operator <id> --reason <text>
   node scripts/sso-registry.mjs export --environment <env> --operator <id> --reason <text> [--output <file>]
   node scripts/sso-registry.mjs compare --environment <env> --operator <id> --reason <text>
 
@@ -31,7 +44,7 @@ seed is dry-run unless --apply is present. export prints to stdout unless --outp
 function parseArgs(argv) {
   const [command, positional, ...rest] = argv
   const options = { command, positional, apply: false }
-  const tokens = command === 'validate' ? rest : [positional, ...rest].filter(Boolean)
+  const tokens = ['validate', 'verify-release'].includes(command) ? rest : [positional, ...rest].filter(Boolean)
   for (let index = 0; index < tokens.length; index++) {
     const token = tokens[index]
     if (token === '--apply') {
@@ -62,6 +75,20 @@ function managementMetadata(options, fallbackReason) {
   if (!changeReason)
     throw new Error('--reason is required')
   return { operator, changeReason }
+}
+
+function requiredOption(options, name) {
+  const value = typeof options[name] === 'string' ? options[name].trim() : ''
+  if (!value)
+    throw new Error(`--${name} is required`)
+  return value
+}
+
+function ciToken() {
+  const value = String(process.env.SSO_REGISTRY_CI_TOKEN || '')
+  if (Buffer.byteLength(value, 'utf8') < 32)
+    throw new Error('SSO_REGISTRY_CI_TOKEN must be configured')
+  return value
 }
 
 function run(command, args, options = {}) {
@@ -215,26 +242,157 @@ function seed(options, core) {
   console.log(JSON.stringify(invokeAdmin(targetEnvironment, 'saveDraft', payload), null, 2))
 }
 
-function fetchVerifiedEnvelope(options, core) {
+function invokeManagementCommand(options, action, payload = {}) {
   const targetEnvironment = environment(options.environment)
-  const metadata = managementMetadata(options, 'Registry snapshot read')
-  const envelope = invokeAdmin(targetEnvironment, 'getActiveEnvelope', metadata)
-  return core.verifyRegistryActiveEnvelope(envelope, {
+  const metadata = managementMetadata(options, `Registry ${action}`)
+  return invokeAdmin(targetEnvironment, action, { ...metadata, ...payload })
+}
+
+function draftDiff(options) {
+  return invokeManagementCommand(options, 'getDraftDiff', {
+    draftId: requiredOption(options, 'draft'),
+  })
+}
+
+function requestApproval(options) {
+  return invokeManagementCommand(options, 'requestPublishApproval', {
+    approverUid: options.approver,
+    baseCommitSha: requiredOption(options, 'base-commit'),
+    draftId: requiredOption(options, 'draft'),
+  })
+}
+
+function approveRelease(options) {
+  return invokeManagementCommand(options, 'approveAndQueueRelease', {
+    approvalId: requiredOption(options, 'approval'),
+    code: requiredOption({ code: process.env.SSO_REGISTRY_APPROVAL_CODE }, 'code'),
+  })
+}
+
+function queueDevelopmentRelease(options) {
+  return invokeManagementCommand(options, 'approveAndQueueRelease', {
+    baseCommitSha: requiredOption(options, 'base-commit'),
+    draftId: requiredOption(options, 'draft'),
+  })
+}
+
+function requestRollback(options) {
+  return invokeManagementCommand(options, 'requestRollbackApproval', {
+    approverUid: options.approver,
+    baseCommitSha: requiredOption(options, 'base-commit'),
+    targetSnapshotId: requiredOption(options, 'snapshot'),
+  })
+}
+
+function releaseExport(options, core) {
+  const targetEnvironment = environment(options.environment)
+  const releaseIntentId = requiredOption(options, 'release-intent')
+  const metadata = managementMetadata(options, 'Registry CI release export')
+  const local = core.parseGeneratedRegistryArtifact(readJson(GENERATED_PATHS[targetEnvironment]), targetEnvironment)
+  const response = invokeAdmin(targetEnvironment, 'getReleaseIntent', {
+    ...metadata,
+    ciToken: ciToken(),
+    releaseIntentId,
+  })
+  const artifacts = createReleaseArtifacts({
+    core,
     environment: targetEnvironment,
+    localArtifact: local,
+    releaseIntentId,
+    response,
     trustAnchors: core.registryTrustAnchors,
   })
+  const releasePath = resolve(ROOT, 'packages/authorization-core/src/generated', `${targetEnvironment}-release.json`)
+  writeFileSync(GENERATED_PATHS[targetEnvironment], stablePrettyJson(artifacts.registryArtifact, core), { flag: 'w' })
+  writeFileSync(releasePath, stablePrettyJson(artifacts.releaseManifest, core), { flag: 'w' })
+  return {
+    ok: true,
+    environment: targetEnvironment,
+    releaseIntentId,
+    registryPath: GENERATED_PATHS[targetEnvironment],
+    releasePath,
+    generation: artifacts.registryArtifact.minimumGeneration,
+    contentHash: artifacts.releaseManifest.intent.contentHash,
+  }
+}
+
+function verifyRelease(options, core) {
+  if (!options.positional)
+    throw new Error('verify-release requires a release JSON file')
+  const targetEnvironment = environment(options.environment)
+  const releaseManifest = readJson(resolve(process.cwd(), options.positional))
+  const local = core.parseGeneratedRegistryArtifact(readJson(GENERATED_PATHS[targetEnvironment]), targetEnvironment)
+  const artifacts = createReleaseArtifacts({
+    core,
+    environment: targetEnvironment,
+    localArtifact: local,
+    releaseIntentId: requiredOption(releaseManifest, 'releaseIntentId'),
+    response: releaseManifest,
+    trustAnchors: core.registryTrustAnchors,
+  })
+  const expectedRegistry = stablePrettyJson(artifacts.registryArtifact, core)
+  const actualRegistry = readFileSync(GENERATED_PATHS[targetEnvironment], 'utf8')
+  if (expectedRegistry !== actualRegistry)
+    throw new Error('release_registry_artifact_mismatch')
+  return {
+    ok: true,
+    environment: targetEnvironment,
+    releaseIntentId: releaseManifest.releaseIntentId,
+    generation: artifacts.registryArtifact.minimumGeneration,
+    baseCommitSha: artifacts.releaseManifest.intent.baseCommitSha,
+    contentHash: artifacts.releaseManifest.intent.contentHash,
+  }
+}
+
+function recordCiProgress(options) {
+  return invokeManagementCommand(options, 'recordCiProgress', {
+    ciToken: ciToken(),
+    releaseIntentId: requiredOption(options, 'release-intent'),
+    status: requiredOption(options, 'status'),
+    ...(options['run-id'] ? { githubRunId: options['run-id'] } : {}),
+    ...(options.pr ? { pullRequestNumber: Number(options.pr) } : {}),
+    ...(options['merge-commit'] ? { mergeCommitSha: options['merge-commit'] } : {}),
+    ...(options.failure ? { failureCode: options.failure } : {}),
+  })
+}
+
+function recordDeployment(options) {
+  let deployedConsumers
+  try {
+    deployedConsumers = JSON.parse(requiredOption(options, 'consumers'))
+  }
+  catch {
+    throw new Error('--consumers must be valid JSON')
+  }
+  return invokeManagementCommand(options, 'recordDeploymentResult', {
+    ciToken: ciToken(),
+    deployedConsumers,
+    releaseIntentId: requiredOption(options, 'release-intent'),
+    status: requiredOption(options, 'status'),
+    mergeCommitSha: requiredOption(options, 'merge-commit'),
+    ...(options.failure ? { failureCode: options.failure } : {}),
+  })
+}
+
+function fetchEnvelope(options) {
+  const targetEnvironment = environment(options.environment)
+  const metadata = managementMetadata(options, 'Registry snapshot read')
+  return invokeAdmin(targetEnvironment, 'getActiveEnvelope', metadata)
 }
 
 function exportedArtifact(options, core) {
   const targetEnvironment = environment(options.environment)
-  const envelope = fetchVerifiedEnvelope(options, core)
-  return {
-    formatVersion: 1,
+  const local = core.parseGeneratedRegistryArtifact(
+    readJson(GENERATED_PATHS[targetEnvironment]),
+    targetEnvironment,
+  )
+  return createVerifiedRegistryArtifact({
     environment: targetEnvironment,
-    minimumGeneration: envelope.state.generation,
-    registry: envelope.snapshot.registry,
-    activeEnvelope: envelope,
-  }
+    envelope: fetchEnvelope(options),
+    minimumGeneration: local.minimumGeneration,
+    trustAnchors: core.registryTrustAnchors,
+    verifyRegistryActiveEnvelope: core.verifyRegistryActiveEnvelope,
+  })
 }
 
 function exportRegistry(options, core) {
@@ -290,6 +448,24 @@ try {
     validate(options, core)
   else if (options.command === 'seed')
     seed(options, core)
+  else if (options.command === 'diff')
+    console.log(JSON.stringify(draftDiff(options), null, 2))
+  else if (options.command === 'request-approval')
+    console.log(JSON.stringify(requestApproval(options), null, 2))
+  else if (options.command === 'approve')
+    console.log(JSON.stringify(approveRelease(options), null, 2))
+  else if (options.command === 'queue')
+    console.log(JSON.stringify(queueDevelopmentRelease(options), null, 2))
+  else if (options.command === 'rollback-approval')
+    console.log(JSON.stringify(requestRollback(options), null, 2))
+  else if (options.command === 'release-export')
+    console.log(JSON.stringify(releaseExport(options, core), null, 2))
+  else if (options.command === 'verify-release')
+    console.log(JSON.stringify(verifyRelease(options, core), null, 2))
+  else if (options.command === 'record-ci')
+    console.log(JSON.stringify(recordCiProgress(options), null, 2))
+  else if (options.command === 'record-deployment')
+    console.log(JSON.stringify(recordDeployment(options), null, 2))
   else if (options.command === 'export')
     exportRegistry(options, core)
   else if (options.command === 'compare')

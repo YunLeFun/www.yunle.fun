@@ -20,8 +20,10 @@ import {
   registryTrustAnchors,
   RegistryValidationError,
   signRegistryActivation,
+  signRegistryReleaseIntent,
   signRegistrySnapshot,
   verifyRegistryActiveEnvelope,
+  verifyRegistryReleaseIntent,
 } from '../../packages/authorization-core/src/index'
 
 function registry(overrides: Partial<ClientRegistrySnapshot> = {}): ClientRegistrySnapshot {
@@ -249,5 +251,39 @@ describe('registry snapshot signatures', () => {
       environment: 'production',
       trustAnchors: { production: {}, development: {} },
     })).toThrowError(expect.objectContaining({ code: 'registry_signature_key_unknown' }))
+  })
+})
+
+describe('registry release intent signatures', () => {
+  it('binds an approved release to its snapshot and repository base', () => {
+    const keys = generateKeyPairSync('ed25519')
+    const keyId = 'release-intent-test'
+    const unsigned = {
+      environment: 'production' as const,
+      approvalId: 'approval:test',
+      snapshotId: 'production:3:snapshot',
+      generation: 3,
+      policyVersion: '2026-08-08.3',
+      contentHash: 'a'.repeat(64),
+      securityHash: 'b'.repeat(64),
+      baseCommitSha: 'c'.repeat(40),
+      manifestKeyId: keyId,
+    }
+    const intent = {
+      ...unsigned,
+      manifestSignature: signRegistryReleaseIntent(unsigned, keys.privateKey),
+    }
+    const trustAnchors = {
+      production: { [keyId]: keys.publicKey.export({ format: 'jwk' }) as Record<string, string> },
+      development: {},
+    }
+
+    expect(verifyRegistryReleaseIntent(intent, { environment: 'production', trustAnchors })).toEqual(intent)
+    expect(() => verifyRegistryReleaseIntent({
+      ...intent,
+      baseCommitSha: 'd'.repeat(40),
+    }, { environment: 'production', trustAnchors })).toThrow(expect.objectContaining({
+      code: 'registry_release_intent_signature_invalid',
+    }))
   })
 })

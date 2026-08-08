@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url'
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const ARTIFACT_ROOT = resolve(ROOT, '.cloudbase/artifacts')
 const CORE_FUNCTIONS = new Set(['desktop-auth', 'sso-registry-admin', 'sso-ticket'])
+const TRANSACTIONAL_EMAIL_FUNCTIONS = new Set(['account-lifecycle-notifier', 'sso-registry-admin'])
 
 function run(command, args) {
   const result = spawnSync(command, args, {
@@ -43,7 +44,17 @@ function copyAuthorizationCore(artifactDirectory) {
   }, null, 2)}\n`)
 }
 
-function buildCoreFunctionArtifact(functionName) {
+function copyTransactionalEmail(artifactDirectory) {
+  const source = resolve(ROOT, 'packages/transactional-email')
+  const vendor = join(artifactDirectory, 'vendor/transactional-email')
+  mkdirSync(vendor, { recursive: true })
+  cpSync(source, vendor, {
+    recursive: true,
+    filter: path => !path.split('/').includes('node_modules'),
+  })
+}
+
+function buildVendoredFunctionArtifact(functionName) {
   const source = resolve(ROOT, 'cloudfunctions', functionName)
   if (!existsSync(source))
     throw new Error(`unknown cloud function: ${functionName}`)
@@ -55,11 +66,17 @@ function buildCoreFunctionArtifact(functionName) {
     recursive: true,
     filter: path => !path.split('/').includes('node_modules'),
   })
-  copyAuthorizationCore(artifact)
+  if (CORE_FUNCTIONS.has(functionName))
+    copyAuthorizationCore(artifact)
+  if (TRANSACTIONAL_EMAIL_FUNCTIONS.has(functionName))
+    copyTransactionalEmail(artifact)
 
   const manifestPath = join(artifact, 'package.json')
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
-  manifest.dependencies['@yunlefun/authorization-core'] = 'file:vendor/authorization-core'
+  if (CORE_FUNCTIONS.has(functionName))
+    manifest.dependencies['@yunlefun/authorization-core'] = 'file:vendor/authorization-core'
+  if (TRANSACTIONAL_EMAIL_FUNCTIONS.has(functionName))
+    manifest.dependencies['@yunlefun/transactional-email'] = 'file:vendor/transactional-email'
   writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
   return artifact
 }
@@ -70,9 +87,9 @@ export function buildCloudFunctionArtifacts(functionNames) {
     run('pnpm', ['build:authorization-core'])
 
   return names.map((functionName) => {
-    if (!CORE_FUNCTIONS.has(functionName))
+    if (!CORE_FUNCTIONS.has(functionName) && !TRANSACTIONAL_EMAIL_FUNCTIONS.has(functionName))
       return resolve(ROOT, 'cloudfunctions', functionName)
-    return buildCoreFunctionArtifact(functionName)
+    return buildVendoredFunctionArtifact(functionName)
   })
 }
 

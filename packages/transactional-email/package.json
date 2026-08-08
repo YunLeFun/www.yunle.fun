@@ -1,0 +1,10 @@
+{
+  "name": "@yunlefun/transactional-email",
+  "type": "commonjs",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./index.js",
+  "files": [
+    "*.js"
+  ]
+}

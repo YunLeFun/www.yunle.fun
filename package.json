@@ -22,6 +22,7 @@
     "test:watch": "vitest",
     "sync:wxpay-lib": "node scripts/sync-wxpay-lib.mjs",
     "sso:registry": "node scripts/sso-registry.mjs",
+    "sso:identity-key": "node scripts/prepare-sso-identity-key.mjs",
     "ci": "npm i -g corepack && pnpm install"
   },
   "dependencies": {

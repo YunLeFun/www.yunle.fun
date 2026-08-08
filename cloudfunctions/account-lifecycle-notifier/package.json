@@ -6,6 +6,7 @@
   "dependencies": {
     "@cloudbase/manager-node": "^5.6.4",
     "@cloudbase/node-sdk": "^3.18.3",
+    "@yunlefun/transactional-email": "workspace:*",
     "tencentcloud-sdk-nodejs-ses": "^4.1.271",
     "ws": "^8.21.1"
   }

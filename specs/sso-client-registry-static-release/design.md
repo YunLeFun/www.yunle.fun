@@ -2,6 +2,8 @@
 
 状态：Confirmed（2026-08-04）
 
+实现状态：控制面、签名 release intent、dispatcher 与 GitHub CI 已落地；development rollout 待完成
+
 对应需求：`requirements.md` R1–R11
 
 前置设计：`../sso-client-registry-platform/design.md`

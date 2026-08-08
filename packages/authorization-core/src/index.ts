@@ -199,8 +199,10 @@ export {
 } from './registry-schema'
 export {
   signRegistryActivation,
+  signRegistryReleaseIntent,
   signRegistrySnapshot,
   verifyRegistryActiveEnvelope,
+  verifyRegistryReleaseIntent,
   verifyRegistrySnapshotSignature,
 } from './registry-signature'
 export type { RegistryKeyInput } from './registry-signature'
@@ -216,6 +218,7 @@ export type {
   RegistryActiveEnvelope,
   RegistryEnvironment,
   RegistryPublicKey,
+  RegistryReleaseIntentManifest,
   RegistrySnapshotRecord,
   RegistryTrustAnchors,
 } from './registry-types'

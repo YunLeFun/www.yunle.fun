@@ -10,6 +10,13 @@ const {
   registryTrustAnchors,
 } = require('@yunlefun/authorization-core')
 const { assertRegistryAdminActionAllowed } = require('./action-policy')
+const {
+  createApprovalEmailSender,
+  createManager,
+  createSesClient,
+  createStrictApproverResolver,
+  loadApprovalRuntimeConfig,
+} = require('./approval-runtime')
 const { RegistryAdminError, createRegistryAdminService } = require('./service')
 const { createRegistryStore } = require('./store')
 
@@ -47,23 +54,35 @@ function createTrustAnchors(environment, keyId, signingKey) {
   }
 }
 
-let service
-function loadService(environment = currentEnvironment()) {
-  if (service)
-    return service
+function loadService(environment = currentEnvironment(), context = {}) {
   const keyId = String(process.env.SSO_REGISTRY_SIGNING_KID || '').trim()
   const signingKey = decodeKey(process.env.SSO_REGISTRY_SIGNING_KEY)
   if (!keyId || !signingKey)
     throw new Error('SSO Registry signing key is not configured')
-  service = createRegistryAdminService({
+  const options = {
     environment,
     keyId,
     signingKey,
     trustAnchors: createTrustAnchors(environment, keyId, signingKey),
     store: createRegistryStore(db),
     randomId: () => randomBytes(12).toString('base64url'),
-  })
-  return service
+  }
+  if (environment === 'production') {
+    const runtime = cloudbase.getCloudbaseContext()
+    const envId = runtime.TCB_ENV || runtime.SCF_NAMESPACE
+    if (!envId)
+      throw new Error('CloudBase environment is unavailable')
+    const approvalConfig = loadApprovalRuntimeConfig()
+    const manager = createManager(envId, context)
+    const sesClient = createSesClient(approvalConfig, context)
+    Object.assign(options, {
+      approvalPepper: approvalConfig.approvalPepper,
+      approverUids: approvalConfig.approverUids,
+      resolveApproverEmail: createStrictApproverResolver(manager),
+      sendApprovalEmail: createApprovalEmailSender(sesClient, approvalConfig),
+    })
+  }
+  return createRegistryAdminService(options)
 }
 
 exports.main = async (event, context) => {
@@ -73,8 +92,11 @@ exports.main = async (event, context) => {
   }
   try {
     const environment = currentEnvironment()
-    assertRegistryAdminActionAllowed(request.action, environment)
-    const runtime = loadService(environment)
+    assertRegistryAdminActionAllowed(request.action, environment, {
+      ciToken: request.ciToken,
+      expectedCiToken: process.env.SSO_REGISTRY_CI_TOKEN,
+    })
+    const runtime = loadService(environment, context)
     let data
     switch (request.action) {
       case 'saveDraft':
@@ -82,6 +104,18 @@ exports.main = async (event, context) => {
         break
       case 'validateDraft':
         data = await runtime.validateDraft(request)
+        break
+      case 'getDraftDiff':
+        data = await runtime.getDraftDiff(request)
+        break
+      case 'requestPublishApproval':
+        data = await runtime.requestPublishApproval(request)
+        break
+      case 'approveAndQueueRelease':
+        data = await runtime.approveAndQueueRelease(request)
+        break
+      case 'requestRollbackApproval':
+        data = await runtime.requestRollbackApproval(request)
         break
       case 'publishDraft':
         data = await runtime.publishDraft(request)
@@ -94,6 +128,15 @@ exports.main = async (event, context) => {
         break
       case 'getStatus':
         data = await runtime.getStatus(request)
+        break
+      case 'getReleaseIntent':
+        data = await runtime.getReleaseIntent(request)
+        break
+      case 'recordCiProgress':
+        data = await runtime.recordCiProgress(request)
+        break
+      case 'recordDeploymentResult':
+        data = await runtime.recordDeploymentResult(request)
         break
       default:
         throw new RegistryAdminError('unsupported_action')
