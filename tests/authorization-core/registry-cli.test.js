@@ -1,0 +1,122 @@
+import { generateKeyPairSync } from 'node:crypto'
+
+import { describe, expect, it } from 'vitest'
+
+import {
+  hashRegistry,
+  parseClientRegistrySnapshot,
+  signRegistryActivation,
+  signRegistryReleaseIntent,
+  signRegistrySnapshot,
+  verifyRegistryActiveEnvelope,
+  verifyRegistryReleaseIntent,
+} from '../../packages/authorization-core/src/index'
+import { createVerifiedRegistryArtifact } from '../../scripts/lib/sso-registry-artifact.mjs'
+import { createReleaseArtifacts } from '../../scripts/lib/sso-registry-release.mjs'
+
+function signedEnvelope(generation = 1) {
+  const keys = generateKeyPairSync('ed25519')
+  const registry = parseClientRegistrySnapshot({
+    schemaVersion: 1,
+    policyVersion: '2026-08-08.1',
+    issuer: 'https://www.yunle.fun',
+    clients: [],
+  }, { environment: 'production' })
+  const hashes = hashRegistry(registry)
+  const keyId = 'registry-cli-test'
+  const unsignedSnapshot = {
+    environment: 'production',
+    snapshotId: 'production:1:registry-cli-test',
+    sequence: 1,
+    schemaVersion: 1,
+    policyVersion: registry.policyVersion,
+    registry,
+    ...hashes,
+    keyId,
+    sourceDraftId: 'draft-test',
+    changeReason: 'test generation floor',
+    publishedBy: 'registry-test',
+    publishedAt: 1_785_700_000_000,
+  }
+  const snapshot = {
+    ...unsignedSnapshot,
+    signature: signRegistrySnapshot(unsignedSnapshot, keys.privateKey),
+  }
+  const unsignedState = {
+    environment: 'production',
+    generation,
+    activeSnapshotId: snapshot.snapshotId,
+    action: 'publish',
+    previousSnapshotId: null,
+    activatedBy: 'registry-test',
+    activatedAt: 1_785_700_000_000,
+    activationKeyId: keyId,
+  }
+  return {
+    envelope: {
+      formatVersion: 1,
+      snapshot,
+      state: {
+        ...unsignedState,
+        activationSignature: signRegistryActivation(unsignedState, keys.privateKey),
+      },
+    },
+    trustAnchors: {
+      production: { [keyId]: keys.publicKey.export({ format: 'jwk' }) },
+      development: {},
+    },
+    keyId,
+    privateKey: keys.privateKey,
+  }
+}
+
+describe('registry CLI artifact export', () => {
+  it('rejects an active envelope below the compiled generation floor', () => {
+    const { envelope, trustAnchors } = signedEnvelope(1)
+
+    expect(() => createVerifiedRegistryArtifact({
+      environment: 'production',
+      envelope,
+      minimumGeneration: 2,
+      trustAnchors,
+      verifyRegistryActiveEnvelope,
+    })).toThrow(expect.objectContaining({ code: 'registry_activation_replayed' }))
+  })
+
+  it('verifies and binds a release intent before generating Registry release files', () => {
+    const { envelope, keyId, privateKey, trustAnchors } = signedEnvelope(1)
+    const unsignedIntent = {
+      environment: 'production',
+      approvalId: 'approval:test',
+      snapshotId: envelope.snapshot.snapshotId,
+      generation: envelope.state.generation,
+      policyVersion: envelope.snapshot.policyVersion,
+      contentHash: envelope.snapshot.contentHash,
+      securityHash: envelope.snapshot.securityHash,
+      baseCommitSha: 'e'.repeat(40),
+      manifestKeyId: keyId,
+    }
+    const response = {
+      intent: {
+        ...unsignedIntent,
+        manifestSignature: signRegistryReleaseIntent(unsignedIntent, privateKey),
+      },
+      envelope,
+    }
+
+    expect(createReleaseArtifacts({
+      core: { verifyRegistryActiveEnvelope, verifyRegistryReleaseIntent },
+      environment: 'production',
+      localArtifact: { minimumGeneration: 0 },
+      releaseIntentId: 'release:production:1:test',
+      response,
+      trustAnchors,
+    })).toMatchObject({
+      registryArtifact: { minimumGeneration: 1 },
+      releaseManifest: {
+        releaseIntentId: 'release:production:1:test',
+        intent: { baseCommitSha: 'e'.repeat(40) },
+      },
+    })
+  })
+})

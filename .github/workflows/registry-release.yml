@@ -1,0 +1,206 @@
+name: Registry Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      releaseIntentId:
+        description: Signed Registry release intent id
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sso-registry-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: registry-release
+    env:
+      CLOUDBASE_API_KEY: ${{ secrets.CLOUDBASE_API_KEY }}
+      CLOUDBASE_ENV_ID: ${{ vars.CLOUDBASE_ENV_ID }}
+      SSO_REGISTRY_CI_TOKEN: ${{ secrets.SSO_REGISTRY_CI_TOKEN }}
+    steps:
+      - name: Resolve intent environment
+        id: intent
+        env:
+          RELEASE_INTENT_ID: ${{ inputs.releaseIntentId }}
+        run: |
+          case "$RELEASE_INTENT_ID" in
+            release:development:*) environment=development ;;
+            release:production:*) environment=production ;;
+            *) echo "invalid release intent id" >&2; exit 1 ;;
+          esac
+          echo "environment=$environment" >> "$GITHUB_OUTPUT"
+
+      - name: Require explicit production enablement
+        if: ${{ steps.intent.outputs.environment == 'production' }}
+        env:
+          PRODUCTION_DEPLOY_ENABLED: ${{ vars.SSO_REGISTRY_PRODUCTION_DEPLOY_ENABLED }}
+        run: test "$PRODUCTION_DEPLOY_ENABLED" = true
+
+      - name: Checkout protected main
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Record workflow dispatch
+        run: >-
+          pnpm sso:registry record-ci
+          --environment "${{ steps.intent.outputs.environment }}"
+          --release-intent "${{ inputs.releaseIntentId }}"
+          --status dispatched
+          --run-id "${{ github.run_id }}"
+          --operator github-actions
+          --reason "registry release workflow dispatch"
+
+      - name: Export signed release
+        run: >-
+          pnpm sso:registry release-export
+          --environment "${{ steps.intent.outputs.environment }}"
+          --release-intent "${{ inputs.releaseIntentId }}"
+          --operator github-actions
+          --reason "deterministic registry release export"
+
+      - name: Confirm protected main has not moved
+        env:
+          ENVIRONMENT: ${{ steps.intent.outputs.environment }}
+        run: |
+          release_file="packages/authorization-core/src/generated/${ENVIRONMENT}-release.json"
+          approved_base="$(jq -r '.intent.baseCommitSha' "$release_file")"
+          git fetch origin main
+          current_main="$(git rev-parse origin/main)"
+          if [ "$approved_base" != "$current_main" ]; then
+            pnpm sso:registry record-ci \
+              --environment "$ENVIRONMENT" \
+              --release-intent "${{ inputs.releaseIntentId }}" \
+              --status superseded \
+              --operator github-actions \
+              --reason "protected main moved after approval"
+            exit 1
+          fi
+
+      - name: Verify generated-only diff
+        env:
+          ENVIRONMENT: ${{ steps.intent.outputs.environment }}
+        run: |
+          registry_file="packages/authorization-core/src/generated/${ENVIRONMENT}-registry.json"
+          release_file="packages/authorization-core/src/generated/${ENVIRONMENT}-release.json"
+          mapfile -t changed < <(git diff --name-only)
+          test "${#changed[@]}" -eq 2
+          for file in "${changed[@]}"; do
+            test "$file" = "$registry_file" || test "$file" = "$release_file"
+          done
+
+      - name: Verify release and repository
+        env:
+          ENVIRONMENT: ${{ steps.intent.outputs.environment }}
+        run: |
+          pnpm sso:registry verify-release "packages/authorization-core/src/generated/${ENVIRONMENT}-release.json" --environment "$ENVIRONMENT"
+          pnpm lint
+          pnpm typecheck
+          pnpm test
+          pnpm build
+          pnpm sso:registry compare --environment "$ENVIRONMENT" --operator github-actions --reason "release compare"
+
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.REGISTRY_RELEASE_APP_ID }}
+          private-key: ${{ secrets.REGISTRY_RELEASE_APP_PRIVATE_KEY }}
+          owner: YunLeFun
+          repositories: www.yunle.fun
+          permission-checks: read
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Create generated release pull request
+        id: pr
+        env:
+          ENVIRONMENT: ${{ steps.intent.outputs.environment }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          generation="$(jq -r '.intent.generation' "packages/authorization-core/src/generated/${ENVIRONMENT}-release.json")"
+          policy_version="$(jq -r '.intent.policyVersion' "packages/authorization-core/src/generated/${ENVIRONMENT}-release.json")"
+          branch="registry/release-${ENVIRONMENT}-${generation}"
+          git config user.name "yunlefun-registry[bot]"
+          git config user.email "yunlefun-registry[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add "packages/authorization-core/src/generated/${ENVIRONMENT}-registry.json" "packages/authorization-core/src/generated/${ENVIRONMENT}-release.json"
+          git commit -m "chore(sso-registry): publish ${ENVIRONMENT} policy ${policy_version}"
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/YunLeFun/www.yunle.fun.git"
+          git push --set-upstream origin "$branch"
+          pr_url="$(gh pr create --base main --head "$branch" --title "chore(sso-registry): publish ${ENVIRONMENT} policy ${policy_version}" --body "Release intent: ${{ inputs.releaseIntentId }}")"
+          pr_number="$(gh pr view "$pr_url" --json number --jq .number)"
+          {
+            echo "number=$pr_number"
+            echo "url=$pr_url"
+            echo "head-sha=$(git rev-parse HEAD)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Record open pull request
+        run: >-
+          pnpm sso:registry record-ci
+          --environment "${{ steps.intent.outputs.environment }}"
+          --release-intent "${{ inputs.releaseIntentId }}"
+          --status pr_open
+          --pr "${{ steps.pr.outputs.number }}"
+          --operator github-actions
+          --reason "generated registry pull request opened"
+
+      - name: Wait for pull request checks and merge the exact head
+        env:
+          ENVIRONMENT: ${{ steps.intent.outputs.environment }}
+          EXPECTED_HEAD_SHA: ${{ steps.pr.outputs.head-sha }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          check_count=0
+          remaining_attempts=30
+          while [ "$check_count" -eq 0 ] && [ "$remaining_attempts" -gt 0 ]; do
+            check_count="$(gh pr checks "$PR_NUMBER" --json name --jq 'length' 2>/dev/null || echo 0)"
+            if [ "$check_count" -gt 0 ]; then
+              break
+            fi
+            remaining_attempts=$((remaining_attempts - 1))
+            sleep 5
+          done
+          test "$check_count" -gt 0
+          gh pr checks "$PR_NUMBER" --watch --fail-fast --interval 10
+
+          release_file="packages/authorization-core/src/generated/${ENVIRONMENT}-release.json"
+          approved_base="$(jq -r '.intent.baseCommitSha' "$release_file")"
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "$approved_base"
+          test "$(gh pr view "$PR_NUMBER" --json headRefOid --jq .headRefOid)" = "$EXPECTED_HEAD_SHA"
+          gh pr merge "$PR_NUMBER" --squash --match-head-commit "$EXPECTED_HEAD_SHA" --delete-branch
+
+      - name: Record CI failure
+        if: ${{ failure() && steps.intent.outputs.environment != '' }}
+        continue-on-error: true
+        run: >-
+          pnpm sso:registry record-ci
+          --environment "${{ steps.intent.outputs.environment }}"
+          --release-intent "${{ inputs.releaseIntentId }}"
+          --status ci_failed
+          --failure registry_release_workflow_failed
+          --operator github-actions
+          --reason "registry release workflow failed"

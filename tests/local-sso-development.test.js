@@ -28,7 +28,13 @@ describe('local SSO Provider entrypoint', () => {
   it('pins development deployments away from the production tenant', () => {
     expect(packageManifest.scripts['deploy:sso:development']).toBe('node scripts/deploy-sso-development.mjs')
     expect(deployment.envId).toBe('yunlefun-dev-0ge03bdod37093d1')
-    expect(deployment.functions.map(item => item.name)).toEqual(['sso-registry-admin', 'account-api', 'sso-ticket', 'sso-security-sweeper'])
+    expect(deployment.functions.map(item => item.name)).toEqual([
+      'sso-registry-admin',
+      'sso-registry-release-dispatcher',
+      'account-api',
+      'sso-ticket',
+      'sso-security-sweeper',
+    ])
     const ticket = deployment.functions.find(item => item.name === 'sso-ticket')
     expect(ticket).toMatchObject({
       aclRule: { invoke: true },

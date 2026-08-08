@@ -61,6 +61,52 @@ const config = JSON.parse(readFileSync(CONFIG, 'utf8'))
 if (config.envId !== DEVELOPMENT_ENV_ID)
   throw new Error('Development SSO deployment manifest points to an unexpected environment')
 
+const registryControlPlaneOnly = process.argv.includes('--registry-control-plane-only')
+
+function deployRegistryControlPlane() {
+  for (const name of [
+    'SSO_REGISTRY_CI_TOKEN',
+    'SSO_REGISTRY_SIGNING_KEY',
+    'SSO_REGISTRY_SIGNING_KID',
+  ]) {
+    if (!process.env[name])
+      throw new Error(`${name} is required in .env.sso-development.local or the process environment`)
+  }
+  const registryArtifact = buildCloudFunctionArtifact('sso-registry-admin')
+  runTcb(['fn', 'deploy', 'sso-registry-admin', '--dir', registryArtifact, '--force'])
+  const configuredFunctions = ['sso-registry-admin']
+  const dispatcherVariables = [
+    'SSO_REGISTRY_GITHUB_APP_ID',
+    'SSO_REGISTRY_GITHUB_APP_INSTALLATION_ID',
+    'SSO_REGISTRY_GITHUB_APP_PRIVATE_KEY',
+  ]
+  const configuredDispatcherVariables = dispatcherVariables.filter(name => process.env[name])
+  if (configuredDispatcherVariables.length > 0 && configuredDispatcherVariables.length !== dispatcherVariables.length)
+    throw new Error('All Registry GitHub App dispatcher variables must be configured together')
+  if (configuredDispatcherVariables.length === dispatcherVariables.length) {
+    runTcb([
+      'fn',
+      'deploy',
+      'sso-registry-release-dispatcher',
+      '--dir',
+      resolve(ROOT, 'cloudfunctions/sso-registry-release-dispatcher'),
+      '--force',
+    ])
+    configuredFunctions.push('sso-registry-release-dispatcher')
+  }
+  else {
+    console.warn('Registry GitHub App credentials are absent; skipping release dispatcher deployment')
+  }
+  for (const name of configuredFunctions)
+    runTcb(['config', 'update', 'fn', name])
+  console.log(`Development Registry control plane deployed to ${DEVELOPMENT_ENV_ID}`)
+}
+
+if (registryControlPlaneOnly) {
+  deployRegistryControlPlane()
+  process.exit(0)
+}
+
 for (const name of [
   'ACCOUNT_API_INTERNAL_TOKEN',
   'SSO_IDENTITY_SIGNING_KEY',
@@ -82,12 +128,36 @@ if (hasRegistryKey !== hasRegistryKid)
   throw new Error('SSO_REGISTRY_SIGNING_KEY and SSO_REGISTRY_SIGNING_KID must be configured together')
 const configuredFunctions = ['account-api', 'sso-ticket', 'sso-security-sweeper']
 if (hasRegistryKey && hasRegistryKid) {
+  if (!process.env.SSO_REGISTRY_CI_TOKEN)
+    throw new Error('SSO_REGISTRY_CI_TOKEN is required with Registry signing credentials')
   const registryArtifact = buildCloudFunctionArtifact('sso-registry-admin')
   runTcb(['fn', 'deploy', 'sso-registry-admin', '--dir', registryArtifact, '--force'])
   configuredFunctions.push('sso-registry-admin')
 }
 else {
   console.warn('Registry signing key is absent; skipping sso-registry-admin deployment')
+}
+const dispatcherVariables = [
+  'SSO_REGISTRY_GITHUB_APP_ID',
+  'SSO_REGISTRY_GITHUB_APP_INSTALLATION_ID',
+  'SSO_REGISTRY_GITHUB_APP_PRIVATE_KEY',
+]
+const configuredDispatcherVariables = dispatcherVariables.filter(name => process.env[name])
+if (configuredDispatcherVariables.length > 0 && configuredDispatcherVariables.length !== dispatcherVariables.length)
+  throw new Error('All Registry GitHub App dispatcher variables must be configured together')
+if (configuredDispatcherVariables.length === dispatcherVariables.length) {
+  runTcb([
+    'fn',
+    'deploy',
+    'sso-registry-release-dispatcher',
+    '--dir',
+    resolve(ROOT, 'cloudfunctions/sso-registry-release-dispatcher'),
+    '--force',
+  ])
+  configuredFunctions.push('sso-registry-release-dispatcher')
+}
+else {
+  console.warn('Registry GitHub App credentials are absent; skipping release dispatcher deployment')
 }
 for (const name of configuredFunctions)
   runTcb(['config', 'update', 'fn', name])

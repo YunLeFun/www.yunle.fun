@@ -286,6 +286,8 @@ importers:
 
   packages/authorization-core: {}
 
+  packages/transactional-email: {}
+
 packages:
 
   '@adonisjs/hash@9.1.1':

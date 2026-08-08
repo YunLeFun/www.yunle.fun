@@ -11,18 +11,27 @@
 - 同一业务以后可以有多个客户端，例如 `foo-web`、`foo-ios`；因此不把 `clientId` 简化成 `appId`。
 - Web Consumer 只请求 `identity:bootstrap`。缺省 scope 不授予任何权限。
 
-Client Registry 位于 [`packages/authorization-core/src/registry.ts`](../packages/authorization-core/src/registry.ts)，同时定义 production/development issuer、精确 HTTPS Origin、精确 redirect URI、允许 scope、consent 模式、状态、业务归属和客户端图标。Provider 页面与应用探索页不维护第二份白名单。
+Client Registry 的静态裁决产物由
+[`packages/authorization-core/src/registry.ts`](../packages/authorization-core/src/registry.ts) 加载，同时定义
+production/development issuer、精确 HTTPS Origin、精确 redirect URI、允许 scope、consent 模式、状态、业务归属和客户端图标。Provider 页面与应用探索页不维护第二份白名单。
 
 ### Registry 存储与发布模型
 
-Client Registry 当前是版本库中的类型安全静态快照，不存储在 CloudBase 数据库，也不在首页或授权请求期间查询数据库。原因如下：
+CloudBase NoSQL 是 Registry 的受控管理源，保存草稿、不可变签名快照、审批、发布意图、outbox
+与审计；仓库 generated JSON 仍是唯一授权裁决源。首页或授权请求期间不查询 Registry 数据库：
 
 - 它属于安全策略而不是用户内容；变更需要代码评审、自动测试、版本记录和原子回滚。
 - 主站构建直接导入 `productionRegistry`，因此首页和 `/explore` 的账号云图在部署时已经获得快照，刷新页面不依赖 CloudBase 查询，也不需要再维护一份运行时缓存。
 - `sso-ticket` 与 `desktop-auth` 的部署产物会 vendoring 同一版本的 `@yunlefun/authorization-core`，避免前端展示、Web SSO 和桌面授权读取不同白名单。
-- 授权码、限流窗口和审计记录仍按各自契约存储在数据库；它们是运行时状态，不是 Registry 配置。
+- production 变更必须向 allowlist uid 当前绑定的严格已验证邮箱发送 12 位一次性审批码；development
+  可跳过邮件，但仍生成签名发布意图并记录审计。
+- 审批只创建活动管理快照和签名 release intent；私有 dispatcher 只把 releaseIntentId 交给 GitHub
+  Actions。CI 重新验签、导出 generated-only PR、等待 PR checks，再按准确提交部署静态消费者。
+- “审批通过”“管理快照活动”“消费者部署完成”是三个不同状态；compare 和 smoke 全部通过后才能记录
+  `deployed`。
 
-只有出现“运营后台多角色维护、无需部署即可启停客户端、审批流或独立配置审计”等明确需求时，才考虑数据库化。届时建议让数据库作为管理源，由 CI/CD 在部署时校验并生成带版本的只读 Registry 快照；首页继续消费构建快照，授权函数固定消费同一版本。不要让前端和函数各自实时查询数据库，否则一次配置发布可能产生短暂的授权策略漂移。
+数据库化只覆盖管理控制面，不提供“无需部署即可改变授权”的动态运行时。授权函数固定消费同一版本的
+generated JSON，避免配置写入瞬间造成消费者策略漂移；动态缓存、租约和远程 fallback 已明确延期。
 
 `app/config/sso-explorer.ts` 只维护描述、主题色、失败回退字标、视觉坐标和可选的站内 Logo 覆盖。应用名称、状态、Origin 和客户端自有 `iconUrl` 必须继续来自 Registry。展示文案或图标变化不进入 registration fingerprint；`appId`、`clientId`、adapter、scope、consent、issuer 或状态变化会改变授权安全语义。
 
@@ -230,12 +239,21 @@ pnpm dev:sso
 
 ### Registry 变更发布清单
 
-1. 同步修改 production/development Registry；Web 客户端保持图标与 Origin 同源。
-2. 为新增或改名客户端更新 `app/config/sso-explorer.ts` 展示元数据，并补充 Registry 快照与同源测试。
-3. 安全策略变化时同步提升对应 `policyVersion`；纯展示名称、描述、颜色或图标调整无需提升。
-4. 运行 `pnpm lint && pnpm typecheck && pnpm test && pnpm build`。
-5. 推送 `main` 发布主站；随后运行 `node scripts/build-cloud-function.mjs sso-ticket desktop-auth`，用生成的 `.cloudbase/artifacts` 对两个函数执行仅代码更新，保留线上环境变量、网关和触发器配置。
-6. 冒烟验证 Web SSO 未知客户端拒绝、已注册客户端授权，以及 `desktop-auth` 公钥/设备授权入口。
+1. 通过 `pnpm sso:registry seed --environment <env> ... --apply` 创建草稿，并用 `diff` 审核 security/display
+   差异；Web 客户端保持图标与 Origin 同源。
+2. production 使用 `request-approval`，再从独立邮件取得审批码并通过环境变量执行 `approve`；development
+   使用 `queue`。两条路径都必须绑定当前 `main` 的完整 40 位 commit SHA。
+3. dispatcher 仅传 releaseIntentId；`registry-release.yml` 重新验签、确认 main 未移动、运行
+   lint/typecheck/test/build/compare，并生成只含两个 generated 文件的发布 PR。
+4. 发布任务等待 PR checks 全部通过，再验证 PR head 与审批基线后自动 squash merge；main 上的
+   `registry-deploy.yml` 再次验签并使用准确 merge commit。
+5. development 只部署 `sso-ticket`；production 部署主站、`sso-ticket` 与 `desktop-auth`。每个环境都在
+   compare/smoke 后回写准确消费者 commit，缺少任一消费者或 SHA 不一致时禁止标记 deployed。
+6. rollback 选择历史签名快照，提升 generation，并重新走相同审批、PR、部署和 smoke 路径；不得直接改写
+   generated 文件或历史快照。
+7. production 在确认 development smoke 证据后，才允许仓库管理员把
+   `SSO_REGISTRY_PRODUCTION_DEPLOY_ENABLED` 设为 `true`；缺省或其他值会同时阻断 production 发布 PR 与部署任务。
+   CI 使用环境级 `CLOUDBASE_API_KEY` 与 `CLOUDBASE_ENV_ID`，不复用个人或全局腾讯云密钥。
 
 ## 运维资源
 

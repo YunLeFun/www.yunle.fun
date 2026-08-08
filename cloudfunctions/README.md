@@ -6,26 +6,27 @@
 
 ## 云函数列表
 
-| 云函数                       | 用途                                                                                                     | 调用方式               | 超时 |
-| ---------------------------- | -------------------------------------------------------------------------------------------------------- | ---------------------- | ---- |
-| `wxpay-order`                | 创建支付订单（会员 / 云币充值）+ 查询订单 + 对账自愈                                                     | SDK `callFunction`     | 30s  |
-| `wxpay-notify`               | 接收微信支付异步回调通知                                                                                 | HTTP 访问服务          | 10s  |
-| `account-api`                | 平台账户中心：账户 / 云币 / 会员 / 奖励 / 签到 / 投币 / 关注·粉丝 / 注销冷静期                           | SDK `callFunction`     | 10s  |
-| `reward-claim-ops`           | 每 5 分钟结束到期领取活动、恢复未知入账、清理限流窗口并投递运营告警 Outbox                               | 定时触发（私有）       | 30s  |
-| `account-deletion-sweeper`   | 每小时完成已满 30 天冷静期的业务清理并删除 CloudBase Auth 身份                                           | 定时触发（私有）       | 30s  |
-| `account-lifecycle-notifier` | 每 5 分钟通过腾讯云 SES 处理注销申请、提醒、完成、延迟及运维事务邮件，并轮询实际投递状态                 | 定时触发（私有）       | 30s  |
-| `user-storage-api`           | 通用用户云空间：共享 quota / 上传预留 / 确认 / 文件索引 / 下载 / 删除 / app-kind policy                  | SDK `callFunction`     | 10s  |
-| `ai-gateway`                 | 通用「登录计费 + 受控 AI 生成」网关：验登录 + 按 `appId` 服务端计价 + 管理员身份调 AI + `bizId` 幂等扣费 | 登录态 `/v1/functions` | 30s  |
-| `iap-order`                  | Apple 内购（IAP）凭据校验 + 权益发放                                                                     | SDK `callFunction`     | 30s  |
-| `appstore-notify`            | 接收 App Store Server Notifications V2（退款 / 撤销自动处理）                                            | HTTP 访问服务          | 30s  |
-| `sso-registry-admin`         | 管理 SSO Client Registry 草稿、签名快照、活动指针、回滚与审计                                            | 管理面调用（私有）     | 30s  |
-| `desktop-auth`               | 桌面 / 本地应用登录授权（设备授权码 + Ed25519 离线 entitlement）                                         | SDK + HTTP 双入口      | 10s  |
-| `shortlink-resolve`          | 短链只读解析：按 `(domain, slug)` 读 `short_links` 返回跳转目标，供 EdgeOne 跳转函数回源                 | HTTP 访问服务          | 10s  |
-| `shortlink-stat`             | 短链点击统计：接收 EdgeOne 跳转函数上报，分片 CAS 累加到 `shortlink_stats`；admin 经 SDK 读              | HTTP（写）+ SDK（读）  | 10s  |
-| `sso-ticket`                 | 签发/消费绑定 origin+nonce 的一次性 SSO 授权码，并在同源 HTTPS 响应中铸 CloudBase ticket                 | SDK + HTTP 双入口      | 10s  |
-| `sso-security-sweeper`       | 清理过期 SSO 授权码审计记录与持久化限流窗口；不持有签票私钥                                              | timer，禁止直接调用    | 30s  |
-| `session-security-sweeper`   | 将到期的 Drive/CMS opaque session 置为 expired，并清理超过 90 天的终态记录                               | timer，禁止直接调用    | 30s  |
-| `github-api`                 | 多用户 GitHub App 仓库连接 / 列举 / 校验（含私有仓库），短期 installation token 不落库                   | SDK + HTTP 双入口      | 10s  |
+| 云函数                            | 用途                                                                                                     | 调用方式               | 超时 |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------- | ---------------------- | ---- |
+| `wxpay-order`                     | 创建支付订单（会员 / 云币充值）+ 查询订单 + 对账自愈                                                     | SDK `callFunction`     | 30s  |
+| `wxpay-notify`                    | 接收微信支付异步回调通知                                                                                 | HTTP 访问服务          | 10s  |
+| `account-api`                     | 平台账户中心：账户 / 云币 / 会员 / 奖励 / 签到 / 投币 / 关注·粉丝 / 注销冷静期                           | SDK `callFunction`     | 10s  |
+| `reward-claim-ops`                | 每 5 分钟结束到期领取活动、恢复未知入账、清理限流窗口并投递运营告警 Outbox                               | 定时触发（私有）       | 30s  |
+| `account-deletion-sweeper`        | 每小时完成已满 30 天冷静期的业务清理并删除 CloudBase Auth 身份                                           | 定时触发（私有）       | 30s  |
+| `account-lifecycle-notifier`      | 每 5 分钟通过腾讯云 SES 处理注销申请、提醒、完成、延迟及运维事务邮件，并轮询实际投递状态                 | 定时触发（私有）       | 30s  |
+| `user-storage-api`                | 通用用户云空间：共享 quota / 上传预留 / 确认 / 文件索引 / 下载 / 删除 / app-kind policy                  | SDK `callFunction`     | 10s  |
+| `ai-gateway`                      | 通用「登录计费 + 受控 AI 生成」网关：验登录 + 按 `appId` 服务端计价 + 管理员身份调 AI + `bizId` 幂等扣费 | 登录态 `/v1/functions` | 30s  |
+| `iap-order`                       | Apple 内购（IAP）凭据校验 + 权益发放                                                                     | SDK `callFunction`     | 30s  |
+| `appstore-notify`                 | 接收 App Store Server Notifications V2（退款 / 撤销自动处理）                                            | HTTP 访问服务          | 30s  |
+| `sso-registry-admin`              | 管理 SSO Client Registry 草稿、审批、签名快照、release intent、回滚与审计                                | 管理面调用（私有）     | 30s  |
+| `sso-registry-release-dispatcher` | 用仓库级 GitHub App 有界重试发布 outbox，触发受检 generated 静态发布 CI                                  | timer，禁止直接调用    | 30s  |
+| `desktop-auth`                    | 桌面 / 本地应用登录授权（设备授权码 + Ed25519 离线 entitlement）                                         | SDK + HTTP 双入口      | 10s  |
+| `shortlink-resolve`               | 短链只读解析：按 `(domain, slug)` 读 `short_links` 返回跳转目标，供 EdgeOne 跳转函数回源                 | HTTP 访问服务          | 10s  |
+| `shortlink-stat`                  | 短链点击统计：接收 EdgeOne 跳转函数上报，分片 CAS 累加到 `shortlink_stats`；admin 经 SDK 读              | HTTP（写）+ SDK（读）  | 10s  |
+| `sso-ticket`                      | 签发/消费绑定 origin+nonce 的一次性 SSO 授权码，并在同源 HTTPS 响应中铸 CloudBase ticket                 | SDK + HTTP 双入口      | 10s  |
+| `sso-security-sweeper`            | 清理过期 SSO 授权码审计记录与持久化限流窗口；不持有签票私钥                                              | timer，禁止直接调用    | 30s  |
+| `session-security-sweeper`        | 将到期的 Drive/CMS opaque session 置为 expired，并清理超过 90 天的终态记录                               | timer，禁止直接调用    | 30s  |
+| `github-api`                      | 多用户 GitHub App 仓库连接 / 列举 / 校验（含私有仓库），短期 installation token 不落库                   | SDK + HTTP 双入口      | 10s  |
 
 > 云币 + 跨应用会员的整体设计见 [`docs/coin-and-membership.md`](../docs/coin-and-membership.md)。
 > 其中 5 个支付 / 账户函数共享同一份 `lib/`：权威源在 `cloudfunctions/wxpay-order/lib`，`pnpm sync:wxpay-lib` 同步到
@@ -235,15 +236,36 @@ refresh token 固定为 30 天 idle / 180 天 absolute，轮换并做 grant-fami
 
 ### sso-registry-admin 环境变量与权限
 
-| 变量名                     | 必填 | 说明                                                                                         |
-| -------------------------- | ---- | -------------------------------------------------------------------------------------------- |
-| `SSO_REGISTRY_SIGNING_KEY` | 是   | Registry 专用 Ed25519 私钥（PEM/JWK 或 base64）；不得复用身份断言、entitlement 或 ticket key |
-| `SSO_REGISTRY_SIGNING_KID` | 是   | 当前 Registry 签名密钥 ID；轮换时必须先提交新公钥信任锚                                      |
-| `AUTH_ISSUER_ENVIRONMENT`  | 是   | 固定 `production` 或 `development`，不得来自请求                                             |
+| 变量名                           | 环境       | 说明                                                                                         |
+| -------------------------------- | ---------- | -------------------------------------------------------------------------------------------- |
+| `SSO_REGISTRY_SIGNING_KEY`       | 两者       | Registry 专用 Ed25519 私钥（PEM/JWK 或 base64）；不得复用身份断言、entitlement 或 ticket key |
+| `SSO_REGISTRY_SIGNING_KID`       | 两者       | 当前 Registry 签名密钥 ID；轮换时必须先提交新公钥信任锚                                      |
+| `SSO_REGISTRY_CI_TOKEN`          | 两者       | 管理函数与受保护 CI 共享的独立随机值，至少 32 bytes                                          |
+| `AUTH_ISSUER_ENVIRONMENT`        | 两者       | 固定 `production` 或 `development`，不得来自请求                                             |
+| `SSO_REGISTRY_APPROVAL_PEPPER`   | production | 审批码与收件地址摘要 HMAC pepper，至少 32 bytes，不得复用 CI token                           |
+| `SSO_REGISTRY_APPROVER_UIDS`     | production | 审批者不可变 CloudBase uid 的 JSON 数组；不得填写或硬编码邮箱                                |
+| `SES_TEMPLATE_REGISTRY_APPROVAL` | production | 腾讯云 SES Registry 审批模板 ID                                                              |
+| `SES_REGION` / `SES_FROM_*`      | production | 复用事务邮件发送通道的 region、发件人和 reply-to                                             |
 
 该函数是 Nodejs18.15 Event Function，`aclRule.invoke=false`，不绑定 HTTP 网关，也不允许浏览器 SDK 调用。受信任发布者通过 CloudBase 管理凭据执行 `scripts/sso-registry.mjs`；所有请求必须带 operator 与 change reason。私钥只存在于函数环境变量，生成产物、数据库、响应与日志都不包含私钥。
 
-P1 的 `generated/*.json` 初始为 `minimumGeneration=0`、`activeEnvelope=null` 的静态 bootstrap。完成独立密钥托管、集合初始化、首次发布和公钥代码评审后，使用 `export` 生成带签名信封的产物。`pnpm sso:registry compare --environment <environment>` 由 CI、部署 smoke 或受控运维任务显式执行 shadow compare；授权请求本身不读取 Registry 管理数据库。
+P1 的 `generated/*.json` 初始为 `minimumGeneration=0`、`activeEnvelope=null` 的静态 bootstrap。P1.1
+中 production 只能通过 `requestPublishApproval` + `approveAndQueueRelease` 发布；12 位审批码仅发送到
+allowlist uid 当前绑定的严格已验证邮箱，数据库只保存 HMAC，30 分钟过期且最多尝试 5 次。development
+可直接排队，但仍生成签名 release intent、outbox 和审计。`compare` 只在 CI、部署 smoke 或受控运维任务
+显式执行；授权请求本身不读取 Registry 管理数据库。
+
+### sso-registry-release-dispatcher 环境变量
+
+| 变量名                                    | 必填 | 说明                                                               |
+| ----------------------------------------- | ---- | ------------------------------------------------------------------ |
+| `SSO_REGISTRY_GITHUB_APP_ID`              | 是   | 仅安装到 `YunLeFun/www.yunle.fun` 的 GitHub App ID                 |
+| `SSO_REGISTRY_GITHUB_APP_INSTALLATION_ID` | 是   | 上述 App 的仓库 installation ID                                    |
+| `SSO_REGISTRY_GITHUB_APP_PRIVATE_KEY`     | 是   | App 私钥 PEM 或 base64；不得复用多用户 `github-api` App 或个人 PAT |
+
+dispatcher 是 `aclRule.invoke=false` 的每 2 分钟 Event Function，只领取到期 outbox 租约并调用固定
+`registry-release.yml`；payload 只能包含 releaseIntentId。GitHub 请求有 15 秒超时，失败最多指数退避 5 次后
+进入 dead letter，过期 worker 不能覆盖新租约的发送结果。
 
 ### github-api 环境变量
 
@@ -538,12 +560,15 @@ node scripts/deploy-function.mjs shortlink-stat
 
 以下集合必须先创建并设置为 **ADMINONLY**；运行时代码不会假设 `db.collection().add()` 可以自动创建集合。完整字段、索引和威胁模型见 [`specs/sso-client-registry-platform/design.md`](../specs/sso-client-registry-platform/design.md)，机器可读清单由 `sso-registry-admin/store.js` 导出。
 
-| 集合                      | 用途               | 索引                                                                          |
-| ------------------------- | ------------------ | ----------------------------------------------------------------------------- |
-| `sso_registry_drafts`     | 草稿与校验结果     | `environment + status + updatedAt DESC`                                       |
-| `sso_registry_snapshots`  | 不可变签名快照     | 唯一 `environment + sequence DESC`；另含 policyVersion / contentHash 查询索引 |
-| `sso_registry_state`      | 每环境唯一活动指针 | 文档 ID 固定为 environment，无附加索引                                        |
-| `sso_registry_audit_logs` | 发布与回滚审计     | `environment + createdAt DESC`、`environment + operator + createdAt DESC`     |
+| 集合                             | 用途                   | 索引                                                                          |
+| -------------------------------- | ---------------------- | ----------------------------------------------------------------------------- |
+| `sso_registry_drafts`            | 草稿与校验结果         | `environment + status + updatedAt DESC`                                       |
+| `sso_registry_snapshots`         | 不可变签名快照         | 唯一 `environment + sequence DESC`；另含 policyVersion / contentHash 查询索引 |
+| `sso_registry_state`             | 每环境唯一活动指针     | 文档 ID 固定为 environment，无附加索引                                        |
+| `sso_registry_audit_logs`        | 全发布链路审计         | `environment + createdAt DESC`、`environment + operator + createdAt DESC`     |
+| `sso_registry_publish_approvals` | 邮件投递与审批码状态   | environment/status/expiry、draft、approver 查询索引                           |
+| `sso_registry_release_intents`   | 签名发布意图与 CI 状态 | environment/status/update、snapshot 查询索引                                  |
+| `sso_registry_release_outbox`    | GitHub dispatch outbox | `status + nextAttemptAt ASC`                                                  |
 
 创建 production/development 资源、设置 ADMINONLY、生成和托管独立私钥均属于上线操作，必须分别确认。常用本地命令：
 
@@ -551,6 +576,12 @@ node scripts/deploy-function.mjs shortlink-stat
 pnpm sso:registry validate packages/authorization-core/src/generated/production-registry.json --environment production
 pnpm sso:registry seed --environment development --operator <operator> --reason <reason>
 # 审阅 dry-run 后才加 --apply
+pnpm sso:registry diff --environment development --draft <draft-id> --operator <operator> --reason <reason>
+pnpm sso:registry queue --environment development --draft <draft-id> --base-commit <main-sha> --operator <operator> --reason <reason>
+
+# production：审批码只从邮件复制到进程环境，禁止进入 shell history、参数或日志。
+pnpm sso:registry request-approval --environment production --draft <draft-id> --base-commit <main-sha> --operator <operator> --reason <reason>
+SSO_REGISTRY_APPROVAL_CODE=<code> pnpm sso:registry approve --environment production --approval <approval-id> --operator <operator> --reason <reason>
 ```
 
 支付订单存储在 CloudBase NoSQL `orders` 集合中，已创建以下索引：

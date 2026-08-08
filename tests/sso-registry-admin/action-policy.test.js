@@ -13,4 +13,17 @@ describe('sso-registry-admin action policy', () => {
     for (const action of ['saveDraft', 'validateDraft', 'getActiveEnvelope', 'getStatus'])
       expect(() => assertRegistryAdminActionAllowed(action, 'production')).not.toThrow()
   })
+
+  it('requires a dedicated token for CI progress and deployment actions', () => {
+    for (const action of ['getReleaseIntent', 'recordCiProgress', 'recordDeploymentResult']) {
+      expect(() => assertRegistryAdminActionAllowed(action, 'development', {
+        ciToken: 'wrong-token-with-sufficient-length-123',
+        expectedCiToken: 'expected-token-with-sufficient-length',
+      })).toThrow(expect.objectContaining({ code: 'ci_identity_required' }))
+      expect(() => assertRegistryAdminActionAllowed(action, 'development', {
+        ciToken: 'expected-token-with-sufficient-length',
+        expectedCiToken: 'expected-token-with-sufficient-length',
+      })).not.toThrow()
+    }
+  })
 })

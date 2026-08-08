@@ -76,12 +76,13 @@ node scripts/deploy-function.mjs <function-name>
 该脚本会先加载 `.env` / `.env.local`，并校验 `cloudbaserc.json` 中该函数引用的全部
 `{{env.*}}` 占位符；缺少任何变量时会在构建和部署前终止，避免把线上配置覆盖为空。
 
-`sso-ticket` 和 `desktop-auth` 依赖工作区内的 `@yunlefun/authorization-core`。修改 Client Registry
-或授权核心后，必须先生成包含 vendored core 的函数产物，再以“仅更新函数代码”的方式分别发布两个产物；
+`sso-registry-admin`、`sso-ticket` 和 `desktop-auth` 依赖工作区内的
+`@yunlefun/authorization-core`。修改 Client Registry 或授权核心后，必须先生成包含 vendored
+core 的函数产物，再以“仅更新函数代码”的方式同步发布三个产物；
 不能直接上传 `cloudfunctions/<name>` 源目录：
 
 ```bash
-node scripts/build-cloud-function.mjs sso-ticket desktop-auth
+node scripts/build-cloud-function.mjs sso-registry-admin sso-ticket desktop-auth
 ```
 
 Client Registry 的存储、首页读取和同步发布约定见

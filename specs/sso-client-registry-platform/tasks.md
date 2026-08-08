@@ -70,7 +70,7 @@
 
 - [ ] 11. 执行受控环境上线（需单独确认）
   - 分别生成并托管 production/development 独立 Registry 私钥
-  - 创建集合、索引和 ADMINONLY 权限并部署管理函数
+  - 按 P1.1 清单创建 7 个集合、索引和 ADMINONLY 权限并部署管理函数
   - seed、发布、导出首个签名快照并提交公钥信任锚
   - 先发布验证方，再通过独立 compare 完成 match/故障/篡改/回滚 smoke
   - _Requirements: R4, R6, R7, R8, R9, R10_

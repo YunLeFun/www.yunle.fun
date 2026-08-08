@@ -188,9 +188,39 @@
         "invoke": false
       },
       "envVariables": {
+        "SES_FROM_EMAIL": "account@notify.yunle.fun",
+        "SES_FROM_NAME": "云乐坊账号安全",
+        "SES_REGION": "ap-guangzhou",
+        "SES_REPLY_TO": "kf@yunle.fun",
+        "SES_TEMPLATE_REGISTRY_APPROVAL": "{{env.SES_TEMPLATE_REGISTRY_APPROVAL}}",
+        "SSO_REGISTRY_APPROVAL_PEPPER": "{{env.SSO_REGISTRY_APPROVAL_PEPPER}}",
+        "SSO_REGISTRY_APPROVER_UIDS": "{{env.SSO_REGISTRY_APPROVER_UIDS}}",
+        "SSO_REGISTRY_CI_TOKEN": "{{env.SSO_REGISTRY_CI_TOKEN}}",
         "SSO_REGISTRY_SIGNING_KEY": "{{env.SSO_REGISTRY_SIGNING_KEY}}",
         "SSO_REGISTRY_SIGNING_KID": "{{env.SSO_REGISTRY_SIGNING_KID}}",
         "AUTH_ISSUER_ENVIRONMENT": "{{env.AUTH_ISSUER_ENVIRONMENT}}"
+      }
+    },
+    {
+      "name": "sso-registry-release-dispatcher",
+      "timeout": 30,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true,
+      "aclRule": {
+        "invoke": false
+      },
+      "triggers": [
+        {
+          "name": "ssoRegistryReleaseDispatch",
+          "type": "timer",
+          "config": "0 */2 * * * * *"
+        }
+      ],
+      "envVariables": {
+        "SSO_REGISTRY_GITHUB_APP_ID": "{{env.SSO_REGISTRY_GITHUB_APP_ID}}",
+        "SSO_REGISTRY_GITHUB_APP_INSTALLATION_ID": "{{env.SSO_REGISTRY_GITHUB_APP_INSTALLATION_ID}}",
+        "SSO_REGISTRY_GITHUB_APP_PRIVATE_KEY": "{{env.SSO_REGISTRY_GITHUB_APP_PRIVATE_KEY}}"
       }
     },
     {
