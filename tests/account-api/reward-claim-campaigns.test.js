@@ -352,6 +352,37 @@ describe('权益领取活动领域服务', () => {
     expect(alerts[0].payload).toMatchObject({ affectedClaims: 3 })
   })
 
+  it('对账已恢复的未知领取不会触发连续失败告警', async () => {
+    let current = NOW
+    const { service, token, store } = await publishedHarness({
+      now: () => current,
+      reward: {
+        async grant() {
+          return { kind: 'unknown', code: 'timeout', message: 'timeout' }
+        },
+        async inspect(grantId) {
+          return { kind: 'completed', grantId, balanceAfter: 100 }
+        },
+        async correct() {
+          return { status: 'completed' }
+        },
+      },
+    })
+    const campaign = [...store.state.campaigns.values()][0]
+    campaign.totalInventory = 3
+    store.state.campaigns.set(campaign._id, campaign)
+
+    await service.claim({ token, rateTicket: 'ticket' }, 'u1')
+    await service.claim({ token, rateTicket: 'ticket' }, 'u2')
+    await service.claim({ token, rateTicket: 'ticket' }, 'u3')
+    current += 120_001
+    await service.sweep({ login: 'reward-claim-sweeper', role: 'system' })
+
+    expect([...store.state.claims.values()].every(item => item.status === 'succeeded')).toBe(true)
+    expect([...store.state.alerts.values()]
+      .filter(item => item.kind === 'repeated_failures')).toHaveLength(0)
+  })
+
   it('最后一份库存被未知领取预占时立即生成耗尽告警', async () => {
     const { service, token, store } = await publishedHarness({
       reward: {
