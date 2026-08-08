@@ -58,7 +58,7 @@ catalog:
   eslint: ^10.7.0
   eslint-plugin-format: ^2.0.1
   happy-dom: ^20.11.1
-  nuxt: ^4.5.0
+  nuxt: ^4.5.1
   nuxt-auth-utils: ^0.5.29
   oxc-parser: 0.133.0
   qrcode: ^1.5.4
