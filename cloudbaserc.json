@@ -90,14 +90,7 @@
         "ACCOUNT_API_INTERNAL_TOKEN": "{{env.ACCOUNT_API_INTERNAL_TOKEN}}",
         "REWARD_CLAIM_OPS_WEBHOOK_URL": "{{env.REWARD_CLAIM_OPS_WEBHOOK_URL}}",
         "REWARD_CLAIM_ADMIN_URL": "https://admin.yunle.fun/reward-claims"
-      },
-      "triggers": [
-        {
-          "name": "rewardClaimOpsEveryMinute",
-          "type": "timer",
-          "config": "0 * * * * * *"
-        }
-      ]
+      }
     },
     {
       "name": "account-lifecycle-notifier",

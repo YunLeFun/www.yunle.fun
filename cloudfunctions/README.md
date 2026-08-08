@@ -11,7 +11,7 @@
 | `wxpay-order`                | 创建支付订单（会员 / 云币充值）+ 查询订单 + 对账自愈                                                     | SDK `callFunction`     | 30s  |
 | `wxpay-notify`               | 接收微信支付异步回调通知                                                                                 | HTTP 访问服务          | 10s  |
 | `account-api`                | 平台账户中心：账户 / 云币 / 会员 / 奖励 / 签到 / 投币 / 关注·粉丝 / 注销冷静期                           | SDK `callFunction`     | 10s  |
-| `reward-claim-ops`           | 每分钟结束到期领取活动、恢复未知入账、清理限流窗口并投递运营告警 Outbox                                  | 定时触发（私有）       | 30s  |
+| `reward-claim-ops`           | 每 5 分钟结束到期领取活动、恢复未知入账、清理限流窗口并投递运营告警 Outbox                               | 定时触发（私有）       | 30s  |
 | `account-deletion-sweeper`   | 每小时完成已满 30 天冷静期的业务清理并删除 CloudBase Auth 身份                                           | 定时触发（私有）       | 30s  |
 | `account-lifecycle-notifier` | 每 5 分钟通过腾讯云 SES 处理注销申请、提醒、完成、延迟及运维事务邮件，并轮询实际投递状态                 | 定时触发（私有）       | 30s  |
 | `user-storage-api`           | 通用用户云空间：共享 quota / 上传预留 / 确认 / 文件索引 / 下载 / 删除 / app-kind policy                  | SDK `callFunction`     | 10s  |
@@ -89,13 +89,13 @@ www 的 `NUXT_REWARD_CLAIM_RATE_TICKET_SECRET` 必须与 account-api 的
 | `REWARD_CLAIM_OPS_WEBHOOK_URL` | 运营机器人 Webhook，仅存在于私有定时函数。                           |
 | `REWARD_CLAIM_ADMIN_URL`       | 告警中的后台入口，生产为 `https://admin.yunle.fun/reward-claims`。   |
 
-函数 `aclRule.invoke=false`，每分钟由定时触发器执行。Outbox 先租用再投递，失败按 1 分钟、5 分钟、15 分钟、1 小时、6 小时退避；租约过期可由下一轮恢复。通知只使用活动标题、内部标识和聚合计数白名单，不包含链接令牌、IP、UID、联系方式或凭证。默认部署脚本仅输出计划：
+函数 `aclRule.invoke=false`，每 5 分钟由定时触发器执行。Outbox 先租用再投递，失败按 1 分钟、5 分钟、15 分钟、1 小时、6 小时退避；租约过期可由下一轮恢复。通知只使用活动标题、内部标识和聚合计数白名单，不包含链接令牌、IP、UID、联系方式或凭证。默认部署脚本仅输出函数代码计划：
 
 ```bash
 node scripts/deploy-reward-claim-ops.mjs
 ```
 
-实际部署要求显式 `--apply --confirm-env=<exact-env-id>`，且四项密钥均存在、足够长、链接与速率密钥不复用。不要把运行脚本等同于授权创建或发布生产活动。
+实际部署要求显式 `--apply --confirm-env=<exact-env-id>`，且四项密钥均存在、足够长、链接与速率密钥不复用。该脚本不拥有 timer；函数代码部署完成后，在 Admin 仓运行 `scripts/reconcile-outbox-timers.mjs` 统一 dry-run、apply 和 verify。不要把运行脚本等同于授权创建或发布生产活动。
 
 ### account-deletion-sweeper 环境变量与权限
 
@@ -685,7 +685,7 @@ admin 自身另使用 `reward_campaigns` 和 `reward_grant_items` 保存批次�
 | `reward_claim_rate_limits` | 账户/IP 摘要的短时计数器                    |
 | `reward_claim_alerts`      | 确定性 Outbox、租约、重试与送达状态         |
 
-资源由 admin 仓库的 `scripts/ensure-reward-claim-resources.mjs` 初始化。正确发布顺序是：资源与索引 → `account-api` → www → admin → `reward-claim-ops`。生产正式活动前另建 3 份演练活动，使用内部正式账户核验登录回跳、主动领取、幂等、耗尽、暂停、轮换、钱包流水、通知、对账和告警；演练奖励保留，但演练活动与链接不得复用。
+资源由 admin 仓库的 `scripts/ensure-reward-claim-resources.mjs` 初始化。正确发布顺序是：资源与索引 → `account-api` → www → admin → `reward-claim-ops` 函数代码 → Admin timer control plane apply/verify。生产正式活动前另建 3 份演练活动，使用内部正式账户核验登录回跳、主动领取、幂等、耗尽、暂停、轮换、钱包流水、通知、对账和告警；演练奖励保留，但演练活动与链接不得复用。
 
 ### 云空间配额：`user_storage_quotas` + `user_storage_files`（需新建）
 

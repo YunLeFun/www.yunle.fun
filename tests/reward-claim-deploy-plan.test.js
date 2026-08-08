@@ -8,11 +8,15 @@ import { REWARD_CLAIM_OPS_DEPLOYMENT_PLAN } from '../scripts/deploy-reward-claim
 const execFileAsync = promisify(execFile)
 
 describe('权益领取定时函数部署门禁', () => {
-  it('声明私有一分钟触发器与所需独立密钥', () => {
+  it('声明由 Admin timer control plane 管理调度与所需独立密钥', () => {
     expect(REWARD_CLAIM_OPS_DEPLOYMENT_PLAN).toMatchObject({
       function: 'reward-claim-ops',
-      trigger: { config: '0 * * * * * *' },
+      timerPolicy: {
+        owner: '@yunlefun/admin',
+        job: 'reward-claim-ops',
+      },
     })
+    expect(REWARD_CLAIM_OPS_DEPLOYMENT_PLAN).not.toHaveProperty('trigger')
     expect(REWARD_CLAIM_OPS_DEPLOYMENT_PLAN.requiredEnvironmentVariables)
       .toEqual(expect.arrayContaining([
         'ACCOUNT_API_INTERNAL_TOKEN',

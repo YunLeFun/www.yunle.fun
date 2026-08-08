@@ -95,7 +95,7 @@ describe('cloudBase test identity deployment manifest', () => {
     })
   })
 
-  it('runs reward-claim reconciliation and ops alert delivery every minute', () => {
+  it('deploys reward-claim ops without duplicating timer ownership', () => {
     expect(functions.get('reward-claim-ops')).toMatchObject({
       aclRule: { invoke: false },
       timeout: 30,
@@ -105,8 +105,8 @@ describe('cloudBase test identity deployment manifest', () => {
         REWARD_CLAIM_OPS_WEBHOOK_URL: '{{env.REWARD_CLAIM_OPS_WEBHOOK_URL}}',
         REWARD_CLAIM_ADMIN_URL: 'https://admin.yunle.fun/reward-claims',
       },
-      triggers: [{ name: 'rewardClaimOpsEveryMinute', type: 'timer', config: '0 * * * * * *' }],
     })
+    expect(functions.get('reward-claim-ops')).not.toHaveProperty('triggers')
   })
 
   it('sends lifecycle email from a private five-minute timer with secret placeholders', () => {

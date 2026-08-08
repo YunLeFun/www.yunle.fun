@@ -4,13 +4,12 @@ import process from 'node:process'
 import { pathToFileURL } from 'node:url'
 
 export const REWARD_CLAIM_OPS_DEPLOYMENT_PLAN = {
-  version: 1,
+  version: 2,
   defaultMode: 'dry-run',
   function: 'reward-claim-ops',
-  trigger: {
-    name: 'rewardClaimOpsEveryMinute',
-    type: 'timer',
-    config: '0 * * * * * *',
+  timerPolicy: {
+    owner: '@yunlefun/admin',
+    job: 'reward-claim-ops',
   },
   requiredEnvironmentVariables: [
     'ACCOUNT_API_INTERNAL_TOKEN',
