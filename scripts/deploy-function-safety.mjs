@@ -6,6 +6,21 @@ const REWARD_CLAIM_SECRET_NAMES = [
   'REWARD_CLAIM_RATE_TICKET_SECRET',
 ]
 
+const TEST_IDENTITY_BASE64_NAMES = [
+  'TEST_TICKET_ESCROW_KEY',
+  'TEST_LEASE_CAPABILITY_SIGNING_KEY',
+  'TEST_BROKER_SWEEP_KEY',
+]
+
+const TEST_IDENTITY_TOKEN_NAMES = [
+  'ACCOUNT_API_INTERNAL_TOKEN',
+  'AI_GATEWAY_ACCOUNT_API_TOKEN',
+  'TEST_BROKER_ACCOUNT_API_TOKEN',
+  'TEST_BROKER_INTERNAL_TOKEN',
+  'NATIVE_SSO_TEST_INTERNAL_TOKEN',
+  'TEST_BROKER_RECONCILE_TOKEN',
+]
+
 export function requiredEnvironmentNames(config, functionNames) {
   const configuredFunctions = Array.isArray(config?.functions) ? config.functions : []
   const names = []
@@ -34,6 +49,9 @@ export function assertFunctionEnvironmentReady(config, functionNames, env) {
   if (missingNames.length > 0)
     throw new Error(`拒绝部署：缺少环境变量：${missingNames.join(', ')}`)
 
+  if (requiredNames.includes('AUTH_ISSUER_ENVIRONMENT') && env.AUTH_ISSUER_ENVIRONMENT !== 'production')
+    throw new Error('拒绝部署：生产 cloudbaserc 要求 AUTH_ISSUER_ENVIRONMENT=production')
+
   for (const name of REWARD_CLAIM_SECRET_NAMES) {
     if (requiredNames.includes(name) && Buffer.byteLength(env[name], 'utf8') < 32)
       throw new Error(`拒绝部署：${name} 必须至少 32 字节`)
@@ -43,5 +61,36 @@ export function assertFunctionEnvironmentReady(config, functionNames, env) {
   if (linkHashKey && rateTicketSecret && linkHashKey === rateTicketSecret)
     throw new Error('拒绝部署：领取链接摘要密钥与速率凭证密钥不能复用')
 
+  for (const name of TEST_IDENTITY_BASE64_NAMES) {
+    if (requiredNames.includes(name) && !isCanonical32ByteBase64(env[name]))
+      throw new Error(`拒绝部署：${name} 必须是标准 32-byte base64`)
+  }
+
+  for (const name of TEST_IDENTITY_TOKEN_NAMES) {
+    if (requiredNames.includes(name) && !isSecureToken(env[name]))
+      throw new Error(`拒绝部署：${name} 必须是 32～512 bytes 的独立高熵令牌`)
+  }
+
+  const independentSecretNames = [
+    ...REWARD_CLAIM_SECRET_NAMES,
+    ...TEST_IDENTITY_BASE64_NAMES,
+    ...TEST_IDENTITY_TOKEN_NAMES,
+  ].filter(name => requiredNames.includes(name))
+  const independentSecretValues = independentSecretNames.map(name => env[name])
+  if (new Set(independentSecretValues).size !== independentSecretValues.length)
+    throw new Error('拒绝部署：测试身份、账号与奖励凭据不能跨用途复用')
+
   return requiredNames
+}
+
+function isCanonical32ByteBase64(value) {
+  if (typeof value !== 'string' || !/^[a-z0-9+/]{43}=$/i.test(value))
+    return false
+  const decoded = Buffer.from(value, 'base64')
+  return decoded.length === 32 && decoded.toString('base64') === value
+}
+
+function isSecureToken(value) {
+  const length = typeof value === 'string' ? Buffer.byteLength(value, 'utf8') : 0
+  return length >= 32 && length <= 512
 }
