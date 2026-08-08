@@ -96,5 +96,7 @@ describe('sso-registry-admin deployment contract', () => {
       .toContainEqual(expect.objectContaining({ name: 'environment_status_expires' }))
     expect(SSO_REGISTRY_COLLECTION_MANIFESTS.find(item => item.collection === 'sso_registry_release_outbox')?.indexes)
       .toContainEqual(expect.objectContaining({ name: 'status_next_attempt' }))
+    expect(SSO_REGISTRY_COLLECTION_MANIFESTS.find(item => item.collection === 'sso_registry_release_outbox')?.indexes)
+      .toContainEqual(expect.objectContaining({ name: 'status_lease_expiry' }))
   })
 })

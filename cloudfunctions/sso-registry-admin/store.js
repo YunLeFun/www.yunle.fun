@@ -135,6 +135,13 @@ const SSO_REGISTRY_COLLECTION_MANIFESTS = Object.freeze([
         { field: 'status', order: 'asc' },
         { field: 'nextAttemptAt', order: 'asc' },
       ],
+    }, {
+      name: 'status_lease_expiry',
+      unique: false,
+      fields: [
+        { field: 'status', order: 'asc' },
+        { field: 'leaseExpiresAt', order: 'asc' },
+      ],
     }],
   },
 ])

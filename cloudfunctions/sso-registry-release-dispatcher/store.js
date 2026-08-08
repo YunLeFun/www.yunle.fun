@@ -13,23 +13,32 @@ function rows(result) {
 }
 
 function createDispatcherStore(database) {
-  const command = database.command
   return {
     async listReady(now, limit = 10) {
-      const expired = await database.collection(OUTBOX)
-        .where({ status: 'dispatching', leaseExpiresAt: command.lte(now) })
-        .limit(limit)
-        .get()
-      const result = await database.collection(OUTBOX)
-        .where({
-          status: command.in(['pending', 'retry']),
-          nextAttemptAt: command.lte(now),
-        })
-        .orderBy('nextAttemptAt', 'asc')
-        .limit(limit)
-        .get()
-      const ready = [...rows(expired), ...rows(result)]
-      return ready.slice(0, limit).map(document => ({ releaseIntentId: document._id, ...document }))
+      async function earliest(status, timeField) {
+        const result = await database.collection(OUTBOX)
+          .where({ status })
+          .orderBy(timeField, 'asc')
+          .limit(limit)
+          .get()
+        return rows(result)
+      }
+      const [pending, retry, dispatching] = await Promise.all([
+        earliest('pending', 'nextAttemptAt'),
+        earliest('retry', 'nextAttemptAt'),
+        earliest('dispatching', 'leaseExpiresAt'),
+      ])
+      return [...pending, ...retry, ...dispatching]
+        .filter(document => Number(
+          document.status === 'dispatching' ? document.leaseExpiresAt : document.nextAttemptAt,
+        ) <= now)
+        .sort((left, right) => Number(
+          left.status === 'dispatching' ? left.leaseExpiresAt : left.nextAttemptAt,
+        ) - Number(
+          right.status === 'dispatching' ? right.leaseExpiresAt : right.nextAttemptAt,
+        ))
+        .slice(0, limit)
+        .map(document => ({ releaseIntentId: document._id, ...document }))
     },
     claim(releaseIntentId, lease) {
       return database.runTransaction(async (transaction) => {
