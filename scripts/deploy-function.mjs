@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 /**
- * 通用云函数部署：读取 .env + .env.local 注入 process.env，再按 cloudbaserc.json 的 envId
+ * 通用云函数部署：读取 .env + .env.local 注入 process.env，再按选定 cloudbaserc 的 envId
  * 执行 `tcb fn deploy <name> --force`。cloudbaserc 里的 `{{env.X}}` 由 tcb 从 process.env 插值，
  * 因此密钥等敏感值只需放在（gitignore 的）.env.local，不进版本库、不进命令行。
  *
  * 用法：
  *   node scripts/deploy-function.mjs desktop-auth
  *   node scripts/deploy-function.mjs account-api wxpay-order
+ *   CLOUDBASE_CONFIG_FILE=cloudbaserc.test-accounts-development.json node scripts/deploy-function.mjs account-api
  *
  * 与 deploy-iap-functions.mjs 的区别：本脚本不针对特定业务、不改写 cloudbaserc，
  * 只做「装载本地 env + tcb 部署」，适合 env 占位已写好在 cloudbaserc 里的函数。
@@ -60,10 +61,12 @@ if (functions.length === 0) {
 loadEnvFile(resolve(ROOT, '.env'))
 loadEnvFile(resolve(ROOT, '.env.local'))
 
-const cloudbaseConfig = JSON.parse(readFileSync(resolve(ROOT, 'cloudbaserc.json'), 'utf8'))
+const configFile = process.env.CLOUDBASE_CONFIG_FILE || 'cloudbaserc.json'
+const configPath = resolve(ROOT, configFile)
+const cloudbaseConfig = JSON.parse(readFileSync(configPath, 'utf8'))
 const envId = cloudbaseConfig.envId
 if (!envId)
-  throw new Error('cloudbaserc.json 缺少 envId')
+  throw new Error(`${configFile} 缺少 envId`)
 
 try {
   const requiredNames = assertFunctionEnvironmentReady(cloudbaseConfig, functions, process.env)
@@ -79,7 +82,18 @@ const artifacts = buildCloudFunctionArtifacts(functions)
 for (const [index, name] of functions.entries()) {
   console.log(`\n--- deploy ${name} (env ${envId}) ---`)
   const artifact = artifacts[index]
-  const result = spawnSync('tcb', ['fn', 'deploy', name, '--dir', artifact, '--envId', envId, '--force'], {
+  const result = spawnSync('tcb', [
+    '--config-file',
+    configPath,
+    'fn',
+    'deploy',
+    name,
+    '--dir',
+    artifact,
+    '--envId',
+    envId,
+    '--force',
+  ], {
     cwd: ROOT,
     stdio: 'inherit',
     env: process.env,
