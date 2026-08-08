@@ -13,6 +13,7 @@ import {
 } from '../../packages/authorization-core/src/index'
 import { createVerifiedRegistryArtifact } from '../../scripts/lib/sso-registry-artifact.mjs'
 import { createReleaseArtifacts } from '../../scripts/lib/sso-registry-release.mjs'
+import { parseCliJson, unwrapFunctionResult } from '../../scripts/lib/sso-registry-transport.mjs'
 
 function signedEnvelope(generation = 1) {
   const keys = generateKeyPairSync('ed25519')
@@ -71,6 +72,27 @@ function signedEnvelope(generation = 1) {
 }
 
 describe('registry CLI artifact export', () => {
+  it('unwraps the RetMsg envelope emitted by CloudBase CLI 3.6.4', () => {
+    const output = `- Loading data...\n${JSON.stringify({
+      InvokeResult: 0,
+      FunctionRequestId: 'request-test',
+      RetMsg: JSON.stringify({
+        ok: true,
+        data: { draftId: 'draft:test' },
+      }),
+    })}\n`
+
+    expect(unwrapFunctionResult(parseCliJson(output))).toEqual({ draftId: 'draft:test' })
+  })
+
+  it('rejects a failed CloudBase Event Function invocation before parsing RetMsg', () => {
+    expect(() => unwrapFunctionResult({
+      InvokeResult: 1,
+      ErrMsg: 'function execution failed',
+      RetMsg: '',
+    })).toThrow('Registry admin invocation failed: function execution failed')
+  })
+
   it('rejects an active envelope below the compiled generation floor', () => {
     const { envelope, trustAnchors } = signedEnvelope(1)
 
