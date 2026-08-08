@@ -110,6 +110,32 @@ describe('handleNotify — 成功路径', () => {
     expect(ms[0].expireAt).toBe(computeNewExpireAt({ current: null, cycle: 'month', now: config.now() }))
   })
 
+  it('忽略任何针对合成订单的支付回调，不改状态也不发放权益', async () => {
+    const { db, config, timestamp } = buildContext({ certificates: { [SERIAL]: keyPair.publicKey } })
+    Object.assign(db._store[ORDERS_COLLECTION][0], {
+      status: 'synthetic',
+      synthetic: true,
+      externalPayment: false,
+    })
+    const event = makeCallbackEvent({
+      apiV3Key: APIV3,
+      privateKey: keyPair.privateKey,
+      serial: SERIAL,
+      resourcePlaintext: buildResource(),
+      timestamp,
+    })
+
+    const res = await handleNotify({ event, db, config })
+
+    expect(res.statusCode).toBe(200)
+    expect(db._store[ORDERS_COLLECTION][0]).toMatchObject({
+      status: 'synthetic',
+      synthetic: true,
+      externalPayment: false,
+    })
+    expect(db._store[MEMBERSHIPS_COLLECTION]).toHaveLength(0)
+  })
+
   it('幂等：第二次回调不会双倍开通会员', async () => {
     const { db, config, timestamp } = buildContext({ certificates: { [SERIAL]: keyPair.publicKey } })
     const event1 = makeCallbackEvent({

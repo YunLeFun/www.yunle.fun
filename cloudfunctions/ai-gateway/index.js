@@ -46,6 +46,7 @@ const { runSyntheticChat } = require('./lib/synthetic-relay')
 const {
   SyntheticIdentityError,
   classifySyntheticIdentity,
+  isReadyFixedSyntheticIdentity,
   resolveSyntheticAction,
   verifyLeaseCapability,
 } = require('./lib/test-identity')
@@ -157,7 +158,7 @@ async function handleChat(event) {
       return { ok: false, code: 'unauthorized', message: '请先登录后再使用。' }
 
     const classification = await classifyForMutation(uid)
-    if (classification.synthetic)
+    if (classification.synthetic && !isReadyFixedSyntheticIdentity(classification.identity))
       return { ok: false, code: 'synthetic_action_forbidden', message: '测试身份不允许执行该操作。' }
 
     const account = await getAccountForUid(callAccountApi, { serviceToken, userId: uid })
@@ -170,12 +171,26 @@ async function handleChat(event) {
     })
   }
 
+  let fixedSyntheticAccount = false
   if (uid) {
     const classification = await classifyForMutation(uid)
-    if (classification.synthetic)
+    if (classification.synthetic && !isReadyFixedSyntheticIdentity(classification.identity))
       return handleSyntheticChat(event, { appId, appCfg, bizId, classification, messages, uid })
+    fixedSyntheticAccount = classification.synthetic
   }
 
+  return runAccountMeteredChat({
+    uid,
+    appId,
+    appCfg,
+    messages,
+    bizId,
+    strictDeduct: fixedSyntheticAccount,
+  })
+}
+
+function runAccountMeteredChat({ uid, appId, appCfg, messages, bizId, strictDeduct = false }) {
+  const serviceToken = process.env.ACCOUNT_API_INTERNAL_TOKEN || ''
   return runMeteredChat({ uid, cost: appCfg.cost, messages, bizId }, {
     getBalance: async (u) => {
       const acc = await getAccountForUid(callAccountApi, { serviceToken, userId: u })
@@ -190,6 +205,7 @@ async function handleChat(event) {
       bizId: id,
       meta: { kind: 'aiChat' },
     }),
+    strictDeduct,
   })
 }
 
@@ -371,6 +387,7 @@ exports._private = {
   handleRateLimit,
   handleReconcileSyntheticReservations,
   handleSyntheticChat,
+  runAccountMeteredChat,
   generateWithAdmin,
   resultHttpStatus,
   APP_REGISTRY,

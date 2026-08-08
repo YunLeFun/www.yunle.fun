@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest'
+import process from 'node:process'
+import { beforeEach, describe, expect, it } from 'vitest'
 
 import { handleAdminAdjustCoin, handleDeductCoinForUser } from '../../cloudfunctions/account-api/internal.js'
 import { COIN_TX_COLLECTION, WALLET_COLLECTION } from '../../cloudfunctions/account-api/lib/wallet.js'
@@ -14,6 +15,10 @@ import { makeFakeDb } from '../_fixtures/wxpay.mjs'
 const NOW = Date.UTC(2026, 6, 17)
 const TOKEN = 'ai-gateway-account-token'.padEnd(32, 'x')
 const CLEANUP_TOKEN = 'cleanup-token'.padEnd(32, 'x')
+
+beforeEach(() => {
+  process.env.YUNLEFUN_TEST_ACCOUNT_ENVIRONMENT = 'test'
+})
 
 describe('account-api synthetic wallet settlement', () => {
   it('revalidates reservation, lease, identity, and wallet in one transaction', async () => {
@@ -318,6 +323,19 @@ describe('account-api synthetic mutation guard', () => {
     expect(() => assertSyntheticSessionAction('signIn')).toThrow(/测试身份/)
     expect(() => assertSyntheticSessionAction('deductCoin')).toThrow(/测试身份/)
     expect(() => assertSyntheticSessionAction('requestAccountDeletion')).toThrow(/测试身份/)
+  })
+
+  it('allows the explicit fixed-account test surface while keeping unrelated mutations blocked', () => {
+    const identity = {
+      _id: 'fixed-1',
+      synthetic: true,
+      accountKind: 'fixed',
+      environment: 'test',
+      status: 'ready',
+    }
+    expect(() => assertSyntheticSessionAction('deductCoin', identity)).not.toThrow()
+    expect(() => assertSyntheticSessionAction('listOrders', identity)).not.toThrow()
+    expect(() => assertSyntheticSessionAction('signIn', identity)).toThrow(/测试身份/)
   })
 
   it('fails closed when classification is unavailable', async () => {

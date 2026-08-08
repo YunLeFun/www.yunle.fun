@@ -87,6 +87,7 @@ const { listRewardHistory } = require('./rewards')
 const { getSignInHistory, getSignInStatus, signIn } = require('./signin')
 const {
   SyntheticAccountError,
+  fixedSyntheticTransactionMeta,
   guardSyntheticSessionAction,
   handlePrepareSyntheticBaseline,
   handleSyntheticDeductCoinForUser,
@@ -136,14 +137,16 @@ async function handleGetMembership(uid) {
   return readMembership(db, uid)
 }
 
-async function handleDeductCoin(uid, event) {
+async function handleDeductCoin(uid, event, classification) {
   const { appId, amount, bizId } = assertDeductCoinInput(event)
   const { balance, deduped } = await deductCoin(db, {
     userId: uid,
     appId,
     amount,
     bizId,
-    meta: event.meta && typeof event.meta === 'object' ? event.meta : undefined,
+    meta: classification?.synthetic
+      ? fixedSyntheticTransactionMeta(classification.identity, event.meta)
+      : event.meta && typeof event.meta === 'object' ? event.meta : undefined,
     now: Date.now(),
   })
   return { balance, deduped: !!deduped }
@@ -260,7 +263,7 @@ async function dispatch(event) {
       const uid = getCallerUid()
       if (!uid)
         throw new Error('请先登录')
-      await guardSyntheticSessionAction(db, uid, action)
+      const classification = await guardSyntheticSessionAction(db, uid, action)
       const now = Date.now()
       return await dispatchAuthenticatedAction(db, {
         userId: uid,
@@ -269,7 +272,7 @@ async function dispatch(event) {
         handlers: {
           getAccount: () => handleGetAccount(uid),
           getMembership: () => handleGetMembership(uid),
-          deductCoin: () => handleDeductCoin(uid, event),
+          deductCoin: () => handleDeductCoin(uid, event, classification),
           listTransactions: () => handleListTransactions(uid, event),
           listRewardHistory: () => listRewardHistory(db, { userId: uid, skip: event.skip, limit: event.limit }),
           listOrders: () => listUserOrders(db, { userId: uid, skip: event.skip, limit: event.limit }),

@@ -40,17 +40,18 @@
 
 ### wxpay-order 环境变量
 
-| 变量名                       | 说明                                                 | 获取方式                                                                                                        |
-| ---------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `WX_MCH_ID`                  | 微信支付商户号                                       | [微信支付商户平台](https://pay.weixin.qq.com/) → 账户中心 → 商户信息 → 商户号                                   |
-| `WX_APPID`                   | 微信应用 AppID                                       | 使用 **云乐坊工作室服务号**：`wxe6749827b67dfc25`（网站应用不支持绑定微信开放平台，需使用已认证服务号的 AppID） |
-| `WX_SERIAL_NO`               | API 证书序列号                                       | 见下方「API 证书获取步骤」第 4 步                                                                               |
-| `WX_PRIVATE_KEY`             | API 证书私钥（PEM 格式）                             | 见下方「API 证书获取步骤」第 3 步                                                                               |
-| `WX_APIV3_KEY`               | APIv3 密钥（32 字节）                                | 见下方「APIv3 密钥获取步骤」                                                                                    |
-| `WX_NOTIFY_URL`              | 支付回调通知地址                                     | 见下方「回调地址获取」                                                                                          |
-| `WX_REFUND_NOTIFY_URL`       | 退款结果回调地址；留空时复用 `WX_NOTIFY_URL`         | 指向同一个 `wxpay-notify` HTTP 访问服务                                                                         |
-| `ACCOUNT_API_INTERNAL_TOKEN` | admin 退款与账户服务间的内部令牌                     | 与 admin 的 `NUXT_CLOUDBASE_ACCOUNT_API_INTERNAL_TOKEN`、account-api 中的值一致                                 |
-| `WX_ALLOW_TEST_ORDER`        | 是否允许自定义金额的测试下单接口（生产环境务必留空） | 设置为 `true` 时启用 `createTestOrder`，默认禁用                                                                |
+| 变量名                              | 说明                                                 | 获取方式                                                                                                        |
+| ----------------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `WX_MCH_ID`                         | 微信支付商户号                                       | [微信支付商户平台](https://pay.weixin.qq.com/) → 账户中心 → 商户信息 → 商户号                                   |
+| `WX_APPID`                          | 微信应用 AppID                                       | 使用 **云乐坊工作室服务号**：`wxe6749827b67dfc25`（网站应用不支持绑定微信开放平台，需使用已认证服务号的 AppID） |
+| `WX_SERIAL_NO`                      | API 证书序列号                                       | 见下方「API 证书获取步骤」第 4 步                                                                               |
+| `WX_PRIVATE_KEY`                    | API 证书私钥（PEM 格式）                             | 见下方「API 证书获取步骤」第 3 步                                                                               |
+| `WX_APIV3_KEY`                      | APIv3 密钥（32 字节）                                | 见下方「APIv3 密钥获取步骤」                                                                                    |
+| `WX_NOTIFY_URL`                     | 支付回调通知地址                                     | 见下方「回调地址获取」                                                                                          |
+| `WX_REFUND_NOTIFY_URL`              | 退款结果回调地址；留空时复用 `WX_NOTIFY_URL`         | 指向同一个 `wxpay-notify` HTTP 访问服务                                                                         |
+| `ACCOUNT_API_INTERNAL_TOKEN`        | admin 退款与账户服务间的内部令牌                     | 与 admin 的 `NUXT_CLOUDBASE_ACCOUNT_API_INTERNAL_TOKEN`、account-api 中的值一致                                 |
+| `YUNLEFUN_TEST_ACCOUNT_ENVIRONMENT` | 固定测试账号的部署环境边界                           | 测试部署设 `test`，生产部署设 `production`；缺失或不匹配时失败关闭                                              |
+| `WX_ALLOW_TEST_ORDER`               | 是否允许自定义金额的测试下单接口（生产环境务必留空） | 设置为 `true` 时启用 `createTestOrder`，默认禁用                                                                |
 
 ### wxpay-notify 环境变量
 
@@ -70,13 +71,14 @@
 
 ### account-api 环境变量
 
-| 变量名                                        | 说明                                                                                                                                                                                                                            | 获取方式                         |
-| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| `ACCOUNT_API_INTERNAL_TOKEN`                  | 内部服务调用 `deductCoinForUser` / `adminAdjustCoin` / `adminGrantReward` / `adminCorrectReward` / `admin*RewardClaimCampaign` / `finalizeAccountDeletion` 时校验用的共享密钥；调用方（其它云函数、admin 后台）需配置同一个值。 | 使用随机长字符串，勿暴露给前端。 |
-| `REWARD_CLAIM_LINK_HASH_KEY`                  | 领取链接服务端 HMAC 摘要密钥；数据库只保存摘要。                                                                                                                                                                                | 独立生成至少 32 字节随机值。     |
-| `REWARD_CLAIM_RATE_TICKET_SECRET`             | 两分钟 IP 匿名速率凭证签名密钥；必须与链接摘要密钥不同。                                                                                                                                                                        | 独立生成至少 32 字节随机值。     |
-| `REWARD_CLAIM_SITE_URL`                       | 领取链接站点根地址，生产固定为 `https://www.yunle.fun`。                                                                                                                                                                        | `cloudbaserc.json` 固定值。      |
-| `REWARD_CLAIM_MEMBERSHIP_HIGH_THRESHOLD_DAYS` | 会员总责任强确认阈值，生产默认 `3650` 天。                                                                                                                                                                                      | `cloudbaserc.json` 固定值。      |
+| 变量名                                        | 说明                                                                                                                                                                                                                            | 获取方式                                     |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| `ACCOUNT_API_INTERNAL_TOKEN`                  | 内部服务调用 `deductCoinForUser` / `adminAdjustCoin` / `adminGrantReward` / `adminCorrectReward` / `admin*RewardClaimCampaign` / `finalizeAccountDeletion` 时校验用的共享密钥；调用方（其它云函数、admin 后台）需配置同一个值。 | 使用随机长字符串，勿暴露给前端。             |
+| `YUNLEFUN_TEST_ACCOUNT_ENVIRONMENT`           | 固定测试账号的部署环境边界；只有账号 `environment` 与此值相同才能扣币。                                                                                                                                                         | 测试部署设 `test`，生产部署设 `production`。 |
+| `REWARD_CLAIM_LINK_HASH_KEY`                  | 领取链接服务端 HMAC 摘要密钥；数据库只保存摘要。                                                                                                                                                                                | 独立生成至少 32 字节随机值。                 |
+| `REWARD_CLAIM_RATE_TICKET_SECRET`             | 两分钟 IP 匿名速率凭证签名密钥；必须与链接摘要密钥不同。                                                                                                                                                                        | 独立生成至少 32 字节随机值。                 |
+| `REWARD_CLAIM_SITE_URL`                       | 领取链接站点根地址，生产固定为 `https://www.yunle.fun`。                                                                                                                                                                        | `cloudbaserc.json` 固定值。                  |
+| `REWARD_CLAIM_MEMBERSHIP_HIGH_THRESHOLD_DAYS` | 会员总责任强确认阈值，生产默认 `3650` 天。                                                                                                                                                                                      | `cloudbaserc.json` 固定值。                  |
 
 www 的 `NUXT_REWARD_CLAIM_RATE_TICKET_SECRET` 必须与 account-api 的
 `REWARD_CLAIM_RATE_TICKET_SECRET` 相同；它只用于把可信来源 IP 转为短时匿名凭证。链接摘要密钥与速率凭证密钥不得复用。
@@ -133,11 +135,12 @@ CloudBase/SCF 运行时临时凭证；运行身份只授予 `ses:SendEmail` 与 
 
 ### ai-gateway 环境变量
 
-| 变量名                         | 说明                                                                                                                           | 获取方式                                                        |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------- |
-| `ACCOUNT_API_INTERNAL_TOKEN`   | 内部转调 `account-api`（查余额 `getAccountForUser` / 扣云币 `deductCoinForUser`）的共享密钥，**须与 `account-api` 配同一值**。 | 与 `account-api` / `desktop-auth` 中的值相同。                  |
-| `ZERO_ECHO_APP_SIGNING_SECRET` | 《零点回声》EdgeOne 调用的 HMAC 应用签名密钥，只在服务端使用。                                                                 | 与 EdgeOne 的 `YUNLE_ZERO_ECHO_SIGNING_SECRET` 配置同一随机值。 |
-| `CANGSHENG_APP_SIGNING_SECRET` | 《仓生》EdgeOne 调用的 HMAC 应用签名密钥，只在服务端使用。                                                                     | 与 EdgeOne 的 `YUNLE_CANGSHENG_SIGNING_SECRET` 配置同一随机值。 |
+| 变量名                              | 说明                                                                                                                           | 获取方式                                                        |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------- |
+| `ACCOUNT_API_INTERNAL_TOKEN`        | 内部转调 `account-api`（查余额 `getAccountForUser` / 扣云币 `deductCoinForUser`）的共享密钥，**须与 `account-api` 配同一值**。 | 与 `account-api` / `desktop-auth` 中的值相同。                  |
+| `YUNLEFUN_TEST_ACCOUNT_ENVIRONMENT` | 固定测试账号的部署环境边界；缺失或不匹配时拒绝调用模型。                                                                       | 测试部署设 `test`，生产部署设 `production`。                    |
+| `ZERO_ECHO_APP_SIGNING_SECRET`      | 《零点回声》EdgeOne 调用的 HMAC 应用签名密钥，只在服务端使用。                                                                 | 与 EdgeOne 的 `YUNLE_ZERO_ECHO_SIGNING_SECRET` 配置同一随机值。 |
+| `CANGSHENG_APP_SIGNING_SECRET`      | 《仓生》EdgeOne 调用的 HMAC 应用签名密钥，只在服务端使用。                                                                     | 与 EdgeOne 的 `YUNLE_CANGSHENG_SIGNING_SECRET` 配置同一随机值。 |
 
 `ai-gateway` 是**通用**「登录计费 + 受控 AI 生成」网关：只收发通用 `messages` / `content`，**不含任何业务语义**（不认识「春联」之类业务概念）——prompt 构造与结果解析留在各接入应用自己手里。计价 / 模型 / AI 凭证全锁在服务端，端用户改不了。
 
@@ -157,7 +160,7 @@ CloudBase/SCF 运行时临时凭证；运行身份只授予 `ses:SendEmail` 与 
 4. `app.ai()` 以**管理员身份**调 CloudBase AI 生成；
 5. 云币策略生成成功后按 `bizId` 幂等扣费；日额度策略只保留成功生成的占用，模型失败会回滚本次预占。两种策略均不让失败生成消耗用户权益。
 
-> 🔒 **防白嫖（与 CloudBase 网关权限策略配合）**：AI 由本函数以**管理员身份**（`app.ai()` 走函数内置服务凭证）调用，豁免 deny；而网关侧对 `ai` 资源 **deny 注册 / 匿名用户**，端用户的 access_token 无法直打 `/v1/ai/<group>`，只能经此函数计费生成。`account-api` **零改动**——与 `desktop-auth` 同一「内部服务令牌转调」代理模式（`lib/account-proxy.js`），编排与计费纯逻辑在 `lib/relay.js`、入参校验在 `lib/validation.js`，均有单测覆盖（`tests/ai-gateway/relay.test.js`）。云币 + 跨应用会员整体设计见 [`docs/coin-and-membership.md`](../docs/coin-and-membership.md)。
+> 🔒 **防白嫖（与 CloudBase 网关权限策略配合）**：AI 由本函数以**管理员身份**（`app.ai()` 走函数内置服务凭证）调用，豁免 deny；而网关侧对 `ai` 资源 **deny 注册 / 匿名用户**，端用户的 access_token 无法直打 `/v1/ai/<group>`，只能经此函数计费生成。编排与计费纯逻辑在 `lib/relay.js`、入参校验在 `lib/validation.js`；`account-api` 负责服务端强制写入固定测试账号的 synthetic 流水标记。相关逻辑均有单测覆盖。云币 + 跨应用会员整体设计见 [`docs/coin-and-membership.md`](../docs/coin-and-membership.md)。
 
 ### iap-order 环境变量
 

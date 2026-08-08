@@ -7,7 +7,8 @@
  *
  * 业务原则：
  *   - 生成失败不扣费（用户不为失败付费）；
- *   - 扣费异常不浪费已生成结果，余额回退本地估算（下次刷新校准）；
+ *   - 普通账号扣费异常时余额回退本地估算；固定测试账号可启用严格扣费，
+ *     防止环境配置不一致时返回未记账的模型结果；
  *   - 余额预检读取失败属基础设施异常，直接抛出（由上层兜底为 5xx），不吞成业务码。
  */
 
@@ -19,6 +20,7 @@
  *   getBalance: (uid: string) => Promise<number>,
  *   generate: (messages: Array) => Promise<string>,
  *   deduct: (params: { amount: number, bizId: string }) => Promise<{ balance: number, deduped?: boolean }>,
+ *   strictDeduct?: boolean,
  * }} deps
  * @returns {Promise<
  *   | { ok: true, content: string, balance: number, deduped: boolean }
@@ -53,7 +55,9 @@ async function runMeteredChat({ uid, cost, messages, bizId }, deps) {
     nextBalance = typeof r?.balance === 'number' ? r.balance : nextBalance
     deduped = !!(r && r.deduped)
   }
-  catch {
+  catch (error) {
+    if (deps.strictDeduct)
+      throw error
     // 已生成、扣费失败：返回估算余额
   }
 

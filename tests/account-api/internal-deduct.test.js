@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest'
+import process from 'node:process'
+import { beforeEach, describe, expect, it } from 'vitest'
 
 import { handleDeductCoinForUser } from '../../cloudfunctions/account-api/internal.js'
 import { COIN_TX_COLLECTION, WALLET_COLLECTION } from '../../cloudfunctions/account-api/lib/wallet.js'
@@ -8,6 +9,10 @@ const NOW = 1_700_000_000_000
 const TOKEN = 'test-internal-token'
 
 describe('account-api deductCoinForUser', () => {
+  beforeEach(() => {
+    process.env.YUNLEFUN_TEST_ACCOUNT_ENVIRONMENT = 'production'
+  })
+
   it('拒绝缺失 token', async () => {
     const db = makeFakeDb({})
     await expect(handleDeductCoinForUser(db, {
@@ -63,6 +68,38 @@ describe('account-api deductCoinForUser', () => {
       balanceAfter: 21,
       refId: 'wenta:pack:premarriage-full:self',
       meta: { packId: 'premarriage-full' },
+    })
+  })
+
+  it('允许 ready 固定测试账号扣费并强制写入服务端合成标记', async () => {
+    const db = makeFakeDb({
+      test_identities: [{
+        _id: 'fixed-1',
+        uid: 'fixed-user',
+        synthetic: true,
+        accountKind: 'fixed',
+        environment: 'production',
+        status: 'ready',
+      }],
+      [WALLET_COLLECTION]: [{ _id: 'w', userId: 'fixed-user', balance: 120, version: 1 }],
+    })
+
+    const res = await handleDeductCoinForUser(db, {
+      serviceToken: TOKEN,
+      userId: 'fixed-user',
+      appId: 'wenta',
+      amount: 99,
+      bizId: 'wenta:fixed:case-1',
+      meta: { synthetic: false, testCase: 'case-1' },
+    }, { expectedToken: TOKEN, now: NOW })
+
+    expect(res).toEqual({ balance: 21, deduped: false })
+    expect(db._store[COIN_TX_COLLECTION][0].meta).toEqual({
+      fixedTestAccount: true,
+      synthetic: true,
+      syntheticEnvironment: 'production',
+      syntheticIdentityId: 'fixed-1',
+      testCase: 'case-1',
     })
   })
 

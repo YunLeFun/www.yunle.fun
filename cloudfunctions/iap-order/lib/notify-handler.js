@@ -169,6 +169,11 @@ async function handleNotify(input) {
     return buildResponse(200, 'SUCCESS', '订单不存在')
   }
 
+  if (order.synthetic === true) {
+    console.error('[wxpay-notify] 忽略合成订单回调:', order.outTradeNo)
+    return buildResponse(200, 'SUCCESS', '合成订单不处理外部支付')
+  }
+
   // 5. 业务字段校验
   try {
     assertResourceMatchesOrder({

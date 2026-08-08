@@ -11,7 +11,13 @@ const { assertAppId, assertDeductCoinInput } = require('./lib/validation')
 const { creditCoin, deductCoin } = require('./lib/wallet')
 const { assertRewardControlToken } = require('./reward-control-token')
 const { correctReward, grantReward } = require('./rewards')
-const { SyntheticAccountError, classifyAccountIdentity, isSecureServiceToken } = require('./synthetic')
+const {
+  SyntheticAccountError,
+  classifyAccountIdentity,
+  fixedSyntheticTransactionMeta,
+  isReadyFixedSyntheticIdentity,
+  isSecureServiceToken,
+} = require('./synthetic')
 
 /** 单笔管理员调账的云币绝对值上限（防误操作 / 防滥用的资损护栏） */
 const ADMIN_ADJUST_MAX_COIN = 100_000
@@ -56,7 +62,7 @@ async function handleDeductCoinForUser(targetDb, event, options = {}) {
     now: options.now || Date.now(),
   })
   const classification = await classifyAccountIdentity(targetDb, userId)
-  if (classification.synthetic) {
+  if (classification.synthetic && !isReadyFixedSyntheticIdentity(classification.identity)) {
     throw new SyntheticAccountError(
       'synthetic_action_forbidden',
       '测试身份只能通过带有效预算预留的专用扣费接口结算',
@@ -70,7 +76,9 @@ async function handleDeductCoinForUser(targetDb, event, options = {}) {
     appId,
     amount,
     bizId,
-    meta: event.meta && typeof event.meta === 'object' ? event.meta : undefined,
+    meta: classification.synthetic
+      ? fixedSyntheticTransactionMeta(classification.identity, event.meta)
+      : event.meta && typeof event.meta === 'object' ? event.meta : undefined,
     now: options.now || Date.now(),
   })
   return { balance, deduped: !!deduped }

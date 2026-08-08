@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   classifySyntheticIdentity,
+  isReadyFixedSyntheticIdentity,
   resolveSyntheticAction,
   SyntheticIdentityError,
   verifyLeaseCapability,
@@ -80,6 +81,21 @@ describe('ai-gateway synthetic classification and action registry', () => {
     })
     expect(() => resolveSyntheticAction('everything-generator', 'overwatch:req-01')).toThrow(SyntheticIdentityError)
     expect(() => resolveSyntheticAction('ai-sfc', 'wish:req-01:audit')).toThrow(SyntheticIdentityError)
+  })
+
+  it('recognizes only ready fixed identities from an explicit environment', () => {
+    const identity = {
+      synthetic: true,
+      accountKind: 'fixed',
+      environment: 'production',
+      status: 'ready',
+    }
+    expect(isReadyFixedSyntheticIdentity(identity, 'production')).toBe(true)
+    expect(isReadyFixedSyntheticIdentity(identity, 'test')).toBe(false)
+    expect(isReadyFixedSyntheticIdentity(identity)).toBe(false)
+    expect(isReadyFixedSyntheticIdentity({ ...identity, status: 'disabled' }, 'production')).toBe(false)
+    expect(isReadyFixedSyntheticIdentity({ ...identity, environment: 'unknown' }, 'production')).toBe(false)
+    expect(isReadyFixedSyntheticIdentity({ ...identity, accountKind: undefined }, 'production')).toBe(false)
   })
 })
 

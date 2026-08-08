@@ -158,6 +158,10 @@ describe('native test SSO lease admission', () => {
       ...aiRequest,
       returnUrl: 'https://cms.yunle.fun/',
     }, NOW)).toThrowError(expect.objectContaining({ reason: 'test_lease_binding_invalid' }))
+    expect(() => validateNativeTestSsoContext({ lease: aiLease, identity }, lease._id, {
+      ...aiRequest,
+      targetOrigin: 'https://ai-sfc.yunle.fun/path',
+    }, NOW)).toThrowError(expect.objectContaining({ reason: 'test_lease_binding_invalid' }))
     expect(() => validateNativeTestSsoContext({
       lease,
       identity: {

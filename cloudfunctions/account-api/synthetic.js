@@ -9,6 +9,14 @@ const process = require('node:process')
 const { COIN_TX_COLLECTION, WALLET_COLLECTION } = require('./lib/wallet')
 
 const ALLOWED_SESSION_ACTIONS = new Set(['getAccount', 'listTransactions'])
+const FIXED_ACCOUNT_ALLOWED_SESSION_ACTIONS = new Set([
+  'deductCoin',
+  'getAccount',
+  'getAccountAccessStatus',
+  'getMembership',
+  'listOrders',
+  'listTransactions',
+])
 const SYNTHETIC_BASELINE_COIN_MAX = 20
 const TRANSACTION_BUSY_RETRY_DELAYS_MS = [60, 180, 420]
 
@@ -73,15 +81,39 @@ async function classifyAccountIdentity(db, uid) {
   }
 }
 
-function assertSyntheticSessionAction(action) {
-  if (!ALLOWED_SESSION_ACTIONS.has(action))
+function isReadyFixedSyntheticIdentity(
+  identity,
+  expectedEnvironment = process.env.YUNLEFUN_TEST_ACCOUNT_ENVIRONMENT,
+) {
+  return identity?.synthetic === true
+    && identity.accountKind === 'fixed'
+    && identity.status === 'ready'
+    && (expectedEnvironment === 'test' || expectedEnvironment === 'production')
+    && identity.environment === expectedEnvironment
+}
+
+function fixedSyntheticTransactionMeta(identity, meta) {
+  return {
+    ...(meta && typeof meta === 'object' ? meta : {}),
+    fixedTestAccount: true,
+    synthetic: true,
+    syntheticEnvironment: identity.environment,
+    syntheticIdentityId: identity._id,
+  }
+}
+
+function assertSyntheticSessionAction(action, identity) {
+  const allowedActions = isReadyFixedSyntheticIdentity(identity)
+    ? FIXED_ACCOUNT_ALLOWED_SESSION_ACTIONS
+    : ALLOWED_SESSION_ACTIONS
+  if (!allowedActions.has(action))
     throw new SyntheticAccountError('synthetic_action_forbidden', '测试身份不允许执行该账户操作。')
 }
 
 async function guardSyntheticSessionAction(db, uid, action) {
   const classification = await classifyAccountIdentity(db, uid)
   if (classification.synthetic)
-    assertSyntheticSessionAction(action)
+    assertSyntheticSessionAction(action, classification.identity)
   return classification
 }
 
@@ -484,12 +516,15 @@ function assertDatabaseResult(result) {
 
 module.exports = {
   ALLOWED_SESSION_ACTIONS,
+  FIXED_ACCOUNT_ALLOWED_SESSION_ACTIONS,
   SyntheticAccountError,
   assertSyntheticSessionAction,
   classifyAccountIdentity,
+  fixedSyntheticTransactionMeta,
   guardSyntheticSessionAction,
   handlePrepareSyntheticBaseline,
   handleSyntheticDeductCoinForUser,
+  isReadyFixedSyntheticIdentity,
   isSecureServiceToken,
   syntheticCoinTransactionId,
   syntheticReservationId,

@@ -85,6 +85,13 @@ describe('runMeteredChat', () => {
     expect(res).toMatchObject({ ok: true, balance: 7, deduped: false })
   })
 
+  it('固定测试账号使用严格扣费，账户服务拒绝时不返回模型结果', async () => {
+    const { deps } = makeDeps({ balance: 10, deductThrows: true })
+    await expect(runMeteredChat(input(), { ...deps, strictDeduct: true }))
+      .rejects
+      .toThrow('扣费失败')
+  })
+
   it('查余额异常 → 抛出（基础设施异常，由上层兜底 5xx，不吞成业务码）', async () => {
     const deps = {
       getBalance: async () => { throw new Error('account-api down') },

@@ -4,6 +4,7 @@
 
 const { Buffer } = require('node:buffer')
 const crypto = require('node:crypto')
+const process = require('node:process')
 
 const TOKEN_ISSUER = 'https://admin.yunle.fun/test-broker'
 const TOKEN_KIND = 'lease-capability'
@@ -53,6 +54,17 @@ async function classifySyntheticIdentity(db, uid) {
       503,
     )
   }
+}
+
+function isReadyFixedSyntheticIdentity(
+  identity,
+  expectedEnvironment = process.env.YUNLEFUN_TEST_ACCOUNT_ENVIRONMENT,
+) {
+  return identity?.synthetic === true
+    && identity.accountKind === 'fixed'
+    && identity.status === 'ready'
+    && (expectedEnvironment === 'test' || expectedEnvironment === 'production')
+    && identity.environment === expectedEnvironment
 }
 
 function resolveSyntheticAction(appId, bizId) {
@@ -194,6 +206,7 @@ module.exports = {
   SYNTHETIC_ACTION_REGISTRY,
   SyntheticIdentityError,
   classifySyntheticIdentity,
+  isReadyFixedSyntheticIdentity,
   resolveSyntheticAction,
   verifyLeaseCapability,
 }

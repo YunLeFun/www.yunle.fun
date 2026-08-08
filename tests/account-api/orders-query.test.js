@@ -50,5 +50,9 @@ describe('account-api listUserOrders', () => {
     const recharge = toOrderSummary({ outTradeNo: 'T2', orderType: 'recharge_coin', amount: 1000, status: 'pending', coinAmount: 100, createdAt: 1, updatedAt: 1 })
     expect(recharge.coinAmount).toBe(100)
     expect(recharge.paidAt).toBeNull()
+
+    const synthetic = toOrderSummary({ outTradeNo: 'T3', status: 'synthetic', synthetic: true, createdAt: 1 })
+    expect(synthetic).toMatchObject({ status: 'synthetic', synthetic: true })
+    expect(synthetic.paidAt).toBeNull()
   })
 })

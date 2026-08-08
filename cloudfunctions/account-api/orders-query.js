@@ -11,7 +11,7 @@
 const ORDERS_COLLECTION = 'orders'
 
 /** 合法订单状态（其余一律归为 pending 以免泄漏未知态） */
-const KNOWN_STATUS = new Set(['pending', 'paid', 'failed', 'refunded', 'closed'])
+const KNOWN_STATUS = new Set(['pending', 'paid', 'failed', 'refunded', 'closed', 'synthetic'])
 
 /**
  * 订单对外投影：仅暴露展示所需字段，兼容 membership / recharge_coin / 历史 test 单。
@@ -27,6 +27,7 @@ function toOrderSummary(doc) {
     amount: typeof doc.amount === 'number' ? doc.amount : 0,
     status: KNOWN_STATUS.has(doc.status) ? doc.status : 'pending',
     payType: doc.payType || '',
+    synthetic: doc.synthetic === true,
     // 会员单
     level: doc.level || doc.planId || null,
     billingCycle: doc.billingCycle || null,

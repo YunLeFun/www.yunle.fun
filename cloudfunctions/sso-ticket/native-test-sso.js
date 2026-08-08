@@ -7,22 +7,6 @@ const { assertNoCallerSelectedSubject } = require('./sso-request')
 
 const REF_RE = /^[\w:-]{4,128}$/
 const MAX_LEASE_MS = 15 * 60 * 1000
-const NATIVE_TEST_SSO_BINDINGS = Object.freeze([
-  Object.freeze({
-    platformAppId: 'yunjian',
-    clientId: 'cms-web',
-    appId: 'cms',
-    targetOrigin: 'https://cms.yunle.fun',
-    returnUrl: 'https://cms.yunle.fun/',
-  }),
-  Object.freeze({
-    platformAppId: 'ai-sfc',
-    clientId: 'ai-sfc-web',
-    appId: 'ai-sfc',
-    targetOrigin: 'https://ai-sfc.yunle.fun',
-    returnUrl: 'https://ai-sfc.yunle.fun/',
-  }),
-])
 
 class NativeTestSsoError extends Error {
   constructor(reason, message = reason) {
@@ -107,21 +91,25 @@ function validateNativeTestSsoContext(context, leaseId, request, now) {
 }
 
 function assertExactNativeTestRequest(request) {
-  const binding = request && NATIVE_TEST_SSO_BINDINGS.find(candidate => (
-    candidate.clientId === request.clientId
-    && candidate.appId === request.appId
-    && candidate.targetOrigin === request.targetOrigin
-    && candidate.returnUrl === request.returnUrl
-  ))
-  if (!binding
+  // validateRequest has already matched the exact client/origin/redirect tuple
+  // against authorization-core's signed production registry. This layer only
+  // adds the native-test scope/lease contract and the catalog alias for CMS.
+  if (!request
     || request.mode !== 'redirect'
     || request.issuer !== 'https://www.yunle.fun'
+    || !/^[a-z0-9][\w-]{1,127}$/i.test(request.appId || '')
+    || !/^[a-z0-9][\w.-]{1,127}$/i.test(request.clientId || '')
+    || !isExactHttpsOrigin(request.targetOrigin)
+    || readHttpsUrlOrigin(request.returnUrl) !== request.targetOrigin
     || !Array.isArray(request.scopes)
     || request.scopes.length !== 1
     || request.scopes[0] !== 'identity:bootstrap') {
     throw new NativeTestSsoError('test_lease_binding_invalid')
   }
-  return binding
+  return {
+    platformAppId: request.appId === 'cms' ? 'yunjian' : request.appId,
+    targetOrigin: request.targetOrigin,
+  }
 }
 
 function isExactLeaseTarget(target, binding) {
@@ -136,6 +124,31 @@ function isExactLeaseTarget(target, binding) {
     && Array.isArray(target.allowedActions)
     && target.allowedActions.length === 1
     && target.allowedActions[0] === 'identity:bootstrap'
+}
+
+function isExactHttpsOrigin(value) {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'https:'
+      && !url.username
+      && !url.password
+      && value === url.origin
+  }
+  catch {
+    return false
+  }
+}
+
+function readHttpsUrlOrigin(value) {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'https:' && !url.username && !url.password && !url.hash
+      ? url.origin
+      : ''
+  }
+  catch {
+    return ''
+  }
 }
 
 module.exports = {

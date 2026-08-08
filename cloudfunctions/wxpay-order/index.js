@@ -33,6 +33,11 @@ const {
   requestMembershipRefundForAdmin,
 } = require('./lib/refund-service')
 const {
+  assertSyntheticOrderAllowed,
+  classifySyntheticOrderAccount,
+  createSyntheticOrder,
+} = require('./lib/synthetic-order')
+const {
   assertMembershipOrderInput,
   assertOutTradeNo,
   assertRechargeCoinInput,
@@ -234,8 +239,22 @@ async function handleCreateOrder(event) {
   await assertActiveAccount(uid)
 
   const { payType, wxOpenid, amount, description, orderFields } = resolveOrderPlan(event)
-  const cfg = loadConfig()
   const outTradeNo = generateOutTradeNo()
+  const classification = await classifySyntheticOrderAccount(db, uid)
+  assertSyntheticOrderAllowed(classification)
+  if (classification.synthetic) {
+    return createSyntheticOrder(db, {
+      amount,
+      identity: classification.identity,
+      now: Date.now(),
+      orderFields,
+      outTradeNo,
+      requestedPayType: payType,
+      userId: uid,
+    })
+  }
+
+  const cfg = loadConfig()
   const orderParams = buildOrderParams({ cfg, amount, outTradeNo, description })
 
   // 先落 pending 订单，再向微信下单：即使后续 prepay 失败，也只是留下一条可对账关闭的废单，
@@ -288,6 +307,10 @@ async function handleCreateTestOrder(event) {
   if (!uid)
     throw new Error('请先登录后再下单')
   await assertActiveAccount(uid)
+
+  const classification = await classifySyntheticOrderAccount(db, uid)
+  if (classification.synthetic)
+    throw new Error('固定测试账号请使用正常下单入口创建合成订单')
 
   const cfg = loadConfig()
   if (!cfg.allowTestOrder)
@@ -440,6 +463,15 @@ async function handleQueryOrder(event) {
   if (order.userId !== uid)
     throw new Error('无权访问该订单')
 
+  if (order.synthetic === true) {
+    return {
+      status: 'synthetic',
+      synthetic: true,
+      transactionId: null,
+      paidAt: null,
+    }
+  }
+
   // 支付回调会先把订单标为 paid，再发放会员/云币权益。前端轮询可能恰好落在两步之间：
   // 如果此时直接返回 paid，客户端会停止轮询并只刷新一次尚未更新的账户状态。
   // 因此 paid 只有在权益已发放后才作为客户端终态返回；发放失败时保持轮询，
@@ -486,6 +518,11 @@ async function handleReconcile() {
   const uid = getCallerUid()
   if (!uid)
     throw new Error('请先登录')
+
+  const classification = await classifySyntheticOrderAccount(db, uid)
+  assertSyntheticOrderAllowed(classification)
+  if (classification.synthetic)
+    return { reconciled: 0, paid: 0, regranted: 0 }
 
   const cfg = loadConfig()
 
@@ -536,6 +573,7 @@ async function handleReconcile() {
 
 async function handleAdminRequestMembershipRefund(event) {
   assertInternalServiceToken(event?.serviceToken)
+  await assertNonSyntheticRefundOrder(event?.outTradeNo)
   const cfg = loadConfig()
   return requestMembershipRefundForAdmin(db, {
     outTradeNo: event?.outTradeNo,
@@ -548,12 +586,20 @@ async function handleAdminRequestMembershipRefund(event) {
 
 async function handleAdminQueryMembershipRefund(event) {
   assertInternalServiceToken(event?.serviceToken)
+  await assertNonSyntheticRefundOrder(event?.outTradeNo)
   const cfg = loadConfig()
   return queryMembershipRefundForAdmin(db, {
     outTradeNo: event?.outTradeNo,
     config: cfg,
     now: Date.now(),
   })
+}
+
+async function assertNonSyntheticRefundOrder(rawOutTradeNo) {
+  const outTradeNo = assertOutTradeNo(rawOutTradeNo)
+  const order = await findOrderByOutTradeNo(db, outTradeNo)
+  if (order?.synthetic === true)
+    throw new Error('合成订单不允许请求微信退款')
 }
 
 exports.main = async (event) => {

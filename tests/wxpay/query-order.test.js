@@ -29,7 +29,7 @@ const cloudbaseStub = {
     auth: () => ({
       getUserInfo: () => ({ uid: h.uid }),
     }),
-    callFunction: async () => ({ result: null }),
+    callFunction: async () => ({ result: { restricted: false, state: 'active' } }),
     database: () => dbProxy,
   }),
 }
@@ -66,6 +66,8 @@ describe('wxpay-order queryOrder', () => {
   })
 
   beforeEach(() => {
+    process.env.ACCOUNT_API_INTERNAL_TOKEN = 'test-account-api-token'
+    process.env.YUNLEFUN_TEST_ACCOUNT_ENVIRONMENT = 'test'
     process.env.WX_APPID = 'wx-app-id'
     process.env.WX_MCH_ID = 'wx-merchant-id'
     process.env.WX_SERIAL_NO = 'wx-serial'
@@ -147,5 +149,71 @@ describe('wxpay-order queryOrder', () => {
     expect(h.db._store[MEMBERSHIPS_COLLECTION]).toHaveLength(1)
     expect(h.db._store[MEMBERSHIPS_COLLECTION][0].lastOrderId).toBe(order.outTradeNo)
     expect(h.db._store[ORDERS_COLLECTION][0].grantedAt).toEqual(expect.any(Number))
+  })
+
+  it('returns a synthetic order without querying WeChat or granting an entitlement', async () => {
+    h.db = makeFakeDb({
+      [ORDERS_COLLECTION]: [{
+        _id: 'order-synthetic',
+        outTradeNo: 'YLFSYNTHETIC001',
+        userId: 'u1',
+        orderType: 'membership',
+        level: 'basic',
+        billingCycle: 'month',
+        amount: 1800,
+        status: 'synthetic',
+        synthetic: true,
+      }],
+      [MEMBERSHIPS_COLLECTION]: [],
+    })
+
+    const result = await main({
+      action: 'queryOrder',
+      outTradeNo: 'YLFSYNTHETIC001',
+    })
+
+    expect(result).toEqual({
+      status: 'synthetic',
+      synthetic: true,
+      transactionId: null,
+      paidAt: null,
+    })
+    expect(h.db._store[MEMBERSHIPS_COLLECTION]).toHaveLength(0)
+  })
+
+  it('creates a fixed-account synthetic order before loading WeChat payment configuration', async () => {
+    delete process.env.WX_APPID
+    delete process.env.WX_MCH_ID
+    delete process.env.WX_SERIAL_NO
+    delete process.env.WX_PRIVATE_KEY
+    delete process.env.WX_NOTIFY_URL
+    h.db = makeFakeDb({
+      test_identities: [{
+        _id: 'fixed-1',
+        uid: 'u1',
+        synthetic: true,
+        accountKind: 'fixed',
+        environment: 'test',
+        status: 'ready',
+      }],
+      [ORDERS_COLLECTION]: [],
+    })
+
+    const result = await main({
+      action: 'createOrder',
+      orderType: 'membership',
+      appId: 'yunle',
+      level: 'basic',
+      billingCycle: 'month',
+      payType: 'native',
+    })
+
+    expect(result).toMatchObject({ status: 'synthetic', synthetic: true, payType: 'native' })
+    expect(h.db._store[ORDERS_COLLECTION][0]).toMatchObject({
+      userId: 'u1',
+      status: 'synthetic',
+      synthetic: true,
+      externalPayment: false,
+    })
   })
 })

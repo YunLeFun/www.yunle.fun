@@ -27,6 +27,7 @@ const { assertActiveAccountForUid } = require('./account-access')
 
 const { assertGrantablePayload, createAppStoreService } = require('./lib/appstore')
 const { grantIapTransaction } = require('./lib/iap')
+const { classifySyntheticOrderAccount } = require('./lib/synthetic-order')
 
 const app = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV })
 const db = app.database()
@@ -127,7 +128,6 @@ async function handleRestore(uid, event, config) {
 exports.main = async (event) => {
   const { action } = event || {}
   try {
-    const config = loadConfig()
     const uid = getCallerUid()
     if (!uid)
       throw new Error('请先登录')
@@ -135,6 +135,10 @@ exports.main = async (event) => {
       serviceToken: process.env.ACCOUNT_API_INTERNAL_TOKEN || '',
       userId: uid,
     })
+    const classification = await classifySyntheticOrderAccount(db, uid)
+    if (classification.synthetic)
+      throw new Error('测试账号不允许校验或发放 App Store 真实内购')
+    const config = loadConfig()
 
     switch (action) {
       case 'verifyPurchase':

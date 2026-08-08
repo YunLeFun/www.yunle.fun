@@ -154,8 +154,18 @@ export function usePaymentFlow(options: UsePaymentFlowOptions) {
         data: { action: 'createOrder', payType, ...orderData },
       })
 
-      const result = res.result as CreateOrderResult
+      const result = res.result as CreateOrderResult & {
+        status?: string
+        synthetic?: boolean
+      }
       currentOrder.value = result
+
+      if (result.synthetic === true && result.status === 'synthetic') {
+        phase.value = 'success'
+        writePending(null)
+        return
+      }
+
       phase.value = 'paying'
 
       writePending({ outTradeNo: result.outTradeNo, payType, startedAt: Date.now(), meta })
