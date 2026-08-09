@@ -20,7 +20,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    environment: registry-release
+    environment: "${{ startsWith(inputs.releaseIntentId, 'release:production:') && 'registry-release-production' || 'registry-release' }}"
     env:
       CLOUDBASE_API_KEY: ${{ secrets.CLOUDBASE_API_KEY }}
       CLOUDBASE_ENV_ID: ${{ vars.CLOUDBASE_ENV_ID }}

@@ -21,7 +21,7 @@ jobs:
     if: ${{ github.event.workflow_run.event == 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    environment: registry-release
+    environment: "${{ startsWith(github.event.workflow_run.head_branch, 'registry/release-production-') && 'registry-release-production' || 'registry-release' }}"
     env:
       CLOUDBASE_API_KEY: ${{ secrets.CLOUDBASE_API_KEY }}
       CLOUDBASE_ENV_ID: ${{ vars.CLOUDBASE_ENV_ID }}
