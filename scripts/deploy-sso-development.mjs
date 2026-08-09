@@ -7,10 +7,12 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 import { buildCloudFunctionArtifact } from './build-cloud-function.mjs'
+import { createCloudBaseConfigEnvironment } from './deploy-function-safety.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const CONFIG = resolve(ROOT, 'cloudbaserc.sso-development.json')
 const DEVELOPMENT_ENV_ID = 'yunlefun-dev-0ge03bdod37093d1'
+let tcbEnvironment = process.env
 
 function stripQuotes(value) {
   const trimmed = value.trim()
@@ -48,7 +50,7 @@ function runTcb(args) {
     ...args,
   ], {
     cwd: ROOT,
-    env: process.env,
+    env: tcbEnvironment,
     stdio: 'inherit',
   })
   if (result.status !== 0)
@@ -60,6 +62,7 @@ loadEnvFile(resolve(ROOT, '.env.sso-development.local'))
 const config = JSON.parse(readFileSync(CONFIG, 'utf8'))
 if (config.envId !== DEVELOPMENT_ENV_ID)
   throw new Error('Development SSO deployment manifest points to an unexpected environment')
+tcbEnvironment = createCloudBaseConfigEnvironment(config, process.env)
 
 const registryControlPlaneOnly = process.argv.includes('--registry-control-plane-only')
 

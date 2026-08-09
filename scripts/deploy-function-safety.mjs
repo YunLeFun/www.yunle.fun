@@ -83,6 +83,23 @@ export function assertFunctionEnvironmentReady(config, functionNames, env) {
   return requiredNames
 }
 
+/**
+ * Escape values before CloudBase CLI performs raw `{{env.NAME}}` substitution
+ * inside JSON string literals. JSON parsing restores the original value.
+ */
+export function createCloudBaseConfigEnvironment(config, env) {
+  const functionNames = (Array.isArray(config?.functions) ? config.functions : [])
+    .map(item => item?.name)
+    .filter(name => typeof name === 'string' && name)
+  const childEnvironment = { ...env }
+
+  for (const name of requiredEnvironmentNames(config, functionNames)) {
+    if (typeof env?.[name] === 'string')
+      childEnvironment[name] = JSON.stringify(env[name]).slice(1, -1)
+  }
+  return childEnvironment
+}
+
 function isCanonical32ByteBase64(value) {
   if (typeof value !== 'string' || !/^[a-z0-9+/]{43}=$/i.test(value))
     return false
