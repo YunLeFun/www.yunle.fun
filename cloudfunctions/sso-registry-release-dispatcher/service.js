@@ -18,7 +18,7 @@ async function runRegistryReleaseDispatch({
   if (!store || typeof dispatchWorkflow !== 'function' || typeof leaseOwner !== 'string' || !leaseOwner)
     throw new TypeError('Registry release dispatcher is not configured')
   const ready = await store.listReady(now, 10)
-  const result = { claimed: 0, dispatched: 0, failed: 0, deadLetter: 0 }
+  const result = { ready: ready.length, claimed: 0, skipped: 0, dispatched: 0, failed: 0, deadLetter: 0 }
   for (const candidate of ready) {
     const attempts = Number(candidate.attempts || 0) + 1
     const claimed = await store.claim(candidate.releaseIntentId, {
@@ -27,8 +27,10 @@ async function runRegistryReleaseDispatch({
       leaseExpiresAt: now + LEASE_MS,
       updatedAt: now,
     })
-    if (!claimed)
+    if (!claimed) {
+      result.skipped++
       continue
+    }
     result.claimed++
     try {
       const dispatched = await dispatchWorkflow({ releaseIntentId: candidate.releaseIntentId })

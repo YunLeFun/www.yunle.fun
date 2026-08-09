@@ -55,6 +55,10 @@ function createWorkflowDispatcher({
       method: 'POST',
       headers: headers(jwt),
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      body: JSON.stringify({
+        repositories: [repository],
+        permissions: { actions: 'write' },
+      }),
     })
     if (!tokenResponse.ok)
       throw githubError(`github_installation_token_${tokenResponse.status}`)
