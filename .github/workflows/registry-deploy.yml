@@ -76,6 +76,8 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Authenticate CloudBase CLI
+        run: pnpm --package=@cloudbase/cli@3.6.4 dlx tcb login --cloudbase-api-key "$CLOUDBASE_API_KEY" -e "$CLOUDBASE_ENV_ID" --json
       - name: Record exact merged commit
         run: >-
           pnpm sso:registry record-ci --environment development
@@ -155,6 +157,8 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Authenticate CloudBase CLI
+        run: pnpm --package=@cloudbase/cli@3.6.4 dlx tcb login --cloudbase-api-key "$CLOUDBASE_API_KEY" -e "$CLOUDBASE_ENV_ID" --json
       - name: Record exact merged commit
         run: >-
           pnpm sso:registry record-ci --environment production

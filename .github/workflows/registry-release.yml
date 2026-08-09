@@ -61,6 +61,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Authenticate CloudBase CLI
+        run: pnpm --package=@cloudbase/cli@3.6.4 dlx tcb login --cloudbase-api-key "$CLOUDBASE_API_KEY" -e "$CLOUDBASE_ENV_ID" --json
+
       - name: Record workflow dispatch
         run: >-
           pnpm sso:registry record-ci
