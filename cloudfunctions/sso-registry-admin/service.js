@@ -481,14 +481,35 @@ function createRegistryAdminService(options) {
       requestMetadata(input)
       const id = draftId(input?.draftId, randomId)
       const draft = await store.getDraft(id)
-      if (!draft || draft.status !== 'draft')
+      if (!draft)
         throw new RegistryAdminError('draft_unavailable')
       const registry = parseRegistry(draft.registry)
       const current = await activeEnvelope()
       const hashes = hashRegistry(registry)
+      if (draft.status === 'published') {
+        const existingIntent = draft.releaseIntentId
+          ? await store.getReleaseIntent(draft.releaseIntentId)
+          : null
+        if (!existingIntent
+          || existingIntent.status !== 'superseded'
+          || !current
+          || draft.publishedSnapshotId !== existingIntent.snapshotId
+          || current.state.activeSnapshotId !== existingIntent.snapshotId
+          || current.state.generation !== existingIntent.generation
+          || current.snapshot.policyVersion !== registry.policyVersion
+          || current.snapshot.contentHash !== hashes.contentHash
+          || current.snapshot.securityHash !== hashes.securityHash) {
+          throw new RegistryAdminError('draft_unavailable')
+        }
+      }
+      else if (draft.status !== 'draft') {
+        throw new RegistryAdminError('draft_unavailable')
+      }
       return {
         draftId: id,
-        baseSnapshotId: draft.baseSnapshotId,
+        baseSnapshotId: draft.status === 'published'
+          ? current.state.activeSnapshotId
+          : draft.baseSnapshotId,
         baseGeneration: current?.state.generation || 0,
         policyVersion: registry.policyVersion,
         clientCount: registry.clients.length,

@@ -504,6 +504,20 @@ describe('sso-registry-admin service', () => {
       releaseIntentId: initial.releaseIntentId,
       status: 'superseded',
     }))
+    const retryDiff = await service.getDraftDiff(request({ draftId: saved.draftId }))
+    expect(retryDiff).toMatchObject({
+      baseSnapshotId: initial.snapshotId,
+      baseGeneration: initial.generation,
+      contentHash: claims.contentHash,
+      securityHash: claims.securityHash,
+      diffSummary: {
+        added: [],
+        displayChanged: [],
+        modified: [],
+        removed: [],
+        securityChanged: [],
+      },
+    })
 
     claims.baseCommitSha = 'b'.repeat(40)
     claims.jti = 'admin-proof-retry'
