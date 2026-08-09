@@ -20,7 +20,10 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 import { buildCloudFunctionArtifacts } from './build-cloud-function.mjs'
-import { assertFunctionEnvironmentReady } from './deploy-function-safety.mjs'
+import {
+  assertFunctionEnvironmentReady,
+  createCloudBaseConfigEnvironment,
+} from './deploy-function-safety.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -77,6 +80,7 @@ catch (error) {
   console.error(error instanceof Error ? error.message : error)
   process.exit(2)
 }
+const tcbEnvironment = createCloudBaseConfigEnvironment(cloudbaseConfig, process.env)
 
 const artifacts = buildCloudFunctionArtifacts(functions)
 for (const [index, name] of functions.entries()) {
@@ -96,7 +100,7 @@ for (const [index, name] of functions.entries()) {
   ], {
     cwd: ROOT,
     stdio: 'inherit',
-    env: process.env,
+    env: tcbEnvironment,
   })
   if (result.status !== 0) {
     console.error(`部署失败: ${name}`)

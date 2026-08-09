@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   assertFunctionEnvironmentReady,
+  createCloudBaseConfigEnvironment,
   requiredEnvironmentNames,
 } from '../scripts/deploy-function-safety.mjs'
 
@@ -22,6 +23,7 @@ const config = {
 }
 
 const productionConfig = JSON.parse(await readFile(new URL('../cloudbaserc.json', import.meta.url), 'utf8'))
+const ciConfig = JSON.parse(await readFile(new URL('../cloudbaserc.ci.json', import.meta.url), 'utf8'))
 const envExample = await readFile(new URL('../.env.example', import.meta.url), 'utf8')
 const TEST_IDENTITY_FUNCTIONS = [
   'account-api',
@@ -70,6 +72,44 @@ describe('云函数部署环境变量门禁', () => {
 
     for (const name of names)
       expect(envExample, `.env.example 缺少 ${name}`).toMatch(new RegExp(`^${name}=`, 'm'))
+  })
+
+  it('ci 登录配置不解析任何函数密钥', () => {
+    expect(ciConfig).toEqual({
+      version: '2.0',
+      envId: '{{env.CLOUDBASE_ENV_ID}}',
+      functionRoot: './cloudfunctions',
+      functions: [],
+    })
+  })
+
+  it('读取 CloudBase CLI 配置前会转义多行和 JSON 环境变量', () => {
+    const source = JSON.stringify({
+      functions: [{
+        name: 'sso-ticket',
+        envVariables: {
+          PRIVATE_KEY: '{{env.PRIVATE_KEY}}',
+          PUBLIC_KEYS: '{{env.PUBLIC_KEYS}}',
+        },
+      }],
+    })
+    const rawEnvironment = {
+      PRIVATE_KEY: '-----BEGIN PRIVATE KEY-----\nline\\value\n-----END PRIVATE KEY-----',
+      PUBLIC_KEYS: '{"old-key":{"kty":"OKP","crv":"Ed25519"}}',
+      UNRELATED: 'unchanged',
+    }
+    const childEnvironment = createCloudBaseConfigEnvironment(JSON.parse(source), rawEnvironment)
+    const rendered = source
+      .replace('{{env.PRIVATE_KEY}}', childEnvironment.PRIVATE_KEY)
+      .replace('{{env.PUBLIC_KEYS}}', childEnvironment.PUBLIC_KEYS)
+    const variables = JSON.parse(rendered).functions[0].envVariables
+
+    expect(variables).toEqual({
+      PRIVATE_KEY: rawEnvironment.PRIVATE_KEY,
+      PUBLIC_KEYS: rawEnvironment.PUBLIC_KEYS,
+    })
+    expect(childEnvironment.UNRELATED).toBe('unchanged')
+    expect(rawEnvironment.PRIVATE_KEY).toContain('\n')
   })
 
   it('拒绝测试身份密钥格式错误、内部令牌过短或跨用途复用', () => {

@@ -7,7 +7,10 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 import { buildCloudFunctionArtifacts } from './build-cloud-function.mjs'
-import { assertFunctionEnvironmentReady } from './deploy-function-safety.mjs'
+import {
+  assertFunctionEnvironmentReady,
+  createCloudBaseConfigEnvironment,
+} from './deploy-function-safety.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const environments = {
@@ -31,6 +34,7 @@ const config = JSON.parse(readFileSync(selected.config, 'utf8'))
 if (config.envId !== selected.envId)
   throw new Error(`Registry consumer manifest does not match ${target}`)
 assertFunctionEnvironmentReady(config, selected.functions, process.env)
+const tcbEnvironment = createCloudBaseConfigEnvironment(config, process.env)
 
 function runTcb(args) {
   const result = spawnSync('pnpm', [
@@ -40,7 +44,7 @@ function runTcb(args) {
     '--config-file',
     selected.config,
     ...args,
-  ], { cwd: ROOT, env: process.env, stdio: 'inherit' })
+  ], { cwd: ROOT, env: tcbEnvironment, stdio: 'inherit' })
   if (result.status !== 0)
     process.exit(result.status || 1)
 }
