@@ -1,4 +1,6 @@
 import { generateKeyPairSync } from 'node:crypto'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
@@ -76,6 +78,17 @@ function signedEnvelope(generation = 1) {
 }
 
 describe('registry CLI artifact export', () => {
+  it('lets the server bind a seeded draft to the current active snapshot', () => {
+    const source = readFileSync(resolve(import.meta.dirname, '../../scripts/sso-registry.mjs'), 'utf8')
+    const seedCommand = source.slice(
+      source.indexOf('function seed('),
+      source.indexOf('function invokeManagementCommand('),
+    )
+
+    expect(seedCommand).toContain('registry: artifact.registry')
+    expect(seedCommand).not.toContain('baseSnapshotId: null')
+  })
+
   it('uses the CloudBase CLI 3.6.4 function invocation parameter contract', () => {
     expect(createFunctionInvokeArgs({
       configFile: '/tmp/cloudbaserc.development.json',
