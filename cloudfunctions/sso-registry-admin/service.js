@@ -782,19 +782,53 @@ function createRegistryAdminService(options) {
           const existingIntent = await transaction.getReleaseIntent(draft.releaseIntentId)
           if (!existingIntent)
             throw new RegistryAdminError('release_intent_missing')
-          if (existingIntent.baseCommitSha !== baseCommitSha
-            || existingIntent.policyVersion !== claims.policyVersion
-            || existingIntent.contentHash !== claims.contentHash
-            || existingIntent.securityHash !== claims.securityHash) {
+          const sameEvidence = existingIntent.policyVersion === claims.policyVersion
+            && existingIntent.contentHash === claims.contentHash
+            && existingIntent.securityHash === claims.securityHash
+          if (!sameEvidence)
+            throw new RegistryAdminError('admin_approval_evidence_mismatch')
+
+          if (existingIntent.baseCommitSha === baseCommitSha) {
+            return {
+              idempotent: true,
+              releaseIntentId: draft.releaseIntentId,
+              snapshotId: existingIntent.snapshotId,
+              generation: existingIntent.generation,
+              status: existingIntent.status,
+            }
+          }
+
+          if (existingIntent.status !== 'superseded')
+            throw new RegistryAdminError('admin_approval_evidence_mismatch')
+
+          const current = await activeEnvelope(transaction)
+          if (!current
+            || draft.publishedSnapshotId !== existingIntent.snapshotId
+            || current.state.activeSnapshotId !== existingIntent.snapshotId
+            || current.state.generation !== existingIntent.generation
+            || current.snapshot.policyVersion !== claims.policyVersion
+            || current.snapshot.registry.clients.length !== claims.clientCount
+            || current.snapshot.contentHash !== claims.contentHash
+            || current.snapshot.securityHash !== claims.securityHash) {
             throw new RegistryAdminError('admin_approval_evidence_mismatch')
           }
-          return {
-            idempotent: true,
-            releaseIntentId: draft.releaseIntentId,
-            snapshotId: existingIntent.snapshotId,
-            generation: existingIntent.generation,
-            status: existingIntent.status,
-          }
+
+          return queuePublishedRelease(transaction, {
+            approvalId: `admin:${claims.jti}`,
+            baseCommitSha,
+            draftId: id,
+            meta,
+            published: {
+              generation: current.state.generation,
+              hashes: {
+                contentHash: current.snapshot.contentHash,
+                securityHash: current.snapshot.securityHash,
+              },
+              publishedAt: now(),
+              snapshot: current.snapshot,
+              snapshotId: current.snapshot.snapshotId,
+            },
+          })
         }
         if (draft.status !== 'draft')
           throw new RegistryAdminError('draft_unavailable')

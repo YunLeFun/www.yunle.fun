@@ -471,6 +471,72 @@ describe('sso-registry-admin service', () => {
     })
   })
 
+  it('requeues a superseded production release against the newly reviewed main commit', async () => {
+    const claims = {
+      sub: 'admin-uid',
+      login: 'registry-owner',
+      draftId: 'draft:admin-retry',
+      policyVersion: '2026-08-03.1',
+      clientCount: 1,
+      contentHash: '',
+      securityHash: '',
+      baseCommitSha: 'a'.repeat(40),
+      changeReason: 'Approved after reviewing the exact Admin diff',
+      jti: 'admin-proof-initial',
+    }
+    const { memory, service } = setup({
+      approverUids: ['admin-uid'],
+      verifyAdminApprovalProof: proof => proof,
+    })
+    const saved = await service.saveDraft(request({
+      draftId: claims.draftId,
+      registry: registry(),
+    }))
+    const diff = await service.getDraftDiff(request({ draftId: saved.draftId }))
+    claims.contentHash = diff.contentHash
+    claims.securityHash = diff.securityHash
+
+    const initial = await service.approveAndQueueReleaseByAdmin({
+      approvalProof: claims,
+      requestId: 'admin-request-initial',
+    })
+    await service.recordCiProgress(request({
+      releaseIntentId: initial.releaseIntentId,
+      status: 'superseded',
+    }))
+
+    claims.baseCommitSha = 'b'.repeat(40)
+    claims.jti = 'admin-proof-retry'
+    claims.changeReason = 'Reapproved after protected main moved'
+    const retried = await service.approveAndQueueReleaseByAdmin({
+      approvalProof: claims,
+      requestId: 'admin-request-retry',
+    })
+
+    const data = memory.snapshot()
+    expect(retried).toMatchObject({
+      idempotent: false,
+      generation: initial.generation,
+      snapshotId: initial.snapshotId,
+      status: 'approved',
+    })
+    expect(retried.releaseIntentId).not.toBe(initial.releaseIntentId)
+    expect(data.intents.get(initial.releaseIntentId)).toMatchObject({ status: 'superseded' })
+    expect(data.intents.get(retried.releaseIntentId)).toMatchObject({
+      approvalId: 'admin:admin-proof-retry',
+      baseCommitSha: 'b'.repeat(40),
+      generation: initial.generation,
+      snapshotId: initial.snapshotId,
+      status: 'approved',
+    })
+    expect(data.drafts.get(saved.draftId)).toMatchObject({
+      releaseIntentId: retried.releaseIntentId,
+      publishedSnapshotId: initial.snapshotId,
+      status: 'published',
+    })
+    expect(data.outbox.size).toBe(2)
+  })
+
   it('rejects Admin evidence when the draft changes after review', async () => {
     const { service } = setup({
       approverUids: ['admin-uid'],
