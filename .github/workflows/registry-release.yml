@@ -9,10 +9,8 @@ on:
         type: string
 
 permissions:
-  checks: read
   contents: read
   pull-requests: read
-  statuses: read
 
 concurrency:
   group: sso-registry-release
@@ -173,34 +171,6 @@ jobs:
           --pr "${{ steps.pr.outputs.number }}"
           --operator github-actions
           --reason "generated registry pull request opened"
-
-      - name: Wait for pull request checks and merge the exact head
-        env:
-          APP_GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          ENVIRONMENT: ${{ steps.intent.outputs.environment }}
-          EXPECTED_HEAD_SHA: ${{ steps.pr.outputs.head-sha }}
-          PR_NUMBER: ${{ steps.pr.outputs.number }}
-          READ_GH_TOKEN: ${{ github.token }}
-        run: |
-          check_count=0
-          remaining_attempts=30
-          while [ "$check_count" -eq 0 ] && [ "$remaining_attempts" -gt 0 ]; do
-            check_count="$(GH_TOKEN="$READ_GH_TOKEN" gh pr view "$PR_NUMBER" --json statusCheckRollup --jq '.statusCheckRollup | length' 2>/dev/null || echo 0)"
-            if [ "$check_count" -gt 0 ]; then
-              break
-            fi
-            remaining_attempts=$((remaining_attempts - 1))
-            sleep 5
-          done
-          test "$check_count" -gt 0
-          GH_TOKEN="$READ_GH_TOKEN" gh pr checks "$PR_NUMBER" --watch --fail-fast --interval 10
-
-          release_file="packages/authorization-core/src/generated/${ENVIRONMENT}-release.json"
-          approved_base="$(jq -r '.intent.baseCommitSha' "$release_file")"
-          git fetch origin main
-          test "$(git rev-parse origin/main)" = "$approved_base"
-          test "$(GH_TOKEN="$READ_GH_TOKEN" gh pr view "$PR_NUMBER" --json headRefOid --jq .headRefOid)" = "$EXPECTED_HEAD_SHA"
-          GH_TOKEN="$APP_GH_TOKEN" gh pr merge "$PR_NUMBER" --squash --match-head-commit "$EXPECTED_HEAD_SHA" --delete-branch
 
       - name: Record CI failure
         if: ${{ failure() && steps.intent.outputs.environment != '' }}
