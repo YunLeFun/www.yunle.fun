@@ -1,0 +1,185 @@
+name: Registry Release Finalize
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches:
+      - registry/release-development-*
+      - registry/release-production-*
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: sso-registry-release-finalize
+  cancel-in-progress: false
+
+jobs:
+  finalize:
+    if: ${{ github.event.workflow_run.event == 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: registry-release
+    env:
+      CLOUDBASE_API_KEY: ${{ secrets.CLOUDBASE_API_KEY }}
+      CLOUDBASE_ENV_ID: ${{ vars.CLOUDBASE_ENV_ID }}
+      SSO_REGISTRY_CI_TOKEN: ${{ secrets.SSO_REGISTRY_CI_TOKEN }}
+    steps:
+      - name: Resolve trusted release context
+        id: release
+        env:
+          CI_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          EXPECTED_HEAD_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
+          EXPECTED_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          test "$EXPECTED_HEAD_REPOSITORY" = "$GITHUB_REPOSITORY"
+          test "${#EXPECTED_HEAD_SHA}" -eq 40
+          case "$HEAD_BRANCH" in
+            registry/release-development-*) environment=development ;;
+            registry/release-production-*) environment=production ;;
+            *) echo "invalid registry release branch" >&2; exit 1 ;;
+          esac
+          generation="${HEAD_BRANCH##*-}"
+          case "$generation" in
+            ''|*[!0-9]*) echo "invalid registry release generation" >&2; exit 1 ;;
+          esac
+          {
+            echo "ci-conclusion=$CI_CONCLUSION"
+            echo "environment=$environment"
+            echo "generation=$generation"
+            echo "head-branch=$HEAD_BRANCH"
+            echo "head-sha=$EXPECTED_HEAD_SHA"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Require explicit production enablement
+        if: ${{ steps.release.outputs.environment == 'production' }}
+        env:
+          PRODUCTION_DEPLOY_ENABLED: ${{ vars.SSO_REGISTRY_PRODUCTION_DEPLOY_ENABLED }}
+        run: test "$PRODUCTION_DEPLOY_ENABLED" = true
+
+      - name: Checkout trusted main
+        uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Identify the exact open pull request
+        id: pr
+        env:
+          EXPECTED_HEAD_SHA: ${{ steps.release.outputs.head-sha }}
+          GH_TOKEN: ${{ github.token }}
+          HEAD_BRANCH: ${{ steps.release.outputs.head-branch }}
+        run: |
+          head_query="${GITHUB_REPOSITORY_OWNER}:${HEAD_BRANCH}"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls?state=open&base=main&head=${head_query}&per_page=10" > "$RUNNER_TEMP/registry-release-prs.json"
+          test "$(jq 'length' "$RUNNER_TEMP/registry-release-prs.json")" -eq 1
+          jq '.[0]' "$RUNNER_TEMP/registry-release-prs.json" > "$RUNNER_TEMP/registry-release-pr.json"
+          test "$(jq -r '.head.repo.full_name' "$RUNNER_TEMP/registry-release-pr.json")" = "$GITHUB_REPOSITORY"
+          test "$(jq -r '.head.sha' "$RUNNER_TEMP/registry-release-pr.json")" = "$EXPECTED_HEAD_SHA"
+          test "$(jq -r '.base.ref' "$RUNNER_TEMP/registry-release-pr.json")" = main
+          echo "number=$(jq -r '.number' "$RUNNER_TEMP/registry-release-pr.json")" >> "$GITHUB_OUTPUT"
+
+      - name: Download the generated-only release artifacts
+        env:
+          ENVIRONMENT: ${{ steps.release.outputs.environment }}
+          EXPECTED_HEAD_SHA: ${{ steps.release.outputs.head-sha }}
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          registry_file="packages/authorization-core/src/generated/${ENVIRONMENT}-registry.json"
+          release_file="packages/authorization-core/src/generated/${ENVIRONMENT}-release.json"
+          mapfile -t changed < <(
+            gh api "repos/${GITHUB_REPOSITORY}/pulls/$PR_NUMBER/files?per_page=100" --paginate --jq '.[].filename' | sort -u
+          )
+          test "${#changed[@]}" -eq 2
+          for file in "${changed[@]}"; do
+            test "$file" = "$registry_file" || test "$file" = "$release_file"
+          done
+          gh api -H "Accept: application/vnd.github.raw+json" "repos/${GITHUB_REPOSITORY}/contents/$registry_file?ref=$EXPECTED_HEAD_SHA" > "$registry_file"
+          gh api -H "Accept: application/vnd.github.raw+json" "repos/${GITHUB_REPOSITORY}/contents/$release_file?ref=$EXPECTED_HEAD_SHA" > "$release_file"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install Node.js without an untrusted pull request cache
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Install trusted dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify signed release and pull request binding
+        env:
+          ENVIRONMENT: ${{ steps.release.outputs.environment }}
+          EXPECTED_GENERATION: ${{ steps.release.outputs.generation }}
+          EXPECTED_HEAD_SHA: ${{ steps.release.outputs.head-sha }}
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          release_file="packages/authorization-core/src/generated/${ENVIRONMENT}-release.json"
+          pnpm sso:registry verify-release "$release_file" --environment "$ENVIRONMENT"
+          approved_base="$(jq -r '.intent.baseCommitSha' "$release_file")"
+          generation="$(jq -r '.intent.generation' "$release_file")"
+          policy_version="$(jq -r '.intent.policyVersion' "$release_file")"
+          release_intent_id="$(jq -r '.releaseIntentId' "$release_file")"
+          current_main="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha)"
+          test "$generation" = "$EXPECTED_GENERATION"
+          test "$approved_base" = "$current_main"
+          test "$(jq -r '.base.sha' "$RUNNER_TEMP/registry-release-pr.json")" = "$approved_base"
+          test "$(jq -r '.head.sha' "$RUNNER_TEMP/registry-release-pr.json")" = "$EXPECTED_HEAD_SHA"
+          test "$(jq -r '.title' "$RUNNER_TEMP/registry-release-pr.json")" = "chore(sso-registry): publish ${ENVIRONMENT} policy ${policy_version}"
+          test "$(jq -r '.body' "$RUNNER_TEMP/registry-release-pr.json")" = "Release intent: ${release_intent_id}"
+          {
+            echo "approved-base=$approved_base"
+            echo "release-intent-id=$release_intent_id"
+          } >> "$GITHUB_OUTPUT"
+        id: verified
+
+      - name: Authenticate CloudBase CLI after failed CI
+        if: ${{ github.event.workflow_run.conclusion != 'success' }}
+        run: pnpm --package=@cloudbase/cli@3.6.4 dlx tcb login --cloudbase-api-key "$CLOUDBASE_API_KEY" -e "$CLOUDBASE_ENV_ID" --json
+
+      - name: Record failed CI
+        if: ${{ github.event.workflow_run.conclusion != 'success' }}
+        run: >-
+          pnpm sso:registry record-ci
+          --environment "${{ steps.release.outputs.environment }}"
+          --release-intent "${{ steps.verified.outputs.release-intent-id }}"
+          --status ci_failed
+          --failure registry_pull_request_ci_failed
+          --operator github-actions
+          --reason "registry pull request CI did not succeed"
+
+      - name: Require successful CI
+        env:
+          CI_CONCLUSION: ${{ steps.release.outputs.ci-conclusion }}
+        run: test "$CI_CONCLUSION" = success
+
+      - name: Create merge-only GitHub App token
+        if: ${{ github.event.workflow_run.conclusion == 'success' }}
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.REGISTRY_RELEASE_APP_ID }}
+          private-key: ${{ secrets.REGISTRY_RELEASE_APP_PRIVATE_KEY }}
+          owner: YunLeFun
+          repositories: www.yunle.fun
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Reconfirm protected main and merge exact head
+        if: ${{ github.event.workflow_run.conclusion == 'success' }}
+        env:
+          APPROVED_BASE: ${{ steps.verified.outputs.approved-base }}
+          EXPECTED_HEAD_SHA: ${{ steps.release.outputs.head-sha }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha)" = "$APPROVED_BASE"
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/pulls/$PR_NUMBER" --jq .head.sha)" = "$EXPECTED_HEAD_SHA"
+          gh pr merge "$PR_NUMBER" --squash --match-head-commit "$EXPECTED_HEAD_SHA" --delete-branch
