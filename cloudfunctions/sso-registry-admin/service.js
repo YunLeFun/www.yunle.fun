@@ -102,7 +102,7 @@ function optionalText(value, code, maximum = 512) {
 function deploymentConsumers(value, options = {}) {
   if (!value || typeof value !== 'object' || Array.isArray(value))
     throw new RegistryAdminError('deployed_consumers_invalid')
-  const allowed = new Set(['desktop-auth', 'sso-ticket', 'www'])
+  const allowed = new Set(['desktop-auth', 'sso-registry-admin', 'sso-ticket'])
   const entries = Object.entries(value)
   if (entries.some(([name, sha]) => !allowed.has(name) || typeof sha !== 'string' || !/^[a-f0-9]{40}$/.test(sha)))
     throw new RegistryAdminError('deployed_consumers_invalid')
@@ -980,8 +980,8 @@ function createRegistryAdminService(options) {
         ? {
             commitSha: targetCommitSha,
             required: environment === 'production'
-              ? ['desktop-auth', 'sso-ticket', 'www']
-              : ['sso-ticket'],
+              ? ['desktop-auth', 'sso-registry-admin', 'sso-ticket']
+              : ['sso-registry-admin', 'sso-ticket'],
           }
         : {})
       return store.transaction(async (transaction) => {
