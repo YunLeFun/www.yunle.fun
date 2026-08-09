@@ -4,6 +4,7 @@ import {
   BellIcon,
   CheckCircle2Icon,
   CircleXIcon,
+  ExternalLinkIcon,
   InfoIcon,
   TriangleAlertIcon,
   XIcon,
@@ -80,6 +81,16 @@ function handleOpenChange(id: string, open: boolean) {
         <ToastDescription v-if="toast.description" class="mt-1 text-sm leading-5 text-muted-foreground">
           {{ toast.description }}
         </ToastDescription>
+        <a
+          v-if="toast.action"
+          :href="toast.action.href"
+          :target="toast.action.target"
+          :rel="toast.action.target === '_blank' ? 'noopener noreferrer' : undefined"
+          class="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-primary underline underline-offset-4 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {{ toast.action.label }}
+          <ExternalLinkIcon v-if="toast.action.target === '_blank'" aria-hidden="true" class="size-3.5" />
+        </a>
       </div>
 
       <ToastClose

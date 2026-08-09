@@ -8,7 +8,7 @@
 ## 功能
 
 - 平台首页与由 SSO Client Registry 驱动的应用导航
-- GitHub OAuth、统一账号和跨站 SSO
+- 手机号 / GitHub 自动注册登录、已绑定邮箱验证码与密码登录，以及跨站 SSO（详见 [账号注册与用户名规范](docs/account-auth-policy.md)）
 - 开发者平台、应用管理、文档和博客
 - 会员、微信支付、App Store 内购与奖励领取
 - 测试身份、事务邮件和后台运维能力

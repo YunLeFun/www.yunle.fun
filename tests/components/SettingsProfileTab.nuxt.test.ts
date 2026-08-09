@@ -126,6 +126,51 @@ describe('settings profile editing entry', () => {
     expect(setUsername).toHaveBeenCalledWith('new_github_user')
   })
 
+  it('normalizes the username and renders CloudBase validation failures inline', async () => {
+    h.s.user.value = {
+      ...h.s.user.value,
+      login: null,
+    }
+    const setUsername = h.s.setUsername as ReturnType<typeof vi.fn>
+    const toastAdd = h.s.toastAdd as ReturnType<typeof vi.fn>
+    setUsername.mockRejectedValue(new Error('用户名必须匹配 ^[a-z][0-9a-z_-]{5,24}$'))
+    const wrapper = await mountSuspended(ProfileTab, { global: { stubs } })
+
+    const openButton = wrapper.findAll('button').find(button => button.text().includes('设置用户名'))
+    await openButton!.trigger('click')
+
+    const input = wrapper.get('input[placeholder="请输入用户名"]')
+    await input.setValue('  Yuier1  ')
+    expect((input.element as HTMLInputElement).value).toBe('yuier1')
+
+    const confirmButton = wrapper.findAll('button').find(button => button.text().includes('确认设置'))
+    await confirmButton!.trigger('click')
+    await flushPromises()
+
+    expect(setUsername).toHaveBeenCalledWith('yuier1')
+    expect(wrapper.text()).toContain('用户名需为 6-20 个字符，以小写字母开头')
+    expect(wrapper.text()).not.toContain('^[a-z][0-9a-z_-]{5,24}$')
+    expect(wrapper.find('input[placeholder="请输入用户名"]').exists()).toBe(true)
+    expect(toastAdd).not.toHaveBeenCalledWith(expect.objectContaining({ color: 'error' }))
+  })
+
+  it('rejects a five-character username while typing instead of submitting it', async () => {
+    h.s.user.value = {
+      ...h.s.user.value,
+      login: null,
+    }
+    const setUsername = h.s.setUsername as ReturnType<typeof vi.fn>
+    const wrapper = await mountSuspended(ProfileTab, { global: { stubs } })
+
+    const openButton = wrapper.findAll('button').find(button => button.text().includes('设置用户名'))
+    await openButton!.trigger('click')
+    await wrapper.get('input[placeholder="请输入用户名"]').setValue('yuier')
+
+    expect(wrapper.text()).toContain('用户名至少 6 个字符')
+    expect(wrapper.findAll('button').find(button => button.text().includes('确认设置'))?.attributes('disabled')).toBeDefined()
+    expect(setUsername).not.toHaveBeenCalled()
+  })
+
   it('lets a user replace a system-generated temporary username', async () => {
     h.s.user.value = {
       ...h.s.user.value,
