@@ -25,6 +25,8 @@ describe('registry protected workflows', () => {
     expect(source).toContain('git diff --name-only HEAD')
     expect(source).toContain('git ls-files --others --exclude-standard')
     expect(source).toContain('chore(sso-registry): publish')
+    expect(source).toContain(`gh pr view "$PR_NUMBER" --json statusCheckRollup --jq '.statusCheckRollup | length'`)
+    expect(source).not.toContain('gh pr checks "$PR_NUMBER" --json name')
     expect(source).toContain('gh pr checks')
     expect(source).toContain('--watch --fail-fast')
     expect(source).toContain('gh pr merge')
