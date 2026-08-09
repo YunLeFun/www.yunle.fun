@@ -57,19 +57,21 @@ describe('sso-ticket verified-phone admission', () => {
     })
   })
 
-  it('accepts only an explicit verified fact from a protected test lease binding', async () => {
-    const auth = { getEndUserInfo: vi.fn() }
+  it('falls back to an explicit verified fact from the protected fixed-account directory', async () => {
+    const auth = {
+      getEndUserInfo: vi.fn(async () => ({ userInfo: { uid: 'uid_native_test' } })),
+    }
     await expect(resolvePhoneVerificationAdmission({
       auth,
       uid: 'uid_native_test',
-      testLeaseBinding: { phoneNumberVerified: true },
+      resolveFixedTestIdentity: async () => ({ phoneNumberVerified: true }),
     })).resolves.toEqual({ phoneNumberVerified: true })
-    expect(auth.getEndUserInfo).not.toHaveBeenCalled()
+    expect(auth.getEndUserInfo).toHaveBeenCalledWith('uid_native_test')
 
     await expect(resolvePhoneVerificationAdmission({
       auth,
       uid: 'uid_native_test',
-      testLeaseBinding: {},
+      resolveFixedTestIdentity: async () => null,
     })).rejects.toMatchObject({ reason: 'phone_verification_required' })
   })
 })

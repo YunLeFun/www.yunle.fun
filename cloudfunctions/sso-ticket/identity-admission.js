@@ -52,10 +52,19 @@ async function assertVerifiedPhoneForUid(auth, uid) {
   return { phoneNumberVerified: true }
 }
 
-async function resolvePhoneVerificationAdmission({ auth, uid, testLeaseBinding }) {
-  if (!testLeaseBinding)
-    return assertVerifiedPhoneForUid(auth, uid)
-  if (testLeaseBinding.phoneNumberVerified !== true)
+async function resolvePhoneVerificationAdmission({ auth, uid, resolveFixedTestIdentity }) {
+  try {
+    return await assertVerifiedPhoneForUid(auth, uid)
+  }
+  catch (error) {
+    if (!(error instanceof IdentityAdmissionError) || error.reason !== 'phone_verification_required')
+      throw error
+  }
+
+  const fixedTestAdmission = typeof resolveFixedTestIdentity === 'function'
+    ? await resolveFixedTestIdentity({ uid })
+    : null
+  if (fixedTestAdmission?.phoneNumberVerified !== true)
     throw new IdentityAdmissionError('phone_verification_required')
   return { phoneNumberVerified: true }
 }

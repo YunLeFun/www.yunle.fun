@@ -166,7 +166,6 @@ function completeTestIdentityEnv() {
     SSO_EXCHANGE_PER_IP_PER_MINUTE: '60',
     SSO_EXCHANGE_PER_ORIGIN_PER_MINUTE: '300',
     TEST_BROKER_INTERNAL_TOKEN: token('i'),
-    NATIVE_SSO_TEST_INTERNAL_TOKEN: token('j'),
     TEST_TICKET_ESCROW_KEY: key(11),
     TEST_BROKER_SWEEP_KEY: key(12),
   }
