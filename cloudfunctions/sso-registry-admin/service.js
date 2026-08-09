@@ -164,6 +164,7 @@ function createRegistryAdminService(options) {
   const generateApprovalCode = options.generateApprovalCode || defaultApprovalCode
   const resolveApproverEmail = options.resolveApproverEmail
   const sendApprovalEmail = options.sendApprovalEmail
+  const verifyAdminApprovalProof = options.verifyAdminApprovalProof
   if (!['production', 'development'].includes(environment))
     throw new TypeError('Registry environment is invalid')
   if (!keyId || !signingKey || !store || typeof randomId !== 'function')
@@ -755,6 +756,82 @@ function createRegistryAdminService(options) {
       if (result.error)
         throw new RegistryAdminError(result.error)
       return result
+    },
+
+    async approveAndQueueReleaseByAdmin(input) {
+      if (environment !== 'production')
+        throw new RegistryAdminError('admin_approval_production_only')
+      if (typeof verifyAdminApprovalProof !== 'function')
+        throw new RegistryAdminError('admin_approval_verifier_unavailable')
+      const claims = verifyAdminApprovalProof(input?.approvalProof)
+      if (!approverUids.includes(claims.sub))
+        throw new RegistryAdminError('approver_not_allowed')
+
+      const id = draftId(claims.draftId, randomId)
+      const baseCommitSha = commitSha(claims.baseCommitSha)
+      const meta = requestMetadata({
+        operator: `admin:${claims.login} (${claims.sub})`,
+        changeReason: claims.changeReason,
+        requestId: input?.requestId,
+      })
+      return store.transaction(async (transaction) => {
+        const draft = await transaction.getDraft(id)
+        if (!draft)
+          throw new RegistryAdminError('draft_not_found')
+        if (draft.status === 'published' && draft.releaseIntentId) {
+          const existingIntent = await transaction.getReleaseIntent(draft.releaseIntentId)
+          if (!existingIntent)
+            throw new RegistryAdminError('release_intent_missing')
+          if (existingIntent.baseCommitSha !== baseCommitSha
+            || existingIntent.policyVersion !== claims.policyVersion
+            || existingIntent.contentHash !== claims.contentHash
+            || existingIntent.securityHash !== claims.securityHash) {
+            throw new RegistryAdminError('admin_approval_evidence_mismatch')
+          }
+          return {
+            idempotent: true,
+            releaseIntentId: draft.releaseIntentId,
+            snapshotId: existingIntent.snapshotId,
+            generation: existingIntent.generation,
+            status: existingIntent.status,
+          }
+        }
+        if (draft.status !== 'draft')
+          throw new RegistryAdminError('draft_unavailable')
+
+        const registry = parseRegistry(draft.registry)
+        const current = await activeEnvelope(transaction)
+        const currentSnapshotId = current?.state.activeSnapshotId || null
+        const hashes = hashRegistry(registry)
+        if (draft.baseSnapshotId !== currentSnapshotId
+          || registry.policyVersion !== claims.policyVersion
+          || registry.clients.length !== claims.clientCount
+          || hashes.contentHash !== claims.contentHash
+          || hashes.securityHash !== claims.securityHash) {
+          throw new RegistryAdminError('admin_approval_evidence_mismatch')
+        }
+
+        const published = draft.rollbackTargetSnapshotId
+          ? await rollbackSnapshotTransaction(transaction, {
+              draft,
+              id,
+              meta,
+              targetSnapshotId: draft.rollbackTargetSnapshotId,
+            })
+          : await publishDraftTransaction(transaction, {
+              draft,
+              id,
+              meta,
+              auditAction: null,
+            })
+        return queuePublishedRelease(transaction, {
+          approvalId: `admin:${claims.jti}`,
+          baseCommitSha,
+          draftId: id,
+          meta,
+          published,
+        })
+      })
     },
 
     async requestRollbackApproval(input) {

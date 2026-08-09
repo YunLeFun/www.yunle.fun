@@ -427,6 +427,79 @@ describe('sso-registry-admin service', () => {
     })
   })
 
+  it('uses signed Admin evidence to atomically queue a production release', async () => {
+    const claims = {
+      sub: 'admin-uid',
+      login: 'registry-owner',
+      draftId: 'draft:admin-approved',
+      policyVersion: '2026-08-03.1',
+      clientCount: 1,
+      contentHash: '',
+      securityHash: '',
+      baseCommitSha: 'f'.repeat(40),
+      changeReason: 'Approved after reviewing the exact Admin diff',
+      jti: 'admin-proof-id',
+    }
+    const { memory, service } = setup({
+      approverUids: ['admin-uid'],
+      verifyAdminApprovalProof: proof => proof,
+    })
+    const saved = await service.saveDraft(request({
+      draftId: claims.draftId,
+      registry: registry(),
+    }))
+    const diff = await service.getDraftDiff(request({ draftId: saved.draftId }))
+    claims.contentHash = diff.contentHash
+    claims.securityHash = diff.securityHash
+
+    const queued = await service.approveAndQueueReleaseByAdmin({
+      approvalProof: claims,
+      requestId: 'admin-request-id',
+    })
+
+    expect(queued).toMatchObject({ status: 'approved', generation: 1 })
+    expect(memory.snapshot().intents.get(queued.releaseIntentId)).toMatchObject({
+      approvalId: 'admin:admin-proof-id',
+      baseCommitSha: 'f'.repeat(40),
+      contentHash: diff.contentHash,
+      securityHash: diff.securityHash,
+    })
+    expect([...memory.snapshot().audits.values()].at(-1)).toMatchObject({
+      action: 'release_approved',
+      operator: 'admin:registry-owner (admin-uid)',
+      reason: claims.changeReason,
+    })
+  })
+
+  it('rejects Admin evidence when the draft changes after review', async () => {
+    const { service } = setup({
+      approverUids: ['admin-uid'],
+      verifyAdminApprovalProof: proof => proof,
+    })
+    const saved = await service.saveDraft(request({ registry: registry() }))
+    const diff = await service.getDraftDiff(request({ draftId: saved.draftId }))
+    await service.saveDraft(request({
+      draftId: saved.draftId,
+      registry: registry('2026-08-03.2', 'Changed after Admin review'),
+    }))
+
+    await expect(service.approveAndQueueReleaseByAdmin({
+      approvalProof: {
+        sub: 'admin-uid',
+        login: 'registry-owner',
+        draftId: saved.draftId,
+        policyVersion: diff.policyVersion,
+        clientCount: diff.clientCount,
+        contentHash: diff.contentHash,
+        securityHash: diff.securityHash,
+        baseCommitSha: '1'.repeat(40),
+        changeReason: 'Reviewed before mutation',
+        jti: 'stale-admin-proof',
+      },
+      requestId: 'stale-admin-request',
+    })).rejects.toEqual(expect.objectContaining({ code: 'admin_approval_evidence_mismatch' }))
+  })
+
   it('records CI and deployment progress against the exact merge commit', async () => {
     const { memory, service } = setup({ environment: 'development' })
     const draft = await service.saveDraft(request({

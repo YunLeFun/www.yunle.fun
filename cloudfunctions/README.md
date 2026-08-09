@@ -249,10 +249,10 @@ refresh token 固定为 30 天 idle / 180 天 absolute，轮换并做 grant-fami
 该函数是 Nodejs18.15 Event Function，`aclRule.invoke=false`，不绑定 HTTP 网关，也不允许浏览器 SDK 调用。受信任发布者通过 CloudBase 管理凭据执行 `scripts/sso-registry.mjs`；所有请求必须带 operator 与 change reason。私钥只存在于函数环境变量，生成产物、数据库、响应与日志都不包含私钥。
 
 P1 的 `generated/*.json` 初始为 `minimumGeneration=0`、`activeEnvelope=null` 的静态 bootstrap。P1.1
-中 production 只能通过 `requestPublishApproval` + `approveAndQueueRelease` 发布；12 位审批码仅发送到
-allowlist uid 当前绑定的严格已验证邮箱，数据库只保存 HMAC，30 分钟过期且最多尝试 5 次。development
-可直接排队，但仍生成签名 release intent、outbox 和审计。`compare` 只在 CI、部署 smoke 或受控运维任务
-显式执行；授权请求本身不读取 Registry 管理数据库。
+中 production 可通过 Admin owner-only 审批页发布：Admin 服务端用独立 Ed25519 私钥签发 5 分钟凭证，
+凭证绑定 draft、policyVersion、clientCount、content/security hash、main commit 与变更理由；Registry 仅保存
+公钥并在事务内重算全部证据，验证 allowlist uid 后才生成签名 release intent、outbox 和审计。旧的邮件审批码
+入口暂保留为灾备，不再作为发布前置条件。development 可直接排队，但仍生成相同的签名与审计产物。
 
 ### sso-registry-release-dispatcher 环境变量
 
