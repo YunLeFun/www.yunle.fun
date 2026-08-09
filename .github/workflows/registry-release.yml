@@ -182,7 +182,7 @@ jobs:
           check_count=0
           remaining_attempts=30
           while [ "$check_count" -eq 0 ] && [ "$remaining_attempts" -gt 0 ]; do
-            check_count="$(gh pr checks "$PR_NUMBER" --json name --jq 'length' 2>/dev/null || echo 0)"
+            check_count="$(gh pr view "$PR_NUMBER" --json statusCheckRollup --jq '.statusCheckRollup | length' 2>/dev/null || echo 0)"
             if [ "$check_count" -gt 0 ]; then
               break
             fi
