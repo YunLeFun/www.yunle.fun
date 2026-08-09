@@ -5,7 +5,9 @@
 const OUTBOX = 'sso_registry_release_outbox'
 
 function row(result) {
-  return Array.isArray(result?.data) ? result.data[0] || null : null
+  if (Array.isArray(result?.data))
+    return result.data[0] || null
+  return result?.data && typeof result.data === 'object' ? result.data : null
 }
 
 function rows(result) {
