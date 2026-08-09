@@ -164,7 +164,6 @@ function seed(options, core) {
   const artifact = core.parseGeneratedRegistryArtifact(readJson(GENERATED_PATHS[targetEnvironment]), targetEnvironment)
   const payload = {
     ...metadata,
-    baseSnapshotId: null,
     registry: artifact.registry,
   }
   if (!options.apply) {
