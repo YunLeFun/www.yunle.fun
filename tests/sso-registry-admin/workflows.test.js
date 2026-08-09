@@ -13,10 +13,17 @@ describe('registry protected workflows', () => {
       source.indexOf('- name: Confirm protected main has not moved'),
       source.indexOf('- name: Verify generated-only diff'),
     )
+    const checkWait = source.slice(
+      source.indexOf('- name: Wait for pull request checks and merge the exact head'),
+      source.indexOf('- name: Record CI failure'),
+    )
 
     expect(source).toContain('workflow_dispatch:')
     expect(source).toContain('releaseIntentId:')
     expect(source).toContain('actions/create-github-app-token@v2')
+    expect(source).toMatch(/^ {2}checks: read$/m)
+    expect(source).toMatch(/^ {2}pull-requests: read$/m)
+    expect(source).toMatch(/^ {2}statuses: read$/m)
     expect(source).toMatch(/CLOUDBASE_API_KEY: \$\{\{ secrets\.CLOUDBASE_API_KEY \}\}/)
     expect(source).toMatch(/CLOUDBASE_ENV_ID: \$\{\{ vars\.CLOUDBASE_ENV_ID \}\}/)
     expect(source).toContain('tcb login --cloudbase-api-key "$CLOUDBASE_API_KEY" -e "$CLOUDBASE_ENV_ID"')
@@ -31,11 +38,17 @@ describe('registry protected workflows', () => {
     expect(source).toContain('--watch --fail-fast')
     expect(source).toContain('gh pr merge')
     expect(source).toContain('--match-head-commit')
+    expect(source).not.toContain('permission-checks: read')
     expect(source).toContain('vars.SSO_REGISTRY_PRODUCTION_DEPLOY_ENABLED')
     expect(source).toContain('test "$PRODUCTION_DEPLOY_ENABLED" = true')
     expect(mainGuard).toContain('GH_TOKEN: $' + '{{ github.token }}')
     expect(mainGuard).toContain('gh api "repos/$' + '{GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha')
     expect(mainGuard).not.toContain('git fetch origin main')
+    expect(checkWait).toContain('READ_GH_TOKEN: $' + '{{ github.token }}')
+    expect(checkWait).toContain('APP_GH_TOKEN: $' + '{{ steps.app-token.outputs.token }}')
+    expect(checkWait).toContain('GH_TOKEN="$READ_GH_TOKEN" gh pr view')
+    expect(checkWait).toContain('GH_TOKEN="$READ_GH_TOKEN" gh pr checks')
+    expect(checkWait).toContain('GH_TOKEN="$APP_GH_TOKEN" gh pr merge')
     expect(source).not.toContain('gh pr merge --auto')
     expect(source).not.toMatch(/^\s{6}(environment|snapshotId|baseCommitSha):/m)
   })
