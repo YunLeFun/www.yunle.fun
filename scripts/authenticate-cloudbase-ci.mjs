@@ -2,6 +2,8 @@ import { spawnSync } from 'node:child_process'
 import process from 'node:process'
 import { pathToFileURL } from 'node:url'
 
+import { parseCliJson, unwrapFunctionResult } from './lib/sso-registry-transport.mjs'
+
 const CLOUDBASE_CLI_PACKAGE = '@cloudbase/cli@3.6.4'
 const DEFAULT_CONFIG_FILE = 'cloudbaserc.ci.json'
 
@@ -42,12 +44,30 @@ export function authenticateCloudBaseCli({
   if (login.status !== 0)
     logger.warn('CloudBase CLI 已写入有效项目凭据；忽略 3.6.4 的登录后全局凭据检查错误')
 
-  const verification = run(['fn', 'list', '-e', envId, '--json'], env)
+  const verification = run([
+    'fn',
+    'invoke',
+    'sso-registry-admin',
+    '--params',
+    JSON.stringify({
+      action: 'getActiveEnvelope',
+      changeReason: 'CloudBase project credential verification',
+      operator: 'github-actions',
+    }),
+    '--json',
+  ], env)
   if (verification.error)
     throw verification.error
   if (verification.status !== 0) {
     logger.error(redact(`${verification.stdout || ''}\n${verification.stderr || ''}`, apiKey))
     throw new Error(`CloudBase 项目凭据验证失败（exit ${verification.status ?? 'unknown'}）`)
+  }
+  try {
+    unwrapFunctionResult(parseCliJson(verification.stdout || ''))
+  }
+  catch (error) {
+    logger.error(redact(`${verification.stdout || ''}\n${verification.stderr || ''}`, apiKey))
+    throw new Error(`CloudBase 项目凭据读 smoke 失败：${error instanceof Error ? error.message : error}`)
   }
 
   logger.info(`CloudBase credential verified for ${envId}`)
