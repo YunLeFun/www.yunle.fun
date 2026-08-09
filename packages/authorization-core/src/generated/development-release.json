@@ -3,12 +3,12 @@
     "formatVersion": 1,
     "snapshot": {
       "canonicalJson": "{\"clients\":[{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://admin.yunle.localhost:3451\"],\"redirectUris\":[\"https://admin.yunle.localhost:3451/\"]}],\"appId\":\"admin\",\"clientId\":\"admin-web\",\"displayName\":\"YunLeFun Admin\",\"iconUrl\":\"https://admin.yunle.localhost:3451/logo.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://ai-sfc.yunle.localhost:3448\"],\"redirectUris\":[\"https://ai-sfc.yunle.localhost:3448/\"]}],\"appId\":\"ai-sfc\",\"clientId\":\"ai-sfc-web\",\"displayName\":\"AI 春联\",\"iconUrl\":\"https://ai-sfc.yunle.localhost:3448/brand/ai-sfc-logo.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://cms.yunle.localhost:3443\"],\"redirectUris\":[\"https://cms.yunle.localhost:3443/\"]}],\"appId\":\"cms\",\"clientId\":\"cms-web\",\"displayName\":\"Yunle CMS\",\"iconUrl\":\"https://cms.yunle.localhost:3443/icon.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://dayun-kicker.yunle.localhost:3445\"],\"redirectUris\":[\"https://dayun-kicker.yunle.localhost:3445/\"]}],\"appId\":\"dayun-kicker\",\"clientId\":\"dayun-kicker-web\",\"displayName\":\"暴力电驴\",\"iconUrl\":\"https://dayun-kicker.yunle.localhost:3445/favicon.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://drive.yunle.localhost:3444\"],\"redirectUris\":[\"https://drive.yunle.localhost:3444/\"]}],\"appId\":\"drive\",\"clientId\":\"drive-web\",\"displayName\":\"云乐盘\",\"iconUrl\":\"https://drive.yunle.localhost:3444/drive-mark.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://fc.yunle.localhost:3453\"],\"redirectUris\":[\"https://fc.yunle.localhost:3453/\"]}],\"appId\":\"fc\",\"clientId\":\"fc-web\",\"displayName\":\"怀旧游戏机\",\"iconUrl\":\"https://fc.yunle.localhost:3453/favicon.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://home.yunle.localhost:3446\"],\"redirectUris\":[\"https://home.yunle.localhost:3446/\"]}],\"appId\":\"home\",\"clientId\":\"home-web\",\"displayName\":\"云之彼端\",\"iconUrl\":\"https://home.yunle.localhost:3446/brand-mark.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://play.yunle.localhost:3449\"],\"redirectUris\":[\"https://play.yunle.localhost:3449/\"]}],\"appId\":\"play\",\"clientId\":\"play-web\",\"displayName\":\"云乐坊间\",\"iconUrl\":\"https://play.yunle.localhost:3449/favicon.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://saier.yunle.localhost:3452\"],\"redirectUris\":[\"https://saier.yunle.localhost:3452/\"]}],\"appId\":\"saier\",\"clientId\":\"saier-web\",\"displayName\":\"云绘 Saier\",\"iconUrl\":\"https://saier.yunle.localhost:3452/favicon.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"membership:read\"],\"consent\":\"explicit\",\"kind\":\"device\"}],\"appId\":\"skykeeper\",\"clientId\":\"skykeeper-desktop\",\"displayName\":\"Skykeeper\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://studio.yunle.localhost:3454\"],\"redirectUris\":[\"https://studio.yunle.localhost:3454/\"]}],\"appId\":\"studio\",\"clientId\":\"studio-web\",\"displayName\":\"YunYouJun Studio\",\"iconUrl\":\"https://studio.yunle.localhost:3454/icon.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://support.yunle.localhost:3450\"],\"redirectUris\":[\"https://support.yunle.localhost:3450/\"]}],\"appId\":\"support\",\"clientId\":\"support-web\",\"displayName\":\"云乐坊支持中心\",\"iconUrl\":\"https://support.yunle.localhost:3450/favicon.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://wenta.yunle.localhost:3447\"],\"redirectUris\":[\"https://wenta.yunle.localhost:3447/\"]}],\"appId\":\"wenta\",\"clientId\":\"wenta-web\",\"displayName\":\"问 TA\",\"iconUrl\":\"https://wenta.yunle.localhost:3447/favicon.svg\",\"status\":\"active\"}],\"issuer\":\"https://www.yunle.localhost:3000\",\"policyVersion\":\"2026-08-03.2-dev\",\"schemaVersion\":1}",
-      "changeReason": "retry generation 7 development deployment with verified CloudBase API key login",
+      "changeReason": "validate development deployment with Registry read authentication smoke",
       "contentHash": "59f1065a319a86ec024d7903c8c419def6e2f95adde2282f964b8bac6142084f",
       "environment": "development",
       "keyId": "development-registry-20260808",
       "policyVersion": "2026-08-03.2-dev",
-      "publishedAt": 1786282317869,
+      "publishedAt": 1786283616521,
       "publishedBy": "codex",
       "registry": {
         "clients": [
@@ -298,36 +298,36 @@
       },
       "schemaVersion": 1,
       "securityHash": "fc92944c770aacc3db7f9e787efbe4073163faee998db657724f40afe6fe7ade",
-      "sequence": 8,
-      "signature": "b5rw8mPisnQORDSBslHffv0UklvSjj366mJCsLJB4oR8HmghTCtLjLD53HJEPik9VPzkJ5x8xNUhIfwSqA3DBQ",
-      "snapshotId": "development:8:59f1065a319a86ec024d",
-      "sourceDraftId": "draft:oqrf0-jUMOH2ecgL"
+      "sequence": 9,
+      "signature": "_gAaxPUUhG_dUCqtUUKoPDDr1LmmflE4zsnAKdy3AVA5nYzgIN-aQZ6AQBkd4s2Np7gqHj8yWz4vyxTCW_qnBQ",
+      "snapshotId": "development:9:59f1065a319a86ec024d",
+      "sourceDraftId": "draft:F_o4HDAK9KuOLnoD"
     },
     "state": {
       "action": "publish",
-      "activatedAt": 1786282317869,
+      "activatedAt": 1786283616521,
       "activatedBy": "codex",
       "activationKeyId": "development-registry-20260808",
-      "activationSignature": "EyZ-xdtw-QdK2SDHqYMMk0XY0lceaWH1_iir2xrx9OaiavDJwdLGvE_Y71WzZrlpckkAKxOn8xbNSFlKf9f3DA",
-      "activeSnapshotId": "development:8:59f1065a319a86ec024d",
+      "activationSignature": "FsVq20MUMFgKGFnwqUHj5jDtci1Fku6qbBJnDMMjK6vPIgKV_k1HQ8o1h0Yjd0MtJpT8zlZO4Aj4kStEOuCfCg",
+      "activeSnapshotId": "development:9:59f1065a319a86ec024d",
       "environment": "development",
-      "generation": 8,
-      "previousSnapshotId": "development:7:59f1065a319a86ec024d"
+      "generation": 9,
+      "previousSnapshotId": "development:8:59f1065a319a86ec024d"
     }
   },
   "environment": "development",
   "formatVersion": 1,
   "intent": {
     "approvalId": null,
-    "baseCommitSha": "a9ba4822ebbf2a32c5878638345299ea3ffdc30f",
+    "baseCommitSha": "8399bac7b34a4d6ebc4707a93d9990fa397c855d",
     "contentHash": "59f1065a319a86ec024d7903c8c419def6e2f95adde2282f964b8bac6142084f",
     "environment": "development",
-    "generation": 8,
+    "generation": 9,
     "manifestKeyId": "development-registry-20260808",
-    "manifestSignature": "2dD3q1zSJH1X_GDwo-Mm5cPntWrkNLPmJ0BFp6WwLZ2IqWdF0H59oRbLYfGfp7LWamxti-CHB3Wqpsp3a7kXBg",
+    "manifestSignature": "l9Ib9viYy-2ilrAIMC362kHJyiEQ2TlQmWxwI09YdXoWPrbyZ8Sro7uAvoQUWVYSRqxVqCMRkhzxtG5YUGCsBg",
     "policyVersion": "2026-08-03.2-dev",
     "securityHash": "fc92944c770aacc3db7f9e787efbe4073163faee998db657724f40afe6fe7ade",
-    "snapshotId": "development:8:59f1065a319a86ec024d"
+    "snapshotId": "development:9:59f1065a319a86ec024d"
   },
-  "releaseIntentId": "release:development:8:--3I9qMeeygJce6l"
+  "releaseIntentId": "release:development:9:HNfte_I7MT8bcYpr"
 }
