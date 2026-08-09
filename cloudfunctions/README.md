@@ -214,7 +214,6 @@ refresh token 固定为 30 天 idle / 180 天 absolute，轮换并做 grant-fami
 | `SSO_EXCHANGE_PER_IP_PER_MINUTE`     | 否   | 每 IP 的兑换上限，默认 60                                                                      |
 | `SSO_EXCHANGE_PER_ORIGIN_PER_MINUTE` | 否   | 每 Consumer origin 的兑换上限，默认 300                                                        |
 | `TEST_BROKER_INTERNAL_TOKEN`         | 是   | 测试身份 Broker 签票专用内部令牌；不得与其他内部令牌复用                                       |
-| `NATIVE_SSO_TEST_INTERNAL_TOKEN`     | 是   | admin 原生测试 SSO 签码专用内部令牌；不得与 Broker 签票令牌复用                                |
 | `TEST_TICKET_ESCROW_KEY`             | 是   | 测试票据托管用 32 字节标准 base64 AES-GCM 密钥；与 admin Broker 解密配置一致                   |
 
 `sso-ticket` 的用户 SSO 是两步授权码流程，私钥始终只在本函数 env：

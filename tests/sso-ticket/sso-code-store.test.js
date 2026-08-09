@@ -112,32 +112,6 @@ describe('sso one-time authorization-code store', () => {
     expect(rejected?.reason.reason).toBe('code_used')
   })
 
-  it('persists a server-authenticated test lease binding through one-time consumption', async () => {
-    const { code, database, store } = fixture()
-    await store.issue({
-      uid: 'uid_native_test',
-      testLeaseId: 'lease_native_01',
-      ...CLIENT_BINDING,
-      targetOrigin: 'https://drive.yunle.fun',
-      returnUrl: 'https://drive.yunle.fun/',
-      nonce: 'n'.repeat(32),
-      codeChallenge: CHALLENGE,
-      mode: 'redirect',
-    })
-    expect(database.documents.get(codeId(code))).toMatchObject({
-      testLeaseId: 'lease_native_01',
-    })
-
-    await expect(store.consume({
-      code,
-      ...CLIENT_BINDING,
-      requestOrigin: 'https://drive.yunle.fun',
-      redirectUri: 'https://drive.yunle.fun/',
-      nonce: 'n'.repeat(32),
-      codeVerifier: VERIFIER,
-    })).resolves.toEqual({ uid: 'uid_native_test', testLeaseId: 'lease_native_01' })
-  })
-
   it('rejects mismatched bindings and expiry without exposing the subject', async () => {
     const { code, store, advance } = fixture()
     await store.issue({

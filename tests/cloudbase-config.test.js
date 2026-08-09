@@ -38,6 +38,7 @@ describe('cloudBase test identity deployment manifest', () => {
       TEST_BROKER_INTERNAL_TOKEN: '{{env.TEST_BROKER_INTERNAL_TOKEN}}',
       TEST_TICKET_ESCROW_KEY: '{{env.TEST_TICKET_ESCROW_KEY}}',
     })
+    expect(functions.get('sso-ticket').envVariables).not.toHaveProperty('NATIVE_SSO_TEST_INTERNAL_TOKEN')
     for (const removed of [
       'SSO_TICKET_INTERNAL_TOKEN',
       'SSO_LOCAL_DEVELOPER_USER_IDS',
@@ -145,10 +146,10 @@ describe('cloudBase test identity deployment manifest', () => {
     expect(ssoTicketSource).toContain('identityRuntime.publicJwks()')
     expect(ssoTicketSource).toContain('const phoneAdmission = await resolvePhoneVerificationAdmission({')
     expect(ssoTicketSource.indexOf('const phoneAdmission = await resolvePhoneVerificationAdmission({'))
-      .toBeLessThan(ssoTicketSource.indexOf('const ticketResult = mintTicket(uid, testLeaseBinding?.expiresAt)'))
-    expect(ssoTicketSource).toContain('createNativeTestSsoLeaseStore(db).resolve({')
-    expect(ssoTicketSource.indexOf('createNativeTestSsoLeaseStore(db).resolve({'))
-      .toBeLessThan(ssoTicketSource.indexOf('const ticketResult = mintTicket(uid, testLeaseBinding?.expiresAt)'))
+      .toBeLessThan(ssoTicketSource.indexOf('const ticketResult = mintTicket(uid)'))
+    expect(ssoTicketSource).toContain('resolveFixedTestIdentityAdmission(db, {')
+    expect(ssoTicketSource).not.toContain('createNativeTestSsoLeaseStore')
+    expect(ssoTicketSource).not.toContain('issueSsoCodeForTestLease')
   })
 
   it('configures the private account access token on every restricted business function', () => {

@@ -67,8 +67,8 @@ Consumer              www.yunle.fun              sso-ticket              CloudBa
 - 当前 tab 的 `sessionStorage` 只保存 10 分钟 transaction（nonce、PKCE verifier 和完整客户端绑定）；存储不可用时失败关闭。
 - 授权码记录只保存哈希，绑定 issuer、clientId、服务端派生 appId、scope、Origin、redirect URI、nonce、PKCE challenge、policy version 与 registration fingerprint，并在数据库事务中至多消费一次。
 - 兑换返回的 custom ticket 只存在于 `signInWithCustomTicket` 回调内。
-- 普通账号只依据 CloudBase 服务端 `getEndUserInfo(uid)` 返回的顶层手机号字段做准入；不信任 access token payload、浏览器 profile、`custom_metadata` 或 `user_metadata`。受管测试号是唯一例外：必须同时满足精确的活动测试租约和 admin 持久化的 `authProfile.virtualPhoneBound=true`，且虚拟手机号不写入 CloudBase Auth。
-- 手机号或虚拟绑定只在 Provider 侧归约为显式的验证事实，不跨应用传输。兑换响应附带最长 5 分钟的 Ed25519 身份断言，断言仅包含 `phone_number_verified: true`，并绑定 `iss`、`sub`、`aud`、`app_id`、`scope` 与本次 `nonce`；关闭虚拟绑定后，后续验证码、授权码兑换和断言签发立即失败关闭。
+- 普通账号只依据 CloudBase 服务端 `getEndUserInfo(uid)` 返回的顶层手机号字段做准入；不信任 access token payload、浏览器 profile、`custom_metadata` 或 `user_metadata`。固定测试账号是唯一例外：必须由已认证会话派生同一 `uid`，且受保护的 `test_identities` 记录同时满足 `synthetic=true`、`accountKind=fixed`、环境匹配、`status=ready`、`access.mode=shared-password` 和 `credentialConfigured=true`。
+- 手机号或固定测试账号准入只在 Provider 侧归约为显式验证事实，不跨应用传输。兑换响应附带最长 5 分钟的 Ed25519 身份断言，断言仅包含 `phone_number_verified: true`，并绑定 `iss`、`sub`、`aud`、`app_id`、`scope` 与本次 `nonce`；账号停用或凭据状态失效后，后续授权码兑换和断言签发立即失败关闭。
 - Consumer BFF 必须同时验证 CloudBase access token 和身份断言，并确认两者 `sub` 一致；不能把断言当作登录凭据单独使用。
 
 ### 移动客户端账号切换

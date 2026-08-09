@@ -5,7 +5,7 @@
  *  1) `issueSsoCode` 仅接受已认证 SDK 调用，从 CloudBase 调用上下文派生当前 uid，签发绑定
  *     origin/returnUrl/nonce 的 256-bit 一次性授权码；绝不接受调用者选择 uid。
  *  2) `exchangeSsoCode` 仅接受 HTTPS 网关 POST，原子消费授权码；普通账号从 CloudBase 服务端
- *     用户资料确认手机号，受管测试号从活动租约的 admin 虚拟绑定确认，再返回短暂 ticket 与断言。
+ *     用户资料确认手机号，固定测试账号从受保护目录确认可用状态，再返回 ticket 与断言。
  *  3) 测试身份 Broker 路径（action='mintForTestLease'）：只接受独立服务令牌与已预留的 lease / issuance
  *     标识，自行读取受保护状态、原子认领、签发不超过租约截止时间的 ticket，并以 AES-GCM 托管。
  *
@@ -21,7 +21,6 @@
  *   - SSO_IDENTITY_PUBLIC_KEYS     可选，轮换期保留的 kid -> public JWK
  *   - TEST_BROKER_INTERNAL_TOKEN   测试身份 Broker 专用 token（不得与其它内部 token 共用）
  *   - TEST_TICKET_ESCROW_KEY       32 字节标准 base64 AES-GCM key，与 Broker 解密配置一致
- *   - NATIVE_SSO_TEST_INTERNAL_TOKEN Admin 原生测试 SSO 签码专用 token，不得复用 Broker token
  * 未配置私钥时返回 { ok:false, reason:'not_configured' }。
  */
 
@@ -32,14 +31,10 @@ const { createHash } = require('node:crypto')
 const process = require('node:process')
 const cloudbase = require('@cloudbase/node-sdk')
 const { assertActiveAccountForUid } = require('./account-access')
+const { resolveFixedTestIdentityAdmission } = require('./fixed-test-identity-admission')
 const { IdentityAdmissionError, resolvePhoneVerificationAdmission } = require('./identity-admission')
 const { createIdentityAssertionRuntime } = require('./identity-assertion')
 const { isAnonUid, isValidTicketUid, normalizePrivateKey } = require('./mint')
-const {
-  issueSsoCodeForTestLease: issueNativeTestSsoCode,
-  NativeTestSsoError,
-} = require('./native-test-sso')
-const { createNativeTestSsoLeaseStore } = require('./native-test-sso-store')
 const { createSsoClientRegistry } = require('./sso-client-registry')
 const { createSsoCodeStore, SsoCodeStoreError } = require('./sso-code-store')
 const { createSsoRateLimiter, SsoRateLimitError } = require('./sso-rate-limit')
@@ -223,35 +218,6 @@ async function issueSsoCode(payload, clientAddress = 'unknown') {
   return { ok: true, code: issued.code, expiresAt: issued.expiresAt }
 }
 
-// 路径 1b：Apps 宿主已验证窄权限 host capability 后，凭独立服务令牌请求标准 PKCE code。
-async function issueSsoCodeForTestLease(payload, clientAddress = 'unknown') {
-  const leaseStore = createNativeTestSsoLeaseStore(db)
-  const limits = securityLimits()
-  return issueNativeTestSsoCode(payload, {
-    expectedToken: process.env.NATIVE_SSO_TEST_INTERNAL_TOKEN || '',
-    now: () => Date.now(),
-    validateRequest: value => validateIssueRequest(value, {
-      ...ssoRequestOptions(),
-      actorUid: 'native-test-lease',
-    }),
-    resolveLease: input => leaseStore.resolve(input),
-    consumeRateLimit: input => ssoRateLimiter.consume({
-      ...input,
-      limit: limits.issuePerUser,
-      windowMs: 60_000,
-    }),
-    issueCode: input => ssoCodeStore.issue(input),
-  }).then((result) => {
-    auditSecurity('test_sso_code_issued', {
-      lease: auditId(payload.leaseId),
-      clientId: payload.clientId,
-      origin: payload.targetOrigin,
-      source: auditId(clientAddress),
-    })
-    return result
-  })
-}
-
 // 路径 2：HTTP Origin 与 nonce 都必须命中授权码绑定；消费成功后才铸 CloudBase ticket。
 async function exchangeSsoCode(payload, requestOrigin, clientAddress = 'unknown') {
   const request = validateExchangeRequest(payload, requestOrigin, ssoRequestOptions())
@@ -263,26 +229,17 @@ async function exchangeSsoCode(payload, requestOrigin, clientAddress = 'unknown'
     ssoRateLimiter.consume({ scope: 'exchange-ip', key: clientAddress, limit: limits.exchangePerIp, windowMs: 60_000 }),
     ssoRateLimiter.consume({ scope: 'exchange-origin', key: requestOrigin, limit: limits.exchangePerOrigin, windowMs: 60_000 }),
   ])
-  const { uid, testLeaseId } = await ssoCodeStore.consume(request)
+  const { uid } = await ssoCodeStore.consume(request)
   await assertActiveAccount(uid)
-  let testLeaseBinding
-  if (testLeaseId) {
-    testLeaseBinding = await createNativeTestSsoLeaseStore(db).resolve({
-      leaseId: testLeaseId,
-      expectedUid: uid,
-      request: {
-        ...request,
-        mode: 'redirect',
-        targetOrigin: request.requestOrigin,
-        returnUrl: request.redirectUri,
-      },
-      now: Date.now(),
-    })
-  }
   const phoneAdmission = await resolvePhoneVerificationAdmission({
     auth: contextApp.auth(),
     uid,
-    testLeaseBinding,
+    resolveFixedTestIdentity: input => resolveFixedTestIdentityAdmission(db, {
+      ...input,
+      issuerEnvironment: process.env.AUTH_ISSUER_ENVIRONMENT === 'development'
+        ? 'development'
+        : 'production',
+    }),
   })
   auditSecurity('sso_code_consumed', {
     subject: auditId(uid),
@@ -294,7 +251,7 @@ async function exchangeSsoCode(payload, requestOrigin, clientAddress = 'unknown'
     policyVersion: request.policyVersion,
     registrationFingerprint: request.registrationFingerprint,
   })
-  const ticketResult = mintTicket(uid, testLeaseBinding?.expiresAt)
+  const ticketResult = mintTicket(uid)
   if (!ticketResult.ok)
     return ticketResult
   return {
@@ -306,7 +263,6 @@ async function exchangeSsoCode(payload, requestOrigin, clientAddress = 'unknown'
       scopes: request.scopes,
       nonce: request.nonce,
       phoneNumberVerified: phoneAdmission.phoneNumberVerified,
-      ...(testLeaseBinding ? { expiresAtLimit: testLeaseBinding.expiresAt } : {}),
     }),
   }
 }
@@ -466,8 +422,6 @@ exports.main = async function main(event) {
     assertNoCallerSelectedSubject(payload)
     if (payload && payload.action === 'mintForTestLease')
       result = await mintForTestLease(payload)
-    else if (!isHttp && payload && payload.action === 'issueSsoCodeForTestLease')
-      result = await issueSsoCodeForTestLease(payload, clientAddress(event, false))
     else if (isHttp && payload && payload.action === 'exchangeSsoCode')
       result = await exchangeSsoCode(payload, requestOrigin, clientAddress(event, true))
     else if (!isHttp && payload && payload.action === 'issueSsoCode')
@@ -485,10 +439,6 @@ exports.main = async function main(event) {
       auditSecurity('sso_request_rejected', { reason: error.code, origin: requestOrigin || undefined })
     }
     else if (error instanceof IdentityAdmissionError) {
-      result = { ok: false, reason: error.reason }
-      auditSecurity('sso_request_rejected', { reason: error.reason, origin: requestOrigin || undefined })
-    }
-    else if (error instanceof NativeTestSsoError) {
       result = { ok: false, reason: error.reason }
       auditSecurity('sso_request_rejected', { reason: error.reason, origin: requestOrigin || undefined })
     }
@@ -523,7 +473,6 @@ exports.main = async function main(event) {
 exports._private = {
   exchangeSsoCode,
   issueSsoCode,
-  issueSsoCodeForTestLease,
   mintForTestLease,
   mintTicket,
   testLeaseHttpStatus,
