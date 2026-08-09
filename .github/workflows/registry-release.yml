@@ -51,7 +51,7 @@ jobs:
           persist-credentials: false
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
       - name: Install Node.js
         uses: actions/setup-node@v6
@@ -129,7 +129,7 @@ jobs:
 
       - name: Create GitHub App token
         id: app-token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ secrets.REGISTRY_RELEASE_APP_ID }}
           private-key: ${{ secrets.REGISTRY_RELEASE_APP_PRIVATE_KEY }}

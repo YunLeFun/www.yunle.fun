@@ -18,7 +18,7 @@ describe('registry protected workflows', () => {
     expect(source).toContain('releaseIntentId:')
     expect(source).toContain('startsWith(inputs.releaseIntentId, \'release:production:\')')
     expect(source).toContain('\'registry-release-production\' || \'registry-release\'')
-    expect(source).toContain('actions/create-github-app-token@v2')
+    expect(source).toContain('actions/create-github-app-token@v3')
     expect(source).toMatch(/^ {2}pull-requests: read$/m)
     expect(source).toMatch(/CLOUDBASE_API_KEY: \$\{\{ secrets\.CLOUDBASE_API_KEY \}\}/)
     expect(source).toMatch(/CLOUDBASE_ENV_ID: \$\{\{ vars\.CLOUDBASE_ENV_ID \}\}/)
@@ -43,7 +43,7 @@ describe('registry protected workflows', () => {
 
   it('finalizes a successful CI run from trusted main without executing pull request code', () => {
     const source = workflow('registry-release-finalize.yml')
-    const appTokenIndex = source.indexOf('actions/create-github-app-token@v2')
+    const appTokenIndex = source.indexOf('actions/create-github-app-token@v3')
     const verifyIndex = source.indexOf('pnpm sso:registry verify-release')
 
     expect(source).toContain('workflow_run:')
@@ -71,7 +71,7 @@ describe('registry protected workflows', () => {
     expect(source).toContain('jq -r \'.intent.baseCommitSha\'')
     expect(source).toContain('jq -r \'.intent.generation\'')
     expect(source).toContain('jq -r \'.releaseIntentId\'')
-    expect(source).toContain('actions/create-github-app-token@v2')
+    expect(source).toContain('actions/create-github-app-token@v3')
     expect(source).toContain('node scripts/authenticate-cloudbase-ci.mjs')
     expect(appTokenIndex).toBeGreaterThan(verifyIndex)
     expect(source).toContain('gh pr merge "$PR_NUMBER" --squash --match-head-commit "$EXPECTED_HEAD_SHA" --delete-branch')
