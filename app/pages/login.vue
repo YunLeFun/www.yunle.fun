@@ -496,7 +496,7 @@ onUnmounted(() => clearTimeout(morphTimer))
           />
 
           <p class="text-xs text-muted text-center">
-            邮箱验证码仅支持已绑定用户，不会创建新账号
+            邮箱不能单独注册；请先用手机号或 GitHub 登录，并在账号设置中绑定
           </p>
         </div>
 
