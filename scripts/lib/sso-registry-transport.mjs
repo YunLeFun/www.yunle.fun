@@ -1,3 +1,20 @@
+/** Build a version-pinned CloudBase Event Function invocation command. */
+export function createFunctionInvokeArgs({ configFile, functionName, payload }) {
+  return [
+    '--package=@cloudbase/cli@3.6.4',
+    'dlx',
+    'tcb',
+    '--config-file',
+    configFile,
+    'fn',
+    'invoke',
+    functionName,
+    '--params',
+    JSON.stringify(payload),
+    '--json',
+  ]
+}
+
 /** Parse the JSON payload emitted by CloudBase CLI around progress output. */
 export function parseCliJson(output) {
   const trimmed = output.trim()

@@ -10,7 +10,11 @@ import { fileURLToPath } from 'node:url'
 
 import { createVerifiedRegistryArtifact } from './lib/sso-registry-artifact.mjs'
 import { createReleaseArtifacts } from './lib/sso-registry-release.mjs'
-import { parseCliJson, unwrapFunctionResult } from './lib/sso-registry-transport.mjs'
+import {
+  createFunctionInvokeArgs,
+  parseCliJson,
+  unwrapFunctionResult,
+} from './lib/sso-registry-transport.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const require = createRequire(import.meta.url)
@@ -127,19 +131,11 @@ function stablePrettyJson(value, core) {
 }
 
 function invokeAdmin(targetEnvironment, action, payload) {
-  const output = run('pnpm', [
-    '--package=@cloudbase/cli@3.6.4',
-    'dlx',
-    'tcb',
-    '--config-file',
-    ENV_CONFIGS[targetEnvironment],
-    'fn',
-    'invoke',
-    'sso-registry-admin',
-    '--data',
-    JSON.stringify({ action, ...payload }),
-    '--json',
-  ], { capture: true })
+  const output = run('pnpm', createFunctionInvokeArgs({
+    configFile: ENV_CONFIGS[targetEnvironment],
+    functionName: 'sso-registry-admin',
+    payload: { action, ...payload },
+  }), { capture: true })
   return unwrapFunctionResult(parseCliJson(output))
 }
 
