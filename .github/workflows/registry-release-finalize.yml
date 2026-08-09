@@ -142,7 +142,7 @@ jobs:
 
       - name: Authenticate CloudBase CLI after failed CI
         if: ${{ github.event.workflow_run.conclusion != 'success' }}
-        run: pnpm --package=@cloudbase/cli@3.6.4 dlx tcb --config-file cloudbaserc.ci.json login --cloudbase-api-key "$CLOUDBASE_API_KEY" -e "$CLOUDBASE_ENV_ID" --json
+        run: node scripts/authenticate-cloudbase-ci.mjs
 
       - name: Record failed CI
         if: ${{ github.event.workflow_run.conclusion != 'success' }}
