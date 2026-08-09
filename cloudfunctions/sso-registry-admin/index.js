@@ -10,12 +10,14 @@ const {
   registryTrustAnchors,
 } = require('@yunlefun/authorization-core')
 const { assertRegistryAdminActionAllowed } = require('./action-policy')
+const { verifyAdminApprovalProof } = require('./admin-approval-runtime')
 const {
   createApprovalEmailSender,
   createManager,
   createSesClient,
   createStrictApproverResolver,
   loadApprovalRuntimeConfig,
+  parseApproverUids,
 } = require('./approval-runtime')
 const { RegistryAdminError, createRegistryAdminService } = require('./service')
 const { createRegistryStore } = require('./store')
@@ -54,7 +56,7 @@ function createTrustAnchors(environment, keyId, signingKey) {
   }
 }
 
-function loadService(environment = currentEnvironment(), context = {}) {
+function loadService(environment = currentEnvironment(), context = {}, action = '') {
   const keyId = String(process.env.SSO_REGISTRY_SIGNING_KID || '').trim()
   const signingKey = decodeKey(process.env.SSO_REGISTRY_SIGNING_KEY)
   if (!keyId || !signingKey)
@@ -66,21 +68,24 @@ function loadService(environment = currentEnvironment(), context = {}) {
     trustAnchors: createTrustAnchors(environment, keyId, signingKey),
     store: createRegistryStore(db),
     randomId: () => randomBytes(12).toString('base64url'),
+    verifyAdminApprovalProof,
   }
   if (environment === 'production') {
-    const runtime = cloudbase.getCloudbaseContext()
-    const envId = runtime.TCB_ENV || runtime.SCF_NAMESPACE
-    if (!envId)
-      throw new Error('CloudBase environment is unavailable')
-    const approvalConfig = loadApprovalRuntimeConfig()
-    const manager = createManager(envId, context)
-    const sesClient = createSesClient(approvalConfig, context)
-    Object.assign(options, {
-      approvalPepper: approvalConfig.approvalPepper,
-      approverUids: approvalConfig.approverUids,
-      resolveApproverEmail: createStrictApproverResolver(manager),
-      sendApprovalEmail: createApprovalEmailSender(sesClient, approvalConfig),
-    })
+    options.approverUids = parseApproverUids(process.env.SSO_REGISTRY_APPROVER_UIDS)
+    if (['requestPublishApproval', 'approveAndQueueRelease', 'requestRollbackApproval'].includes(action)) {
+      const runtime = cloudbase.getCloudbaseContext()
+      const envId = runtime.TCB_ENV || runtime.SCF_NAMESPACE
+      if (!envId)
+        throw new Error('CloudBase environment is unavailable')
+      const approvalConfig = loadApprovalRuntimeConfig()
+      const manager = createManager(envId, context)
+      const sesClient = createSesClient(approvalConfig, context)
+      Object.assign(options, {
+        approvalPepper: approvalConfig.approvalPepper,
+        resolveApproverEmail: createStrictApproverResolver(manager),
+        sendApprovalEmail: createApprovalEmailSender(sesClient, approvalConfig),
+      })
+    }
   }
   return createRegistryAdminService(options)
 }
@@ -96,7 +101,7 @@ exports.main = async (event, context) => {
       ciToken: request.ciToken,
       expectedCiToken: process.env.SSO_REGISTRY_CI_TOKEN,
     })
-    const runtime = loadService(environment, context)
+    const runtime = loadService(environment, context, request.action)
     let data
     switch (request.action) {
       case 'saveDraft':
@@ -113,6 +118,9 @@ exports.main = async (event, context) => {
         break
       case 'approveAndQueueRelease':
         data = await runtime.approveAndQueueRelease(request)
+        break
+      case 'approveAndQueueReleaseByAdmin':
+        data = await runtime.approveAndQueueReleaseByAdmin(request)
         break
       case 'requestRollbackApproval':
         data = await runtime.requestRollbackApproval(request)
