@@ -63,7 +63,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Authenticate CloudBase CLI
-        run: pnpm --package=@cloudbase/cli@3.6.4 dlx tcb --config-file cloudbaserc.ci.json login --cloudbase-api-key "$CLOUDBASE_API_KEY" -e "$CLOUDBASE_ENV_ID" --json
+        run: node scripts/authenticate-cloudbase-ci.mjs
 
       - name: Record workflow dispatch
         run: >-
