@@ -3,6 +3,11 @@
   "type": "module",
   "private": true,
   "packageManager": "pnpm@11.17.0",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22",
+    "pnpm": ">=11"
+  },
   "scripts": {
     "build": "NODE_OPTIONS=--max-old-space-size=4096 nuxt build && node scripts/verify-edgeone-client-shells.mjs",
     "build:authorization-core": "pnpm --dir packages/authorization-core build",
