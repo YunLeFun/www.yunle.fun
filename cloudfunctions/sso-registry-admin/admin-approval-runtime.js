@@ -49,7 +49,7 @@ function text(value, code, maximum) {
   return value
 }
 
-function decodeJsonSegment(segment, code, maximumBytes) {
+function decodeBase64UrlSegment(segment, code, maximumBytes) {
   if (typeof segment !== 'string' || !/^[\w-]+$/.test(segment))
     throw new RegistryAdminError(code)
   let decoded
@@ -59,8 +59,16 @@ function decodeJsonSegment(segment, code, maximumBytes) {
   catch {
     throw new RegistryAdminError(code)
   }
-  if (!decoded.length || decoded.length > maximumBytes)
+  if (!decoded.length
+    || decoded.length > maximumBytes
+    || decoded.toString('base64url') !== segment) {
     throw new RegistryAdminError(code)
+  }
+  return decoded
+}
+
+function decodeJsonSegment(segment, code, maximumBytes) {
+  const decoded = decodeBase64UrlSegment(segment, code, maximumBytes)
   try {
     const value = JSON.parse(decoded.toString('utf8'))
     if (!value || typeof value !== 'object' || Array.isArray(value))
@@ -97,9 +105,11 @@ function verifyAdminApprovalProof(proof, options = {}) {
   if (!publicJwk)
     throw new RegistryAdminError('admin_approval_key_untrusted')
 
-  if (typeof encodedSignature !== 'string' || !/^[\w-]+$/.test(encodedSignature))
-    throw new RegistryAdminError('admin_approval_signature_invalid')
-  const signature = Buffer.from(encodedSignature, 'base64url')
+  const signature = decodeBase64UrlSegment(
+    encodedSignature,
+    'admin_approval_signature_invalid',
+    64,
+  )
   if (signature.length !== 64 || !verify(
     null,
     Buffer.from(`${encodedHeader}.${encodedClaims}`),
