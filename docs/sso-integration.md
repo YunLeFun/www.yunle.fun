@@ -257,6 +257,9 @@ pnpm dev:sso
    `SSO_REGISTRY_PRODUCTION_DEPLOY_ENABLED` 设为 `true`；缺省或其他值会同时阻断 production 发布 PR 与部署任务。
    development Registry 发布和部署共用 `registry-release` 环境中唯一的项目级 CI Key；production Key 仍隔离在
    production 环境。两者都不复用个人或全局腾讯云密钥，部署 job 也不读取函数运行时私钥。
+8. `REGISTRY_RELEASE_APP_PRIVATE_KEY` 可保存完整 RSA PEM、转义换行 PEM 或 base64 编码的 PEM；工作流在传给
+   `actions/create-github-app-token` 前统一解码、校验并转换为单行转义的 PKCS#8 PEM。不得把 Registry Ed25519
+   签名密钥或其他 GitHub App 的私钥复用到该 Secret。
 
 ## 运维资源
 

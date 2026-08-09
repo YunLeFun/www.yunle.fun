@@ -160,13 +160,20 @@ jobs:
           CI_CONCLUSION: ${{ steps.release.outputs.ci-conclusion }}
         run: test "$CI_CONCLUSION" = success
 
+      - name: Normalize GitHub App private key
+        if: ${{ github.event.workflow_run.conclusion == 'success' }}
+        id: app-private-key
+        env:
+          REGISTRY_RELEASE_APP_PRIVATE_KEY: ${{ secrets.REGISTRY_RELEASE_APP_PRIVATE_KEY }}
+        run: node scripts/normalize-github-app-private-key.mjs
+
       - name: Create merge-only GitHub App token
         if: ${{ github.event.workflow_run.conclusion == 'success' }}
         id: app-token
         uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ secrets.REGISTRY_RELEASE_APP_ID }}
-          private-key: ${{ secrets.REGISTRY_RELEASE_APP_PRIVATE_KEY }}
+          private-key: ${{ steps.app-private-key.outputs.private-key }}
           owner: YunLeFun
           repositories: www.yunle.fun
           permission-contents: write
