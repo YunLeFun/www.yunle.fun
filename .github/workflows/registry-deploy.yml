@@ -52,20 +52,14 @@ jobs:
     needs: inspect
     if: ${{ needs.inspect.outputs.environment == 'development' }}
     runs-on: ubuntu-latest
-    environment: development
+    environment: registry-release
     concurrency:
       group: sso-registry-development
       cancel-in-progress: false
     env:
-      ACCOUNT_API_INTERNAL_TOKEN: ${{ secrets.ACCOUNT_API_INTERNAL_TOKEN }}
       CLOUDBASE_API_KEY: ${{ secrets.CLOUDBASE_API_KEY }}
       CLOUDBASE_ENV_ID: ${{ vars.CLOUDBASE_ENV_ID }}
       SSO_REGISTRY_CI_TOKEN: ${{ secrets.SSO_REGISTRY_CI_TOKEN }}
-      SSO_IDENTITY_PUBLIC_KEYS: ${{ secrets.SSO_IDENTITY_PUBLIC_KEYS }}
-      SSO_IDENTITY_SIGNING_KEY: ${{ secrets.SSO_IDENTITY_SIGNING_KEY }}
-      SSO_IDENTITY_SIGNING_KID: ${{ secrets.SSO_IDENTITY_SIGNING_KID }}
-      SSO_TICKET_PRIVATE_KEY: ${{ secrets.SSO_TICKET_PRIVATE_KEY }}
-      SSO_TICKET_PRIVATE_KEY_ID: ${{ secrets.SSO_TICKET_PRIVATE_KEY_ID }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -101,7 +95,7 @@ jobs:
           pnpm sso:registry record-deployment --environment development
           --release-intent "${{ needs.inspect.outputs.release-intent-id }}"
           --status deployed --merge-commit "${{ github.sha }}"
-          --consumers '{"sso-ticket":"${{ github.sha }}"}'
+          --consumers '{"sso-registry-admin":"${{ github.sha }}","sso-ticket":"${{ github.sha }}"}'
           --operator github-actions --reason "development deployment smoke passed"
       - name: Record development failure
         if: ${{ failure() }}
@@ -125,28 +119,9 @@ jobs:
       group: sso-registry-production
       cancel-in-progress: false
     env:
-      ACCOUNT_API_INTERNAL_TOKEN: ${{ secrets.ACCOUNT_API_INTERNAL_TOKEN }}
-      AUTH_ISSUER_ENVIRONMENT: production
       CLOUDBASE_API_KEY: ${{ secrets.CLOUDBASE_API_KEY }}
       CLOUDBASE_ENV_ID: ${{ vars.CLOUDBASE_ENV_ID }}
-      DESKTOP_AUTH_PUBLIC_KEYS: ${{ secrets.DESKTOP_AUTH_PUBLIC_KEYS }}
-      DESKTOP_AUTH_SIGNING_KEY: ${{ secrets.DESKTOP_AUTH_SIGNING_KEY }}
-      DESKTOP_AUTH_SIGNING_KID: ${{ secrets.DESKTOP_AUTH_SIGNING_KID }}
-      NATIVE_SSO_TEST_INTERNAL_TOKEN: ${{ secrets.NATIVE_SSO_TEST_INTERNAL_TOKEN }}
-      SSO_EXCHANGE_PER_IP_PER_MINUTE: ${{ vars.SSO_EXCHANGE_PER_IP_PER_MINUTE }}
-      SSO_EXCHANGE_PER_ORIGIN_PER_MINUTE: ${{ vars.SSO_EXCHANGE_PER_ORIGIN_PER_MINUTE }}
-      SSO_IDENTITY_ASSERTION_TTL_SEC: ${{ vars.SSO_IDENTITY_ASSERTION_TTL_SEC }}
-      SSO_IDENTITY_PUBLIC_KEYS: ${{ secrets.SSO_IDENTITY_PUBLIC_KEYS }}
-      SSO_IDENTITY_SIGNING_KEY: ${{ secrets.SSO_IDENTITY_SIGNING_KEY }}
-      SSO_IDENTITY_SIGNING_KID: ${{ secrets.SSO_IDENTITY_SIGNING_KID }}
-      SSO_ISSUE_PER_IP_PER_MINUTE: ${{ vars.SSO_ISSUE_PER_IP_PER_MINUTE }}
-      SSO_ISSUE_PER_USER_PER_MINUTE: ${{ vars.SSO_ISSUE_PER_USER_PER_MINUTE }}
       SSO_REGISTRY_CI_TOKEN: ${{ secrets.SSO_REGISTRY_CI_TOKEN }}
-      SSO_TICKET_PRIVATE_KEY: ${{ secrets.SSO_TICKET_PRIVATE_KEY }}
-      SSO_TICKET_PRIVATE_KEY_ID: ${{ secrets.SSO_TICKET_PRIVATE_KEY_ID }}
-      SSO_TICKET_REFRESH_SEC: ${{ vars.SSO_TICKET_REFRESH_SEC }}
-      TEST_BROKER_INTERNAL_TOKEN: ${{ secrets.TEST_BROKER_INTERNAL_TOKEN }}
-      TEST_TICKET_ESCROW_KEY: ${{ secrets.TEST_TICKET_ESCROW_KEY }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -182,7 +157,7 @@ jobs:
           pnpm sso:registry record-deployment --environment production
           --release-intent "${{ needs.inspect.outputs.release-intent-id }}"
           --status deployed --merge-commit "${{ github.sha }}"
-          --consumers '{"desktop-auth":"${{ github.sha }}","sso-ticket":"${{ github.sha }}","www":"${{ github.sha }}"}'
+          --consumers '{"desktop-auth":"${{ github.sha }}","sso-registry-admin":"${{ github.sha }}","sso-ticket":"${{ github.sha }}"}'
           --operator github-actions --reason "production deployment smoke passed"
       - name: Record production failure
         if: ${{ failure() }}

@@ -247,13 +247,16 @@ pnpm dev:sso
    lint/typecheck/test/build/compare，并生成只含两个 generated 文件的发布 PR。
 4. 发布任务等待 PR checks 全部通过，再验证 PR head 与审批基线后自动 squash merge；main 上的
    `registry-deploy.yml` 再次验签并使用准确 merge commit。
-5. development 只部署 `sso-ticket`；production 部署主站、`sso-ticket` 与 `desktop-auth`。每个环境都在
-   compare/smoke 后回写准确消费者 commit，缺少任一消费者或 SHA 不一致时禁止标记 deployed。
+5. 仅用 CloudBase 的函数代码更新能力同步 vendored `authorization-core`，保留远端密钥、ACL、路由和触发器：
+   development 更新 `sso-registry-admin` 与 `sso-ticket`；production 更新 `sso-registry-admin`、`sso-ticket`
+   与 `desktop-auth`。每个环境都在 compare/smoke 后回写准确消费者 commit，缺少任一消费者或 SHA 不一致时
+   禁止标记 deployed；主站静态产物由网站发布链路独立处理。
 6. rollback 选择历史签名快照，提升 generation，并重新走相同审批、PR、部署和 smoke 路径；不得直接改写
    generated 文件或历史快照。
 7. production 在确认 development smoke 证据后，才允许仓库管理员把
    `SSO_REGISTRY_PRODUCTION_DEPLOY_ENABLED` 设为 `true`；缺省或其他值会同时阻断 production 发布 PR 与部署任务。
-   CI 使用环境级 `CLOUDBASE_API_KEY` 与 `CLOUDBASE_ENV_ID`，不复用个人或全局腾讯云密钥。
+   development Registry 发布和部署共用 `registry-release` 环境中唯一的项目级 CI Key；production Key 仍隔离在
+   production 环境。两者都不复用个人或全局腾讯云密钥，部署 job 也不读取函数运行时私钥。
 
 ## 运维资源
 
