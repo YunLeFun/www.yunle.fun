@@ -1,8 +1,26 @@
 import { describe, expect, it } from 'vitest'
 
-import { getAuthErrorPresentation } from '../app/composables/auth/types'
+import { getAuthErrorPresentation, getEmailLoginErrorPresentation } from '../app/composables/auth/types'
 
 describe('auth error presentation', () => {
+  it.each([
+    'USER_NOT_FOUND',
+    'user_not_found',
+    'registration_not_supported',
+  ])('邮箱登录拒绝不会泄露账号是否存在或展示原始错误：%s', (code) => {
+    const presentation = getEmailLoginErrorPresentation({
+      code,
+      message: `raw provider error: ${code}`,
+    })
+
+    expect(presentation).toEqual({
+      title: '无法使用邮箱登录',
+      description: '暂时无法使用该邮箱登录，请先使用手机号或 GitHub 登录，并在账号设置中绑定邮箱。',
+      code,
+    })
+    expect(presentation.description).not.toContain('raw provider error')
+  })
+
   it('把 CloudBase user_blocked 映射为明确且不泄露内部规则的暂停登录提示', () => {
     expect(getAuthErrorPresentation({
       error: 'user_blocked',

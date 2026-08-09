@@ -1,8 +1,8 @@
 /**
- * OTP 认证（手机号/邮箱验证码登录与注册）
+ * OTP 认证（手机号可登录/注册，邮箱仅允许已绑定账号登录）
  */
 import type { TcbOtpData, TcbSignUpData } from './types'
-import { getAuthErrorPresentation } from './types'
+import { getAuthErrorPresentation, getEmailLoginErrorPresentation } from './types'
 
 export function useTcbOtp(core: ReturnType<typeof import('./useAuthCore').useTcbAuthCore>) {
   const { auth, router, toast, loading, error, fetchUser } = core
@@ -141,7 +141,7 @@ export function useTcbOtp(core: ReturnType<typeof import('./useAuthCore').useTcb
     }
     catch (err: unknown) {
       console.error('发送邮箱验证码失败:', err)
-      const presentation = getAuthErrorPresentation(err, '发送失败')
+      const presentation = getEmailLoginErrorPresentation(err, '发送失败')
       error.value = presentation.description
       showErrorToast(presentation, '请稍后重试')
       throw err
@@ -168,7 +168,7 @@ export function useTcbOtp(core: ReturnType<typeof import('./useAuthCore').useTcb
     }
     catch (err: unknown) {
       console.error('邮箱验证失败:', err)
-      const presentation = getAuthErrorPresentation(err, '验证失败')
+      const presentation = getEmailLoginErrorPresentation(err, '验证失败')
       error.value = presentation.description
       showErrorToast(presentation, '验证码错误或已过期')
       throw err

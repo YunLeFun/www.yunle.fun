@@ -310,3 +310,23 @@ export function getAuthErrorPresentation(err: unknown, fallbackTitle = '登录�
     code,
   }
 }
+
+/**
+ * 邮箱验证码仅允许已绑定账号登录。对“用户不存在”和“禁止注册”使用同一提示，
+ * 避免泄露邮箱是否已绑定，也不向用户展示 CloudBase 内部错误。
+ */
+export function getEmailLoginErrorPresentation(err: unknown, fallbackTitle = '登录失败'): AuthErrorPresentation {
+  const message = getErrorMessage(err)
+  const code = getErrorCode(err, message)
+  if (
+    matchesErrorCode(code, 'USER_NOT_FOUND', 'user_not_found', 'registration_not_supported')
+    || /\buser(?:name)?[ _-]?not[ _-]?found\b|用户不存在|不支持注册|禁止注册/i.test(message)
+  ) {
+    return {
+      title: '无法使用邮箱登录',
+      description: '暂时无法使用该邮箱登录，请先使用手机号或 GitHub 登录，并在账号设置中绑定邮箱。',
+      code,
+    }
+  }
+  return getAuthErrorPresentation(err, fallbackTitle)
+}

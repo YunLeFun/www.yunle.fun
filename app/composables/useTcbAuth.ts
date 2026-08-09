@@ -3,7 +3,7 @@
  *
  * 整合所有认证模块，保持对外 API 兼容：
  * - auth/useAuthCore: 核心状态管理（user, loading, fetchUser, logout, checkAuthStatus）
- * - auth/useOtp: 手机号/邮箱 OTP 登录与注册
+ * - auth/useOtp: 手机号 OTP 登录/注册与已绑定邮箱 OTP 登录
  * - auth/useOAuth: GitHub/微信 OAuth 登录、绑定/解绑
  * - auth/usePassword: 密码登录、修改、重置、邮箱/手机号绑定
  */
