@@ -1,5 +1,11 @@
 export type AppToastColor = 'error' | 'info' | 'neutral' | 'success' | 'warning'
 
+export interface AppToastAction {
+  label: string
+  href: string
+  target?: '_blank' | '_self'
+}
+
 export interface AppToastInput {
   id?: string
   title: string
@@ -7,11 +13,13 @@ export interface AppToastInput {
   icon?: string
   color?: AppToastColor
   duration?: number
+  action?: AppToastAction
 }
 
 export interface AppToast extends Required<Pick<AppToastInput, 'id' | 'title' | 'color' | 'duration'>> {
   description?: string
   icon?: string
+  action?: AppToastAction
   open: boolean
 }
 
@@ -29,6 +37,7 @@ export function useAppToast() {
       title: input.title,
       description: input.description,
       icon: input.icon,
+      action: input.action,
       color: input.color || 'neutral',
       duration: input.duration ?? DEFAULT_DURATION,
       open: true,

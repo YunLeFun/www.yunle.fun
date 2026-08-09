@@ -22,8 +22,9 @@ const USER_PROFILES_COLLECTION = 'user_profiles'
 /** 资料计数并发冲突最大重试次数（沿用 tips/wallet 的 CAS 策略） */
 const PROFILE_STATS_MAX_RETRY = 5
 
-/** 用户名规则：与前端 useAuthCore 的 RE_USERNAME 保持一致 */
-const RE_LOGIN = /^[a-z][\w-]{2,19}$/i
+/** Auth 资料快照兼容规则：只为规则统一前已存在的 3-25 位大小写用户名保留。 */
+const RE_LOGIN = /^[a-z][\w-]{2,24}$/i
+const AUTH_USERNAME_SNAPSHOT_MAX = 25
 const NICKNAME_MAX = 40
 const DESCRIPTION_MAX = 200
 const AVATAR_MAX = 512
@@ -70,14 +71,14 @@ function pickProfileFields(input) {
   if (!input || typeof input !== 'object')
     return out
 
-  const login = clampStr(input.login, 20)
+  const login = clampStr(input.login, AUTH_USERNAME_SNAPSHOT_MAX)
   if (login !== undefined) {
     // 第三方登录可能把数字身份 ID 放进 Auth username。user_profiles 只是 Auth 的
     // 公开缓存，纯数字占位值应忽略，不能让整次资料初始化失败。
     if (!login || /^\d+$/.test(login))
       out.login = null
     else if (!RE_LOGIN.test(login))
-      throw new Error('用户名格式不正确：3-20 个字符，以字母开头，仅限字母、数字、下划线和连字符')
+      throw new Error('用户名格式不正确：历史 Auth 用户名需为 3-25 个字符，以字母开头，仅限字母、数字、下划线和连字符')
     else
       out.login = login
   }

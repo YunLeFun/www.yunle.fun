@@ -46,10 +46,11 @@ import { Spinner } from '@/components/ui/spinner'
 import { Textarea } from '@/components/ui/textarea'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import {
+  getUsernameUpdateErrorMessage,
+  getUsernameValidationError,
   isTemporaryUsername,
+  normalizeUsername,
   USERNAME_MAX_LENGTH,
-  USERNAME_MIN_LENGTH,
-  USERNAME_PATTERN,
 } from '~/utils/username'
 
 const props = withDefaults(defineProps<{
@@ -61,8 +62,6 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   editFinished: []
 }>()
-
-const RE_USERNAME_START = /^[a-z]/i
 
 const { user, fetchUser, setUsername } = useTcbAuth()
 const { uploadAvatar } = useAvatarUpload()
@@ -202,31 +201,9 @@ const hasUsername = computed(() => !!user.value?.login)
 const hasTemporaryUsername = computed(() => isTemporaryUsername(user.value?.login))
 const canChangeUsername = computed(() => !hasUsername.value || hasTemporaryUsername.value)
 
-// 用户名格式校验
-const usernameRules = {
-  pattern: USERNAME_PATTERN,
-  minLength: USERNAME_MIN_LENGTH,
-  maxLength: USERNAME_MAX_LENGTH,
-}
-
-function validateUsername(value: string): string {
-  if (!value)
-    return '请输入用户名'
-  if (value.length < usernameRules.minLength)
-    return `用户名至少 ${usernameRules.minLength} 个字符`
-  if (value.length > usernameRules.maxLength)
-    return `用户名不能超过 ${usernameRules.maxLength} 个字符`
-  if (!RE_USERNAME_START.test(value))
-    return '用户名必须以字母开头'
-  if (!usernameRules.pattern.test(value))
-    return '只允许字母、数字、下划线和连字符'
-  if (isTemporaryUsername(value))
-    return '该用户名使用了系统保留格式，请换一个试试'
-  return ''
-}
-
 function onUsernameInputChange() {
-  usernameError.value = validateUsername(usernameInput.value)
+  usernameInput.value = normalizeUsername(usernameInput.value)
+  usernameError.value = getUsernameValidationError(usernameInput.value)
 }
 
 function openUsernameModal() {
@@ -236,7 +213,8 @@ function openUsernameModal() {
 }
 
 async function confirmSetUsername() {
-  const err = validateUsername(usernameInput.value)
+  usernameInput.value = normalizeUsername(usernameInput.value)
+  const err = getUsernameValidationError(usernameInput.value)
   if (err) {
     usernameError.value = err
     return
@@ -247,8 +225,8 @@ async function confirmSetUsername() {
     await setUsername(usernameInput.value)
     showUsernameModal.value = false
   }
-  catch {
-    // setUsername 内部已处理 toast 提示
+  catch (err: unknown) {
+    usernameError.value = getUsernameUpdateErrorMessage(err)
   }
   finally {
     settingUsername.value = false
@@ -713,6 +691,7 @@ async function save() {
                 v-model="usernameInput"
                 placeholder="请输入用户名"
                 autocomplete="username"
+                :maxlength="USERNAME_MAX_LENGTH"
                 :aria-invalid="!!usernameError"
                 @input="onUsernameInputChange"
               />
@@ -724,9 +703,9 @@ async function save() {
               {{ usernameError }}
             </FieldError>
             <div class="flex flex-col gap-1 text-xs text-muted-foreground">
-              <p>· 5-20 个字符</p>
-              <p>· 必须以字母开头</p>
-              <p>· 只允许字母、数字、下划线（_）和连字符（-）</p>
+              <p>· 6-20 个字符</p>
+              <p>· 必须以小写字母开头</p>
+              <p>· 只允许小写字母、数字、下划线（_）和连字符（-）</p>
             </div>
           </Field>
         </div>

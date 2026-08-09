@@ -7,11 +7,32 @@ import { getAuthErrorPresentation } from './types'
 export function useTcbOtp(core: ReturnType<typeof import('./useAuthCore').useTcbAuthCore>) {
   const { auth, router, toast, loading, error, fetchUser } = core
 
+  function showErrorToast(presentation: ReturnType<typeof getAuthErrorPresentation>, fallbackDescription: string) {
+    toast.add({
+      title: presentation.title,
+      description: presentation.description || fallbackDescription,
+      color: 'error',
+      ...(presentation.supportUrl
+        ? {
+            duration: 10_000,
+            action: {
+              label: '联系客服',
+              href: presentation.supportUrl,
+              target: '_blank' as const,
+            },
+          }
+        : {}),
+    })
+  }
+
   const sendPhoneOtp = async (phone: string) => {
     try {
       loading.value = true
       error.value = null
-      const { data, error: otpError } = await auth.signInWithOtp({ phone })
+      const { data, error: otpError } = await auth.signInWithOtp({
+        phone,
+        options: { shouldCreateUser: true },
+      })
       if (otpError)
         throw otpError
       toast.add({ title: '验证码已发送', description: '请查看手机短信', color: 'success' })
@@ -19,9 +40,9 @@ export function useTcbOtp(core: ReturnType<typeof import('./useAuthCore').useTcb
     }
     catch (err: unknown) {
       console.error('发送验证码失败:', err)
-      const presentation = getAuthErrorPresentation(err)
+      const presentation = getAuthErrorPresentation(err, '发送失败')
       error.value = presentation.description
-      toast.add({ title: presentation.code ? presentation.title : '发送失败', description: presentation.description || '请稍后重试', color: 'error' })
+      showErrorToast(presentation, '请稍后重试')
       throw err
     }
     finally {
@@ -46,9 +67,9 @@ export function useTcbOtp(core: ReturnType<typeof import('./useAuthCore').useTcb
     }
     catch (err: unknown) {
       console.error('验证失败:', err)
-      const presentation = getAuthErrorPresentation(err)
+      const presentation = getAuthErrorPresentation(err, '验证失败')
       error.value = presentation.description
-      toast.add({ title: presentation.code ? presentation.title : '验证失败', description: presentation.description || '验证码错误或已过期', color: 'error' })
+      showErrorToast(presentation, '验证码错误或已过期')
       throw err
     }
     finally {
@@ -68,9 +89,9 @@ export function useTcbOtp(core: ReturnType<typeof import('./useAuthCore').useTcb
     }
     catch (err: unknown) {
       console.error('注册失败:', err)
-      const presentation = getAuthErrorPresentation(err)
+      const presentation = getAuthErrorPresentation(err, '注册失败')
       error.value = presentation.description
-      toast.add({ title: presentation.code ? presentation.title : '注册失败', description: presentation.description || '请稍后重试', color: 'error' })
+      showErrorToast(presentation, '请稍后重试')
       throw err
     }
     finally {
@@ -95,9 +116,9 @@ export function useTcbOtp(core: ReturnType<typeof import('./useAuthCore').useTcb
     }
     catch (err: unknown) {
       console.error('注册验证失败:', err)
-      const presentation = getAuthErrorPresentation(err)
+      const presentation = getAuthErrorPresentation(err, '验证失败')
       error.value = presentation.description
-      toast.add({ title: presentation.code ? presentation.title : '验证失败', description: presentation.description || '验证码错误或已过期', color: 'error' })
+      showErrorToast(presentation, '验证码错误或已过期')
       throw err
     }
     finally {
@@ -109,7 +130,10 @@ export function useTcbOtp(core: ReturnType<typeof import('./useAuthCore').useTcb
     try {
       loading.value = true
       error.value = null
-      const { data, error: otpError } = await auth.signInWithOtp({ email })
+      const { data, error: otpError } = await auth.signInWithOtp({
+        email,
+        options: { shouldCreateUser: false },
+      })
       if (otpError)
         throw otpError
       toast.add({ title: '验证码已发送', description: '请查看您的邮箱', color: 'success' })
@@ -117,9 +141,9 @@ export function useTcbOtp(core: ReturnType<typeof import('./useAuthCore').useTcb
     }
     catch (err: unknown) {
       console.error('发送邮箱验证码失败:', err)
-      const presentation = getAuthErrorPresentation(err)
+      const presentation = getAuthErrorPresentation(err, '发送失败')
       error.value = presentation.description
-      toast.add({ title: presentation.code ? presentation.title : '发送失败', description: presentation.description || '请稍后重试', color: 'error' })
+      showErrorToast(presentation, '请稍后重试')
       throw err
     }
     finally {
@@ -144,9 +168,9 @@ export function useTcbOtp(core: ReturnType<typeof import('./useAuthCore').useTcb
     }
     catch (err: unknown) {
       console.error('邮箱验证失败:', err)
-      const presentation = getAuthErrorPresentation(err)
+      const presentation = getAuthErrorPresentation(err, '验证失败')
       error.value = presentation.description
-      toast.add({ title: presentation.code ? presentation.title : '验证失败', description: presentation.description || '验证码错误或已过期', color: 'error' })
+      showErrorToast(presentation, '验证码错误或已过期')
       throw err
     }
     finally {

@@ -17,6 +17,11 @@ const ToastHarness = defineComponent({
         title: '保存成功',
         description: '资料已经更新',
         color: 'success',
+        action: {
+          label: '联系客服',
+          href: 'https://support.yunle.fun/contact',
+          target: '_blank',
+        },
       })
     }
 
@@ -39,6 +44,11 @@ describe('app toaster', () => {
 
     expect(wrapper.text()).toContain('保存成功')
     expect(wrapper.text()).toContain('资料已经更新')
+    expect(wrapper.get('a[href="https://support.yunle.fun/contact"]').text()).toContain('联系客服')
+    expect(wrapper.get('a[href="https://support.yunle.fun/contact"]').attributes()).toMatchObject({
+      target: '_blank',
+      rel: 'noopener noreferrer',
+    })
     expect(wrapper.get('[aria-label="关闭通知"]').exists()).toBe(true)
 
     wrapper.unmount()

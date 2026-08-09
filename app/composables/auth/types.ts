@@ -141,9 +141,37 @@ export interface AuthErrorPresentation {
   title: string
   description: string
   code: string | null
+  supportUrl?: string
+}
+
+const SMS_ERROR_CODE_PATTERN = /\b(?:FailedOperation|InternalError|InvalidParameterValue|LimitExceeded|MissingParameter|UnauthorizedOperation|UnsupportedOperation)(?:\.[a-z][a-z0-9]*)?\b/i
+const SMS_ERROR_CODE_PREFIX_PATTERN = /^(?:FailedOperation|InternalError|InvalidParameterValue|LimitExceeded|MissingParameter|UnauthorizedOperation|UnsupportedOperation)(?:\.|$)/i
+
+function extractSmsErrorCode(err: unknown, message: string): string | null {
+  const source = err && typeof err === 'object' ? err as Record<string, unknown> : null
+  const candidates = [
+    source?.code,
+    source?.status,
+    source?.error,
+    source?.error_code,
+    message,
+  ]
+
+  for (const candidate of candidates) {
+    if (typeof candidate !== 'string')
+      continue
+    const match = candidate.match(SMS_ERROR_CODE_PATTERN)
+    if (match)
+      return match[0]
+  }
+  return null
 }
 
 function getErrorCode(err: unknown, message: string): string | null {
+  const smsErrorCode = extractSmsErrorCode(err, message)
+  if (smsErrorCode)
+    return smsErrorCode
+
   if (err && typeof err === 'object') {
     const source = err as Record<string, unknown>
     const code = source.code || source.error
@@ -152,11 +180,42 @@ function getErrorCode(err: unknown, message: string): string | null {
   }
   if (/user_blocked|该用户被停用|用户被停用|账号.*停用/i.test(message))
     return 'user_blocked'
+  if (/\bsend_error_code\b/i.test(message))
+    return 'send_error_code'
   return null
 }
 
+function getRequestId(err: unknown): string | undefined {
+  if (!err || typeof err !== 'object')
+    return undefined
+  const source = err as Record<string, unknown>
+  const requestId = source.requestId || source.request_id
+  if (typeof requestId !== 'string')
+    return undefined
+  const normalized = requestId.trim()
+  return /^[A-Z0-9][\w.:-]{0,127}$/i.test(normalized) ? normalized : undefined
+}
+
+/** 使用 Support v1 协议交接最小、可审阅的诊断上下文；绝不把手机号或原始错误写入 URL。 */
+function buildAuthSupportUrl(code: string, requestId?: string): string {
+  const params = new URLSearchParams({
+    v: '1',
+    product: 'www',
+    type: 'login',
+    source: 'auth-otp',
+  })
+  if (requestId)
+    params.set('requestId', requestId)
+  params.set('errorCode', code)
+  return `https://support.yunle.fun/login-help?${params.toString()}`
+}
+
+function matchesErrorCode(code: string | null, ...candidates: string[]): code is string {
+  return code !== null && candidates.some(candidate => candidate.toLowerCase() === code.toLowerCase())
+}
+
 /** 登录入口统一使用的安全错误提示，不向用户暴露风控规则或内部异常。 */
-export function getAuthErrorPresentation(err: unknown): AuthErrorPresentation {
+export function getAuthErrorPresentation(err: unknown, fallbackTitle = '登录失败'): AuthErrorPresentation {
   const message = getErrorMessage(err)
   const code = getErrorCode(err, message)
   if (code === 'user_blocked') {
@@ -187,8 +246,66 @@ export function getAuthErrorPresentation(err: unknown): AuthErrorPresentation {
       code,
     }
   }
+  if (matchesErrorCode(code, 'FailedOperation.PhoneNumberInBlacklist')) {
+    return {
+      title: '验证码发送失败',
+      description: '该手机号当前无法接收验证码，请更换手机号或联系客服协助处理。',
+      code,
+      supportUrl: buildAuthSupportUrl(code, getRequestId(err)),
+    }
+  }
+  if (matchesErrorCode(code, 'InvalidParameterValue.IncorrectPhoneNumber')) {
+    return {
+      title: '手机号格式不正确',
+      description: '请检查手机号和国家或地区代码后重试。',
+      code,
+    }
+  }
+  if (matchesErrorCode(
+    code,
+    'LimitExceeded.DeliveryFrequencyLimit',
+    'LimitExceeded.PhoneNumberOneHourLimit',
+    'LimitExceeded.PhoneNumberThirtySecondLimit',
+  )) {
+    return {
+      title: '请求过于频繁',
+      description: '验证码请求过于频繁，请稍后再试。',
+      code,
+    }
+  }
+  if (matchesErrorCode(
+    code,
+    'LimitExceeded.PhoneNumberDailyLimit',
+    'LimitExceeded.PhoneNumberSameContentDailyLimit',
+  )) {
+    return {
+      title: '今日发送次数已达上限',
+      description: '该手机号今日接收验证码的次数已达上限，请明日再试。',
+      code,
+    }
+  }
+  if (matchesErrorCode(
+    code,
+    'LimitExceeded.AppCountryOrRegionInBlacklist',
+    'UnsupportedOperation.ChineseMainlandTemplateToGlobalPhone',
+    'UnsupportedOperation.UnsupportedRegion',
+  )) {
+    return {
+      title: '暂不支持该手机号',
+      description: '当前仅支持中国大陆手机号，请检查国家或地区代码后重试。',
+      code,
+    }
+  }
+  if (code && (SMS_ERROR_CODE_PREFIX_PATTERN.test(code) || code === 'send_error_code')) {
+    return {
+      title: '验证码发送失败',
+      description: '验证码服务暂时不可用，请稍后重试；若仍无法发送，请联系客服。',
+      code,
+      supportUrl: buildAuthSupportUrl(code, getRequestId(err)),
+    }
+  }
   return {
-    title: '登录失败',
+    title: fallbackTitle,
     description: message,
     code,
   }

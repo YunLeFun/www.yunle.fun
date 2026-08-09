@@ -101,6 +101,20 @@ describe('upsertMyProfile', () => {
     expect(db._store[USER_PROFILES_COLLECTION][0].login).toBe('alice')
   })
 
+  it('公开资料快照兼容新规范生效前的 3-25 位大小写用户名', async () => {
+    const db = makeFakeDb()
+    const legacyLogin = 'Abcdefghijklmnopqrstuvwxy'
+
+    const result = await upsertMyProfile(db, {
+      userId: 'legacy-user',
+      profile: { login: legacyLogin, nickname: 'Legacy' },
+      now: NOW,
+    })
+
+    expect(result.login).toBe(legacyLogin)
+    expect(db._store[USER_PROFILES_COLLECTION][0].login).toBe(legacyLogin)
+  })
+
   it('裸手机号昵称（auth 默认值）不落库：创建时改为稳定默认昵称', async () => {
     const db = makeFakeDb()
     const res = await upsertMyProfile(db, { userId: 'u1', profile: { nickname: '15906608053' }, now: NOW })

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { TcbOtpData, TcbResetPasswordData } from '~/composables/useTcbAuth'
 import { GITHUB_PROVIDER_ID, isOAuthProviderEnabled, WECHAT_PROVIDER_ID } from '~/utils/authProviders'
+import { isAuthUsernameCompatible } from '~/utils/username'
 
-const RE_USERNAME = /^[a-z][\w-]{2,19}$/i
 const RE_EMAIL = /^[^\s@]+@[^\s@][^\s.@]*\.[^\s@]+$/
 const RE_CN_PHONE = /^1[3-9]\d{9}$/
 const RE_OTP = /^\d{6}$/
@@ -12,8 +12,8 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: '登录',
-  description: '登录您的云乐坊账号',
+  title: '登录 / 注册',
+  description: '登录或创建您的云乐坊账号',
 })
 
 const {
@@ -70,7 +70,7 @@ const password = ref('')
 const showPassword = ref(false)
 
 // 判断密码登录输入的账号类型
-const isPasswordUsername = computed(() => RE_USERNAME.test(passwordAccount.value))
+const isPasswordUsername = computed(() => isAuthUsernameCompatible(passwordAccount.value))
 
 // 忘记密码状态
 const showResetPassword = ref(false)
@@ -286,10 +286,10 @@ onUnmounted(() => clearTimeout(morphTimer))
         </div>
       </div>
       <h1 class="ylf-dreamy-display text-3xl">
-        登录 <span class="ylf-gradient-text">云乐坊</span>
+        登录或注册 <span class="ylf-gradient-text">云乐坊</span>
       </h1>
       <p class="text-sm text-muted">
-        使用您的云乐坊账号继续
+        选择一种方式继续
       </p>
     </div>
 
@@ -365,7 +365,7 @@ onUnmounted(() => clearTimeout(morphTimer))
             </div>
             <template #hint>
               <span v-if="phoneInvalid" class="text-xs text-error">请输入正确的手机号</span>
-              <span v-else class="text-xs text-dimmed">当前仅支持中国大陆手机号</span>
+              <span v-else class="text-xs text-dimmed">当前仅支持中国大陆手机号；未注册手机号验证后将自动创建账号</span>
             </template>
           </UFormField>
 
@@ -496,7 +496,7 @@ onUnmounted(() => clearTimeout(morphTimer))
           />
 
           <p class="text-xs text-muted text-center">
-            邮箱仅支持已绑定的用户登录，不支持邮箱注册
+            邮箱验证码仅支持已绑定用户，不会创建新账号
           </p>
         </div>
 
@@ -595,22 +595,23 @@ onUnmounted(() => clearTimeout(morphTimer))
           class="ylf-auth-button-secondary"
           @click="provider.onClick"
         />
+        <p
+          v-if="providers.some(provider => provider.id === GITHUB_PROVIDER_ID)"
+          class="text-center text-xs text-muted"
+        >
+          首次使用 GitHub 将自动创建账号
+        </p>
       </div>
     </template>
 
-    <!-- 注册链接 -->
+    <!-- 统一登录 / 注册说明 -->
     <p class="text-center text-sm text-muted">
-      还没有云乐坊账号？<ULink
-        to="/signup"
-        class="text-primary font-medium"
-      >
-        立即注册
-      </ULink>
+      无需单独注册：手机号或 GitHub 首次验证后自动创建账号
     </p>
 
     <!-- 服务条款 -->
     <p class="text-center text-xs text-dimmed">
-      登录即表示您同意我们的
+      继续即表示您同意我们的
       <ULink to="/docs/terms-of-service" class="text-primary font-medium">
         服务条款
       </ULink>

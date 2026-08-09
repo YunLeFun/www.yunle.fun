@@ -7,8 +7,10 @@ import { isAnonymousSession } from '@yunlefun/sso'
 import { normalizeAvatarSource } from '~/utils/avatar'
 import {
   generateTemporaryUsername,
+  getUsernameUpdateErrorMessage,
+  getUsernameValidationError,
   isTemporaryUsername,
-  USERNAME_PATTERN,
+  normalizeUsername,
 } from '~/utils/username'
 import { getErrorMessage, mapCloudbaseUser } from './types'
 import { useServerSession } from './useServerSession'
@@ -212,36 +214,32 @@ export function useTcbAuthCore() {
   }
 
   const setUsername = async (username: string) => {
+    const normalizedUsername = normalizeUsername(username)
     try {
       loading.value = true
       error.value = null
       const currentLogin = user.value?.login
       if (currentLogin && !isTemporaryUsername(currentLogin))
         throw new Error('用户名已设置，不可修改')
-      if (!USERNAME_PATTERN.test(username))
-        throw new Error('用户名格式不正确：5-20 个字符，以字母开头，只允许字母、数字、下划线和连字符')
-      if (isTemporaryUsername(username))
-        throw new Error('该用户名使用了系统保留格式，请换一个试试')
+      const validationError = getUsernameValidationError(normalizedUsername)
+      if (validationError)
+        throw new Error(validationError)
 
-      const { error: updateError } = await auth.updateUser({ username })
-      if (updateError) {
-        const msg = updateError.message || '设置用户名失败'
-        throw new Error(msg.includes('duplicate') || msg.includes('already') || msg.includes('exists')
-          ? '该用户名已被占用，请换一个试试'
-          : msg)
-      }
+      const { error: updateError } = await auth.updateUser({ username: normalizedUsername })
+      if (updateError)
+        throw updateError
       await fetchUser()
       toast.add({
         title: currentLogin ? '修改成功' : '设置成功',
-        description: `您的用户名已设置为 @${username}`,
+        description: `您的用户名已设置为 @${normalizedUsername}`,
         color: 'success',
       })
     }
     catch (err: unknown) {
       console.error('设置用户名失败:', err)
-      error.value = getErrorMessage(err)
-      toast.add({ title: '设置失败', description: getErrorMessage(err) || '请稍后重试', color: 'error' })
-      throw err
+      const message = getUsernameUpdateErrorMessage(err)
+      error.value = message
+      throw new Error(message)
     }
     finally {
       loading.value = false
