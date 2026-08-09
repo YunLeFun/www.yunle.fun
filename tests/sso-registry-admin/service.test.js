@@ -463,6 +463,7 @@ describe('sso-registry-admin service', () => {
       status: 'deployed',
       mergeCommitSha: 'e'.repeat(40),
       deployedConsumers: {
+        'sso-registry-admin': 'e'.repeat(40),
         'sso-ticket': 'e'.repeat(40),
       },
     }))
@@ -472,6 +473,7 @@ describe('sso-registry-admin service', () => {
       status: 'deployed',
       mergeCommitSha: 'e'.repeat(40),
       deployedConsumers: {
+        'sso-registry-admin': 'e'.repeat(40),
         'sso-ticket': 'e'.repeat(40),
       },
     })
@@ -519,9 +521,21 @@ describe('sso-registry-admin service', () => {
       status: 'deployed',
       mergeCommitSha: '9'.repeat(40),
       deployedConsumers: {
+        'sso-registry-admin': 'a'.repeat(40),
         'sso-ticket': 'a'.repeat(40),
       },
     }))).rejects.toEqual(expect.objectContaining({ code: 'deployed_consumer_commit_mismatch' }))
+
+    await expect(service.recordDeploymentResult(request({
+      releaseIntentId: queued.releaseIntentId,
+      status: 'deployed',
+      mergeCommitSha: '9'.repeat(40),
+      deployedConsumers: {
+        'sso-registry-admin': '9'.repeat(40),
+        'sso-ticket': '9'.repeat(40),
+        'www': '9'.repeat(40),
+      },
+    }))).rejects.toEqual(expect.objectContaining({ code: 'deployed_consumers_invalid' }))
   })
 
   it('queues development rollback through a higher generation release intent', async () => {
