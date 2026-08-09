@@ -17,18 +17,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Install node
-        uses: actions/setup-node@v6
-        with:
-          node-version: 22
-
-      # 从 conventional commits（feat/fix/chore…）自动生成 GitHub Release 日志。
-      # 使用内置 GITHUB_TOKEN，无需额外配置密钥。
-      # 触发方式：打 tag 并推送，例如 `git tag v1.0.0 && git push origin v1.0.0`。
-      - name: Changelog
-        run: npx changelogithub
+      - name: Create GitHub release
+        run: gh release create "$GH_REF_NAME" --verify-tag --generate-notes
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}

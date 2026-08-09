@@ -2,6 +2,7 @@ minimumReleaseAgeExclude:
   - '@cloudbase/js-sdk@3.6.4'
   - '@iconify-json/lucide@1.2.119'
   - '@yunlefun/sso@0.6.2'
+  - nanoid@3.3.17
 shamefullyHoist: true
 
 shellEmulator: true
@@ -21,8 +22,13 @@ allowBuilds:
 
 # 顶传递依赖到已修补版本（仅 fontless 仍引入 esbuild <0.28.1，GHSA-g7r4-m6w7-qqqr）
 overrides:
+  '@nuxt/devtools': 3.3.1
   fontless>esbuild: ^0.28.1
-  minimatch>brace-expansion: 5.0.8
+  js-yaml: 4.3.1
+  minimatch>brace-expansion: 5.0.9
+  nanoid: 3.3.17
+  postcss: 8.5.23
+  undici: 8.9.0
 
 catalog:
   '@antfu/eslint-config': ^9.2.0
@@ -58,7 +64,7 @@ catalog:
   eslint: ^10.7.0
   eslint-plugin-format: ^2.0.1
   happy-dom: ^20.11.1
-  nuxt: ^4.5.0
+  nuxt: ^4.5.1
   nuxt-auth-utils: ^0.5.29
   oxc-parser: 0.133.0
   qrcode: ^1.5.4

@@ -1,90 +1,111 @@
-# [www.yunle.fun](https://www.yunle.fun)
+# 云乐坊
 
-云乐坊 - 开发者工具与资源平台
+[![CI](https://github.com/YunLeFun/www.yunle.fun/actions/workflows/ci.yml/badge.svg)](https://github.com/YunLeFun/www.yunle.fun/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 
-## 功能特性
+云乐坊是面向独立开发者的工具与资源平台。本仓库包含 [www.yunle.fun](https://www.yunle.fun) 的 Nuxt 应用、CloudBase 云函数，以及跨应用统一登录使用的授权核心。
 
-- **首页** - 展示平台概览与由 SSO Client Registry 驱动的统一账号应用云图
-- **开发者平台** - 提供完整的开发工具链与云服务支持
-- **定价页面** - 会员订阅与微信支付集成
-- **文档中心** - 完整的 API 文档与开发指南
-- **博客** - 技术文章与更新日志
-- **用户系统** - GitHub OAuth 登录认证
-- **应用管理** - GitHub 仓库集成与应用创建
+## 功能
 
-## 技术栈
+- 平台首页与由 SSO Client Registry 驱动的应用导航
+- GitHub OAuth、统一账号和跨站 SSO
+- 开发者平台、应用管理、文档和博客
+- 会员、微信支付、App Store 内购与奖励领取
+- 测试身份、事务邮件和后台运维能力
+- 中文、英文与日文界面
 
-- **前端框架**: Nuxt 4 + Vue 3
-- **UI 组件**: Nuxt UI 4
-- **样式方案**: Tailwind CSS
-- **国际化**: @nuxtjs/i18n
-- **云服务**: 腾讯云 CloudBase (认证、数据库、云函数)
+公开展示页面优先使用可缓存和预渲染能力；登录、账户、支付等功能使用 Nuxt 服务端运行时和 CloudBase 私有服务。
 
-## Quick Start
+## 技术架构
 
-[![Nuxt UI](https://img.shields.io/badge/Made%20with-Nuxt%20UI-00DC82?logo=nuxt&labelColor=020420)](https://ui.nuxt.com)
+- Nuxt 4、Vue 3、Nuxt UI 4 和 Tailwind CSS
+- pnpm workspace，内部授权包位于 `packages/authorization-core`
+- 腾讯云 CloudBase：认证、数据库和云函数
+- EdgeOne Pages：正式网站；Cloudflare Pages：兼容性构建与预览
+- Vitest、ESLint 和 Nuxt TypeScript 检查
 
-Based on [nuxt-ui-templates/saas](https://github.com/nuxt-ui-templates/saas).
+## 本地开发
 
-## Development Server
+### 环境要求
 
-Start the development server on `http://localhost:3000`:
+- Node.js 22 或更高版本
+- pnpm 11（仓库通过 `packageManager` 固定版本）
+
+### 启动
 
 ```bash
+corepack enable
+pnpm install
+cp .env.example .env.local
 pnpm dev
 ```
 
-## Production
+应用默认运行在 `http://localhost:3000`。只修改公开页面时，可保留大多数可选服务变量为空；账号、支付、邮件或云函数开发必须使用自己的 development 环境和密钥。不要把真实凭据写入仓库。
 
-Build the application for production:
+常用命令：
 
-```bash
-pnpm build
-```
+| 命令                            | 用途                           |
+| ------------------------------- | ------------------------------ |
+| `pnpm dev`                      | 启动本地 Nuxt 开发服务器       |
+| `pnpm build`                    | 构建生产应用并校验客户端路由壳 |
+| `pnpm preview`                  | 本地预览生产构建               |
+| `pnpm lint`                     | 运行 ESLint                    |
+| `pnpm typecheck`                | 运行 Nuxt TypeScript 检查      |
+| `pnpm test`                     | 运行完整 Vitest 测试           |
+| `pnpm build:authorization-core` | 构建共享授权核心               |
 
-构建结束后会校验预渲染的客户端路由壳是否包含 Nuxt 模块入口；校验脚本兼容本地/EdgeOne 的
-`.output/public`、EdgeOne 打包目录 `.edgeone/assets` 和 Cloudflare Pages 的 `dist`。
+所有可配置项及用途见 [.env.example](./.env.example)。只有 `NUXT_PUBLIC_*` 变量可以进入浏览器；其他变量必须只保存在本地忽略文件或部署平台的 Secret 中。
 
-Locally preview production build:
+## 目录结构
 
-```bash
-pnpm preview
-```
+| 目录                           | 内容                              |
+| ------------------------------ | --------------------------------- |
+| `app/`                         | Nuxt 页面、组件、状态和客户端逻辑 |
+| `server/`                      | Nitro 服务端 API 与中间件         |
+| `cloudfunctions/`              | CloudBase 云函数源码              |
+| `packages/authorization-core/` | Registry、签名和授权共享实现      |
+| `content/`                     | 文档与博客内容                    |
+| `docs/`                        | 架构、集成、迁移和运维说明        |
+| `tests/`                       | 单元、集成和工作流回归测试        |
+
+## SSO Client Registry
+
+应用展示、允许的 Origin、回调地址和接入类型统一由 Client Registry 管理。开发环境可以自动生成、校验、合并并部署 Registry；production 发布必须经过审批和显式环境门禁。
+
+不要手工修改 `packages/authorization-core/src/generated/*-registry.json` 或 `*-release.json`。接入方式、静态页面适配器和发布模型见 [SSO 集成指南](./docs/sso-integration.md)。
 
 ## 部署
 
-项目有**两条相互独立**的发布线：
+### 网站
 
-### 前端（EdgeOne Pages）
+`main` 分支由 EdgeOne Pages 的 Git 集成部署到正式站点。Cloudflare Pages 连接同一分支，用作 `cloudflare-pages` preset 的构建检查和预览；正式域名与生产流量仍以 EdgeOne Pages 为准。
 
-前端由腾讯 [EdgeOne Pages](https://edgeone.ai/) 托管，**已接入 Git 自动部署**：推送到 `main` 分支即自动触发构建并发布，无需手动操作。
+仓库使用 `nuxt build` 和 Nitro `node-server` hybrid 运行时。上线前必须在平台配置服务端变量，特别是 `NUXT_SESSION_PASSWORD`。会话迁移与共享领取密钥要求见 [Cookie Session 迁移说明](./docs/cookie-session-migration.md)。
 
-> 🔁 **仓库使用 `nuxt build`（Nitro SSR，preset `node-server`，`ssr:true` hybrid）**，线上 EdgeOne 已启用 Nuxt 服务端运行时并托管 `.output/server`。发布前必须确认 `NUXT_SESSION_PASSWORD` 等服务端环境变量完整；共享领取功能还要求 `NUXT_REWARD_CLAIM_RATE_TICKET_SECRET` 与 `account-api.REWARD_CLAIM_RATE_TICKET_SECRET` 完全一致。详见 [docs/cookie-session-migration.md](docs/cookie-session-migration.md)。
+### CloudBase 云函数
 
-Cloudflare Pages 连接同一 `main` 分支，作为 `cloudflare-pages` preset 的兼容性镜像与第二条构建检查；正式域名和生产流量仍以 EdgeOne Pages 为准。
-
-> ⚠️ GitHub Actions 不负责网站部署——`ci.yml` 仅跑 lint / typecheck / test，`release.yml` 仅在打 `v*` tag 时生成 Release changelog。
-
-### 云函数（CloudBase）
-
-支付、账户和授权相关云函数部署在腾讯云 CloudBase，**不随前端自动发布**，改动后需单独部署：
+普通云函数不会随网站自动发布。部署脚本会先检查目标环境和 `{{env.*}}` 占位符，缺少任何变量都会在构建前失败：
 
 ```bash
 node scripts/deploy-function.mjs <function-name>
 ```
 
-该脚本会先加载 `.env` / `.env.local`，并校验 `cloudbaserc.json` 中该函数引用的全部
-`{{env.*}}` 占位符；缺少任何变量时会在构建和部署前终止，避免把线上配置覆盖为空。
-
-`sso-registry-admin`、`sso-ticket` 和 `desktop-auth` 依赖工作区内的
-`@yunlefun/authorization-core`。修改 Client Registry 或授权核心后，必须先生成包含 vendored
-core 的函数产物，再以“仅更新函数代码”的方式同步发布三个产物；
-不能直接上传 `cloudfunctions/<name>` 源目录：
+`sso-registry-admin`、`sso-ticket` 和 `desktop-auth` 依赖 vendored `@yunlefun/authorization-core`，必须同步构建和发布：
 
 ```bash
 node scripts/build-cloud-function.mjs sso-registry-admin sso-ticket desktop-auth
 ```
 
-Client Registry 的存储、首页读取和同步发布约定见
-[`docs/sso-integration.md`](./docs/sso-integration.md#registry-存储与发布模型)。
-环境变量配置、数据库索引、平台证书轮换等详见 [`cloudfunctions/README.md`](./cloudfunctions/README.md)。
+完整的环境变量、数据库索引、密钥轮换和函数部署说明见 [cloudfunctions/README.md](./cloudfunctions/README.md)。任何 production 变更都应先在 development 完成 smoke，并保留显式审批。
+
+## 包发布
+
+根项目和两个 workspace 包当前均为 `private: true`。开源源码不依赖 npm 发布；只有未来需要让其他仓库独立安装稳定 SDK 时，才应单独设计公开包、版本兼容策略和 npm provenance 发布链路。
+
+## 参与贡献
+
+提交问题或代码前请阅读 [贡献指南](./CONTRIBUTING.md) 与 [行为准则](./CODE_OF_CONDUCT.md)。安全漏洞请按 [安全策略](./SECURITY.md) 私下报告，不要创建公开 Issue。
+
+## 许可证
+
+[MIT](./LICENSE) © YunLeFun contributors

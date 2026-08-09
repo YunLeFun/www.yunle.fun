@@ -1,0 +1,12 @@
+# Historical test fixtures and documentation examples verified as non-secret.
+bf858a67f3df03a6c275efcabd3d1f38a9616ebe:tests/account-api/account-lifecycle-acceptance.test.js:generic-api-key:17
+0cbcc246cf469f41651dc23e73410c68674ee45f:tests/sso-ticket/mint.test.js:private-key:39
+e9de0c532f4c65ab5776980d4bbde9c0d2de4c55:functions/appstore-notify/lib/signature.js:private-key:50
+e9de0c532f4c65ab5776980d4bbde9c0d2de4c55:functions/iap-order/lib/signature.js:private-key:50
+43a85ea39ed588b8b2ad1da3cf0cacd59cf173ac:functions/account-api/lib/signature.js:private-key:50
+87437a18051f3d4fd59f933a430cd7fd7960dab3:functions/wxpay-order/lib/signature.js:private-key:50
+87437a18051f3d4fd59f933a430cd7fd7960dab3:functions/wxpay-notify/lib/signature.js:private-key:50
+87437a18051f3d4fd59f933a430cd7fd7960dab3:tests/wxpay/signature.test.js:private-key:20
+87437a18051f3d4fd59f933a430cd7fd7960dab3:tests/wxpay/signature.test.js:private-key:36
+87437a18051f3d4fd59f933a430cd7fd7960dab3:tests/wxpay/signature.test.js:private-key:47
+68bb54c96c6db1db3a4c129351a62ee1b2aec98b:functions/README.md:private-key:78
