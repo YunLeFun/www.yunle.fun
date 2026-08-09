@@ -13,7 +13,11 @@ import {
 } from '../../packages/authorization-core/src/index'
 import { createVerifiedRegistryArtifact } from '../../scripts/lib/sso-registry-artifact.mjs'
 import { createReleaseArtifacts } from '../../scripts/lib/sso-registry-release.mjs'
-import { parseCliJson, unwrapFunctionResult } from '../../scripts/lib/sso-registry-transport.mjs'
+import {
+  createFunctionInvokeArgs,
+  parseCliJson,
+  unwrapFunctionResult,
+} from '../../scripts/lib/sso-registry-transport.mjs'
 
 function signedEnvelope(generation = 1) {
   const keys = generateKeyPairSync('ed25519')
@@ -72,6 +76,26 @@ function signedEnvelope(generation = 1) {
 }
 
 describe('registry CLI artifact export', () => {
+  it('uses the CloudBase CLI 3.6.4 function invocation parameter contract', () => {
+    expect(createFunctionInvokeArgs({
+      configFile: '/tmp/cloudbaserc.development.json',
+      functionName: 'sso-registry-admin',
+      payload: { action: 'recordCiProgress', releaseIntentId: 'release:development:1:test' },
+    })).toEqual([
+      '--package=@cloudbase/cli@3.6.4',
+      'dlx',
+      'tcb',
+      '--config-file',
+      '/tmp/cloudbaserc.development.json',
+      'fn',
+      'invoke',
+      'sso-registry-admin',
+      '--params',
+      '{"action":"recordCiProgress","releaseIntentId":"release:development:1:test"}',
+      '--json',
+    ])
+  })
+
   it('unwraps the RetMsg envelope emitted by CloudBase CLI 3.6.4', () => {
     const output = `- Loading data...\n${JSON.stringify({
       InvokeResult: 0,
