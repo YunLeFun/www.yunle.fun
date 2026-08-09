@@ -83,20 +83,9 @@ const presentationByAppId: Record<string, SsoPresentation> = {
 
 /** 安全控制面可参与 SSO，但不属于面向用户的公开应用探索图谱。 */
 const nonDiscoverableSsoClientIds = new Set(['admin-web', 'studio-web'])
-const discoverableAppOrder = [
-  'saier',
-  'cms',
-  'drive',
-  'dayun-kicker',
-  'ai-sfc',
-  'home',
-  'wenta',
-  'play',
-  'smap',
-  'fc',
-  'support',
-]
-const discoverableAppOrderIndex = new Map(discoverableAppOrder.map((appId, index) => [appId, index]))
+const discoverableAppOrderIndex = new Map(
+  Object.keys(presentationByAppId).map((appId, index) => [appId, index]),
+)
 
 function getWebSsoOrigin(client: (typeof productionRegistry.clients)[number]) {
   const adapter = client.adapters.find(candidate => candidate.kind === 'web-sso')
