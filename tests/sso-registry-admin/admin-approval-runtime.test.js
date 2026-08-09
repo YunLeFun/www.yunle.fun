@@ -16,6 +16,15 @@ function encode(value) {
   return Buffer.from(JSON.stringify(value)).toString('base64url')
 }
 
+function makeNonCanonicalSignature(proof) {
+  const segments = proof.split('.')
+  const signature = segments[2]
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'
+  const finalIndex = alphabet.indexOf(signature.at(-1))
+  segments[2] = `${signature.slice(0, -1)}${alphabet[finalIndex | 1]}`
+  return segments.join('.')
+}
+
 function fixture(overrides = {}) {
   const keys = generateKeyPairSync('ed25519')
   const kid = 'admin-test-key'
@@ -76,5 +85,17 @@ describe('admin Registry approval proof', () => {
     })
     expect(() => verifyAdminApprovalProof(expired.proof, expired.options))
       .toThrow(expect.objectContaining({ code: 'admin_approval_expired' }))
+  })
+
+  it('rejects non-canonical base64url signatures even when they decode to the same bytes', () => {
+    const valid = fixture()
+    const nonCanonical = makeNonCanonicalSignature(valid.proof)
+    const validSignature = valid.proof.split('.')[2]
+    const nonCanonicalSignature = nonCanonical.split('.')[2]
+
+    expect(Buffer.from(nonCanonicalSignature, 'base64url'))
+      .toEqual(Buffer.from(validSignature, 'base64url'))
+    expect(() => verifyAdminApprovalProof(nonCanonical, valid.options))
+      .toThrow(expect.objectContaining({ code: 'admin_approval_signature_invalid' }))
   })
 })
