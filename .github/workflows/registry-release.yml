@@ -85,11 +85,12 @@ jobs:
       - name: Confirm protected main has not moved
         env:
           ENVIRONMENT: ${{ steps.intent.outputs.environment }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           release_file="packages/authorization-core/src/generated/${ENVIRONMENT}-release.json"
           approved_base="$(jq -r '.intent.baseCommitSha' "$release_file")"
-          git fetch origin main
-          current_main="$(git rev-parse origin/main)"
+          current_main="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha)"
+          test "${#current_main}" -eq 40
           if [ "$approved_base" != "$current_main" ]; then
             pnpm sso:registry record-ci \
               --environment "$ENVIRONMENT" \

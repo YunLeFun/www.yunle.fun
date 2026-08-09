@@ -9,6 +9,10 @@ const workflow = name => readFileSync(resolve(root, '.github/workflows', name), 
 describe('registry protected workflows', () => {
   it('accepts only a release intent id and merges a generated-only PR after its checks pass', () => {
     const source = workflow('registry-release.yml')
+    const mainGuard = source.slice(
+      source.indexOf('- name: Confirm protected main has not moved'),
+      source.indexOf('- name: Verify generated-only diff'),
+    )
 
     expect(source).toContain('workflow_dispatch:')
     expect(source).toContain('releaseIntentId:')
@@ -26,6 +30,9 @@ describe('registry protected workflows', () => {
     expect(source).toContain('--match-head-commit')
     expect(source).toContain('vars.SSO_REGISTRY_PRODUCTION_DEPLOY_ENABLED')
     expect(source).toContain('test "$PRODUCTION_DEPLOY_ENABLED" = true')
+    expect(mainGuard).toContain('GH_TOKEN: $' + '{{ github.token }}')
+    expect(mainGuard).toContain('gh api "repos/$' + '{GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha')
+    expect(mainGuard).not.toContain('git fetch origin main')
     expect(source).not.toContain('gh pr merge --auto')
     expect(source).not.toMatch(/^\s{6}(environment|snapshotId|baseCommitSha):/m)
   })
