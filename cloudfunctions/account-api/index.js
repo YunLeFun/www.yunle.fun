@@ -23,6 +23,9 @@
  *   - upsertMyProfile   同步本人公开资料（需登录，白名单字段）
  *   - deductCoinForUser 内部服务按指定 userId 扣云币（需 ACCOUNT_API_INTERNAL_TOKEN）
  *   - getAccountForUser 内部服务按指定 userId 读账户全貌（需 ACCOUNT_API_INTERNAL_TOKEN）
+ *   - fundPachinkoRoundForUser Play 弹珠机按回合扣币（需 PLAY_PACHINKO_ACCOUNT_API_TOKEN）
+ *   - getPachinkoBalanceForUser Play 弹珠机读取余额（需 PLAY_PACHINKO_ACCOUNT_API_TOKEN）
+ *   - settlePachinkoRoundForUser Play 弹珠机按回合返币/补偿（需 PLAY_PACHINKO_ACCOUNT_API_TOKEN）
  *   - adminAdjustCoin   管理员人工调账（增/减，需 ACCOUNT_API_INTERNAL_TOKEN）
  *   - adminGrantReward  owner 按稳定 grantId 发放内测奖励（需 ACCOUNT_API_INTERNAL_TOKEN）
  *   - adminCorrectReward owner 创建受控奖励纠正（需 ACCOUNT_API_INTERNAL_TOKEN）
@@ -79,6 +82,11 @@ const {
 } = require('./lib/wallet')
 const { getUnreadCount, listNotifications, markRead } = require('./notifications')
 const { listUserOrders } = require('./orders-query')
+const {
+  handleFundPachinkoRoundForUser,
+  handleGetPachinkoBalanceForUser,
+  handleSettlePachinkoRoundForUser,
+} = require('./pachinko')
 const { backfillDefaultNicknames, getProfile, upsertMyProfile } = require('./profiles')
 const { createRewardClaimActionRouter, isRewardClaimAction } = require('./reward-claim-routing')
 const { createRewardClaimRuntime } = require('./reward-claim-runtime')
@@ -192,6 +200,12 @@ async function dispatch(event) {
       return await handleSyntheticDeductCoinForUser(db, event)
     case 'deductCoinForUser':
       return await handleDeductCoinForUser(db, event)
+    case 'fundPachinkoRoundForUser':
+      return await handleFundPachinkoRoundForUser(db, event)
+    case 'getPachinkoBalanceForUser':
+      return await handleGetPachinkoBalanceForUser(db, event)
+    case 'settlePachinkoRoundForUser':
+      return await handleSettlePachinkoRoundForUser(db, event)
     case 'getAccountForUser':
       return await handleGetAccountForUser(db, event)
     case 'getAccountAccessForUser':
@@ -354,6 +368,9 @@ exports._private = {
   handleAdminGrantReward,
   handleAdminUnbanAccount,
   handleDeductCoinForUser,
+  handleFundPachinkoRoundForUser,
+  handleGetPachinkoBalanceForUser,
+  handleSettlePachinkoRoundForUser,
   handleSyntheticDeductCoinForUser,
   handleGetAccountForUser,
   handleGetAccountAccessForUser,
