@@ -48,7 +48,7 @@ describe('sso explorer configuration', () => {
     expect(ssoExplorerApps.find(app => app.appId === 'smap')).toMatchObject({
       name: 'SMAP 星际导航',
       description: '规划星际路线与模拟导航行程',
-      logoUrl: 'https://smap.yunle.fun/smap-logo.svg',
+      logoUrl: 'https://smap.yunle.fun/smap-mark.svg',
     })
     expect(ssoExplorerApps.find(app => app.appId === 'fc')).toMatchObject({
       name: '怀旧游戏机',

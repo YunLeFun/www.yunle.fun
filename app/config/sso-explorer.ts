@@ -65,6 +65,7 @@ const presentationByAppId: Record<string, SsoPresentation> = {
     description: '规划星际路线与模拟导航行程',
     fallbackMark: '图',
     accent: 'var(--ylf-dopa-cyan)',
+    logoUrl: 'https://smap.yunle.fun/smap-mark.svg',
     position: { x: 50, y: 9 },
   },
   'fc': {
