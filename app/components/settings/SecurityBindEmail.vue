@@ -24,6 +24,7 @@ import {
   InputGroupInput,
 } from '@/components/ui/input-group'
 import { Spinner } from '@/components/ui/spinner'
+import { EmailBindingError } from '~/composables/auth/types'
 import SecurityCredentialRow from './SecurityCredentialRow.vue'
 import SecurityOtpInput from './SecurityOtpInput.vue'
 import SecurityVerificationProgress from './SecurityVerificationProgress.vue'
@@ -38,20 +39,30 @@ const {
   loading: authLoading,
 } = useTcbAuth()
 
-const showModal = ref(false)
-const emailAddress = ref('')
-const otpCode = ref('')
-const bindData = ref<TcbBindVerificationData | null>(null)
-const step = ref<'input' | 'verify'>('input')
+const showModal = shallowRef(false)
+const emailAddress = shallowRef('')
+const otpCode = shallowRef('')
+const bindData = shallowRef<TcbBindVerificationData | null>(null)
+const step = shallowRef<'input' | 'verify'>('input')
+const emailFieldError = shallowRef('')
+const otpFieldError = shallowRef('')
 const { remaining: countdown, isActive: countdownActive, start: startCountdown } = useCountdown()
 
-const emailValid = computed(() => RE_EMAIL.test(emailAddress.value))
+const normalizedEmail = computed(() => emailAddress.value.trim().toLowerCase())
+const emailValid = computed(() => RE_EMAIL.test(normalizedEmail.value))
 const emailInvalid = computed(() => emailAddress.value.length > 0 && !emailValid.value)
+const emailError = computed(() => emailFieldError.value || (emailInvalid.value ? '请输入正确的邮箱地址' : ''))
+const emailHasError = computed(() => emailError.value.length > 0)
 
 watch(otpCode, (value) => {
+  otpFieldError.value = ''
   const sanitized = value.replace(/\D/g, '').slice(0, 6)
   if (sanitized !== value)
     otpCode.value = sanitized
+})
+
+watch(emailAddress, () => {
+  emailFieldError.value = ''
 })
 
 function openModal() {
@@ -60,30 +71,57 @@ function openModal() {
   emailAddress.value = ''
   otpCode.value = ''
   bindData.value = null
+  emailFieldError.value = ''
+  otpFieldError.value = ''
 }
 
 async function handleSendOtp() {
-  if (!emailValid.value)
+  emailFieldError.value = ''
+  if (!emailValid.value) {
+    emailFieldError.value = normalizedEmail.value ? '请输入正确的邮箱地址' : '请输入邮箱地址'
     return
+  }
+  if (normalizedEmail.value === user.value?.email?.trim().toLowerCase()) {
+    emailFieldError.value = '该邮箱已绑定当前账号'
+    return
+  }
+
+  emailAddress.value = normalizedEmail.value
   try {
-    bindData.value = await bindEmail(emailAddress.value)
+    bindData.value = await bindEmail(normalizedEmail.value)
+    otpCode.value = ''
+    otpFieldError.value = ''
     step.value = 'verify'
     startCountdown()
   }
-  catch {
-    // 错误已在 composable 中处理
+  catch (err: unknown) {
+    if (!(err instanceof EmailBindingError))
+      return
+    if (err.presentation.field === 'email') {
+      emailFieldError.value = err.presentation.description
+      step.value = 'input'
+    }
   }
 }
 
 async function handleVerify() {
   if (!bindData.value || !RE_OTP.test(otpCode.value))
     return
+  otpFieldError.value = ''
   try {
-    await verifyBindEmail(bindData.value, emailAddress.value, otpCode.value)
+    await verifyBindEmail(bindData.value, normalizedEmail.value, otpCode.value)
     showModal.value = false
   }
-  catch {
-    // 错误已在 composable 中处理
+  catch (err: unknown) {
+    if (!(err instanceof EmailBindingError))
+      return
+    if (err.presentation.field === 'otp') {
+      otpFieldError.value = err.presentation.description
+    }
+    else if (err.presentation.field === 'email') {
+      emailFieldError.value = err.presentation.description
+      step.value = 'input'
+    }
   }
 }
 </script>
@@ -128,11 +166,11 @@ async function handleVerify() {
           @submit.prevent="handleSendOtp"
         >
           <FieldGroup>
-            <Field :data-invalid="emailInvalid">
+            <Field :data-invalid="emailHasError">
               <FieldLabel for="email-bind-address">
                 邮箱地址
               </FieldLabel>
-              <InputGroup :data-invalid="emailInvalid" :data-disabled="authLoading">
+              <InputGroup :data-invalid="emailHasError" :data-disabled="authLoading">
                 <InputGroupAddon>
                   <MailIcon aria-hidden="true" />
                 </InputGroupAddon>
@@ -142,14 +180,15 @@ async function handleVerify() {
                   type="email"
                   autocomplete="email"
                   placeholder="name@example.com"
-                  :aria-invalid="emailInvalid"
+                  :aria-invalid="emailHasError || undefined"
+                  :aria-describedby="emailHasError ? 'email-bind-address-error' : 'email-bind-address-hint'"
                   :disabled="authLoading"
                 />
               </InputGroup>
-              <FieldError v-if="emailInvalid">
-                请输入正确的邮箱地址
+              <FieldError v-if="emailHasError" id="email-bind-address-error">
+                {{ emailError }}
               </FieldError>
-              <FieldDescription v-else>
+              <FieldDescription v-else id="email-bind-address-hint">
                 建议使用长期可访问的常用邮箱
               </FieldDescription>
             </Field>
@@ -162,16 +201,22 @@ async function handleVerify() {
           @submit.prevent="handleVerify"
         >
           <FieldGroup>
-            <Field>
+            <Field :data-invalid="!!otpFieldError">
               <FieldLabel>邮箱验证码</FieldLabel>
               <SecurityOtpInput
                 v-model="otpCode"
                 :disabled="authLoading"
+                :invalid="!!otpFieldError"
+                :aria-describedby="otpFieldError ? 'email-bind-otp-error' : 'email-bind-otp-hint'"
                 :countdown-active="countdownActive"
                 :countdown="countdown"
+                test-id="email-bind-otp"
                 @resend="handleSendOtp"
               />
-              <FieldDescription>
+              <FieldError v-if="otpFieldError" id="email-bind-otp-error">
+                {{ otpFieldError }}
+              </FieldError>
+              <FieldDescription v-else id="email-bind-otp-hint">
                 输入邮件中的 6 位数字验证码
               </FieldDescription>
             </Field>
@@ -188,7 +233,7 @@ async function handleVerify() {
         <Button
           type="submit"
           form="email-bind-form"
-          :disabled="!emailValid || authLoading"
+          :disabled="!emailValid || !!emailFieldError || authLoading"
         >
           <Spinner v-if="authLoading" data-icon="inline-start" />
           <SendIcon v-else data-icon="inline-start" />
@@ -203,7 +248,7 @@ async function handleVerify() {
         <Button
           type="submit"
           form="email-verify-form"
-          :disabled="!RE_OTP.test(otpCode) || authLoading"
+          :disabled="!RE_OTP.test(otpCode) || !!otpFieldError || authLoading"
         >
           <Spinner v-if="authLoading" data-icon="inline-start" />
           <CheckIcon v-else data-icon="inline-start" />

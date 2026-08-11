@@ -1,8 +1,68 @@
 import { describe, expect, it } from 'vitest'
 
-import { getAuthErrorPresentation, getEmailLoginErrorPresentation } from '../app/composables/auth/types'
+import {
+  getAuthErrorPresentation,
+  getEmailBindingErrorPresentation,
+  getEmailLoginErrorPresentation,
+} from '../app/composables/auth/types'
 
 describe('auth error presentation', () => {
+  it('把验证阶段的 invalid_argument 识别为验证码错误', () => {
+    expect(getEmailBindingErrorPresentation({
+      status: 'invalid_argument',
+      message: 'raw provider verification details',
+    }, 'verify')).toEqual({
+      field: 'otp',
+      title: '验证码无效',
+      description: '验证码错误或已过期，请重新输入或获取新验证码。',
+      code: 'invalid_argument',
+    })
+  })
+
+  it('忽略数字 HTTP status 并继续读取 CloudBase 字符串 code', () => {
+    expect(getEmailBindingErrorPresentation({
+      status: 429,
+      code: 'resource_exhausted',
+      message: 'raw provider quota details',
+    }, 'request')).toEqual({
+      field: 'form',
+      title: '请求过于频繁',
+      description: '验证码请求过于频繁，请稍后再试。',
+      code: 'resource_exhausted',
+    })
+  })
+
+  it.each([
+    ['status', { status: 'verification_code_expired' }],
+    ['code', { code: 'verification_code_expired' }],
+    ['error', { error: 'verification_code_expired' }],
+  ])('通过 %s 字段识别过期验证码', (_source, providerError) => {
+    expect(getEmailBindingErrorPresentation({
+      ...providerError,
+      message: 'raw provider verification details',
+    }, 'verify')).toEqual({
+      field: 'otp',
+      title: '验证码无效',
+      description: '验证码错误或已过期，请重新输入或获取新验证码。',
+      code: 'verification_code_expired',
+    })
+  })
+
+  it('网络错误使用安全的表单提示且不透传服务端原文', () => {
+    const presentation = getEmailBindingErrorPresentation({
+      error: 'unreachable',
+      error_description: 'raw provider network and tenant details',
+    }, 'request')
+
+    expect(presentation).toEqual({
+      field: 'form',
+      title: '验证码发送失败',
+      description: '验证码暂时无法发送，请稍后重试。',
+      code: 'unreachable',
+    })
+    expect(presentation.description).not.toContain('raw provider')
+  })
+
   it.each([
     'USER_NOT_FOUND',
     'user_not_found',
@@ -15,7 +75,7 @@ describe('auth error presentation', () => {
 
     expect(presentation).toEqual({
       title: '无法使用邮箱登录',
-      description: '暂时无法使用该邮箱登录，请先使用手机号或 GitHub 登录，并在账号设置中绑定邮箱。',
+      description: '该邮箱暂时无法用于登录。请检查邮箱是否正确；首次使用邮箱登录，请先通过手机号或 GitHub 登录，并在账号设置中绑定邮箱。',
       code,
     })
     expect(presentation.description).not.toContain('raw provider error')

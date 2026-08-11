@@ -1,11 +1,28 @@
 /**
  * 密码认证（登录、修改、重置）和邮箱/手机号绑定
  */
-import type { TcbBindVerificationData, TcbResetPasswordData } from './types'
-import { getAuthErrorPresentation, getErrorMessage } from './types'
+import type { EmailBindingPhase, TcbBindVerificationData, TcbResetPasswordData } from './types'
+import { getAuthErrorPresentation, getErrorMessage, toEmailBindingError } from './types'
 
 export function useTcbPassword(core: ReturnType<typeof import('./useAuthCore').useTcbAuthCore>) {
   const { auth, router, toast, loading, error, user, fetchUser } = core
+
+  function throwEmailBindingError(err: unknown, phase: EmailBindingPhase): never {
+    const bindingError = toEmailBindingError(err, phase)
+    console.error(phase === 'request' ? '绑定邮箱失败:' : '验证绑定邮箱失败:', {
+      code: bindingError.presentation.code,
+      field: bindingError.presentation.field,
+    })
+    error.value = bindingError.presentation.description
+    if (bindingError.presentation.field === 'form') {
+      toast.add({
+        title: bindingError.presentation.title,
+        description: bindingError.presentation.description,
+        color: 'error',
+      })
+    }
+    throw bindingError
+  }
 
   const signInWithPassword = async (params: { email?: string, phone?: string, username?: string, password: string }) => {
     try {
@@ -151,15 +168,12 @@ export function useTcbPassword(core: ReturnType<typeof import('./useAuthCore').u
       error.value = null
       const { data, error: updateError } = await auth.updateUser({ email })
       if (updateError)
-        throw new Error(updateError.message || '发送验证码失败')
+        throw updateError
       toast.add({ title: '验证码已发送', description: '请查看您的邮箱', color: 'success' })
       return data
     }
     catch (err: unknown) {
-      console.error('绑定邮箱失败:', err)
-      error.value = getErrorMessage(err)
-      toast.add({ title: '发送失败', description: getErrorMessage(err) || '请稍后重试', color: 'error' })
-      throw err
+      throwEmailBindingError(err, 'request')
     }
     finally {
       loading.value = false
@@ -174,16 +188,13 @@ export function useTcbPassword(core: ReturnType<typeof import('./useAuthCore').u
         throw new Error('绑定验证回调不可用')
       const { data, error: verifyError } = await bindData.verifyOtp({ email, token })
       if (verifyError)
-        throw new Error(verifyError.message || '验证码验证失败')
+        throw verifyError
       await fetchUser()
       toast.add({ title: '绑定成功', description: '邮箱已成功绑定', color: 'success' })
       return data
     }
     catch (err: unknown) {
-      console.error('验证绑定邮箱失败:', err)
-      error.value = getErrorMessage(err)
-      toast.add({ title: '验证失败', description: getErrorMessage(err) || '验证码错误或已过期', color: 'error' })
-      throw err
+      throwEmailBindingError(err, 'verify')
     }
     finally {
       loading.value = false

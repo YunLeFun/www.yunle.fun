@@ -144,6 +144,28 @@ export interface AuthErrorPresentation {
   supportUrl?: string
 }
 
+export type EmailBindingErrorField = 'email' | 'otp' | 'form'
+export type EmailBindingPhase = 'request' | 'verify'
+
+export interface EmailBindingErrorPresentation {
+  field: EmailBindingErrorField
+  title: string
+  description: string
+  code: string | null
+}
+
+export class EmailBindingError extends Error {
+  readonly presentation: EmailBindingErrorPresentation
+  readonly original: unknown
+
+  constructor(presentation: EmailBindingErrorPresentation, original: unknown) {
+    super(presentation.description)
+    this.name = 'EmailBindingError'
+    this.presentation = presentation
+    this.original = original
+  }
+}
+
 const SMS_ERROR_CODE_PATTERN = /\b(?:FailedOperation|InternalError|InvalidParameterValue|LimitExceeded|MissingParameter|UnauthorizedOperation|UnsupportedOperation)(?:\.[a-z][a-z0-9]*)?\b/i
 const SMS_ERROR_CODE_PREFIX_PATTERN = /^(?:FailedOperation|InternalError|InvalidParameterValue|LimitExceeded|MissingParameter|UnauthorizedOperation|UnsupportedOperation)(?:\.|$)/i
 
@@ -174,9 +196,15 @@ function getErrorCode(err: unknown, message: string): string | null {
 
   if (err && typeof err === 'object') {
     const source = err as Record<string, unknown>
-    const code = source.code || source.error
-    if (typeof code === 'string' && code)
-      return code
+    // CloudBase AuthError 将 OAuth 的 `error` 保存为 `status`，`code` 仅对应
+    // 可选的 `error_code`；标准状态应优先，否则 already_exists 等错误会丢失。
+    for (const candidate of [source.status, source.code, source.error]) {
+      if (typeof candidate !== 'string')
+        continue
+      const code = candidate.trim()
+      if (code)
+        return code
+    }
   }
   if (/user_blocked|该用户被停用|用户被停用|账号.*停用/i.test(message))
     return 'user_blocked'
@@ -212,6 +240,77 @@ function buildAuthSupportUrl(code: string, requestId?: string): string {
 
 function matchesErrorCode(code: string | null, ...candidates: string[]): code is string {
   return code !== null && candidates.some(candidate => candidate.toLowerCase() === code.toLowerCase())
+}
+
+/** 已登录用户绑定邮箱时使用的安全错误契约；字段错误由表单就地展示。 */
+export function getEmailBindingErrorPresentation(err: unknown, phase: EmailBindingPhase): EmailBindingErrorPresentation {
+  const message = getErrorMessage(err)
+  const code = getErrorCode(err, message)
+
+  if (
+    (phase === 'request' && matchesErrorCode(code, 'invalid_argument', 'invalid_request'))
+    || matchesErrorCode(code, 'invalid_email', 'email_address_invalid', 'invalid_email_address')
+    || /(?:invalid|malformed).*(?:email|mailbox)|邮箱.*(?:格式|地址).*(?:错误|无效|不正确)/i.test(message)
+  ) {
+    return {
+      field: 'email',
+      title: '邮箱格式不正确',
+      description: '请输入有效的邮箱地址。',
+      code,
+    }
+  }
+
+  if (
+    matchesErrorCode(code, 'already_exists', 'email_already_exists', 'user_already_exists', 'identity_already_exists')
+    || /email.*(?:already.*(?:exists|registered|bound)|has.*(?:exists|registered|bound))|邮箱.*(?:已绑定|已注册|已存在|被占用)/i.test(message)
+  ) {
+    return {
+      field: 'email',
+      title: '该邮箱已被使用',
+      description: '该邮箱已绑定其他账号，请更换邮箱，或退出后使用该邮箱登录原账号。',
+      code,
+    }
+  }
+
+  if (
+    matchesErrorCode(code, 'resource_exhausted', 'too_many_requests', 'rate_limit', 'rate_limited', 'limit_exceeded')
+    || /rate.*limit|too many requests|请求.*频繁|次数.*(?:上限|限制)/i.test(message)
+  ) {
+    return {
+      field: 'form',
+      title: '请求过于频繁',
+      description: '验证码请求过于频繁，请稍后再试。',
+      code,
+    }
+  }
+
+  if (
+    phase === 'verify'
+    && (
+      matchesErrorCode(code, 'invalid_argument', 'invalid_verification_code', 'verification_code_expired', 'otp_expired', 'invalid_otp')
+      || /(?:verification|otp|token|验证码).*(?:invalid|expired|错误|无效|过期)/i.test(message)
+    )
+  ) {
+    return {
+      field: 'otp',
+      title: '验证码无效',
+      description: '验证码错误或已过期，请重新输入或获取新验证码。',
+      code,
+    }
+  }
+
+  return {
+    field: 'form',
+    title: phase === 'request' ? '验证码发送失败' : '邮箱绑定失败',
+    description: phase === 'request' ? '验证码暂时无法发送，请稍后重试。' : '邮箱绑定暂时失败，请稍后重试。',
+    code,
+  }
+}
+
+export function toEmailBindingError(err: unknown, phase: EmailBindingPhase): EmailBindingError {
+  return err instanceof EmailBindingError
+    ? err
+    : new EmailBindingError(getEmailBindingErrorPresentation(err, phase), err)
 }
 
 /** 登录入口统一使用的安全错误提示，不向用户暴露风控规则或内部异常。 */
@@ -324,7 +423,7 @@ export function getEmailLoginErrorPresentation(err: unknown, fallbackTitle = '�
   ) {
     return {
       title: '无法使用邮箱登录',
-      description: '暂时无法使用该邮箱登录，请先使用手机号或 GitHub 登录，并在账号设置中绑定邮箱。',
+      description: '该邮箱暂时无法用于登录。请检查邮箱是否正确；首次使用邮箱登录，请先通过手机号或 GitHub 登录，并在账号设置中绑定邮箱。',
       code,
     }
   }

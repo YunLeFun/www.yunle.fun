@@ -4,7 +4,7 @@ import { ref } from 'vue'
 import { useTcbOtp } from '../app/composables/auth/useOtp'
 
 describe('otp error feedback', () => {
-  const emailLoginDescription = '暂时无法使用该邮箱登录，请先使用手机号或 GitHub 登录，并在账号设置中绑定邮箱。'
+  const emailLoginDescription = '该邮箱暂时无法用于登录。请检查邮箱是否正确；首次使用邮箱登录，请先通过手机号或 GitHub 登录，并在账号设置中绑定邮箱。'
 
   it('未绑定邮箱在发送阶段被拒绝时显示安全引导', async () => {
     const providerError = {
