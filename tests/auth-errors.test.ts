@@ -60,7 +60,19 @@ describe('auth error presentation', () => {
       description: '验证码暂时无法发送，请稍后重试。',
       code: 'unreachable',
     })
-    expect(presentation.description).not.toContain('raw provider')
+  })
+
+  it('未知错误不会把 CloudBase helpMessage 暴露给用户', () => {
+    expect(getEmailBindingErrorPresentation({
+      code: 'internal_provider_failure',
+      message: 'provider request failed',
+      helpMessage: 'raw tenant configuration and internal remediation details',
+    }, 'request')).toEqual({
+      field: 'form',
+      title: '验证码发送失败',
+      description: '验证码暂时无法发送，请稍后重试。',
+      code: 'internal_provider_failure',
+    })
   })
 
   it.each([
@@ -78,7 +90,6 @@ describe('auth error presentation', () => {
       description: '该邮箱暂时无法用于登录。请检查邮箱是否正确；首次使用邮箱登录，请先通过手机号或 GitHub 登录，并在账号设置中绑定邮箱。',
       code,
     })
-    expect(presentation.description).not.toContain('raw provider error')
   })
 
   it('把 CloudBase user_blocked 映射为明确且不泄露内部规则的暂停登录提示', () => {
@@ -182,7 +193,6 @@ describe('auth error presentation', () => {
       description: '验证码服务暂时不可用，请稍后重试；若仍无法发送，请联系客服。',
       code: 'FailedOperation.TemplateUnapprovedOrNotExist',
     })
-    expect(presentation.description).not.toMatch(/FailedOperation|template/i)
     expect(presentation.supportUrl).toContain('https://support.yunle.fun/login-help?')
 
     expect(getAuthErrorPresentation(

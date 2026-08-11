@@ -19,7 +19,6 @@ describe('sso explorer configuration', () => {
       'fc',
       'support',
     ])
-    expect(ssoExplorerApps).toHaveLength(11)
     expect(ssoExplorerApps.some(app => app.appId === 'admin')).toBe(false)
     expect(ssoExplorerApps.every(app => app.origin.startsWith('https://'))).toBe(true)
     expect(ssoExplorerApps.every(app =>
