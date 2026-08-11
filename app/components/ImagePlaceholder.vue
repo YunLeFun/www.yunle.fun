@@ -1,5 +1,5 @@
 <template>
-  <UPageCard
+  <AppPageCard
     variant="subtle"
   >
     <div class="border-accented px-4 border rounded-sm border-dashed opacity-75 flex aspect-video items-center justify-center relative overflow-hidden">
@@ -29,5 +29,5 @@
 
       <slot />
     </div>
-  </UPageCard>
+  </AppPageCard>
 </template>

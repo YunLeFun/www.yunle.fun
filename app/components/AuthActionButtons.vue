@@ -1,33 +1,41 @@
+<script setup lang="ts">
+withDefaults(defineProps<{
+  presentation?: 'responsive' | 'labeled'
+}>(), {
+  presentation: 'responsive',
+})
+</script>
+
 <template>
   <div class="flex items-center gap-2">
-    <UButton
+    <AppButton
       to="/login"
       label="登录"
       color="neutral"
       variant="outline"
-      class="hidden lg:inline-flex"
+      :class="presentation === 'labeled' ? 'inline-flex' : 'hidden lg:inline-flex'"
     />
-    <UButton
+    <AppButton
       to="/login"
       icon="i-ri-login-box-line"
       aria-label="登录"
       color="neutral"
       variant="ghost"
-      class="lg:hidden"
+      :class="presentation === 'labeled' ? 'hidden' : 'lg:hidden'"
     />
-    <UButton
+    <AppButton
       to="/signup"
       icon="i-lucide-user-plus"
       aria-label="注册"
       color="neutral"
       variant="ghost"
-      class="lg:hidden"
+      :class="presentation === 'labeled' ? 'hidden' : 'lg:hidden'"
     />
-    <UButton
+    <AppButton
       label="注册"
       color="neutral"
       trailing-icon="i-lucide-arrow-right"
-      class="hidden lg:inline-flex"
+      :class="presentation === 'labeled' ? 'inline-flex' : 'hidden lg:inline-flex'"
       to="/signup"
     />
   </div>

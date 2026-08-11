@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+
 const route = useRoute()
 const slug = computed(() => route.params.slug as string)
 
@@ -19,13 +21,13 @@ useSeoMeta({
 </script>
 
 <template>
-  <UContainer v-if="post">
-    <UPageHeader
+  <AppContainer v-if="post">
+    <AppPageHeader
       :title="post.title"
       :description="post.description"
     >
       <template #headline>
-        <UBadge
+        <AppBadge
           v-if="post.badge"
           v-bind="post.badge"
           variant="subtle"
@@ -35,7 +37,7 @@ useSeoMeta({
       </template>
 
       <div class="mt-4 flex flex-wrap gap-3 items-center">
-        <UButton
+        <AppButton
           v-for="(author, index) in post.authors"
           :key="index"
           :to="author.to"
@@ -44,26 +46,27 @@ useSeoMeta({
           target="_blank"
           size="sm"
         >
-          <UAvatar
+          <Avatar
             v-if="author.avatar"
-            v-bind="author.avatar"
-            alt="Author avatar"
-            size="2xs"
-          />
+            size="sm"
+          >
+            <AvatarImage :src="author.avatar.src" :alt="author.name || '作者头像'" />
+            <AvatarFallback>{{ (author.name || '作').slice(0, 1) }}</AvatarFallback>
+          </Avatar>
 
           {{ author.name }}
-        </UButton>
+        </AppButton>
       </div>
-    </UPageHeader>
+    </AppPageHeader>
 
-    <UPage>
-      <UPageBody>
+    <AppPage>
+      <AppPageBody>
         <MDCRenderer
           v-if="post.body"
           :body="post.body"
           :data="post"
         />
-      </UPageBody>
-    </UPage>
-  </UContainer>
+      </AppPageBody>
+    </AppPage>
+  </AppContainer>
 </template>

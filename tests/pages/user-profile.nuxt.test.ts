@@ -46,9 +46,9 @@ function mountPage() {
     shallow: true,
     global: {
       stubs: {
-        UContainer: { template: '<div><slot /></div>' },
+        AppContainer: { template: '<div><slot /></div>' },
         SkyHero: { template: '<section><slot /></section>' },
-        UButton: {
+        AppButton: {
           props: ['label'],
           emits: ['click'],
           template: '<button type="button" @click="$emit(\'click\')">{{ label }}</button>',

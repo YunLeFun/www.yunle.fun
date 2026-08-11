@@ -52,9 +52,9 @@ function appManagementHref(item: AppRecord) {
 </script>
 
 <template>
-  <UContainer class="py-10 sm:py-12">
+  <AppContainer class="py-10 sm:py-12">
     <div v-if="authLoading || loading" class="flex justify-center py-20">
-      <UIcon name="i-lucide-loader-2" class="text-3xl text-muted animate-spin" />
+      <Icon name="i-lucide-loader-2" class="text-3xl text-muted animate-spin" />
     </div>
 
     <div v-else class="max-w-4xl mx-auto space-y-6">
@@ -68,7 +68,7 @@ function appManagementHref(item: AppRecord) {
             管理发布到云乐坊的应用入口和链接信息
           </p>
         </div>
-        <UButton
+        <AppButton
           v-if="canCreate"
           to="https://apps.yunle.fun/workshop/new"
           label="创建应用"
@@ -80,7 +80,7 @@ function appManagementHref(item: AppRecord) {
 
       <!-- 空状态 -->
       <div v-if="apps.length === 0" class="ylf-empty-state rounded-lg px-4 py-16 text-center">
-        <UIcon name="i-lucide-package" class="text-5xl text-muted mb-4" />
+        <Icon name="i-lucide-package" class="text-5xl text-muted mb-4" />
         <template v-if="canCreate">
           <p class="text-lg text-muted mb-2">
             还没有发布任何应用
@@ -88,7 +88,7 @@ function appManagementHref(item: AppRecord) {
           <p class="text-sm text-muted mb-6">
             创建你的第一个应用，像管理 GitHub 仓库一样管理它们
           </p>
-          <UButton
+          <AppButton
             to="https://apps.yunle.fun/workshop/new"
             label="创建第一个应用"
             icon="i-lucide-plus"
@@ -124,7 +124,7 @@ function appManagementHref(item: AppRecord) {
                 class="h-8 w-8 rounded"
               >
               <span v-else-if="item.emoji" class="text-2xl leading-none">{{ item.emoji }}</span>
-              <UIcon v-else name="i-lucide-box" class="text-xl text-muted" />
+              <Icon v-else name="i-lucide-box" class="text-xl text-muted" />
             </div>
 
             <!-- 信息 -->
@@ -133,7 +133,7 @@ function appManagementHref(item: AppRecord) {
                 <span class="font-semibold text-default group-hover:text-primary transition-colors truncate">
                   {{ item.name }}
                 </span>
-                <UBadge
+                <AppBadge
                   :label="audienceLabel(item)"
                   :color="item.audience === 'public' || (!item.audience && item.isPublic) ? 'success' : 'neutral'"
                   variant="subtle"
@@ -146,7 +146,7 @@ function appManagementHref(item: AppRecord) {
               <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">
                 <span class="font-mono">{{ item.slug }}</span>
                 <span v-if="item.githubRepo" class="flex items-center gap-1">
-                  <UIcon name="i-ri-github-fill" class="text-sm" />
+                  <Icon name="i-ri-github-fill" class="text-sm" />
                   {{ item.githubRepo }}
                 </span>
                 <span>更新于 {{ formatDate(item.updatedAt) }}</span>
@@ -154,7 +154,7 @@ function appManagementHref(item: AppRecord) {
             </div>
 
             <!-- 箭头 -->
-            <UIcon
+            <Icon
               name="i-lucide-chevron-right"
               class="text-lg text-muted group-hover:text-primary transition-colors shrink-0 mt-1"
             />
@@ -162,5 +162,5 @@ function appManagementHref(item: AppRecord) {
         </NuxtLink>
       </div>
     </div>
-  </UContainer>
+  </AppContainer>
 </template>

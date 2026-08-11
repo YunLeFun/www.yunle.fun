@@ -7,6 +7,7 @@
  */
 import type { AppRecord } from '~/types/app'
 import type { FollowRelation, UserProfile } from '~/types/social'
+import { Button } from '@/components/ui/button'
 import AppSurfaceList from '~/components/apps/AppSurfaceList.vue'
 import { displayUserName } from '~/utils/mask'
 
@@ -122,28 +123,28 @@ function openList(type: 'following' | 'followers') {
 </script>
 
 <template>
-  <UContainer class="py-8 sm:py-10">
+  <AppContainer class="py-8 sm:py-10">
     <div v-if="loading" class="flex justify-center py-20">
-      <UIcon name="i-lucide-loader-2" class="animate-spin text-3xl text-muted" />
+      <Icon name="i-lucide-loader-2" class="animate-spin text-3xl text-muted" />
     </div>
 
     <div v-else-if="profileUnavailable" class="ylf-empty-state rounded-3xl px-4 py-20 text-center">
-      <UIcon name="i-lucide-cloud-off" class="mb-4 text-5xl text-muted" />
+      <Icon name="i-lucide-cloud-off" class="mb-4 text-5xl text-muted" />
       <p class="mb-2 text-lg text-muted">
         暂时无法加载用户资料
       </p>
       <p class="mb-5 text-sm text-dimmed">
         请检查网络后重试
       </p>
-      <UButton label="重新加载" icon="i-lucide-refresh-cw" color="neutral" variant="outline" @click="retryProfile" />
+      <AppButton label="重新加载" icon="i-lucide-refresh-cw" color="neutral" variant="outline" @click="retryProfile" />
     </div>
 
     <div v-else-if="profileNotFound" class="ylf-empty-state rounded-3xl px-4 py-20 text-center">
-      <UIcon name="i-lucide-user-x" class="mb-4 text-5xl text-muted" />
+      <Icon name="i-lucide-user-x" class="mb-4 text-5xl text-muted" />
       <p class="mb-4 text-lg text-muted">
         用户不存在
       </p>
-      <UButton to="/" label="返回首页" icon="i-lucide-arrow-left" color="neutral" variant="outline" />
+      <AppButton to="/" label="返回首页" icon="i-lucide-arrow-left" color="neutral" variant="outline" />
     </div>
 
     <div v-else-if="profile" class="mx-auto max-w-3xl space-y-6">
@@ -166,17 +167,17 @@ function openList(type: 'following' | 'followers') {
                 @{{ profile.login }}
               </p>
               <div class="ylf-hero-shadow mt-2.5 flex items-center gap-4 text-sm text-white/90">
-                <button type="button" class="transition-opacity hover:opacity-80" @click="openList('followers')">
+                <Button type="button" variant="ghost" size="xs" class="h-auto px-0 text-white hover:bg-transparent hover:text-white/80" @click="openList('followers')">
                   <strong class="font-bold">{{ followersCount }}</strong> 粉丝
-                </button>
-                <button type="button" class="transition-opacity hover:opacity-80" @click="openList('following')">
+                </Button>
+                <Button type="button" variant="ghost" size="xs" class="h-auto px-0 text-white hover:bg-transparent hover:text-white/80" @click="openList('following')">
                   <strong class="font-bold">{{ profile.followingCount }}</strong> 关注
-                </button>
+                </Button>
               </div>
             </div>
           </div>
           <div class="shrink-0 self-start sm:self-auto">
-            <UButton
+            <AppButton
               v-if="isSelf"
               to="/settings"
               label="编辑资料"
@@ -216,7 +217,7 @@ function openList(type: 'following' | 'followers') {
               已发布到个人主页的公开作品
             </p>
           </div>
-          <UButton
+          <AppButton
             v-if="profile.login"
             :to="`https://apps.yunle.fun/developer/${encodeURIComponent(profile.login)}`"
             label="云乐坊主页"
@@ -228,7 +229,7 @@ function openList(type: 'following' | 'followers') {
         </div>
 
         <div v-if="appsLoading" class="flex justify-center py-6">
-          <UIcon name="i-lucide-loader-2" class="animate-spin text-xl text-muted" />
+          <Icon name="i-lucide-loader-2" class="animate-spin text-xl text-muted" />
         </div>
         <div v-else-if="userApps.length === 0" class="ylf-empty-state rounded-2xl py-8 text-center">
           <p class="text-sm text-muted">
@@ -237,7 +238,7 @@ function openList(type: 'following' | 'followers') {
         </div>
         <template v-else>
           <AppSurfaceList :apps="userApps.slice(0, 6)" />
-          <UButton
+          <AppButton
             v-if="userApps.length > 6 && profile.login"
             :to="`https://apps.yunle.fun/developer/${encodeURIComponent(profile.login)}`"
             :label="`还有 ${userApps.length - 6} 个应用`"
@@ -253,7 +254,7 @@ function openList(type: 'following' | 'followers') {
 
       <FollowListModal v-model:open="showList" :user-id="profile.userId" :type="listType" />
     </div>
-  </UContainer>
+  </AppContainer>
 </template>
 
 <style scoped>

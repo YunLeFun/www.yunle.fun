@@ -114,7 +114,7 @@ function goBackToInfo() {
     <div class="text-center space-y-3">
       <div class="flex justify-center">
         <div class="ylf-icon-tile flex size-14 items-center justify-center rounded-2xl">
-          <UIcon
+          <Icon
             name="i-lucide-user-plus"
             class="size-7"
           />
@@ -130,17 +130,26 @@ function goBackToInfo() {
 
     <!-- 步骤 1: 填写信息 -->
     <div v-if="step === 'info'" class="space-y-4">
-      <UFormField label="手机号" required>
+      <AppFormField
+        label="手机号"
+        name="signup-phone"
+        :error="phoneInvalid ? '请输入正确的手机号' : undefined"
+        hint="当前仅支持中国大陆手机号"
+        required
+      >
         <div class="flex gap-2">
-          <USelect
+          <AppSelect
+            id="signup-phone-area"
             v-model="phoneAreaCode"
             :items="phoneAreaCodes"
             value-key="value"
             size="lg"
             class="w-24 shrink-0"
             :disabled="loading"
+            aria-label="国家或地区代码"
           />
-          <UInput
+          <AppInput
+            id="signup-phone"
             v-model.trim="phone"
             type="tel"
             inputmode="numeric"
@@ -154,13 +163,9 @@ function goBackToInfo() {
             @keyup.enter="handleSignUp"
           />
         </div>
-        <template #hint>
-          <span v-if="phoneInvalid" class="text-xs text-error">请输入正确的手机号</span>
-          <span v-else class="text-xs text-dimmed">当前仅支持中国大陆手机号</span>
-        </template>
-      </UFormField>
+      </AppFormField>
 
-      <UButton
+      <AppButton
         label="获取验证码"
         color="primary"
         size="lg"
@@ -173,9 +178,9 @@ function goBackToInfo() {
 
     <!-- 步骤 2: 验证码验证 -->
     <div v-else class="space-y-4">
-      <UFormField label="验证码">
+      <AppFormField label="验证码">
         <div class="flex gap-2">
-          <UInput
+          <AppInput
             v-model="otpCode"
             inputmode="numeric"
             autocomplete="one-time-code"
@@ -187,7 +192,7 @@ function goBackToInfo() {
             class="flex-1"
             @keyup.enter="handleVerify"
           />
-          <UButton
+          <AppButton
             :label="countdownActive ? `${countdown}s` : '重新发送'"
             color="neutral"
             variant="outline"
@@ -196,9 +201,9 @@ function goBackToInfo() {
             @click="handleResend"
           />
         </div>
-      </UFormField>
+      </AppFormField>
 
-      <UButton
+      <AppButton
         label="完成注册"
         color="primary"
         size="lg"
@@ -208,7 +213,7 @@ function goBackToInfo() {
         @click="handleVerify"
       />
 
-      <UButton
+      <AppButton
         label="返回修改"
         color="neutral"
         variant="ghost"
@@ -221,24 +226,24 @@ function goBackToInfo() {
 
     <!-- 登录链接 -->
     <p class="text-center text-sm text-muted">
-      已有云乐坊账号？<ULink
+      已有云乐坊账号？<NuxtLink
         to="/login"
         class="text-primary font-medium"
       >
         立即登录
-      </ULink>
+      </NuxtLink>
     </p>
 
     <!-- 服务条款 -->
     <p class="text-center text-xs text-dimmed">
       注册即表示您同意我们的
-      <ULink to="/docs/terms-of-service" class="text-primary font-medium">
+      <NuxtLink to="/docs/terms-of-service" class="text-primary font-medium">
         服务条款
-      </ULink>
+      </NuxtLink>
       和
-      <ULink to="/docs/privacy-policy" class="text-primary font-medium">
+      <NuxtLink to="/docs/privacy-policy" class="text-primary font-medium">
         隐私政策
-      </ULink>
+      </NuxtLink>
     </p>
   </div>
 </template>

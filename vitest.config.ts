@@ -8,8 +8,10 @@ export default defineVitestConfig({
     include: ['tests/**/*.test.{js,ts,mjs}'],
     environment: 'node',
     globals: false,
-    // Nuxt 组件环境需要各自初始化应用；限制 worker 避免大量并发转换抢占 CPU 后触发 5s 假超时。
+    // Nuxt 组件环境需要各自初始化应用；限制 worker 避免大量并发转换抢占 CPU 后触发假超时。
     maxWorkers: 4,
+    // Nuxt 测试环境会在文件级 beforeAll 中完成应用初始化；全量并行转换时可能超过默认 10s。
+    hookTimeout: 30_000,
     coverage: {
       provider: 'v8',
       include: [

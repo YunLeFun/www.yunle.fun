@@ -128,9 +128,9 @@ function workshopHref(surface: WorkshopSurface) {
 </script>
 
 <template>
-  <UContainer class="py-8 sm:py-10">
+  <AppContainer class="py-8 sm:py-10">
     <div v-if="loading" class="flex justify-center py-20">
-      <UIcon
+      <Icon
         name="i-lucide-loader-2"
         class="animate-spin text-3xl text-muted"
       />
@@ -165,7 +165,7 @@ function workshopHref(surface: WorkshopSurface) {
                     v-if="user.role === 'ADMIN'"
                     class="ylf-glass inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-medium text-white"
                   >
-                    <UIcon name="i-lucide-shield-check" class="size-3" />
+                    <Icon name="i-lucide-shield-check" class="size-3" />
                     管理员
                   </span>
                   <MemberBadge
@@ -180,7 +180,7 @@ function workshopHref(surface: WorkshopSurface) {
                 </div>
               </div>
             </div>
-            <UButton
+            <AppButton
               to="/settings?edit=profile"
               label="编辑资料"
               icon="i-lucide-pencil"
@@ -216,14 +216,14 @@ function workshopHref(surface: WorkshopSurface) {
       >
         <span class="flex items-center gap-3">
           <span class="ylf-pass-tile inline-flex size-10 shrink-0 items-center justify-center rounded-xl">
-            <UIcon name="i-lucide-cloud" class="size-5" />
+            <Icon name="i-lucide-cloud" class="size-5" />
           </span>
           <span class="min-w-0">
             <span class="block font-semibold">开通云乐坊会员 · 点亮晴空</span>
             <span class="block text-sm text-white/85">跨应用通用 · 数据同步 · 免扣云币</span>
           </span>
         </span>
-        <UIcon name="i-lucide-arrow-right" class="size-5 shrink-0 transition-transform group-hover:translate-x-1" />
+        <Icon name="i-lucide-arrow-right" class="size-5 shrink-0 transition-transform group-hover:translate-x-1" />
       </NuxtLink>
 
       <!-- 快捷入口 -->
@@ -242,7 +242,7 @@ function workshopHref(surface: WorkshopSurface) {
               class="ylf-dopa-tile inline-flex size-11 items-center justify-center rounded-xl"
               :style="{ '--tile': e.color }"
             >
-              <UIcon :name="e.icon" class="size-5" />
+              <Icon :name="e.icon" class="size-5" />
             </span>
             <span class="text-sm font-medium text-highlighted">{{ e.label }}</span>
           </NuxtLink>
@@ -260,7 +260,7 @@ function workshopHref(surface: WorkshopSurface) {
               已发布并展示在你的云乐坊个人主页
             </p>
           </div>
-          <UButton
+          <AppButton
             :to="appsProfileUrl"
             label="打开主页"
             icon="i-lucide-external-link"
@@ -272,13 +272,13 @@ function workshopHref(surface: WorkshopSurface) {
         </div>
 
         <div v-if="appsLoading" class="flex justify-center py-6">
-          <UIcon name="i-lucide-loader-2" class="animate-spin text-xl text-muted" />
+          <Icon name="i-lucide-loader-2" class="animate-spin text-xl text-muted" />
         </div>
         <div v-else-if="homeApps.length === 0" class="ylf-empty-state rounded-2xl py-8 text-center">
           <p class="mb-3 text-sm text-muted">
             还没有在主页展示应用
           </p>
-          <UButton
+          <AppButton
             v-if="canCreate"
             to="https://apps.yunle.fun/workshop/new"
             label="前往云乐坊发布"
@@ -300,13 +300,13 @@ function workshopHref(surface: WorkshopSurface) {
           <div>
             <h2 class="ylf-dreamy-display flex items-center gap-2 text-xl text-highlighted">
               私人工坊
-              <UIcon name="i-lucide-key-round" class="size-4 text-primary" aria-hidden="true" />
+              <Icon name="i-lucide-key-round" class="size-4 text-primary" aria-hidden="true" />
             </h2>
             <p class="mt-1 text-xs text-muted">
               这里只展示你作为坊主或坊客有权查看的作品
             </p>
           </div>
-          <UButton
+          <AppButton
             to="https://apps.yunle.fun/user/workshop"
             :label="myWorkshops.owned ? '管理' : '开启'"
             icon="i-lucide-external-link"
@@ -317,14 +317,14 @@ function workshopHref(surface: WorkshopSurface) {
         </div>
 
         <div v-if="appsLoading" class="flex justify-center py-6">
-          <UIcon name="i-lucide-loader-2" class="animate-spin text-xl text-muted" />
+          <Icon name="i-lucide-loader-2" class="animate-spin text-xl text-muted" />
         </div>
         <div v-else-if="workshopSurfaces.length === 0" class="ylf-empty-state rounded-2xl px-4 py-8 text-center">
-          <UIcon name="i-lucide-door-open" class="mb-2 size-7 text-muted" />
+          <Icon name="i-lucide-door-open" class="mb-2 size-7 text-muted" />
           <p class="text-sm text-muted">
             还没有开启或加入私人工坊
           </p>
-          <UButton
+          <AppButton
             to="https://apps.yunle.fun/user/workshops"
             label="查看我的工坊"
             icon="i-lucide-arrow-right"
@@ -346,14 +346,14 @@ function workshopHref(surface: WorkshopSurface) {
                   <h3 class="truncate text-sm font-semibold text-highlighted">
                     {{ surface.workshop.name }}
                   </h3>
-                  <UBadge
+                  <AppBadge
                     :label="surface.access === 'owner' ? '我的工坊' : '已加入'"
                     :icon="surface.access === 'owner' ? 'i-lucide-crown' : 'i-lucide-key-round'"
                     color="primary"
                     variant="subtle"
                     size="xs"
                   />
-                  <UBadge
+                  <AppBadge
                     v-if="surface.workshop.status === 'disabled'"
                     label="已停用"
                     color="neutral"
@@ -378,7 +378,7 @@ function workshopHref(surface: WorkshopSurface) {
                 class="inline-flex size-8 shrink-0 items-center justify-center rounded-full text-muted transition hover:bg-elevated hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                 :aria-label="`打开${surface.workshop.name}`"
               >
-                <UIcon name="i-lucide-arrow-up-right" class="size-4" aria-hidden="true" />
+                <Icon name="i-lucide-arrow-up-right" class="size-4" aria-hidden="true" />
               </a>
             </div>
 
@@ -398,7 +398,7 @@ function workshopHref(surface: WorkshopSurface) {
 
       <FollowListModal v-if="user" v-model:open="showList" :user-id="user.id" :type="listType" />
     </div>
-  </UContainer>
+  </AppContainer>
 </template>
 
 <style scoped>

@@ -126,9 +126,9 @@ watch(() => history.value.length, scrollToToday)
           天 · 满 {{ weekLen }} 天得里程碑 +{{ milestoneReward }} 云币
         </p>
       </div>
-      <UBadge v-if="longestStreak > 0" color="neutral" variant="subtle" icon="i-lucide-flame">
+      <AppBadge v-if="longestStreak > 0" color="neutral" variant="subtle" icon="i-lucide-flame">
         最长 {{ longestStreak }} 天
-      </UBadge>
+      </AppBadge>
     </div>
 
     <!-- 本周期进度 -->

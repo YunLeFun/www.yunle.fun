@@ -8,20 +8,12 @@ const props = defineProps<{
 }>()
 
 const gradientId = computed(() => `sso-account-cloud-${props.surface}`)
-const label = computed(() => {
-  if (props.account.status === 'authenticated')
-    return `云乐坊账号，${props.account.displayName}，统一账号已连接`
-  if (props.account.status === 'pending')
-    return '云乐坊账号，正在确认登录状态'
-  return '登录云乐坊账号'
-})
 </script>
 
 <template>
   <NuxtLink
     :to="account.to"
     class="sso-account-cloud"
-    :aria-label="label"
     data-testid="sso-account-cloud"
   >
     <svg
@@ -51,7 +43,7 @@ const label = computed(() => {
           :alt="account.displayName"
           size="lg"
         />
-        <UIcon
+        <Icon
           v-else-if="account.status === 'pending'"
           name="i-lucide-loader-circle"
           class="sso-account-cloud__loader"
@@ -66,7 +58,7 @@ const label = computed(() => {
 
       <strong>云乐坊账号</strong>
       <span class="sso-account-cloud__state">
-        <UIcon
+        <Icon
           :name="account.status === 'authenticated' ? 'i-lucide-shield-check' : 'i-lucide-log-in'"
           aria-hidden="true"
         />

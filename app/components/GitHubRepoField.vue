@@ -1,5 +1,21 @@
 <script setup lang="ts">
 import type { GitHubAppRepo } from '~/composables/useGitHubApp'
+import { ChevronsUpDownIcon } from '@lucide/vue'
+import { Button } from '@/components/ui/button'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import { Spinner } from '@/components/ui/spinner'
 
 /**
  * 应用「GitHub 仓库」字段：连接 GitHub App 后可下拉选择（含私有仓库），
@@ -11,7 +27,7 @@ interface Props {
   disabled?: boolean
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   placeholder: 'owner/repo',
   disabled: false,
 })
@@ -35,7 +51,11 @@ const manual = ref(false) // 已连接时也允许切回手动输入
 const connecting = ref(false)
 const reposLoading = ref(false)
 const repos = ref<GitHubAppRepo[]>([])
-const selected = ref<RepoItem | undefined>(undefined)
+const repoPickerOpen = shallowRef(false)
+const selectedValue = computed({
+  get: () => props.modelValue || '',
+  set: value => emit('update:modelValue', String(value || '')),
+})
 
 const repoItems = computed<RepoItem[]>(() =>
   repos.value.map(r => ({
@@ -72,10 +92,15 @@ async function loadRepos() {
   }
 }
 
-function onPick(item: RepoItem | undefined) {
-  if (!item)
-    return
-  emit('update:modelValue', item.value)
+function handleRepoPickerOpen(open: boolean) {
+  repoPickerOpen.value = open
+  if (open)
+    void loadRepos()
+}
+
+function onPick(item: RepoItem) {
+  selectedValue.value = item.value
+  repoPickerOpen.value = false
 }
 
 async function onConnect() {
@@ -111,50 +136,53 @@ async function onDisconnect() {
   <div class="space-y-2">
     <!-- 已连接：仓库下拉选择（含私有仓库） -->
     <template v-if="isConnected && !manual">
-      <USelectMenu
-        v-model="selected"
-        :items="repoItems"
-        :loading="reposLoading"
-        :disabled="disabled"
-        :placeholder="placeholder"
-        :search-input="{ placeholder: '搜索仓库...' }"
-        label-key="label"
-        class="w-full"
-        @update:open="(open: boolean) => { if (open) loadRepos() }"
-        @update:model-value="onPick"
-      >
-        <template #default>
-          <span v-if="modelValue" class="font-mono">{{ modelValue }}</span>
-          <span v-else class="text-muted">{{ placeholder }}</span>
-        </template>
-        <template #item="{ item }">
-          <div class="flex w-full items-center gap-2">
-            <UIcon name="i-lucide-book-marked" class="shrink-0 text-muted" />
-            <span class="flex-1 truncate font-mono text-sm">{{ (item as any).label }}</span>
-            <UBadge v-if="(item as any).private" size="xs" color="warning" variant="subtle">
-              私有
-            </UBadge>
-            <span v-if="(item as any).language" class="shrink-0 text-xs text-muted">{{ (item as any).language }}</span>
-          </div>
-        </template>
-        <template #empty>
-          <p class="py-2 text-center text-xs text-muted">
-            没有可选仓库（检查 App 的仓库授权范围）
-          </p>
-        </template>
-      </USelectMenu>
+      <Popover :open="repoPickerOpen" @update:open="handleRepoPickerOpen">
+        <PopoverTrigger as-child>
+          <Button variant="outline" class="w-full justify-between font-normal" :disabled="disabled">
+            <span v-if="modelValue" class="truncate font-mono">{{ modelValue }}</span>
+            <span v-else class="text-muted-foreground">{{ placeholder }}</span>
+            <Spinner v-if="reposLoading" />
+            <ChevronsUpDownIcon v-else class="text-muted-foreground" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="start" class="w-(--reka-popover-trigger-width) p-0">
+          <Command v-model="selectedValue">
+            <CommandInput placeholder="搜索仓库..." />
+            <CommandList>
+              <CommandEmpty>
+                没有可选仓库（检查 App 的仓库授权范围）
+              </CommandEmpty>
+              <CommandGroup>
+                <CommandItem
+                  v-for="item in repoItems"
+                  :key="item.value"
+                  :value="item.value"
+                  @select="onPick(item)"
+                >
+                  <Icon name="i-lucide-book-marked" class="shrink-0 text-muted" />
+                  <span class="flex-1 truncate font-mono text-sm">{{ item.label }}</span>
+                  <AppBadge v-if="item.private" color="warning" variant="subtle">
+                    私有
+                  </AppBadge>
+                  <span v-if="item.language" class="shrink-0 text-xs text-muted">{{ item.language }}</span>
+                </CommandItem>
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
 
       <div class="flex items-center gap-3 text-xs text-muted">
         <span class="flex items-center gap-1">
-          <UIcon name="i-ri-github-fill" />
+          <Icon name="i-ri-github-fill" />
           已连接 {{ githubLogin }}
         </span>
-        <button type="button" class="hover:text-primary" @click="manual = true">
+        <AppButton type="button" variant="link" size="xs" @click="manual = true">
           手动输入
-        </button>
-        <button type="button" class="hover:text-error" @click="onDisconnect">
+        </AppButton>
+        <AppButton type="button" color="error" variant="link" size="xs" @click="onDisconnect">
           断开
-        </button>
+        </AppButton>
       </div>
     </template>
 
@@ -167,7 +195,7 @@ async function onDisconnect() {
         @update:model-value="(v: string) => emit('update:modelValue', v)"
       />
       <div class="flex items-center gap-3 text-xs">
-        <UButton
+        <AppButton
           v-if="!isConnected"
           size="xs"
           color="neutral"
@@ -177,9 +205,9 @@ async function onDisconnect() {
           label="连接 GitHub 选择私有仓库"
           @click="onConnect"
         />
-        <button v-else type="button" class="text-muted hover:text-primary" @click="manual = false">
+        <AppButton v-else type="button" variant="link" size="xs" @click="manual = false">
           返回仓库列表
-        </button>
+        </AppButton>
       </div>
     </template>
   </div>

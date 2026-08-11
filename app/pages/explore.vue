@@ -62,13 +62,14 @@ onMounted(loadApps)
 </script>
 
 <template>
-  <main class="app-explorer-page">
+  <div class="app-explorer-page">
     <div class="app-explorer-page__glow app-explorer-page__glow--one" aria-hidden="true" />
     <div class="app-explorer-page__glow app-explorer-page__glow--two" aria-hidden="true" />
 
-    <UContainer class="app-explorer-page__container">
+    <AppContainer class="app-explorer-page__container">
       <AppExplorerHero
         :apps="normalizedApps"
+        :loading="loading"
         @scroll-to-grid="scrollToGrid"
       />
 
@@ -100,8 +101,8 @@ onMounted(loadApps)
           @clear="clearFilters"
         />
       </section>
-    </UContainer>
-  </main>
+    </AppContainer>
+  </div>
 </template>
 
 <style scoped>

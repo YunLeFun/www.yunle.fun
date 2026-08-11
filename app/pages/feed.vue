@@ -45,25 +45,25 @@ function formatTime(ts: number) {
 </script>
 
 <template>
-  <UContainer class="py-8 sm:py-10">
+  <AppContainer class="py-8 sm:py-10">
     <div class="mx-auto max-w-2xl space-y-5">
       <h1 class="ylf-dreamy-display text-2xl text-highlighted">
         关注动态
       </h1>
 
       <div v-if="!loaded && loading" class="flex justify-center py-20">
-        <UIcon name="i-lucide-loader-2" class="animate-spin text-3xl text-muted" />
+        <Icon name="i-lucide-loader-2" class="animate-spin text-3xl text-muted" />
       </div>
 
       <div v-else-if="items.length === 0" class="ylf-empty-state rounded-3xl px-4 py-16 text-center">
-        <UIcon name="i-lucide-rss" class="mb-4 text-5xl text-muted" />
+        <Icon name="i-lucide-rss" class="mb-4 text-5xl text-muted" />
         <p class="mb-2 text-lg text-muted">
           还没有动态
         </p>
         <p class="mb-5 text-sm text-muted">
           关注感兴趣的创作者，这里会展示 ta 们发布的应用
         </p>
-        <UButton to="/apps" label="去发现应用" icon="i-lucide-compass" color="primary" variant="subtle" />
+        <AppButton to="/apps" label="去发现应用" icon="i-lucide-compass" color="primary" variant="subtle" />
       </div>
 
       <div v-else class="space-y-3">
@@ -88,21 +88,21 @@ function formatTime(ts: number) {
           >
             <div class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-elevated">
               <img v-if="item.icon" :src="item.icon" :alt="item.name" class="size-7 rounded">
-              <UIcon v-else name="i-lucide-box" class="text-lg text-muted" />
+              <Icon v-else name="i-lucide-box" class="text-lg text-muted" />
             </div>
             <div class="min-w-0 flex-1">
               <span class="block truncate font-medium transition-colors group-hover:text-primary">{{ item.name }}</span>
               <span v-if="item.description" class="line-clamp-1 text-sm text-muted">{{ item.description }}</span>
               <span v-else class="font-mono text-xs text-muted">{{ item.slug }}</span>
             </div>
-            <UIcon name="i-lucide-chevron-right" class="shrink-0 text-muted" />
+            <Icon name="i-lucide-chevron-right" class="shrink-0 text-muted" />
           </NuxtLink>
         </article>
 
         <div v-if="nextSkip !== null" class="pt-2 text-center">
-          <UButton :loading="loading" label="加载更多" color="neutral" variant="ghost" size="sm" @click="loadMore" />
+          <AppButton :loading="loading" label="加载更多" color="neutral" variant="ghost" size="sm" @click="loadMore" />
         </div>
       </div>
     </div>
-  </UContainer>
+  </AppContainer>
 </template>

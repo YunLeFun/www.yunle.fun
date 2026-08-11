@@ -45,7 +45,7 @@ function fmt(ts: number) {
 </script>
 
 <template>
-  <UModal v-model:open="open" title="通知">
+  <AppModal v-model:open="open" title="通知">
     <template #content>
       <div class="p-4 sm:p-5">
         <h3 class="ylf-dreamy-display mb-4 text-lg text-highlighted">
@@ -53,7 +53,7 @@ function fmt(ts: number) {
         </h3>
 
         <div v-if="!loaded && loading" class="flex justify-center py-10">
-          <UIcon name="i-lucide-loader-2" class="animate-spin text-2xl text-muted" />
+          <Icon name="i-lucide-loader-2" class="animate-spin text-2xl text-muted" />
         </div>
         <div v-else-if="items.length === 0" class="py-10 text-center text-sm text-muted">
           还没有通知
@@ -83,7 +83,7 @@ function fmt(ts: number) {
                 </p>
                 <span class="text-xs text-muted">{{ fmt(item.createdAt) }}</span>
               </div>
-              <UIcon name="i-lucide-user-plus" class="shrink-0 text-muted" />
+              <Icon name="i-lucide-user-plus" class="shrink-0 text-muted" />
             </NuxtLink>
 
             <NuxtLink
@@ -94,7 +94,7 @@ function fmt(ts: number) {
               @click="open = false"
             >
               <span class="ylf-member-mark flex size-10 shrink-0 items-center justify-center rounded-full">
-                <UIcon name="i-lucide-gift" class="size-5" />
+                <Icon name="i-lucide-gift" class="size-5" />
               </span>
               <div class="min-w-0 flex-1">
                 <p class="truncate text-sm font-medium text-highlighted">
@@ -107,15 +107,15 @@ function fmt(ts: number) {
                   <span> · {{ fmt(item.createdAt) }}</span>
                 </p>
               </div>
-              <UIcon name="i-lucide-chevron-right" class="shrink-0 text-muted" />
+              <Icon name="i-lucide-chevron-right" class="shrink-0 text-muted" />
             </NuxtLink>
           </template>
 
           <div v-if="nextSkip !== null" class="pt-2 text-center">
-            <UButton :loading="loading" label="加载更多" color="neutral" variant="ghost" size="xs" @click="loadMore" />
+            <AppButton :loading="loading" label="加载更多" color="neutral" variant="ghost" size="xs" @click="loadMore" />
           </div>
         </div>
       </div>
     </template>
-  </UModal>
+  </AppModal>
 </template>

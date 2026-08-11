@@ -1,3 +1,7 @@
+<script setup lang="ts">
+import { Card } from '@/components/ui/card'
+</script>
+
 <template>
   <div class="ylf-auth-shell relative min-h-screen min-h-dvh overflow-x-hidden">
     <!-- 梦幻晴空背景（天气之子） -->
@@ -6,7 +10,7 @@
     <div class="pointer-events-none absolute inset-x-0 top-0 z-[1] h-32 bg-gradient-to-b from-white/35 to-transparent dark:from-black/20" aria-hidden="true" />
 
     <div class="absolute left-4 top-[calc(env(safe-area-inset-top)_+_0.75rem)] z-20 sm:left-8 sm:top-8">
-      <UButton
+      <AppButton
         icon="i-lucide-arrow-left"
         to="/"
         size="lg"
@@ -18,19 +22,18 @@
       >
         <span class="sm:hidden">返回</span>
         <span class="hidden sm:inline">返回首页</span>
-      </UButton>
+      </AppButton>
     </div>
 
     <!-- 移动端：晴空铺满顶部，表单做成贴底全宽「上滑卡」；桌面端：居中玻璃卡 -->
     <!-- 桌面端顶部锚定（而非垂直居中）：切换 Tab 内容变高时只向下生长，卡片顶边/Logo/标题/Tab 栏不动；矮屏也不会被裁顶 -->
-    <div class="relative z-10 flex min-h-screen min-h-dvh flex-col justify-end pt-[calc(env(safe-area-inset-top)_+_5rem)] sm:items-center sm:justify-start sm:px-6 sm:pb-10 sm:pt-[12vh]">
-      <UPageCard
-        variant="soft"
+    <main class="relative z-10 flex min-h-screen min-h-dvh flex-col justify-end pt-[calc(env(safe-area-inset-top)_+_5rem)] sm:items-center sm:justify-start sm:px-6 sm:pb-10 sm:pt-[12vh]">
+      <Card
         class="ylf-auth-card relative w-full overflow-hidden rounded-t-3xl rounded-b-none pb-[env(safe-area-inset-bottom)] sm:mx-auto sm:max-w-sm sm:rounded-b-3xl sm:pb-0"
       >
         <slot />
-      </UPageCard>
-    </div>
+      </Card>
+    </main>
   </div>
 </template>
 

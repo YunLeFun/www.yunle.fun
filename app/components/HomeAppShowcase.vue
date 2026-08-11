@@ -13,11 +13,11 @@ function browseApps() {
 
 <template>
   <section class="home-app-showcase" aria-labelledby="home-app-showcase-title">
-    <UContainer>
+    <AppContainer>
       <header class="home-app-showcase__header">
         <div>
           <p class="home-app-showcase__eyebrow">
-            <UIcon name="i-lucide-cloud-sun" aria-hidden="true" />
+            <Icon name="i-lucide-cloud-sun" aria-hidden="true" />
             统一账号生态
           </p>
           <h2 id="home-app-showcase-title">
@@ -28,7 +28,7 @@ function browseApps() {
           </p>
         </div>
 
-        <UButton
+        <AppButton
           to="/explore"
           label="浏览全部应用"
           icon="i-lucide-arrow-up-right"
@@ -45,7 +45,7 @@ function browseApps() {
         :reduced-motion="prefersReducedMotion"
         @scroll-to-grid="browseApps"
       />
-    </UContainer>
+    </AppContainer>
   </section>
 </template>
 

@@ -12,7 +12,7 @@
     class="flex items-center gap-2 h-8 px-2.5"
     aria-hidden="true"
   >
-    <USkeleton class="size-6 rounded-full" />
-    <USkeleton class="hidden h-4 w-16 rounded-md lg:block" />
+    <AppSkeleton class="size-6 rounded-full" />
+    <AppSkeleton class="hidden h-4 w-16 rounded-md lg:block" />
   </div>
 </template>

@@ -5,15 +5,15 @@ const privateSupportLink = 'https://support.yunle.fun/contact'
 
 <template>
   <div class="ylf-private-support-actions">
-    <UButton
+    <AppButton
       color="primary"
       icon="i-lucide-mail"
       :to="privateSupportLink"
     >
       准备客服邮件
-    </UButton>
+    </AppButton>
 
-    <UButton
+    <AppButton
       color="success"
       variant="soft"
       icon="i-ri:customer-service-2-line"
@@ -23,8 +23,8 @@ const privateSupportLink = 'https://support.yunle.fun/contact'
       aria-label="打开企业微信客服（在新窗口打开）"
     >
       打开企业微信客服
-      <UIcon name="i-lucide-external-link" aria-hidden="true" />
-    </UButton>
+      <Icon name="i-lucide-external-link" aria-hidden="true" />
+    </AppButton>
   </div>
 </template>
 

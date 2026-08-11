@@ -32,7 +32,7 @@ withDefaults(defineProps<{
     <div class="absolute inset-x-4 top-4 z-[5] flex items-center justify-between text-white">
       <span class="ylf-pass-shadow inline-flex items-center gap-2">
         <span class="ylf-pass-tile inline-flex size-9 items-center justify-center rounded-xl">
-          <UIcon name="i-lucide-cloud" class="size-5" />
+          <Icon name="i-lucide-cloud" class="size-5" />
         </span>
         <span class="text-sm font-bold">云乐坊会员</span>
       </span>
@@ -65,7 +65,7 @@ withDefaults(defineProps<{
       class="ylf-pass-lock absolute inset-0 z-[6] flex flex-col items-center justify-center gap-2"
     >
       <span class="inline-flex size-11 items-center justify-center rounded-full bg-white/85">
-        <UIcon name="i-lucide-cloud" class="size-6 text-sky-500" />
+        <Icon name="i-lucide-cloud" class="size-6 text-sky-500" />
       </span>
       <span class="ylf-pass-shadow text-[13.5px] font-bold text-white">推开云层 · 点亮晴空</span>
     </div>

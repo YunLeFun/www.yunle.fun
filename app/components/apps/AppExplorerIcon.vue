@@ -34,7 +34,7 @@ watch(imageSource, () => {
       data-testid="app-icon-emoji"
       class="app-explorer-icon__emoji"
     >{{ app.emoji }}</span>
-    <UIcon
+    <Icon
       v-else
       data-testid="app-icon-cloud"
       name="i-lucide-cloud"

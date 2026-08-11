@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Separator } from '@/components/ui/separator'
 import { socialList } from '~/config'
 import YlfLogo from './ylf/Logo.vue'
 
@@ -72,42 +73,48 @@ const columns = [{
 </script>
 
 <template>
-  <USeparator :icon="YlfLogo" class="h-px" />
+  <div class="relative flex items-center justify-center" aria-hidden="true">
+    <Separator />
+    <span class="absolute inline-flex rounded-full border border-border bg-background px-3 py-1.5">
+      <YlfLogo class="h-4 w-auto" />
+    </span>
+  </div>
 
-  <UFooter :ui="{ top: 'border-b border-default' }">
-    <template #top>
-      <UContainer>
-        <UFooterColumns :columns="columns">
-          <!-- <template #right>
-            <form @submit.prevent="onSubmit">
-              <UFormField name="email" label="Subscribe to our newsletter" size="lg">
-                <UInput v-model="email" type="email" class="w-full" placeholder="Enter your email">
-                  <template #trailing>
-                    <UButton type="submit" size="xs" color="neutral" label="Subscribe" />
-                  </template>
-                </UInput>
-              </UFormField>
-            </form>
-          </template> -->
-        </UFooterColumns>
-      </UContainer>
-    </template>
+  <footer>
+    <div class="border-b border-border">
+      <AppContainer class="grid gap-8 py-10 sm:grid-cols-3 sm:py-12">
+        <section v-for="column in columns" :key="column.label" class="flex flex-col gap-3">
+          <h2 class="text-sm font-semibold text-foreground">
+            {{ column.label }}
+          </h2>
+          <nav class="flex flex-col gap-2" :aria-label="column.label">
+            <NuxtLink
+              v-for="item in column.children"
+              :key="item.to"
+              :to="item.to"
+              :target="item.target"
+              :rel="item.target === '_blank' ? 'noopener noreferrer' : undefined"
+              class="w-fit text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {{ item.label }}
+            </NuxtLink>
+          </nav>
+        </section>
+      </AppContainer>
+    </div>
 
-    <template #left>
-      <p>
-        <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" class="hover:underline">苏ICP备2023020936号</a>
-      </p>
+    <AppContainer class="flex flex-col gap-4 py-6 sm:flex-row sm:items-center sm:justify-between">
+      <div class="flex flex-col gap-1 text-sm text-muted-foreground">
+        <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" class="w-fit hover:underline">苏ICP备2023020936号</a>
+        <p>© {{ new Date().getFullYear() }} 云乐坊信息技术工作室</p>
+      </div>
 
-      <p class="text-muted text-sm">
-        © {{ new Date().getFullYear() }} 云乐坊信息技术工作室
-      </p>
-    </template>
-
-    <template #right>
-      <UButton
-        v-for="item in socialList" :key="item.to" :to="item.to" target="_blank" :icon="item.icon"
-        :aria-label="item.title" color="neutral" variant="ghost" :title="item.title"
-      />
-    </template>
-  </UFooter>
+      <div class="flex items-center gap-1">
+        <AppButton
+          v-for="item in socialList" :key="item.to" :to="item.to" target="_blank" rel="noopener noreferrer" :icon="item.icon"
+          :aria-label="item.title" color="neutral" variant="ghost" :title="item.title"
+        />
+      </div>
+    </AppContainer>
+  </footer>
 </template>

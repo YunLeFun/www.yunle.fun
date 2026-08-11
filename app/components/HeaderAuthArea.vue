@@ -1,4 +1,10 @@
 <script setup lang="ts">
+withDefaults(defineProps<{
+  guestPresentation?: 'responsive' | 'labeled'
+}>(), {
+  guestPresentation: 'responsive',
+})
+
 const user = useState<{ id?: string } | null>('auth_user', () => null)
 const shouldMount = useState('header_auth_area_ready', () => false)
 const isPreparing = useState('header_auth_area_preparing', () => false)
@@ -64,5 +70,5 @@ watch(
 
   <HeaderAuthSkeleton v-else-if="!isMounted || isPreparing" />
 
-  <AuthActionButtons v-else />
+  <AuthActionButtons v-else :presentation="guestPresentation" />
 </template>

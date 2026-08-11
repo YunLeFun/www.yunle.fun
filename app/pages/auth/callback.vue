@@ -236,17 +236,17 @@ onMounted(async () => {
 <template>
   <div class="text-center space-y-6">
     <div class="flex justify-center">
-      <UIcon
+      <Icon
         v-if="status === 'checking'"
         name="i-lucide-loader-circle"
         class="w-16 h-16 text-primary animate-spin"
       />
-      <UIcon
+      <Icon
         v-else-if="status === 'success'"
         name="i-lucide-check-circle"
         class="w-16 h-16 text-green-500"
       />
-      <UIcon
+      <Icon
         v-else
         name="i-lucide-x-circle"
         class="w-16 h-16 text-red-500"
@@ -266,22 +266,22 @@ onMounted(async () => {
     </div>
 
     <div v-if="status === 'error' && !isNativeApp" class="flex justify-center gap-3">
-      <UButton
+      <AppButton
         v-if="isBinding"
         to="/settings?tab=security"
         color="primary"
         size="lg"
       >
         返回设置页
-      </UButton>
-      <UButton
+      </AppButton>
+      <AppButton
         v-else
         to="/login"
         color="primary"
         size="lg"
       >
         返回登录页
-      </UButton>
+      </AppButton>
     </div>
   </div>
 </template>

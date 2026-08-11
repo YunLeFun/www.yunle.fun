@@ -16,19 +16,19 @@ useSeoMeta({
 </script>
 
 <template>
-  <UContainer>
-    <UPageHeader
+  <AppContainer>
+    <AppPageHeader
       v-bind="page"
       class="py-[50px]"
     >
       <template #headline>
         <YlfEyebrow label="🧾 更新日志" />
       </template>
-    </UPageHeader>
+    </AppPageHeader>
 
-    <UPageBody>
-      <UChangelogVersions>
-        <UChangelogVersion
+    <AppPageBody>
+      <AppChangelogVersions>
+        <AppChangelogVersion
           v-for="(version, index) in versions"
           :key="index"
           :title="version.title"
@@ -43,8 +43,8 @@ useSeoMeta({
               :data="version"
             />
           </template>
-        </UChangelogVersion>
-      </UChangelogVersions>
-    </UPageBody>
-  </UContainer>
+        </AppChangelogVersion>
+      </AppChangelogVersions>
+    </AppPageBody>
+  </AppContainer>
 </template>

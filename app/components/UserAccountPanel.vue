@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { User } from '~/composables/auth/types'
+import { Button } from '@/components/ui/button'
 import { maskPhone } from '~/utils/mask'
 
 type AccountPanelUser = Pick<User, 'id' | 'login' | 'email' | 'phone' | 'nickname' | 'avatar'>
@@ -69,7 +70,7 @@ const secondaryIdentity = computed(() =>
         </span>
       </span>
 
-      <UIcon
+      <Icon
         name="i-lucide-chevron-right"
         class="relative z-1 size-4 shrink-0 text-dimmed transition-transform duration-150 group-hover:translate-x-0.5"
         aria-hidden="true"
@@ -85,10 +86,10 @@ const secondaryIdentity = computed(() =>
         @click="emit('close')"
       >
         <span class="ylf-account-panel__shortcut-icon ylf-account-panel__shortcut-icon--coin">
-          <UIcon name="i-lucide-coins" class="size-4.5" aria-hidden="true" />
+          <Icon name="i-lucide-coins" class="size-4.5" aria-hidden="true" />
         </span>
         <span class="flex min-w-0 flex-1 items-center gap-1 text-sm leading-none font-semibold text-highlighted">
-          <USkeleton
+          <AppSkeleton
             v-if="coinLoading"
             class="h-4 w-10 rounded"
             data-testid="account-coin-skeleton"
@@ -107,7 +108,7 @@ const secondaryIdentity = computed(() =>
         @click="emit('close')"
       >
         <span class="ylf-account-panel__shortcut-icon ylf-account-panel__shortcut-icon--apps">
-          <UIcon name="i-lucide-layout-grid" class="size-4.5" aria-hidden="true" />
+          <Icon name="i-lucide-layout-grid" class="size-4.5" aria-hidden="true" />
         </span>
         <span class="min-w-0 flex-1 truncate text-sm font-semibold text-highlighted">
           我的应用
@@ -122,9 +123,9 @@ const secondaryIdentity = computed(() =>
         data-testid="account-settings-link"
         @click="emit('close')"
       >
-        <UIcon name="i-lucide-settings" class="size-4.5" aria-hidden="true" />
+        <Icon name="i-lucide-settings" class="size-4.5" aria-hidden="true" />
         <span class="flex-1">账户设置</span>
-        <UIcon
+        <Icon
           name="i-lucide-chevron-right"
           class="size-4 text-dimmed transition-transform duration-150 group-hover:translate-x-0.5"
           aria-hidden="true"
@@ -133,15 +134,16 @@ const secondaryIdentity = computed(() =>
     </div>
 
     <div class="border-t border-default px-2 py-2">
-      <button
+      <Button
         type="button"
+        variant="ghost"
         class="ylf-account-panel__action ylf-account-panel__action--logout"
         data-testid="account-logout"
         @click="emit('logout')"
       >
-        <UIcon name="i-lucide-log-out" class="size-4.5" aria-hidden="true" />
+        <Icon name="i-lucide-log-out" class="size-4.5" aria-hidden="true" />
         <span class="flex-1">退出登录</span>
-      </button>
+      </Button>
     </div>
   </section>
 </template>

@@ -359,11 +359,13 @@ async function save() {
               size="3xl"
               ring-class="ring-(color:--ylf-surface)"
             />
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               :aria-label="avatarActionLabel"
               :title="avatarActionLabel"
-              class="absolute inset-0 rounded-full transition-colors duration-150 hover:bg-foreground/5 focus-visible:bg-foreground/5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+              class="absolute inset-0 size-full rounded-full"
               :disabled="uploading"
               @click="triggerAvatarUpload"
             >
@@ -371,7 +373,7 @@ async function save() {
                 <CameraIcon v-if="!uploading" />
                 <span v-else class="text-[10px] font-semibold tabular-nums">{{ uploadProgress }}%</span>
               </span>
-            </button>
+            </Button>
             <input
               ref="avatarInput"
               type="file"

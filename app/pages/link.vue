@@ -98,7 +98,7 @@ onMounted(() => {
   <div class="text-center space-y-6">
     <!-- 手输短码（未携带 code 时） -->
     <template v-if="status === 'input'">
-      <UIcon name="i-lucide-monitor-smartphone" class="mx-auto h-14 w-14 text-primary" />
+      <Icon name="i-lucide-monitor-smartphone" class="mx-auto h-14 w-14 text-primary" />
       <div class="space-y-2">
         <h1 class="text-2xl font-bold">
           连接桌面应用
@@ -108,7 +108,7 @@ onMounted(() => {
         </p>
       </div>
       <div class="flex flex-col gap-3">
-        <UInput
+        <AppInput
           v-model="codeInput"
           placeholder="WXYZ-1234"
           size="lg"
@@ -116,15 +116,15 @@ onMounted(() => {
           class="text-center"
           @keyup.enter="describe(codeInput)"
         />
-        <UButton size="lg" block :disabled="!codeInput.trim()" @click="describe(codeInput)">
+        <AppButton size="lg" block :disabled="!codeInput.trim()" @click="describe(codeInput)">
           继续
-        </UButton>
+        </AppButton>
       </div>
     </template>
 
     <!-- 加载中 -->
     <template v-else-if="status === 'loading'">
-      <UIcon name="i-lucide-loader-circle" class="mx-auto h-14 w-14 animate-spin text-primary" />
+      <Icon name="i-lucide-loader-circle" class="mx-auto h-14 w-14 animate-spin text-primary" />
       <p class="text-muted">
         正在读取授权请求...
       </p>
@@ -132,7 +132,7 @@ onMounted(() => {
 
     <!-- 授权确认 -->
     <template v-else-if="status === 'ready' || status === 'approving'">
-      <UIcon name="i-lucide-shield-check" class="mx-auto h-14 w-14 text-primary" />
+      <Icon name="i-lucide-shield-check" class="mx-auto h-14 w-14 text-primary" />
       <div class="space-y-2">
         <h1 class="text-2xl font-bold">
           授权 {{ appName }}
@@ -148,7 +148,7 @@ onMounted(() => {
         </p>
         <ul class="space-y-2">
           <li v-for="s in device?.scope || []" :key="s" class="flex items-center gap-2 text-sm">
-            <UIcon name="i-lucide-check" class="h-4 w-4 text-green-500" />
+            <Icon name="i-lucide-check" class="h-4 w-4 text-green-500" />
             <span>{{ SCOPE_LABELS[s] || s }}</span>
           </li>
         </ul>
@@ -159,12 +159,12 @@ onMounted(() => {
       </div>
 
       <div class="flex gap-3">
-        <UButton color="neutral" variant="subtle" size="lg" block :disabled="status === 'approving'" @click="deny">
+        <AppButton color="neutral" variant="subtle" size="lg" block :disabled="status === 'approving'" @click="deny">
           拒绝
-        </UButton>
-        <UButton size="lg" block :loading="status === 'approving'" @click="approve">
+        </AppButton>
+        <AppButton size="lg" block :loading="status === 'approving'" @click="approve">
           授权
-        </UButton>
+        </AppButton>
       </div>
       <p class="text-xs text-dimmed">
         基础功能无需登录即可使用；此授权只允许应用读取会员权益，不包含云币或其他账号操作。
@@ -173,7 +173,7 @@ onMounted(() => {
 
     <!-- 授权成功 -->
     <template v-else-if="status === 'approved'">
-      <UIcon name="i-lucide-check-circle" class="mx-auto h-14 w-14 text-green-500" />
+      <Icon name="i-lucide-check-circle" class="mx-auto h-14 w-14 text-green-500" />
       <div class="space-y-2">
         <h1 class="text-2xl font-bold">
           授权成功
@@ -186,7 +186,7 @@ onMounted(() => {
 
     <!-- 已拒绝 -->
     <template v-else-if="status === 'denied'">
-      <UIcon name="i-lucide-x-circle" class="mx-auto h-14 w-14 text-amber-500" />
+      <Icon name="i-lucide-x-circle" class="mx-auto h-14 w-14 text-amber-500" />
       <div class="space-y-2">
         <h1 class="text-2xl font-bold">
           已拒绝授权
@@ -199,7 +199,7 @@ onMounted(() => {
 
     <!-- 出错 -->
     <template v-else>
-      <UIcon name="i-lucide-alert-triangle" class="mx-auto h-14 w-14 text-red-500" />
+      <Icon name="i-lucide-alert-triangle" class="mx-auto h-14 w-14 text-red-500" />
       <div class="space-y-2">
         <h1 class="text-2xl font-bold">
           无法授权
@@ -208,9 +208,9 @@ onMounted(() => {
           {{ message || '设备码无效或已过期，请回到应用重新发起。' }}
         </p>
       </div>
-      <UButton variant="subtle" size="lg" @click="status = 'input'">
+      <AppButton variant="subtle" size="lg" @click="status = 'input'">
         手动输入授权码
-      </UButton>
+      </AppButton>
     </template>
   </div>
 </template>

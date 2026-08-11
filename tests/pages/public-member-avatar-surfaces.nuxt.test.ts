@@ -37,7 +37,7 @@ const memberAvatarStub = {
 }
 
 const commonStubs = {
-  UContainer: { template: '<div><slot /></div>' },
+  AppContainer: { template: '<div><slot /></div>' },
   NuxtLink: { props: ['to'], template: '<a><slot /></a>' },
   MemberAvatar: memberAvatarStub,
 }
@@ -101,7 +101,7 @@ describe('public membership avatar surfaces', () => {
       global: {
         stubs: {
           ...commonStubs,
-          UModal: { template: '<div><slot name="content" /></div>' },
+          AppModal: { template: '<div><slot name="content" /><slot /></div>' },
           FollowButton: true,
         },
       },
@@ -134,7 +134,7 @@ describe('public membership avatar surfaces', () => {
       global: {
         stubs: {
           ...commonStubs,
-          UModal: { template: '<div><slot name="content" /></div>' },
+          AppModal: { template: '<div><slot name="content" /><slot /></div>' },
         },
       },
     })

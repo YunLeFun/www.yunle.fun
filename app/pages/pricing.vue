@@ -134,13 +134,13 @@ onMounted(() => {
 
 <template>
   <div v-if="page" class="ylf-pricing pb-16">
-    <UContainer class="space-y-12 py-8 sm:py-10">
+    <AppContainer class="space-y-12 py-8 sm:py-10">
       <!-- 晴空 hero -->
       <SkyHero>
         <div class="grid items-center gap-8 p-6 sm:p-10 lg:grid-cols-[1.05fr_0.95fr]">
           <div class="text-white">
             <span class="ylf-glass ylf-hero-shadow inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold">
-              <UIcon name="i-lucide-sparkles" class="size-3.5 text-amber-200" />
+              <Icon name="i-lucide-sparkles" class="size-3.5 text-amber-200" />
               云乐坊会员 · 晴空同行
             </span>
             <h1 class="ylf-dreamy-display ylf-hero-shadow mt-5 text-4xl leading-[1.15] sm:text-5xl">
@@ -152,9 +152,9 @@ onMounted(() => {
                 : '开通会员，点亮所有云乐坊小应用的晴朗体验：跨应用通用、数据同步、免扣云币。' }}
             </p>
             <div class="ylf-hero-shadow mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-white/85 sm:text-sm">
-              <span class="inline-flex items-center gap-1.5"><UIcon name="i-lucide-layers" class="size-4" />跨应用通用</span>
-              <span class="inline-flex items-center gap-1.5"><UIcon name="i-lucide-refresh-cw" class="size-4" />数据同步</span>
-              <span class="inline-flex items-center gap-1.5"><UIcon name="i-lucide-infinity" class="size-4" />免扣云币</span>
+              <span class="inline-flex items-center gap-1.5"><Icon name="i-lucide-layers" class="size-4" />跨应用通用</span>
+              <span class="inline-flex items-center gap-1.5"><Icon name="i-lucide-refresh-cw" class="size-4" />数据同步</span>
+              <span class="inline-flex items-center gap-1.5"><Icon name="i-lucide-infinity" class="size-4" />免扣云币</span>
             </div>
           </div>
           <div class="mx-auto w-full max-w-sm">
@@ -198,15 +198,15 @@ onMounted(() => {
             </p>
             <ul class="mt-5 flex-1 space-y-2.5 text-sm">
               <li v-for="f in plan.features" :key="f" class="flex items-center gap-2 text-toned">
-                <UIcon name="i-lucide-check" class="size-4 shrink-0 text-primary" />
+                <Icon name="i-lucide-check" class="size-4 shrink-0 text-primary" />
                 {{ f }}
               </li>
               <li class="flex items-center gap-2 text-toned">
-                <UIcon name="i-lucide-check" class="size-4 shrink-0 text-primary" />
+                <Icon name="i-lucide-check" class="size-4 shrink-0 text-primary" />
                 跨应用通用 · 免扣云币
               </li>
             </ul>
-            <UButton
+            <AppButton
               :label="plan.label"
               block
               size="lg"
@@ -237,14 +237,14 @@ onMounted(() => {
               class="ylf-dopa-tile mb-3.5 inline-flex size-12 items-center justify-center rounded-2xl"
               :style="{ '--tile': b.color }"
             >
-              <UIcon :name="b.icon" class="size-6" />
+              <Icon :name="b.icon" class="size-6" />
             </span>
             <div class="flex items-center gap-2">
               <h3 class="font-bold text-highlighted">
                 {{ b.title }}
               </h3>
               <span v-if="b.free" class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-400/15 dark:text-amber-300">免扣</span>
-              <span v-else-if="b.highlight" class="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">核心</span>
+              <span v-else-if="b.highlight" class="rounded-full bg-primary/5 px-2 py-0.5 text-[10px] font-bold text-primary dark:bg-primary/15">核心</span>
             </div>
             <p class="mt-1.5 text-sm/relaxed text-muted">
               {{ b.desc }}
@@ -257,11 +257,11 @@ onMounted(() => {
       <section class="ylf-coin-strip flex flex-col items-start gap-5 rounded-3xl p-6 sm:flex-row sm:items-center">
         <div class="flex flex-1 items-center gap-3 sm:gap-4">
           <span class="inline-flex size-12 shrink-0 items-center justify-center rounded-2xl bg-sky-100 text-sky-600 dark:bg-sky-400/15 dark:text-sky-300">
-            <UIcon name="i-lucide-coins" class="size-6" />
+            <Icon name="i-lucide-coins" class="size-6" />
           </span>
-          <UIcon name="i-lucide-plus" class="size-5 shrink-0 text-dimmed" />
+          <Icon name="i-lucide-plus" class="size-5 shrink-0 text-dimmed" />
           <span class="ylf-member-mark inline-flex size-12 shrink-0 items-center justify-center rounded-2xl">
-            <UIcon name="i-lucide-cloud" class="size-6" />
+            <Icon name="i-lucide-cloud" class="size-6" />
           </span>
           <div class="min-w-0">
             <div class="font-bold text-highlighted">
@@ -272,7 +272,7 @@ onMounted(() => {
             </p>
           </div>
         </div>
-        <UButton
+        <AppButton
           to="/wallet"
           label="查看钱包"
           color="primary"
@@ -292,7 +292,7 @@ onMounted(() => {
             {{ page.faq.description }}
           </p>
         </div>
-        <UAccordion
+        <AppAccordion
           :items="faqItems"
           :unmount-on-hide="false"
           :default-value="['0']"
@@ -306,7 +306,7 @@ onMounted(() => {
         >
           <template #body="{ item }">
             <p>{{ item.content }}</p>
-            <UButton
+            <AppButton
               v-if="item.to"
               :to="item.to"
               variant="link"
@@ -315,11 +315,11 @@ onMounted(() => {
               class="mt-2 p-0"
             >
               查看联系渠道
-            </UButton>
+            </AppButton>
           </template>
-        </UAccordion>
+        </AppAccordion>
       </section>
-    </UContainer>
+    </AppContainer>
 
     <ClientOnly>
       <LazyPricingMembershipProbe

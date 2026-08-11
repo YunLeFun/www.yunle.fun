@@ -40,7 +40,7 @@ function updateSpotlight(event: PointerEvent) {
             <span>{{ app.categoryLabel }}</span>
             <span v-if="app.featured" class="app-discovery-card__featured">精选</span>
             <span v-if="ssoConnected" class="app-discovery-card__sso">
-              <UIcon name="i-lucide-shield-check" aria-hidden="true" />
+              <Icon name="i-lucide-shield-check" aria-hidden="true" />
               统一账号
             </span>
           </div>
@@ -65,7 +65,7 @@ function updateSpotlight(event: PointerEvent) {
       <footer class="app-discovery-card__actions">
         <NuxtLink :to="`/apps/${app.slug}`" class="app-discovery-card__detail-link">
           查看详情
-          <UIcon name="i-lucide-arrow-right" aria-hidden="true" />
+          <Icon name="i-lucide-arrow-right" aria-hidden="true" />
         </NuxtLink>
         <a
           v-if="appUrl"
@@ -75,7 +75,7 @@ function updateSpotlight(event: PointerEvent) {
           class="app-discovery-card__external-link"
         >
           打开应用
-          <UIcon name="i-lucide-external-link" aria-hidden="true" />
+          <Icon name="i-lucide-external-link" aria-hidden="true" />
         </a>
       </footer>
     </div>

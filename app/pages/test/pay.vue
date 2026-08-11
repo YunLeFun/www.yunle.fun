@@ -193,7 +193,7 @@ onUnmounted(() => stopPolling())
 </script>
 
 <template>
-  <UContainer class="py-12 max-w-xl">
+  <AppContainer class="py-12 max-w-xl">
     <div class="space-y-6">
       <div>
         <h1 class="text-2xl font-bold">
@@ -209,7 +209,7 @@ onUnmounted(() => stopPolling())
         <div class="rounded-xl border border-default p-5 space-y-4">
           <div class="space-y-2">
             <label class="text-sm font-medium">支付金额（元）</label>
-            <UInput
+            <AppInput
               v-model="amountYuan"
               type="number"
               step="0.01"
@@ -220,7 +220,7 @@ onUnmounted(() => stopPolling())
           </div>
           <div class="space-y-2">
             <label class="text-sm font-medium">商品描述（可选）</label>
-            <UInput
+            <AppInput
               v-model="description"
               placeholder="测试支付"
             />
@@ -237,7 +237,7 @@ onUnmounted(() => stopPolling())
             <span class="text-muted text-sm">实付金额</span>
             <span class="text-xl font-bold text-primary">{{ priceFormatted }}</span>
           </div>
-          <UButton
+          <AppButton
             block
             size="lg"
             :loading="loading"
@@ -245,7 +245,7 @@ onUnmounted(() => stopPolling())
             @click="handlePay"
           >
             立即支付 {{ priceFormatted }}
-          </UButton>
+          </AppButton>
         </div>
       </template>
 
@@ -266,7 +266,7 @@ onUnmounted(() => stopPolling())
                 </div>
               </div>
               <div class="flex items-center justify-center gap-2 text-sm text-muted">
-                <UIcon name="i-lucide-loader-2" class="w-4 h-4 animate-spin" />
+                <Icon name="i-lucide-loader-2" class="w-4 h-4 animate-spin" />
                 <span>等待支付结果...</span>
               </div>
               <p class="text-xs text-muted">
@@ -276,16 +276,16 @@ onUnmounted(() => stopPolling())
           </template>
           <template v-else>
             <div class="text-center space-y-4 py-8">
-              <UIcon name="i-lucide-loader-2" class="w-12 h-12 mx-auto text-primary animate-spin" />
+              <Icon name="i-lucide-loader-2" class="w-12 h-12 mx-auto text-primary animate-spin" />
               <h3 class="text-lg font-semibold">
                 正在跳转微信支付...
               </h3>
             </div>
           </template>
           <div class="flex justify-center mt-4">
-            <UButton color="neutral" variant="ghost" size="sm" @click="handleReset">
+            <AppButton color="neutral" variant="ghost" size="sm" @click="handleReset">
               取消支付
-            </UButton>
+            </AppButton>
           </div>
         </div>
       </template>
@@ -294,7 +294,7 @@ onUnmounted(() => stopPolling())
       <template v-else-if="phase === 'success'">
         <div class="rounded-xl border border-default p-5 text-center space-y-4">
           <div class="flex items-center justify-center w-16 h-16 mx-auto rounded-full bg-success/10">
-            <UIcon name="i-lucide-check" class="w-8 h-8 text-success" />
+            <Icon name="i-lucide-check" class="w-8 h-8 text-success" />
           </div>
           <h3 class="text-lg font-semibold">
             支付成功
@@ -302,9 +302,9 @@ onUnmounted(() => stopPolling())
           <p class="text-sm text-muted">
             订单号: {{ currentOrder?.outTradeNo }}
           </p>
-          <UButton @click="handleReset">
+          <AppButton @click="handleReset">
             再次测试
-          </UButton>
+          </AppButton>
         </div>
       </template>
 
@@ -312,7 +312,7 @@ onUnmounted(() => stopPolling())
       <template v-else-if="phase === 'fail'">
         <div class="rounded-xl border border-default p-5 text-center space-y-4">
           <div class="flex items-center justify-center w-16 h-16 mx-auto rounded-full bg-error/10">
-            <UIcon name="i-lucide-x" class="w-8 h-8 text-error" />
+            <Icon name="i-lucide-x" class="w-8 h-8 text-error" />
           </div>
           <h3 class="text-lg font-semibold">
             支付失败
@@ -321,12 +321,12 @@ onUnmounted(() => stopPolling())
             {{ errorMessage || '支付过程中出现错误' }}
           </p>
           <div class="flex gap-3 justify-center">
-            <UButton color="neutral" variant="outline" @click="handleReset">
+            <AppButton color="neutral" variant="outline" @click="handleReset">
               返回
-            </UButton>
-            <UButton @click="handlePay">
+            </AppButton>
+            <AppButton @click="handlePay">
               重试
-            </UButton>
+            </AppButton>
           </div>
         </div>
       </template>
@@ -335,9 +335,9 @@ onUnmounted(() => stopPolling())
       <div v-if="logs.length" class="rounded-xl border border-default p-4">
         <div class="flex items-center justify-between mb-2">
           <span class="text-sm font-medium">调试日志</span>
-          <UButton size="xs" color="neutral" variant="ghost" @click="logs = []">
+          <AppButton size="xs" color="neutral" variant="ghost" @click="logs = []">
             清空
-          </UButton>
+          </AppButton>
         </div>
         <div class="max-h-48 overflow-y-auto space-y-1">
           <p
@@ -350,5 +350,5 @@ onUnmounted(() => stopPolling())
         </div>
       </div>
     </div>
-  </UContainer>
+  </AppContainer>
 </template>

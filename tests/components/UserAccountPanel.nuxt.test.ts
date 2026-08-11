@@ -23,7 +23,7 @@ const globalStubs = {
   UIcon: {
     template: '<span aria-hidden="true" />',
   },
-  USkeleton: {
+  AppSkeleton: {
     template: '<span data-testid="account-coin-skeleton" />',
   },
   NuxtLink: {

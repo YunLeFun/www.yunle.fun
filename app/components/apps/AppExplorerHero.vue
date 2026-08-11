@@ -7,6 +7,7 @@ import AppSsoCloudMap from './AppSsoCloudMap.vue'
 
 const props = defineProps<{
   apps: ExplorerApp[]
+  loading: boolean
 }>()
 
 defineEmits<{
@@ -31,14 +32,19 @@ const accountState = useSsoAccountState('/explore')
         </p>
       </div>
 
-      <dl class="app-explorer-hero__stats" aria-label="应用图谱统计">
+      <dl
+        class="app-explorer-hero__stats"
+        aria-label="应用图谱统计"
+        aria-live="polite"
+        :aria-busy="loading"
+      >
         <div>
           <dt>公开应用</dt>
-          <dd>{{ apps.length }}</dd>
+          <dd>{{ loading ? '—' : apps.length }}</dd>
         </div>
         <div>
           <dt>创意分类</dt>
-          <dd>{{ categoryCount }}</dd>
+          <dd>{{ loading ? '—' : categoryCount }}</dd>
         </div>
         <div>
           <dt>统一账号应用</dt>

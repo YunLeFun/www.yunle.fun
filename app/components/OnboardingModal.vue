@@ -1,4 +1,12 @@
 <script setup lang="ts">
+import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 /**
  * 新用户首次引导弹层。
  *
@@ -14,15 +22,15 @@ const toast = useAppToast()
 const STORAGE_PREFIX = 'ylf_onboarded_'
 const storageKey = computed(() => (user.value?.id ? `${STORAGE_PREFIX}${user.value.id}` : ''))
 
-const open = ref(false)
-const saving = ref(false)
+const open = shallowRef(false)
+const saving = shallowRef(false)
 const form = reactive({ nickname: '', avatar: '' })
 
 // 头像上传（复用裁剪组件，与 ProfileTab 一致）
-const avatarInput = ref<HTMLInputElement | null>(null)
-const uploading = ref(false)
-const showCropper = ref(false)
-const cropFile = ref<File | null>(null)
+const avatarInput = useTemplateRef<HTMLInputElement>('avatarInput')
+const uploading = shallowRef(false)
+const showCropper = shallowRef(false)
+const cropFile = shallowRef<File | null>(null)
 const avatarActionLabel = computed(() =>
   form.avatar || user.value?.avatar ? '更换头像' : '上传头像',
 )
@@ -145,19 +153,17 @@ async function save() {
 </script>
 
 <template>
-  <UModal v-model:open="open" :dismissible="false" :close="false">
+  <AppModal v-model:open="open" title="欢迎来到云乐坊" :dismissible="false" :close="false">
     <template #content>
-      <UCard>
-        <template #header>
-          <div class="flex items-center gap-2">
-            <UIcon name="i-lucide-cloud-sun" class="size-5 text-primary" />
-            <h3 class="text-lg font-semibold">
-              欢迎来到云乐坊
-            </h3>
-          </div>
-        </template>
+      <Card class="border-0 ring-0">
+        <CardHeader>
+          <CardTitle class="flex items-center gap-2">
+            <Icon name="i-lucide-cloud-sun" class="size-5 text-primary" />
+            欢迎来到云乐坊
+          </CardTitle>
+        </CardHeader>
 
-        <div class="space-y-5">
+        <CardContent class="flex flex-col gap-5">
           <p class="text-sm text-muted">
             给自己起个好记的名字吧，让其他人更容易认识你。
           </p>
@@ -170,19 +176,21 @@ async function save() {
                 :alt="form.nickname || 'User'"
                 size="2xl"
               />
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 :aria-label="avatarActionLabel"
                 :title="avatarActionLabel"
-                class="absolute inset-0 rounded-full transition-colors hover:bg-foreground/10 focus-visible:bg-foreground/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                class="absolute inset-0 size-full rounded-full"
                 :disabled="uploading"
                 @click="triggerAvatarUpload"
               >
                 <span class="absolute -bottom-1 -right-1 flex size-7 items-center justify-center rounded-full bg-primary text-white shadow-md ring-2 ring-(color:--ui-bg)">
-                  <UIcon v-if="!uploading" name="i-lucide-camera" class="size-3.5" />
-                  <UIcon v-else name="i-lucide-loader-circle" class="size-3.5 animate-spin" />
+                  <Icon v-if="!uploading" name="i-lucide-camera" class="size-3.5" />
+                  <Icon v-else name="i-lucide-loader-circle" class="size-3.5 animate-spin" />
                 </span>
-              </button>
+              </Button>
               <input
                 ref="avatarInput"
                 type="file"
@@ -198,8 +206,8 @@ async function save() {
           </div>
 
           <!-- 昵称 -->
-          <UFormField label="昵称" :error="nicknameError">
-            <UInput
+          <AppFormField label="昵称" :error="nicknameError">
+            <AppInput
               v-model="form.nickname"
               placeholder="输入你的昵称"
               icon="i-lucide-user"
@@ -207,34 +215,32 @@ async function save() {
               class="w-full"
               autofocus
             />
-          </UFormField>
+          </AppFormField>
           <p class="text-xs text-dimmed">
             我们为你预填了一个名字，喜欢就直接用，也可以随时在「设置」里修改。
           </p>
-        </div>
+        </CardContent>
 
-        <template #footer>
-          <div class="flex justify-end gap-3">
-            <UButton
-              label="以后再说"
-              color="neutral"
-              variant="ghost"
-              :disabled="saving"
-              @click="skip"
-            />
-            <UButton
-              label="完成"
-              color="primary"
-              icon="i-lucide-check"
-              :loading="saving"
-              :disabled="!!nicknameError"
-              @click="save"
-            />
-          </div>
-        </template>
-      </UCard>
+        <CardFooter class="justify-end gap-3">
+          <AppButton
+            label="以后再说"
+            color="neutral"
+            variant="ghost"
+            :disabled="saving"
+            @click="skip"
+          />
+          <AppButton
+            label="完成"
+            color="primary"
+            icon="i-lucide-check"
+            :loading="saving"
+            :disabled="!!nicknameError"
+            @click="save"
+          />
+        </CardFooter>
+      </Card>
     </template>
-  </UModal>
+  </AppModal>
 
   <!-- 头像裁剪弹窗 -->
   <AvatarCropper

@@ -1,6 +1,6 @@
 <template>
   <div class="relative">
-    <UPageCard
+    <AppPageCard
       variant="subtle"
       class="rounded-2xl"
     >
@@ -24,6 +24,6 @@
         type="video/ogg"
       >
       </video>
-    </UPageCard>
+    </AppPageCard>
   </div>
 </template>

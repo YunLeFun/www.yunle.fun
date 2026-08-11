@@ -33,7 +33,6 @@ watch(() => props.app.logoUrl, () => {
       target="_blank"
       rel="noopener noreferrer"
       class="sso-app-node__link"
-      :aria-label="`${app.name}，支持统一账号，在新标签页打开`"
       @focus="emit('activate', app.appId)"
       @blur="emit('deactivate', app.appId)"
       @mouseenter="emit('activate', app.appId)"
@@ -53,16 +52,17 @@ watch(() => props.app.logoUrl, () => {
       <span class="sso-app-node__copy">
         <strong>{{ app.name }}</strong>
         <span class="sso-app-node__status">
-          <UIcon name="i-lucide-badge-check" aria-hidden="true" />
+          <Icon name="i-lucide-badge-check" aria-hidden="true" />
           统一账号
         </span>
       </span>
 
-      <UIcon
+      <Icon
         name="i-lucide-arrow-up-right"
         class="sso-app-node__external"
         aria-hidden="true"
       />
+      <span class="sr-only">，在新标签页打开</span>
     </a>
 
     <NuxtLink
@@ -74,7 +74,7 @@ watch(() => props.app.logoUrl, () => {
       @focus="emit('activate', app.appId)"
       @blur="emit('deactivate', app.appId)"
     >
-      <UIcon name="i-lucide-info" aria-hidden="true" />
+      <Icon name="i-lucide-info" aria-hidden="true" />
     </NuxtLink>
   </div>
 </template>
