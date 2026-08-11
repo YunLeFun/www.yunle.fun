@@ -71,20 +71,20 @@ useSeoMeta({
 </script>
 
 <template>
-  <main v-if="page" class="docs-page">
-    <UContainer class="docs-shell">
+  <div v-if="page" class="docs-page">
+    <AppContainer class="docs-shell">
       <nav class="docs-breadcrumb" aria-label="面包屑导航">
         <NuxtLink to="/docs/getting-started">
           帮助
         </NuxtLink>
-        <UIcon name="i-lucide-chevron-right" aria-hidden="true" />
+        <Icon name="i-lucide-chevron-right" aria-hidden="true" />
         <span aria-current="page">{{ page.title }}</span>
       </nav>
 
       <header class="docs-header">
         <div class="docs-header__copy">
           <p>
-            <UIcon name="i-lucide-circle-help" aria-hidden="true" />
+            <Icon name="i-lucide-circle-help" aria-hidden="true" />
             云乐坊帮助
           </p>
           <h1>{{ page.title }}</h1>
@@ -93,7 +93,7 @@ useSeoMeta({
 
         <div class="docs-search">
           <label for="docs-search">搜索帮助内容</label>
-          <UInput
+          <AppInput
             id="docs-search"
             v-model="searchQuery"
             type="search"
@@ -111,7 +111,7 @@ useSeoMeta({
                     <strong>{{ result.title }}</strong>
                     <small v-if="result.description">{{ result.description }}</small>
                   </span>
-                  <UIcon name="i-lucide-arrow-right" aria-hidden="true" />
+                  <Icon name="i-lucide-arrow-right" aria-hidden="true" />
                 </NuxtLink>
               </li>
             </ul>
@@ -140,20 +140,20 @@ useSeoMeta({
 
       <div class="docs-layout">
         <article class="docs-article">
-          <UPageBody class="mt-0 pb-0">
+          <AppPageBody class="mt-0 pb-0">
             <MDCRenderer
               v-if="page.body"
               :body="page.body"
               :data="page"
               class="docs-prose"
             />
-          </UPageBody>
+          </AppPageBody>
         </article>
 
         <aside class="docs-aside" aria-label="帮助导航">
           <div v-if="pageAnchors.length" class="docs-aside__section">
             <p>本页内容</p>
-            <UPageAnchors :links="pageAnchors" />
+            <AppPageAnchors :links="pageAnchors" />
           </div>
 
           <div class="docs-aside__section">
@@ -164,15 +164,15 @@ useSeoMeta({
               :to="link.to"
               :target="link.target"
               :rel="link.target === '_blank' ? 'noopener noreferrer' : undefined"
-              :aria-label="link.target === '_blank' ? `${link.label}（在新窗口打开）` : link.label"
               class="docs-resource"
             >
-              <UIcon :name="link.icon" aria-hidden="true" />
+              <Icon :name="link.icon" aria-hidden="true" />
               <span>
                 <strong>{{ link.label }}</strong>
                 <small>{{ link.description }}</small>
+                <span v-if="link.target === '_blank'" class="sr-only">，在新标签页打开</span>
               </span>
-              <UIcon
+              <Icon
                 v-if="link.target === '_blank'"
                 name="i-lucide-external-link"
                 class="docs-resource__external"
@@ -182,8 +182,8 @@ useSeoMeta({
           </div>
         </aside>
       </div>
-    </UContainer>
-  </main>
+    </AppContainer>
+  </div>
 </template>
 
 <style scoped>

@@ -34,7 +34,7 @@ const sizeClass = computed(() =>
     class="inline-flex items-center rounded-full bg-primary/10 text-primary font-medium transition-colors"
     :class="[sizeClass, link ? 'hover:bg-primary/15 cursor-pointer' : '']"
   >
-    <UIcon name="i-lucide-coins" :class="size === 'sm' ? 'w-4 h-4' : 'w-5 h-5'" />
+    <Icon name="i-lucide-coins" :class="size === 'sm' ? 'w-4 h-4' : 'w-5 h-5'" />
     <span v-if="coin.loading.value && !coin.account.value">--</span>
     <span v-else>{{ coin.balance.value }}</span>
     <span class="opacity-70">云币</span>

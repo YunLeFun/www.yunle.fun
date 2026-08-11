@@ -74,20 +74,18 @@ function handleClose() {
 </script>
 
 <template>
-  <UModal
+  <AppModal
     :open="open"
+    title="支付"
     @update:open="$emit('update:open', $event)"
   >
-    <template #title>
-      <span class="sr-only">支付</span>
-    </template>
     <template #content>
       <div class="p-6 space-y-5">
         <!-- 确认阶段 -->
         <template v-if="phase === 'confirm'">
           <div class="flex items-center gap-3">
             <div class="flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10">
-              <UIcon
+              <Icon
                 name="i-lucide-credit-card"
                 class="w-5 h-5 text-primary"
               />
@@ -126,7 +124,7 @@ function handleClose() {
               <span class="text-muted">有效期</span>
               <span class="text-sm">{{ isYearly ? '按自然年顺延' : '按自然月顺延' }}</span>
             </div>
-            <USeparator />
+            <AppSeparator />
             <div class="flex items-center justify-between">
               <span class="text-muted">支付金额</span>
               <span class="text-xl font-bold text-primary">{{ priceFormatted }}</span>
@@ -142,19 +140,19 @@ function handleClose() {
           </div>
 
           <div class="flex gap-3 justify-end">
-            <UButton
+            <AppButton
               color="neutral"
               variant="outline"
               @click="handleClose"
             >
               取消
-            </UButton>
-            <UButton
+            </AppButton>
+            <AppButton
               :loading="loading"
               @click="$emit('confirm')"
             >
               确认支付
-            </UButton>
+            </AppButton>
           </div>
         </template>
 
@@ -178,7 +176,7 @@ function handleClose() {
                 </div>
               </div>
               <div class="flex items-center justify-center gap-2 text-sm text-muted">
-                <UIcon
+                <Icon
                   name="i-lucide-loader-2"
                   class="w-4 h-4 animate-spin"
                 />
@@ -193,7 +191,7 @@ function handleClose() {
           <!-- H5 / JSAPI -->
           <template v-else>
             <div class="text-center space-y-4 py-8">
-              <UIcon
+              <Icon
                 name="i-lucide-loader-2"
                 class="w-12 h-12 mx-auto text-primary animate-spin"
               />
@@ -207,14 +205,14 @@ function handleClose() {
           </template>
 
           <div class="flex justify-center">
-            <UButton
+            <AppButton
               color="neutral"
               variant="ghost"
               size="sm"
               @click="handleClose"
             >
               取消支付
-            </UButton>
+            </AppButton>
           </div>
         </template>
 
@@ -222,7 +220,7 @@ function handleClose() {
         <template v-else-if="phase === 'success'">
           <div class="text-center space-y-4 py-4">
             <div class="flex items-center justify-center w-16 h-16 mx-auto rounded-full bg-success/10">
-              <UIcon
+              <Icon
                 name="i-lucide-check"
                 class="w-8 h-8 text-success"
               />
@@ -235,12 +233,12 @@ function handleClose() {
             </p>
           </div>
           <div class="flex gap-3 justify-center">
-            <UButton v-if="fromApps" color="neutral" variant="outline" @click="returnToApp">
+            <AppButton v-if="fromApps" color="neutral" variant="outline" @click="returnToApp">
               返回云乐坊
-            </UButton>
-            <UButton @click="handleClose">
+            </AppButton>
+            <AppButton @click="handleClose">
               完成
-            </UButton>
+            </AppButton>
           </div>
         </template>
 
@@ -248,7 +246,7 @@ function handleClose() {
         <template v-else-if="phase === 'fail'">
           <div class="text-center space-y-4 py-4">
             <div class="flex items-center justify-center w-16 h-16 mx-auto rounded-full bg-error/10">
-              <UIcon
+              <Icon
                 name="i-lucide-x"
                 class="w-8 h-8 text-error"
               />
@@ -261,19 +259,19 @@ function handleClose() {
             </p>
           </div>
           <div class="flex gap-3 justify-center">
-            <UButton
+            <AppButton
               color="neutral"
               variant="outline"
               @click="handleClose"
             >
               关闭
-            </UButton>
-            <UButton @click="$emit('confirm')">
+            </AppButton>
+            <AppButton @click="$emit('confirm')">
               重新支付
-            </UButton>
+            </AppButton>
           </div>
         </template>
       </div>
     </template>
-  </UModal>
+  </AppModal>
 </template>

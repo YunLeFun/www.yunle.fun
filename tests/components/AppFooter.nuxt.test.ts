@@ -5,29 +5,9 @@ import AppFooter from '../../app/components/AppFooter.vue'
 
 const globalStubs = {
   YlfLogo: { template: '<span />' },
-  USeparator: { template: '<hr>' },
-  UContainer: { template: '<div><slot /></div>' },
-  UFooterColumns: {
-    props: ['columns'],
-    template: `
-      <nav>
-        <section v-for="column in columns" :key="column.label">
-          <h2>{{ column.label }}</h2>
-          <a v-for="item in column.children" :key="item.to" :href="item.to">{{ item.label }}</a>
-        </section>
-      </nav>
-    `,
-  },
-  UFooter: {
-    template: `
-      <footer>
-        <slot name="top" />
-        <slot name="left" />
-        <slot name="right" />
-      </footer>
-    `,
-  },
-  UButton: {
+  Separator: { template: '<hr>' },
+  AppContainer: { template: '<div><slot /></div>' },
+  AppButton: {
     props: ['to', 'ariaLabel'],
     template: '<a :href="to" :aria-label="ariaLabel" />',
   },

@@ -94,7 +94,7 @@ async function toggle() {
 </script>
 
 <template>
-  <UButton
+  <AppButton
     v-if="!isSelf"
     :icon="icon"
     :label="label"

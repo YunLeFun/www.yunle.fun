@@ -28,7 +28,9 @@ describe('appSsoCloudMap', () => {
       const externalLink = node.get('.sso-app-node__link')
       expect(externalLink.attributes('href')).toBe(app.origin)
       expect(externalLink.attributes('target')).toBe('_blank')
-      expect(externalLink.attributes('aria-label')).toContain('支持统一账号')
+      expect(externalLink.attributes('aria-label')).toBeUndefined()
+      expect(externalLink.text()).toContain('统一账号')
+      expect(externalLink.text()).toContain('在新标签页打开')
       expect(node.find('.sso-app-cloud__shape').exists()).toBe(false)
     }
 

@@ -17,7 +17,7 @@ const emit = defineEmits<{
 const searchId = `app-search-${useId()}`
 const hasActiveFilter = computed(() => Boolean(props.query) || props.selectedCategory !== 'all')
 
-function updateQuery(value: string | number) {
+function updateQuery(value: string | number | null | undefined) {
   emit('update:query', String(value ?? ''))
 }
 
@@ -31,7 +31,7 @@ function clearFilters() {
   <section class="app-discovery-toolbar" aria-label="筛选应用">
     <div class="app-discovery-toolbar__search">
       <label :for="searchId" class="sr-only">搜索应用</label>
-      <UInput
+      <AppInput
         :id="searchId"
         :model-value="query"
         type="search"
@@ -44,7 +44,7 @@ function clearFilters() {
     </div>
 
     <div class="app-discovery-toolbar__filters" aria-label="应用分类">
-      <UButton
+      <AppButton
         data-category="all"
         label="全部"
         :aria-pressed="selectedCategory === 'all'"
@@ -53,7 +53,7 @@ function clearFilters() {
         size="sm"
         @click="emit('update:category', 'all')"
       />
-      <UButton
+      <AppButton
         v-for="category in categories"
         :key="category.id"
         :data-category="category.id"
@@ -69,7 +69,7 @@ function clearFilters() {
 
     <div class="app-discovery-toolbar__status">
       <span aria-live="polite">找到 {{ resultCount }} 个应用</span>
-      <UButton
+      <AppButton
         v-if="hasActiveFilter"
         label="清除筛选"
         icon="i-lucide-x"

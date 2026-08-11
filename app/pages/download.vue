@@ -104,7 +104,7 @@ const faqItems = ref([
 <template>
   <div>
     <!-- Downloads Section -->
-    <UPageHero
+    <AppPageHero
       title="下载应用"
       description="选择适合您设备的版本，立即开始使用"
       class="pt-12 md:pt-16"
@@ -114,8 +114,8 @@ const faqItems = ref([
           <YlfEyebrow label="📥 立即下载" />
         </div>
       </template>
-      <UPageGrid>
-        <UPageCard
+      <AppPageGrid>
+        <AppPageCard
           v-for="(platform, index) in platforms"
           :key="index"
           :title="platform.name"
@@ -130,7 +130,7 @@ const faqItems = ref([
                   {{ platform.requirements }}
                 </div>
               </div>
-              <UButton
+              <AppButton
                 :to="platform.link"
                 :target="platform.isWeb ? '_blank' : undefined"
                 :rel="platform.isWeb ? 'noopener noreferrer' : undefined"
@@ -141,17 +141,17 @@ const faqItems = ref([
                 :icon="platform.isWeb ? 'i-lucide-external-link' : 'i-lucide-download'"
               >
                 {{ platform.actionLabel }}
-              </UButton>
+              </AppButton>
             </div>
           </template>
-        </UPageCard>
-      </UPageGrid>
-    </UPageHero>
+        </AppPageCard>
+      </AppPageGrid>
+    </AppPageHero>
 
-    <USeparator />
+    <AppSeparator />
 
     <!-- Features Section -->
-    <UPageSection
+    <AppPageSection
       id="features"
       title="为什么选择我们"
       description="强大的功能，卓越的体验"
@@ -161,8 +161,8 @@ const faqItems = ref([
           <YlfEyebrow label="✨ 核心特性" />
         </div>
       </template>
-      <UPageGrid>
-        <UPageCard
+      <AppPageGrid>
+        <AppPageCard
           v-for="(feature, index) in features"
           :key="index"
           :title="feature.title"
@@ -170,13 +170,13 @@ const faqItems = ref([
           :icon="feature.icon"
           variant="subtle"
         />
-      </UPageGrid>
-    </UPageSection>
+      </AppPageGrid>
+    </AppPageSection>
 
-    <USeparator />
+    <AppSeparator />
 
     <!-- System Requirements -->
-    <UPageSection
+    <AppPageSection
       title="系统要求"
       description="确保您的设备满足以下最低要求"
     >
@@ -186,7 +186,7 @@ const faqItems = ref([
         </div>
       </template>
       <div class="mx-auto max-w-3xl">
-        <UPageCard variant="subtle">
+        <AppPageCard variant="subtle">
           <div class="space-y-4">
             <div class="gap-6 grid md:grid-cols-2">
               <div>
@@ -195,15 +195,15 @@ const faqItems = ref([
                 </h3>
                 <ul class="text-muted text-sm space-y-2">
                   <li class="flex gap-2 items-start">
-                    <UIcon name="i-lucide-circle-check" class="text-primary mt-0.5 flex-shrink-0 h-5 w-5" />
+                    <Icon name="i-lucide-circle-check" class="text-primary mt-0.5 flex-shrink-0 h-5 w-5" />
                     <span>iOS 14.0+ / Android 8.0+</span>
                   </li>
                   <li class="flex gap-2 items-start">
-                    <UIcon name="i-lucide-circle-check" class="text-primary mt-0.5 flex-shrink-0 h-5 w-5" />
+                    <Icon name="i-lucide-circle-check" class="text-primary mt-0.5 flex-shrink-0 h-5 w-5" />
                     <span>至少 2GB RAM</span>
                   </li>
                   <li class="flex gap-2 items-start">
-                    <UIcon name="i-lucide-circle-check" class="text-primary mt-0.5 flex-shrink-0 h-5 w-5" />
+                    <Icon name="i-lucide-circle-check" class="text-primary mt-0.5 flex-shrink-0 h-5 w-5" />
                     <span>500MB 可用存储空间</span>
                   </li>
                 </ul>
@@ -214,29 +214,29 @@ const faqItems = ref([
                 </h3>
                 <ul class="text-muted text-sm space-y-2">
                   <li class="flex gap-2 items-start">
-                    <UIcon name="i-lucide-circle-check" class="text-primary mt-0.5 flex-shrink-0 h-5 w-5" />
+                    <Icon name="i-lucide-circle-check" class="text-primary mt-0.5 flex-shrink-0 h-5 w-5" />
                     <span>Windows 10+ / macOS 11+ / Linux</span>
                   </li>
                   <li class="flex gap-2 items-start">
-                    <UIcon name="i-lucide-circle-check" class="text-primary mt-0.5 flex-shrink-0 h-5 w-5" />
+                    <Icon name="i-lucide-circle-check" class="text-primary mt-0.5 flex-shrink-0 h-5 w-5" />
                     <span>至少 4GB RAM</span>
                   </li>
                   <li class="flex gap-2 items-start">
-                    <UIcon name="i-lucide-circle-check" class="text-primary mt-0.5 flex-shrink-0 h-5 w-5" />
+                    <Icon name="i-lucide-circle-check" class="text-primary mt-0.5 flex-shrink-0 h-5 w-5" />
                     <span>1GB 可用存储空间</span>
                   </li>
                 </ul>
               </div>
             </div>
           </div>
-        </UPageCard>
+        </AppPageCard>
       </div>
-    </UPageSection>
+    </AppPageSection>
 
-    <USeparator />
+    <AppSeparator />
 
     <!-- FAQ Section -->
-    <UPageSection
+    <AppPageSection
       title="常见问题"
       description="关于下载和使用应用的常见问题解答"
     >
@@ -245,7 +245,7 @@ const faqItems = ref([
           <YlfEyebrow label="❓ 常见问题" />
         </div>
       </template>
-      <UAccordion
+      <AppAccordion
         :items="faqItems"
         :unmount-on-hide="false"
         type="single"
@@ -255,6 +255,6 @@ const faqItems = ref([
           body: 'text-base text-muted',
         }"
       />
-    </UPageSection>
+    </AppPageSection>
   </div>
 </template>

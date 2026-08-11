@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { ConstructionIcon } from '@lucide/vue'
 import developerPage from '~~/content/5.developer.yml'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 
 const page = ref(developerPage)
 
@@ -23,7 +25,7 @@ const featureIconColors = [
 
 <template>
   <div v-if="page">
-    <UPageHero
+    <AppPageHero
       :title="page.title"
       :description="page.description"
       :links="page.hero.links"
@@ -39,22 +41,20 @@ const featureIconColors = [
       <template #title>
         云乐坊 <span class="ylf-gradient-text">应用生态</span>
       </template>
-    </UPageHero>
+    </AppPageHero>
 
-    <UContainer
+    <AppContainer
       v-if="page.notice"
       class="-mt-4 mb-4"
     >
-      <UAlert
-        :title="page.notice.title"
-        :description="page.notice.description"
-        icon="i-lucide-construction"
-        color="warning"
-        variant="subtle"
-      />
-    </UContainer>
+      <Alert>
+        <ConstructionIcon />
+        <AlertTitle>{{ page.notice.title }}</AlertTitle>
+        <AlertDescription>{{ page.notice.description }}</AlertDescription>
+      </Alert>
+    </AppContainer>
 
-    <UPageSection
+    <AppPageSection
       v-for="(section, index) in (page.sections as any[])"
       :key="index"
       :title="section.title"
@@ -66,9 +66,9 @@ const featureIconColors = [
       <template #headline>
         <YlfEyebrow :label="section.headline" />
       </template>
-    </UPageSection>
+    </AppPageSection>
 
-    <UPageSection
+    <AppPageSection
       :title="page.features.title"
       :description="page.features.description"
     >
@@ -78,42 +78,42 @@ const featureIconColors = [
         </div>
       </template>
 
-      <UPageGrid>
-        <UPageCard
+      <AppPageGrid>
+        <AppPageCard
           v-for="(item, index) in (page.features.items as any[])"
           :key="index"
           v-bind="item"
           spotlight
           :ui="{ leadingIcon: featureIconColors[index % featureIconColors.length] }"
         />
-      </UPageGrid>
-    </UPageSection>
+      </AppPageGrid>
+    </AppPageSection>
 
-    <UPageSection
+    <AppPageSection
       id="resources"
       :headline="page.resources.headline"
       :title="page.resources.title"
       :description="page.resources.description"
     >
-      <UPageGrid>
-        <UPageCard
+      <AppPageGrid>
+        <AppPageCard
           v-for="(resource, index) in page.resources.items"
           :key="index"
           v-bind="resource"
           variant="subtle"
         />
-      </UPageGrid>
-    </UPageSection>
+      </AppPageGrid>
+    </AppPageSection>
 
-    <USeparator />
+    <AppSeparator />
 
-    <UPageCTA
+    <AppPageCta
       v-bind="page.cta"
       variant="naked"
       class="overflow-hidden"
     >
       <div class="ylf-cta-glow" />
       <LazyStarsBg />
-    </UPageCTA>
+    </AppPageCta>
   </div>
 </template>

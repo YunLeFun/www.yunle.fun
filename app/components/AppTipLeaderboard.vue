@@ -33,12 +33,12 @@ onMounted(async () => {
 <template>
   <section class="space-y-3">
     <h2 class="text-lg font-semibold flex items-center gap-2">
-      <UIcon name="i-lucide-trophy" class="text-amber-500" />
+      <Icon name="i-lucide-trophy" class="text-amber-500" />
       应用支持榜
     </h2>
 
     <div v-if="loading" class="flex justify-center py-6">
-      <UIcon name="i-lucide-loader-2" class="text-2xl text-muted animate-spin" />
+      <Icon name="i-lucide-loader-2" class="text-2xl text-muted animate-spin" />
     </div>
 
     <p v-else-if="rows.length === 0" class="text-sm text-muted py-4 text-center">
@@ -57,7 +57,7 @@ onMounted(async () => {
           >{{ i + 1 }}</span>
           <span class="flex-1 font-medium truncate">{{ row.name }}</span>
           <span class="inline-flex items-center gap-1 text-sm text-primary font-medium">
-            <UIcon name="i-lucide-coins" class="size-4" />
+            <Icon name="i-lucide-coins" class="size-4" />
             {{ row.totalCoins }}
           </span>
           <span class="text-xs text-muted w-12 text-right">{{ row.supporterCount }} 人</span>

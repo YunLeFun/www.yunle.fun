@@ -1,6 +1,21 @@
 <script setup lang="ts">
 import type { FocusOutsideEvent, PointerDownOutsideEvent } from 'reka-ui'
 import { useMediaQuery } from '@vueuse/core'
+import { shallowRef, useTemplateRef } from 'vue'
+import { Button } from '@/components/ui/button'
+import {
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
+} from '@/components/ui/popover'
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet'
 import { useTcbAuthSession } from '~/composables/auth/useAuthSession'
 
 /**
@@ -12,11 +27,10 @@ const coin = useCoin()
 const route = useRoute()
 
 const isDesktop = useMediaQuery('(min-width: 768px)')
-const desktopTrigger = ref<HTMLElement | null>(null)
-const desktopReference = computed(() => desktopTrigger.value || undefined)
-const desktopOpen = ref(false)
-const desktopPinned = ref(false)
-const mobileOpen = ref(false)
+const desktopTrigger = useTemplateRef<HTMLElement>('desktopTrigger')
+const desktopOpen = shallowRef(false)
+const desktopPinned = shallowRef(false)
+const mobileOpen = shallowRef(false)
 let openTimer: ReturnType<typeof setTimeout> | undefined
 let closeTimer: ReturnType<typeof setTimeout> | undefined
 let pinnedResetTimer: ReturnType<typeof setTimeout> | undefined
@@ -134,24 +148,85 @@ onBeforeUnmount(() => {
 
 <template>
   <div v-if="user" class="inline-flex">
-    <template v-if="isDesktop">
-      <div
-        ref="desktopTrigger"
-        class="inline-flex"
-        data-testid="desktop-user-menu-anchor"
-        @pointerenter="scheduleDesktopOpen"
-        @pointerleave="scheduleDesktopClose"
+    <Popover v-if="isDesktop" v-model:open="desktopOpen">
+      <PopoverAnchor as-child>
+        <div
+          ref="desktopTrigger"
+          class="inline-flex"
+          data-testid="desktop-user-menu-anchor"
+          @pointerenter="scheduleDesktopOpen"
+          @pointerleave="scheduleDesktopClose"
+        >
+          <Button
+            type="button"
+            variant="ghost"
+            class="ylf-user-menu-trigger"
+            :class="{ 'ylf-user-menu-trigger--open': desktopOpen }"
+            aria-label="打开账户菜单"
+            aria-haspopup="dialog"
+            :aria-expanded="desktopOpen"
+            aria-controls="desktop-user-account-panel"
+            data-testid="desktop-user-menu-trigger"
+            @click="toggleDesktopPinned"
+          >
+            <MemberAvatar
+              :src="user.avatar"
+              :alt="user.nickname || user.login || 'User'"
+              size="xs"
+              :is-member="coin.isMember.value"
+              class="ylf-user-menu-trigger__avatar"
+            />
+            <span class="hidden w-16 truncate text-sm lg:inline-block">
+              {{ user.nickname || user.login }}
+            </span>
+            <Icon
+              name="i-lucide-chevron-down"
+              class="hidden text-dimmed transition-transform duration-150 lg:block"
+              :class="{ 'rotate-180': desktopOpen }"
+              aria-hidden="true"
+            />
+          </Button>
+        </div>
+      </PopoverAnchor>
+
+      <PopoverContent
+        v-if="desktopOpen"
+        align="end"
+        side="bottom"
+        :side-offset="8"
+        :collision-padding="12"
+        class="w-auto border-0 bg-transparent p-0 shadow-none ring-0"
+        @interact-outside="keepTriggerInsidePopover"
       >
-        <button
+        <div
+          id="desktop-user-account-panel"
+          @pointerenter="keepDesktopOpen"
+          @pointerleave="scheduleDesktopClose"
+        >
+          <UserAccountPanel
+            :user="user"
+            :is-member="coin.isMember.value"
+            :coin-balance="coin.balance.value"
+            :coin-loading="coin.loading.value && !coin.account.value"
+            @close="closeSurfaces"
+            @logout="handleLogout"
+          />
+        </div>
+      </PopoverContent>
+    </Popover>
+
+    <Sheet v-else v-model:open="mobileOpen">
+      <SheetTrigger as-child>
+        <Button
           type="button"
-          class="ylf-user-menu-trigger"
-          :class="{ 'ylf-user-menu-trigger--open': desktopOpen }"
+          variant="ghost"
+          size="icon-sm"
+          class="ylf-user-menu-trigger ylf-user-menu-trigger--mobile"
           aria-label="打开账户菜单"
           aria-haspopup="dialog"
-          :aria-expanded="desktopOpen"
-          aria-controls="desktop-user-account-panel"
-          data-testid="desktop-user-menu-trigger"
-          @click="toggleDesktopPinned"
+          :aria-expanded="mobileOpen"
+          data-testid="mobile-user-menu-trigger"
+          @click="mobileOpen = true"
         >
           <MemberAvatar
             :src="user.avatar"
@@ -160,77 +235,19 @@ onBeforeUnmount(() => {
             :is-member="coin.isMember.value"
             class="ylf-user-menu-trigger__avatar"
           />
-          <span class="hidden w-16 truncate text-sm lg:inline-block">
-            {{ user.nickname || user.login }}
-          </span>
-          <UIcon
-            name="i-lucide-chevron-down"
-            class="hidden size-3.5 text-dimmed transition-transform duration-150 lg:block"
-            :class="{ 'rotate-180': desktopOpen }"
-            aria-hidden="true"
-          />
-        </button>
-      </div>
+        </Button>
+      </SheetTrigger>
 
-      <UPopover
-        v-model:open="desktopOpen"
-        :reference="desktopReference"
-        :content="{
-          align: 'end',
-          side: 'bottom',
-          sideOffset: 8,
-          collisionPadding: 12,
-          onInteractOutside: keepTriggerInsidePopover,
-        }"
-        :ui="{ content: 'bg-transparent p-0 shadow-none ring-0 rounded-none' }"
+      <SheetContent
+        v-if="mobileOpen"
+        side="bottom"
+        :show-close-button="false"
+        class="overflow-hidden rounded-t-3xl bg-(--ylf-surface) p-0 ring-0"
       >
-        <template #content>
-          <div
-            id="desktop-user-account-panel"
-            @pointerenter="keepDesktopOpen"
-            @pointerleave="scheduleDesktopClose"
-          >
-            <UserAccountPanel
-              :user="user"
-              :is-member="coin.isMember.value"
-              :coin-balance="coin.balance.value"
-              :coin-loading="coin.loading.value && !coin.account.value"
-              @close="closeSurfaces"
-              @logout="handleLogout"
-            />
-          </div>
-        </template>
-      </UPopover>
-    </template>
-
-    <UDrawer
-      v-else
-      v-model:open="mobileOpen"
-      title="账户快捷菜单"
-      description="查看账户信息与常用入口"
-      :ui="{
-        content: 'overflow-hidden rounded-t-[1.5rem] bg-(--ylf-surface) ring-0',
-        handle: 'mt-3',
-      }"
-    >
-      <button
-        type="button"
-        class="ylf-user-menu-trigger ylf-user-menu-trigger--mobile"
-        aria-label="打开账户菜单"
-        aria-haspopup="dialog"
-        :aria-expanded="mobileOpen"
-        data-testid="mobile-user-menu-trigger"
-      >
-        <MemberAvatar
-          :src="user.avatar"
-          :alt="user.nickname || user.login || 'User'"
-          size="xs"
-          :is-member="coin.isMember.value"
-          class="ylf-user-menu-trigger__avatar"
-        />
-      </button>
-
-      <template #content>
+        <SheetHeader class="sr-only">
+          <SheetTitle>账户快捷菜单</SheetTitle>
+          <SheetDescription>查看账户信息与常用入口</SheetDescription>
+        </SheetHeader>
         <UserAccountPanel
           :user="user"
           :is-member="coin.isMember.value"
@@ -240,8 +257,8 @@ onBeforeUnmount(() => {
           @close="closeSurfaces"
           @logout="handleLogout"
         />
-      </template>
-    </UDrawer>
+      </SheetContent>
+    </Sheet>
   </div>
 
   <UserMenuSkeleton v-else-if="authStatus === 'pending'" />

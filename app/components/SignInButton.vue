@@ -39,7 +39,7 @@ async function handleSignIn() {
 </script>
 
 <template>
-  <UButton
+  <AppButton
     :icon="signedToday ? 'i-lucide-calendar-check' : 'i-lucide-calendar-plus'"
     :color="signedToday ? 'neutral' : 'primary'"
     :variant="signedToday ? 'subtle' : 'solid'"
@@ -48,5 +48,5 @@ async function handleSignIn() {
     @click="handleSignIn"
   >
     {{ signedToday ? `今日已领 +${reward} 云币` : `领取 +${reward} 云币` }}
-  </UButton>
+  </AppButton>
 </template>

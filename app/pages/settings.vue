@@ -79,7 +79,7 @@ function clearProfileEditRequest() {
 </script>
 
 <template>
-  <main class="px-4 py-8 sm:px-6 sm:py-12">
+  <div class="px-4 py-8 sm:px-6 sm:py-12">
     <div v-if="loading" class="flex justify-center py-20">
       <Spinner class="size-7 text-muted-foreground" />
     </div>
@@ -155,5 +155,5 @@ function clearProfileEditRequest() {
         </TabsContent>
       </Tabs>
     </div>
-  </main>
+  </div>
 </template>

@@ -15,4 +15,20 @@ describe('auth action buttons', () => {
     expect(mobileSignup.exists()).toBe(true)
     expect(mobileSignup.classes()).toContain('lg:hidden')
   })
+
+  it('shows explicit action labels in wide mobile navigation surfaces', async () => {
+    const wrapper = await mountSuspended(AuthActionButtons, {
+      props: { presentation: 'labeled' },
+    })
+
+    const labeledLogin = wrapper.find('a[href="/login"]:not([aria-label])')
+    const labeledSignup = wrapper.find('a[href="/signup"]:not([aria-label])')
+
+    expect(labeledLogin.text()).toBe('登录')
+    expect(labeledLogin.classes()).toContain('inline-flex')
+    expect(labeledSignup.text()).toContain('注册')
+    expect(labeledSignup.classes()).toContain('inline-flex')
+    expect(wrapper.find('a[href="/login"][aria-label="登录"]').classes()).toContain('hidden')
+    expect(wrapper.find('a[href="/signup"][aria-label="注册"]').classes()).toContain('hidden')
+  })
 })

@@ -24,18 +24,18 @@ defineEmits<{
         data-testid="app-skeleton"
         class="app-discovery-grid__skeleton"
       >
-        <USkeleton class="h-13 w-13 rounded-2xl" />
-        <USkeleton class="mt-5 h-5 w-2/3" />
-        <USkeleton class="mt-4 h-3 w-full" />
-        <USkeleton class="mt-2 h-3 w-4/5" />
+        <AppSkeleton class="h-13 w-13 rounded-2xl" />
+        <AppSkeleton class="mt-5 h-5 w-2/3" />
+        <AppSkeleton class="mt-4 h-3 w-full" />
+        <AppSkeleton class="mt-2 h-3 w-4/5" />
       </div>
     </div>
 
     <div v-else-if="error" class="app-discovery-grid__state" role="alert">
-      <UIcon name="i-lucide-cloud-alert" class="app-discovery-grid__state-icon" />
+      <Icon name="i-lucide-cloud-alert" class="app-discovery-grid__state-icon" />
       <h2>应用云暂时飘远了</h2>
       <p>{{ error }}</p>
-      <UButton
+      <AppButton
         data-testid="retry-apps"
         label="重新加载"
         icon="i-lucide-refresh-cw"
@@ -44,11 +44,11 @@ defineEmits<{
     </div>
 
     <div v-else-if="!apps.length" class="app-discovery-grid__state">
-      <UIcon name="i-lucide-cloud-sun" class="app-discovery-grid__state-icon" />
+      <Icon name="i-lucide-cloud-sun" class="app-discovery-grid__state-icon" />
       <template v-if="hasFilters">
         <h2>没有找到匹配的应用</h2>
         <p>换个关键词或分类，也许会遇到另一朵云。</p>
-        <UButton
+        <AppButton
           data-testid="clear-app-filters"
           label="清除筛选"
           color="neutral"

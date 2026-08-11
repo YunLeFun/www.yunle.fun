@@ -42,7 +42,7 @@ function formatExpire(ts: number) {
     class="inline-flex items-center rounded-full font-semibold leading-none"
     :class="[props.variant === 'frost' ? 'ylf-member-frost' : 'ylf-member-mark', cls.wrap]"
   >
-    <UIcon name="i-lucide-cloud" :class="cls.icon" />
+    <Icon name="i-lucide-cloud" :class="cls.icon" />
     <span v-if="label">{{ label }}</span>
     <span
       v-if="expireAt"

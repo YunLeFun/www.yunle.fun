@@ -19,7 +19,7 @@ onMounted(() => {
 <template>
   <div class="text-center space-y-6">
     <div class="flex justify-center">
-      <UIcon
+      <Icon
         name="i-lucide-loader-circle"
         class="w-16 h-16 text-primary animate-spin"
       />

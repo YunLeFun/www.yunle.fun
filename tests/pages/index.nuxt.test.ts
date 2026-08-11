@@ -24,13 +24,13 @@ const globalStubs = {
   LazyHomeAppShowcase: {
     template: '<div />',
   },
-  UContainer: {
+  AppContainer: {
     template: '<div><slot /></div>',
   },
   UIcon: {
     template: '<span />',
   },
-  UButton: {
+  AppButton: {
     props: ['to', 'label'],
     template: '<a v-if="to" :href="to">{{ label }}</a>',
   },
@@ -38,7 +38,7 @@ const globalStubs = {
     props: ['to'],
     template: '<a :href="to"><slot /></a>',
   },
-  UPageCTA: {
+  AppPageCta: {
     props: ['title', 'description', 'links'],
     template: `
       <section>

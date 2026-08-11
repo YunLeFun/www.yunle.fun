@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Slider } from '@/components/ui/slider'
 
 const props = defineProps<{
   file: File | null
@@ -61,6 +62,10 @@ const dragStart = reactive({ x: 0, y: 0, cropX: 0, cropY: 0, cropSize: 0 })
 const zoomLevel = ref(1)
 const MIN_ZOOM = 0.5
 const MAX_ZOOM = 3
+const zoomModel = computed({
+  get: () => [zoomLevel.value],
+  set: (value: number[]) => onZoom(value[0] ?? 1),
+})
 
 watch(() => props.file, (file, _previousFile, onCleanup) => {
   if (!file)
@@ -492,16 +497,14 @@ onUnmounted(() => {
 
         <div class="flex items-center gap-3">
           <ZoomOutIcon class="size-4 shrink-0 text-muted-foreground" />
-          <input
+          <Slider
+            v-model="zoomModel"
             aria-label="缩放头像"
-            type="range"
             :min="MIN_ZOOM"
             :max="MAX_ZOOM"
-            step="0.05"
-            :value="zoomLevel"
-            class="h-1.5 flex-1 cursor-pointer accent-primary"
-            @input="onZoom(Number(($event.target as HTMLInputElement).value))"
-          >
+            :step="0.05"
+            class="flex-1"
+          />
           <ZoomInIcon class="size-4 shrink-0 text-muted-foreground" />
         </div>
 

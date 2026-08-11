@@ -61,7 +61,7 @@ watch(() => [props.userId, props.type], () => {
 </script>
 
 <template>
-  <UModal v-model:open="open" :title="title">
+  <AppModal v-model:open="open" :title="title">
     <template #content>
       <div class="p-4 sm:p-5">
         <h3 class="ylf-dreamy-display mb-4 text-lg text-highlighted">
@@ -69,7 +69,7 @@ watch(() => [props.userId, props.type], () => {
         </h3>
 
         <div v-if="!loaded && loading" class="flex justify-center py-10">
-          <UIcon name="i-lucide-loader-2" class="animate-spin text-2xl text-muted" />
+          <Icon name="i-lucide-loader-2" class="animate-spin text-2xl text-muted" />
         </div>
         <div v-else-if="items.length === 0" class="py-10 text-center text-sm text-muted">
           {{ hidden ? `对方已隐藏${title}列表` : `还没有${title}` }}
@@ -104,7 +104,7 @@ watch(() => [props.userId, props.type], () => {
           </div>
 
           <div v-if="nextSkip !== null" class="pt-2 text-center">
-            <UButton
+            <AppButton
               :loading="loading"
               label="加载更多"
               color="neutral"
@@ -116,5 +116,5 @@ watch(() => [props.userId, props.type], () => {
         </div>
       </div>
     </template>
-  </UModal>
+  </AppModal>
 </template>

@@ -82,7 +82,7 @@ function deactivate(appId: string) {
       </div>
     </div>
 
-    <UButton
+    <AppButton
       class="app-sso-cloud-map__browse"
       label="浏览全部应用"
       icon="i-lucide-layout-grid"

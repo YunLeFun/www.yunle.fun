@@ -1,16 +1,18 @@
 <script setup lang="ts">
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
@@ -400,43 +402,43 @@ async function handleLogout() {
       </div>
     </Card>
 
-    <Dialog v-model:open="showLogoutConfirm">
-      <DialogContent>
-        <DialogHeader>
+    <AlertDialog v-model:open="showLogoutConfirm">
+      <AlertDialogContent>
+        <AlertDialogHeader>
           <div class="flex items-center gap-3">
             <div class="rounded-full bg-elevated p-2">
               <Icon name="i-lucide-log-out" class="size-5" />
             </div>
             <div>
-              <DialogTitle>确认退出</DialogTitle>
-              <DialogDescription>您确定要退出当前账户吗？</DialogDescription>
+              <AlertDialogTitle>确认退出</AlertDialogTitle>
+              <AlertDialogDescription>您确定要退出当前账户吗？</AlertDialogDescription>
             </div>
           </div>
-        </DialogHeader>
-        <DialogFooter>
-          <Button variant="outline" @click="showLogoutConfirm = false">
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>
             取消
-          </Button>
-          <Button variant="destructive" @click="handleLogout">
+          </AlertDialogCancel>
+          <AlertDialogAction variant="destructive" @click="handleLogout">
             确认退出
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
 
-    <Dialog v-model:open="showDeleteConfirm">
-      <DialogContent>
-        <DialogHeader>
+    <AlertDialog v-model:open="showDeleteConfirm">
+      <AlertDialogContent class="sm:max-w-lg">
+        <AlertDialogHeader>
           <div class="flex items-start gap-3">
             <div class="rounded-full bg-error-50 p-2 dark:bg-error-950">
               <Icon name="i-lucide-user-x" class="size-5 text-error" />
             </div>
             <div class="min-w-0">
-              <DialogTitle>申请注销账号</DialogTitle>
-              <DialogDescription>提交后进入 30 天冷静期，不会立即删除</DialogDescription>
+              <AlertDialogTitle>申请注销账号</AlertDialogTitle>
+              <AlertDialogDescription>提交后进入 30 天冷静期，不会立即删除</AlertDialogDescription>
             </div>
           </div>
-        </DialogHeader>
+        </AlertDialogHeader>
 
         <div class="space-y-5 px-6 pb-6">
           <div class="space-y-3 rounded-xl bg-elevated/60 p-4 text-sm">
@@ -461,16 +463,16 @@ async function handleLogout() {
             <Input id="account-delete-confirm" v-model="deleteConfirmText" placeholder="注销" autocomplete="off" :disabled="deleting" />
           </Field>
         </div>
-        <DialogFooter>
-          <Button variant="outline" :disabled="deleting" @click="showDeleteConfirm = false">
+        <AlertDialogFooter>
+          <AlertDialogCancel :disabled="deleting">
             暂不注销
-          </Button>
+          </AlertDialogCancel>
           <Button variant="destructive" :disabled="!canDelete || deleting" @click="handleDeleteAccount">
             <Spinner v-if="deleting" />
             进入 30 天冷静期
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   </div>
 </template>

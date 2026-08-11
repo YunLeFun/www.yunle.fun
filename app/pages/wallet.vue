@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { OrderSummary, RewardHistoryItem } from '~/composables/useCoin'
 import type { CoinPackId, CoinTransaction } from '~/types/payment'
+import { Button } from '@/components/ui/button'
 import { COIN_TX_TYPE_NAMES } from '~/composables/useCoin'
 import { formatPrice } from '~/composables/usePaymentFlow'
 import { COIN_CUSTOM_MAX, COIN_CUSTOM_MIN, COIN_PACKS, COIN_RATE_FEN } from '~/types/payment'
@@ -245,7 +246,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <UContainer class="py-8 sm:py-10 space-y-8">
+  <AppContainer class="py-8 sm:py-10 space-y-8">
     <header class="space-y-1">
       <h1 class="text-2xl font-bold tracking-tight">
         我的钱包
@@ -261,14 +262,14 @@ onMounted(async () => {
       class="ylf-empty-state rounded-2xl px-6 py-12 text-center space-y-4"
     >
       <div class="ylf-icon-tile mx-auto flex size-14 items-center justify-center rounded-2xl">
-        <UIcon name="i-lucide-wallet" class="size-7" />
+        <Icon name="i-lucide-wallet" class="size-7" />
       </div>
       <p class="text-muted">
         登录后查看云币余额与充值记录
       </p>
-      <UButton to="/login?redirect=/wallet" size="lg">
+      <AppButton to="/login?redirect=/wallet" size="lg">
         去登录
-      </UButton>
+      </AppButton>
     </div>
 
     <template v-else>
@@ -276,7 +277,7 @@ onMounted(async () => {
       <div class="grid gap-4 sm:grid-cols-2">
         <!-- 余额：渐变主卡 -->
         <div class="ylf-brand-bg relative overflow-hidden rounded-2xl p-6 text-white shadow-lg shadow-primary/20">
-          <UIcon
+          <Icon
             name="i-lucide-coins"
             class="pointer-events-none absolute -right-4 -bottom-4 size-32 opacity-15"
           />
@@ -306,26 +307,26 @@ onMounted(async () => {
                 class="flex size-9 items-center justify-center rounded-xl"
                 :class="coin.isMember.value ? 'ylf-member-mark' : 'bg-elevated text-muted'"
               >
-                <UIcon name="i-lucide-cloud" class="size-5" />
+                <Icon name="i-lucide-cloud" class="size-5" />
               </span>
               <span class="text-lg font-semibold">
                 {{ coin.isMember.value ? '会员有效' : '未开通' }}
               </span>
-              <UBadge
+              <AppBadge
                 v-if="coin.isMember.value"
                 :color="memberExpiringSoon ? 'warning' : 'primary'"
                 variant="subtle"
                 :icon="memberExpiringSoon ? 'i-lucide-clock-alert' : undefined"
               >
                 {{ memberExpiringSoon ? `${memberDaysLeft} 天后到期` : `至 ${formatExpire(coin.membership.value?.expireAt ?? null)}` }}
-              </UBadge>
+              </AppBadge>
             </div>
             <p v-if="memberExpiringSoon" class="text-xs text-warning">
               会员即将到期，续费以免权益中断
             </p>
           </div>
           <div class="pt-4">
-            <UButton
+            <AppButton
               to="/pricing"
               size="sm"
               :variant="coin.isMember.value && !memberExpiringSoon ? 'outline' : 'solid'"
@@ -333,7 +334,7 @@ onMounted(async () => {
               :trailing-icon="coin.isMember.value && !memberExpiringSoon ? undefined : 'i-lucide-arrow-right'"
             >
               {{ coin.isMember.value ? '续费会员' : '开通会员' }}
-            </UButton>
+            </AppButton>
           </div>
         </div>
       </div>
@@ -350,14 +351,14 @@ onMounted(async () => {
           <div v-for="reward in rewards" :key="reward.grantId" class="flex items-center justify-between gap-3 px-4 py-3">
             <div class="flex min-w-0 items-center gap-3">
               <span class="ylf-member-mark flex size-9 shrink-0 items-center justify-center rounded-xl">
-                <UIcon name="i-lucide-gift" class="size-4" />
+                <Icon name="i-lucide-gift" class="size-4" />
               </span>
               <div class="min-w-0 space-y-0.5">
                 <div class="flex items-center gap-2">
                   <span class="truncate font-medium">{{ reward.rewardName }}</span>
-                  <UBadge v-if="reward.status !== 'completed'" color="warning" variant="subtle" size="sm">
+                  <AppBadge v-if="reward.status !== 'completed'" color="warning" variant="subtle" size="sm">
                     {{ reward.status === 'corrected' ? '已纠正' : '纠正待复核' }}
-                  </UBadge>
+                  </AppBadge>
                 </div>
                 <div class="text-xs text-muted">
                   {{ formatDate(reward.creditedAt) }}
@@ -375,9 +376,9 @@ onMounted(async () => {
           </div>
         </div>
         <div v-if="rewardHasMore" class="text-center">
-          <UButton variant="outline" color="neutral" size="sm" :loading="rewardLoading" @click="loadRewards()">
+          <AppButton variant="outline" color="neutral" size="sm" :loading="rewardLoading" @click="loadRewards()">
             加载更多
-          </UButton>
+          </AppButton>
         </div>
       </section>
 
@@ -392,15 +393,16 @@ onMounted(async () => {
 
         <!-- 预设充值包 -->
         <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <button
+          <Button
             v-for="pack in packs"
             :key="pack.id"
             type="button"
-            class="ylf-interactive-card relative rounded-2xl p-4 text-center"
+            variant="outline"
+            class="ylf-interactive-card relative h-auto flex-col rounded-2xl p-4 text-center"
             :class="pack.popular ? 'ring-2 ring-primary/50' : ''"
             @click="handleRecharge(pack.id)"
           >
-            <UBadge
+            <AppBadge
               v-if="pack.popular"
               label="🔥 推荐"
               color="primary"
@@ -409,7 +411,7 @@ onMounted(async () => {
               class="absolute -top-2 left-1/2 -translate-x-1/2"
             />
             <div class="space-y-1 py-2">
-              <UIcon name="i-lucide-coins" class="mx-auto size-7 text-primary" />
+              <Icon name="i-lucide-coins" class="mx-auto size-7 text-primary" />
               <div class="text-2xl font-extrabold tabular-nums">
                 {{ pack.coin }}
               </div>
@@ -420,13 +422,13 @@ onMounted(async () => {
                 {{ formatPrice(pack.amount) }}
               </div>
             </div>
-          </button>
+          </Button>
         </div>
 
         <!-- 自定义额度 -->
         <div class="ylf-soft-panel rounded-2xl p-4 sm:p-5 space-y-4">
           <div class="flex items-center gap-2">
-            <UIcon name="i-lucide-sliders-horizontal" class="size-4 text-primary" />
+            <Icon name="i-lucide-sliders-horizontal" class="size-4 text-primary" />
             <p class="text-sm font-medium text-highlighted">
               自定义充值额度
             </p>
@@ -434,7 +436,7 @@ onMounted(async () => {
 
           <div class="flex flex-col gap-3 sm:flex-row sm:items-start">
             <div class="flex-1 space-y-2">
-              <UInput
+              <AppInput
                 v-model.number="customCoin"
                 type="number"
                 :min="COIN_CUSTOM_MIN"
@@ -448,10 +450,10 @@ onMounted(async () => {
                 <template #trailing>
                   <span class="text-sm text-muted">云币</span>
                 </template>
-              </UInput>
+              </AppInput>
 
               <div class="flex flex-wrap gap-2">
-                <UButton
+                <AppButton
                   v-for="opt in quickAddOptions"
                   :key="opt"
                   size="xs"
@@ -460,7 +462,7 @@ onMounted(async () => {
                   @click="quickFill(opt)"
                 >
                   +{{ opt }}
-                </UButton>
+                </AppButton>
               </div>
 
               <p v-if="customError" class="text-xs text-error">
@@ -480,14 +482,14 @@ onMounted(async () => {
                   {{ formatPrice(customPrice) }}
                 </div>
               </div>
-              <UButton
+              <AppButton
                 size="lg"
                 :disabled="!customValid"
                 trailing-icon="i-lucide-arrow-right"
                 @click="handleCustomRecharge"
               >
                 立即充值
-              </UButton>
+              </AppButton>
             </div>
           </div>
         </div>
@@ -504,7 +506,7 @@ onMounted(async () => {
         </h2>
 
         <div v-if="transactions.length === 0 && !txLoading" class="ylf-empty-state rounded-2xl py-12 text-center text-muted">
-          <UIcon name="i-lucide-receipt-text" class="mx-auto mb-2 size-8 opacity-60" />
+          <Icon name="i-lucide-receipt-text" class="mx-auto mb-2 size-8 opacity-60" />
           <p>暂无记录</p>
         </div>
 
@@ -519,14 +521,14 @@ onMounted(async () => {
                 class="flex size-9 shrink-0 items-center justify-center rounded-xl"
                 :class="tx.amount >= 0 ? 'bg-success/12 text-success' : 'bg-elevated text-dimmed'"
               >
-                <UIcon :name="tx.amount >= 0 ? 'i-lucide-arrow-down-left' : 'i-lucide-arrow-up-right'" class="size-4" />
+                <Icon :name="tx.amount >= 0 ? 'i-lucide-arrow-down-left' : 'i-lucide-arrow-up-right'" class="size-4" />
               </span>
               <div class="min-w-0 space-y-0.5">
                 <div class="flex items-center gap-2">
                   <span class="font-medium">{{ transactionTitle(tx) }}</span>
-                  <UBadge v-if="tx.appId" color="neutral" variant="subtle" size="sm">
+                  <AppBadge v-if="tx.appId" color="neutral" variant="subtle" size="sm">
                     {{ tx.appId }}
-                  </UBadge>
+                  </AppBadge>
                 </div>
                 <div class="text-xs text-muted">
                   {{ formatDate(tx.createdAt) }}
@@ -548,7 +550,7 @@ onMounted(async () => {
         </div>
 
         <div v-if="hasMore" class="text-center">
-          <UButton
+          <AppButton
             variant="outline"
             color="neutral"
             size="sm"
@@ -556,7 +558,7 @@ onMounted(async () => {
             @click="loadTransactions()"
           >
             加载更多
-          </UButton>
+          </AppButton>
         </div>
       </section>
 
@@ -567,7 +569,7 @@ onMounted(async () => {
         </h2>
 
         <div v-if="orders.length === 0 && !orderLoading" class="ylf-empty-state rounded-2xl py-12 text-center text-muted">
-          <UIcon name="i-lucide-scroll-text" class="mx-auto mb-2 size-8 opacity-60" />
+          <Icon name="i-lucide-scroll-text" class="mx-auto mb-2 size-8 opacity-60" />
           <p>暂无订单</p>
         </div>
 
@@ -582,14 +584,14 @@ onMounted(async () => {
                 class="flex size-9 shrink-0 items-center justify-center rounded-xl"
                 :class="order.orderType === 'membership' ? 'ylf-member-mark' : 'bg-elevated text-dimmed'"
               >
-                <UIcon :name="order.orderType === 'membership' ? 'i-lucide-crown' : 'i-lucide-coins'" class="size-4" />
+                <Icon :name="order.orderType === 'membership' ? 'i-lucide-crown' : 'i-lucide-coins'" class="size-4" />
               </span>
               <div class="min-w-0 space-y-0.5">
                 <div class="flex items-center gap-2">
                   <span class="truncate font-medium">{{ orderTitle(order) }}</span>
-                  <UBadge :color="orderStatusMeta(order.status).color" variant="subtle" size="sm" class="shrink-0">
+                  <AppBadge :color="orderStatusMeta(order.status).color" variant="subtle" size="sm" class="shrink-0">
                     {{ orderStatusMeta(order.status).label }}
-                  </UBadge>
+                  </AppBadge>
                 </div>
                 <div class="text-xs text-muted">
                   {{ formatDate(order.createdAt) }}
@@ -603,7 +605,7 @@ onMounted(async () => {
         </div>
 
         <div v-if="orderHasMore" class="text-center">
-          <UButton
+          <AppButton
             variant="outline"
             color="neutral"
             size="sm"
@@ -611,7 +613,7 @@ onMounted(async () => {
             @click="loadOrders()"
           >
             加载更多
-          </UButton>
+          </AppButton>
         </div>
       </section>
 
@@ -631,5 +633,5 @@ onMounted(async () => {
       @confirm="handleConfirm"
       @close="handleClose"
     />
-  </UContainer>
+  </AppContainer>
 </template>

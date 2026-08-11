@@ -55,7 +55,7 @@ describe('profile home entry', () => {
       shallow: true,
       global: {
         stubs: {
-          UContainer: { template: '<main><slot /></main>' },
+          AppContainer: { template: '<main><slot /></main>' },
           SkyHero: { template: '<section><slot /></section>' },
           NuxtLink: {
             props: ['to'],
@@ -121,7 +121,7 @@ describe('profile home entry', () => {
       shallow: true,
       global: {
         stubs: {
-          UContainer: { template: '<main><slot /></main>' },
+          AppContainer: { template: '<main><slot /></main>' },
           SkyHero: { template: '<section><slot /></section>' },
           NuxtLink: {
             props: ['to'],

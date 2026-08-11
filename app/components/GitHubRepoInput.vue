@@ -108,8 +108,9 @@ async function runValidate(value: string) {
 
 const debouncedValidate = useDebounceFn(runValidate, 500)
 
-function onInput(value: string) {
-  const next = (RE_URLISH.test(value) ? extractRepo(value) : value).trim()
+function onInput(value: string | number | null | undefined) {
+  const input = String(value ?? '')
+  const next = (RE_URLISH.test(input) ? extractRepo(input) : input).trim()
   local.value = next
   // 清除上一次结果，等防抖后重新校验：避免编辑时残留旧的 ✓，也避免对本地格式错误闪现 spinner
   status.value = 'idle'
@@ -135,7 +136,7 @@ onMounted(() => {
 
 <template>
   <div class="space-y-1.5">
-    <UInput
+    <AppInput
       :model-value="local"
       :placeholder="placeholder"
       :disabled="disabled"
@@ -144,28 +145,28 @@ onMounted(() => {
       @update:model-value="onInput"
     >
       <template #trailing>
-        <UIcon
+        <Icon
           v-if="status === 'checking'"
           name="i-lucide-loader-circle"
           class="animate-spin text-muted"
         />
-        <UIcon
+        <Icon
           v-else-if="status === 'valid'"
           name="i-lucide-check"
           class="text-success"
         />
-        <UIcon
+        <Icon
           v-else-if="status === 'invalid'"
           name="i-lucide-alert-triangle"
           class="text-warning"
         />
-        <UIcon
+        <Icon
           v-else-if="status === 'notfound' || status === 'unverified'"
           name="i-lucide-info"
           class="text-muted"
         />
       </template>
-    </UInput>
+    </AppInput>
 
     <!-- 校验反馈（aria-live 让读屏软件能播报状态变化），min-h 占位避免抖动 -->
     <div class="min-h-4 text-xs" aria-live="polite">
@@ -192,14 +193,14 @@ onMounted(() => {
         rel="noopener noreferrer"
         class="group inline-flex max-w-full items-center gap-1.5 text-muted transition-colors hover:text-primary"
       >
-        <UIcon name="i-lucide-circle-check" class="shrink-0 text-success" />
+        <Icon name="i-lucide-circle-check" class="shrink-0 text-success" />
         <span class="truncate">
           {{ repoMeta.fullName }}
           <template v-if="repoMeta.private"> · 私有</template>
           <template v-if="repoMeta.language"> · {{ repoMeta.language }}</template>
           <template v-if="repoMeta.stars"> · ★ {{ repoMeta.stars }}</template>
         </span>
-        <UIcon name="i-lucide-external-link" class="shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
+        <Icon name="i-lucide-external-link" class="shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
       </a>
     </div>
   </div>

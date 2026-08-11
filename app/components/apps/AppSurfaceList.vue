@@ -52,7 +52,7 @@ function audienceIcon(app: AppRecord) {
           loading="lazy"
         >
         <span v-else-if="item.emoji" aria-hidden="true">{{ item.emoji }}</span>
-        <UIcon v-else name="i-lucide-cloud" aria-hidden="true" />
+        <Icon v-else name="i-lucide-cloud" aria-hidden="true" />
       </span>
 
       <span class="min-w-0 flex-1">
@@ -68,10 +68,10 @@ function audienceIcon(app: AppRecord) {
         v-if="showAudience"
         class="app-surface-item__audience"
       >
-        <UIcon :name="audienceIcon(item)" aria-hidden="true" />
+        <Icon :name="audienceIcon(item)" aria-hidden="true" />
         {{ audienceLabel(item) }}
       </span>
-      <UIcon
+      <Icon
         v-else
         name="i-lucide-arrow-up-right"
         class="size-4 shrink-0 text-dimmed transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-primary"

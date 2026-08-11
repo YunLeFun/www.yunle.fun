@@ -63,7 +63,7 @@ async function handleTip() {
 
 <template>
   <div class="flex flex-wrap items-center gap-3">
-    <UButton
+    <AppButton
       icon="i-lucide-coins"
       :color="support?.tippedByMe ? 'primary' : 'neutral'"
       :variant="support?.tippedByMe ? 'soft' : 'outline'"
@@ -73,13 +73,13 @@ async function handleTip() {
     >
       投币
       <span v-if="support && support.totalCoins > 0" class="opacity-70">· {{ support.totalCoins }}</span>
-    </UButton>
+    </AppButton>
 
     <span
       v-if="support?.tippedByMe"
       class="inline-flex items-center gap-1 text-xs text-primary font-medium"
     >
-      <UIcon name="i-lucide-heart-handshake" class="size-3.5" />
+      <Icon name="i-lucide-heart-handshake" class="size-3.5" />
       支持者
     </span>
     <span v-if="support && support.supporterCount > 0" class="text-xs text-muted">

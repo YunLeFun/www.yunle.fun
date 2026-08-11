@@ -3,7 +3,7 @@ const supportCenterLink = 'https://support.yunle.fun/'
 </script>
 
 <template>
-  <UPageCard
+  <AppPageCard
     class="ylf-support-entry"
     title="云乐坊支持中心"
     description="搜索帮助、反馈问题、联系私密客服或查看服务状态。"
@@ -14,10 +14,10 @@ const supportCenterLink = 'https://support.yunle.fun/'
     <template #footer>
       <span class="ylf-support-entry__action">
         前往支持中心
-        <UIcon name="i-lucide-arrow-right" aria-hidden="true" />
+        <Icon name="i-lucide-arrow-right" aria-hidden="true" />
       </span>
     </template>
-  </UPageCard>
+  </AppPageCard>
 </template>
 
 <style scoped>

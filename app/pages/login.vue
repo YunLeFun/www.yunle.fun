@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { TcbOtpData, TcbResetPasswordData } from '~/composables/useTcbAuth'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { GITHUB_PROVIDER_ID, isOAuthProviderEnabled, WECHAT_PROVIDER_ID } from '~/utils/authProviders'
 import { isAuthUsernameCompatible } from '~/utils/username'
 
@@ -42,7 +43,7 @@ watch(isAuthenticated, (value) => {
 
 // 登录方式切换
 type LoginMode = 'phone' | 'email' | 'password'
-const loginMode = ref<LoginMode>('phone')
+const loginMode = shallowRef<LoginMode>('phone')
 
 // 区号选项（当前仅支持中国大陆）
 const phoneAreaCodes = [
@@ -294,41 +295,17 @@ onUnmounted(() => clearTimeout(morphTimer))
     </div>
 
     <!-- 登录方式切换 -->
-    <div class="ylf-auth-tabs flex rounded-xl p-1">
-      <button
-        type="button"
-        class="ylf-auth-tab flex-1 rounded-lg px-2 py-2 text-sm font-medium transition-colors focus-visible:outline-none"
-        :aria-pressed="loginMode === 'phone'"
-        :class="loginMode === 'phone'
-          ? 'bg-default text-highlighted shadow-sm'
-          : 'text-muted hover:bg-default/70 hover:text-highlighted'"
-        @click="loginMode = 'phone'"
-      >
+    <ToggleGroup v-model="loginMode" type="single" :spacing="1" class="ylf-auth-tabs grid w-full grid-cols-3 p-1" aria-label="登录方式">
+      <ToggleGroupItem value="phone" class="w-full">
         手机号
-      </button>
-      <button
-        type="button"
-        class="ylf-auth-tab flex-1 rounded-lg px-2 py-2 text-sm font-medium transition-colors focus-visible:outline-none"
-        :aria-pressed="loginMode === 'email'"
-        :class="loginMode === 'email'
-          ? 'bg-default text-highlighted shadow-sm'
-          : 'text-muted hover:bg-default/70 hover:text-highlighted'"
-        @click="loginMode = 'email'"
-      >
+      </ToggleGroupItem>
+      <ToggleGroupItem value="email" class="w-full">
         邮箱
-      </button>
-      <button
-        type="button"
-        class="ylf-auth-tab flex-1 rounded-lg px-2 py-2 text-sm font-medium transition-colors focus-visible:outline-none"
-        :aria-pressed="loginMode === 'password'"
-        :class="loginMode === 'password'
-          ? 'bg-default text-highlighted shadow-sm'
-          : 'text-muted hover:bg-default/70 hover:text-highlighted'"
-        @click="loginMode = 'password'"
-      >
+      </ToggleGroupItem>
+      <ToggleGroupItem value="password" class="w-full">
         密码登录
-      </button>
-    </div>
+      </ToggleGroupItem>
+    </ToggleGroup>
 
     <!-- 表单区：切换登录方式 / 展开验证码时平滑过渡高度，避免卡片尺寸硬跳 -->
     <div
@@ -339,17 +316,25 @@ onUnmounted(() => clearTimeout(morphTimer))
       <div ref="formAreaRef">
         <!-- 手机号登录 -->
         <div v-if="loginMode === 'phone'" class="space-y-4">
-          <UFormField label="手机号">
+          <AppFormField
+            label="手机号"
+            name="login-phone"
+            :error="phoneInvalid ? '请输入正确的手机号' : undefined"
+            hint="当前仅支持中国大陆手机号；未注册手机号验证后将自动创建账号"
+          >
             <div class="flex gap-2">
-              <USelect
+              <AppSelect
+                id="login-phone-area"
                 v-model="phoneAreaCode"
                 :items="phoneAreaCodes"
                 value-key="value"
                 size="lg"
                 class="w-24 shrink-0"
                 :disabled="loading"
+                aria-label="国家或地区代码"
               />
-              <UInput
+              <AppInput
+                id="login-phone"
                 v-model.trim="phone"
                 type="tel"
                 inputmode="numeric"
@@ -363,17 +348,13 @@ onUnmounted(() => clearTimeout(morphTimer))
                 @keyup.enter="phoneCodeSent ? handleVerifyPhoneOtp() : handleSendPhoneOtp()"
               />
             </div>
-            <template #hint>
-              <span v-if="phoneInvalid" class="text-xs text-error">请输入正确的手机号</span>
-              <span v-else class="text-xs text-dimmed">当前仅支持中国大陆手机号；未注册手机号验证后将自动创建账号</span>
-            </template>
-          </UFormField>
+          </AppFormField>
 
           <!-- 验证码输入 -->
           <div v-if="phoneCodeSent" class="space-y-4">
-            <UFormField label="验证码">
+            <AppFormField label="验证码">
               <div class="flex gap-2">
-                <UInput
+                <AppInput
                   v-model="phoneOtpCode"
                   inputmode="numeric"
                   autocomplete="one-time-code"
@@ -385,7 +366,7 @@ onUnmounted(() => clearTimeout(morphTimer))
                   class="flex-1"
                   @keyup.enter="handleVerifyPhoneOtp()"
                 />
-                <UButton
+                <AppButton
                   :label="phoneCountdownActive ? `${phoneCountdown}s` : '重新发送'"
                   color="neutral"
                   variant="outline"
@@ -395,9 +376,9 @@ onUnmounted(() => clearTimeout(morphTimer))
                   @click="handleSendPhoneOtp"
                 />
               </div>
-            </UFormField>
+            </AppFormField>
 
-            <UButton
+            <AppButton
               label="登录"
               color="primary"
               size="lg"
@@ -410,7 +391,7 @@ onUnmounted(() => clearTimeout(morphTimer))
           </div>
 
           <!-- 发送验证码按钮 -->
-          <UButton
+          <AppButton
             v-else
             label="获取验证码"
             color="primary"
@@ -425,8 +406,11 @@ onUnmounted(() => clearTimeout(morphTimer))
 
         <!-- 邮箱登录 -->
         <div v-else-if="loginMode === 'email'" class="space-y-4">
-          <UFormField label="邮箱">
-            <UInput
+          <AppFormField
+            label="邮箱"
+            :error="emailInvalid ? '请输入正确的邮箱地址' : undefined"
+          >
+            <AppInput
               v-model.trim="email"
               type="email"
               autocomplete="email"
@@ -437,16 +421,13 @@ onUnmounted(() => clearTimeout(morphTimer))
               class="w-full"
               @keyup.enter="emailCodeSent ? handleVerifyEmailOtp() : handleSendEmailOtp()"
             />
-            <template v-if="emailInvalid" #hint>
-              <span class="text-xs text-error">请输入正确的邮箱地址</span>
-            </template>
-          </UFormField>
+          </AppFormField>
 
           <!-- 验证码输入 -->
           <div v-if="emailCodeSent" class="space-y-4">
-            <UFormField label="验证码">
+            <AppFormField label="验证码">
               <div class="flex gap-2">
-                <UInput
+                <AppInput
                   v-model="emailOtpCode"
                   inputmode="numeric"
                   autocomplete="one-time-code"
@@ -458,7 +439,7 @@ onUnmounted(() => clearTimeout(morphTimer))
                   class="flex-1"
                   @keyup.enter="handleVerifyEmailOtp()"
                 />
-                <UButton
+                <AppButton
                   :label="emailCountdownActive ? `${emailCountdown}s` : '重新发送'"
                   color="neutral"
                   variant="outline"
@@ -468,9 +449,9 @@ onUnmounted(() => clearTimeout(morphTimer))
                   @click="handleSendEmailOtp"
                 />
               </div>
-            </UFormField>
+            </AppFormField>
 
-            <UButton
+            <AppButton
               label="登录"
               color="primary"
               size="lg"
@@ -483,7 +464,7 @@ onUnmounted(() => clearTimeout(morphTimer))
           </div>
 
           <!-- 发送验证码按钮 -->
-          <UButton
+          <AppButton
             v-else
             label="获取验证码"
             color="primary"
@@ -502,8 +483,8 @@ onUnmounted(() => clearTimeout(morphTimer))
 
         <!-- 密码登录 -->
         <form v-else class="space-y-4" @submit.prevent="handlePasswordLogin">
-          <UFormField label="用户名、邮箱或手机号">
-            <UInput
+          <AppFormField label="用户名、邮箱或手机号">
+            <AppInput
               v-model.trim="passwordAccount"
               placeholder="请输入用户名、邮箱或手机号"
               size="lg"
@@ -512,10 +493,10 @@ onUnmounted(() => clearTimeout(morphTimer))
               :disabled="loading"
               class="w-full"
             />
-          </UFormField>
+          </AppFormField>
 
-          <UFormField label="密码">
-            <UInput
+          <AppFormField label="密码">
+            <AppInput
               v-model="password"
               :type="showPassword ? 'text' : 'password'"
               placeholder="请输入密码"
@@ -526,8 +507,10 @@ onUnmounted(() => clearTimeout(morphTimer))
               class="w-full"
             >
               <template #trailing>
-                <UButton
+                <AppButton
                   :icon="showPassword ? 'i-lucide-eye-off' : 'i-lucide-eye'"
+                  :aria-label="showPassword ? '隐藏密码' : '显示密码'"
+                  :aria-pressed="showPassword"
                   color="neutral"
                   variant="ghost"
                   size="xs"
@@ -536,11 +519,11 @@ onUnmounted(() => clearTimeout(morphTimer))
                   @click="showPassword = !showPassword"
                 />
               </template>
-            </UInput>
-          </UFormField>
+            </AppInput>
+          </AppFormField>
 
           <div class="flex justify-end">
-            <UButton
+            <AppButton
               label="忘记密码？"
               color="primary"
               variant="link"
@@ -550,7 +533,7 @@ onUnmounted(() => clearTimeout(morphTimer))
             />
           </div>
 
-          <UButton
+          <AppButton
             label="登录"
             type="submit"
             color="primary"
@@ -583,7 +566,7 @@ onUnmounted(() => clearTimeout(morphTimer))
       </div>
 
       <div class="space-y-2">
-        <UButton
+        <AppButton
           v-for="provider in providers"
           :key="provider.id"
           :label="provider.label"
@@ -612,22 +595,22 @@ onUnmounted(() => clearTimeout(morphTimer))
     <!-- 服务条款 -->
     <p class="text-center text-xs text-dimmed">
       继续即表示您同意我们的
-      <ULink to="/docs/terms-of-service" class="text-primary font-medium">
+      <NuxtLink to="/docs/terms-of-service" class="text-primary font-medium">
         服务条款
-      </ULink>
+      </NuxtLink>
       和
-      <ULink to="/docs/privacy-policy" class="text-primary font-medium">
+      <NuxtLink to="/docs/privacy-policy" class="text-primary font-medium">
         隐私政策
-      </ULink>
+      </NuxtLink>
     </p>
 
     <!-- 忘记密码弹窗 -->
-    <UModal v-model:open="showResetPassword">
+    <AppModal v-model:open="showResetPassword" title="重置密码">
       <template #content>
         <div class="p-6 space-y-4">
           <div class="flex items-center gap-3">
             <div class="p-2 rounded-full bg-primary-50 dark:bg-primary-950">
-              <UIcon name="i-lucide-key-round" class="text-xl text-primary" />
+              <Icon name="i-lucide-key-round" class="text-xl text-primary" />
             </div>
             <div>
               <h3 class="font-semibold">
@@ -641,8 +624,8 @@ onUnmounted(() => clearTimeout(morphTimer))
 
           <!-- 步骤 1: 输入邮箱 -->
           <div v-if="resetStep === 'input'" class="space-y-4">
-            <UFormField label="邮箱或手机号">
-              <UInput
+            <AppFormField label="邮箱或手机号">
+              <AppInput
                 v-model.trim="resetAccount"
                 autocomplete="username"
                 placeholder="请输入注册时使用的邮箱或手机号"
@@ -652,9 +635,9 @@ onUnmounted(() => clearTimeout(morphTimer))
                 class="w-full"
                 @keyup.enter="handleSendReset"
               />
-            </UFormField>
+            </AppFormField>
             <div class="flex justify-end gap-3">
-              <UButton
+              <AppButton
                 label="取消"
                 color="neutral"
                 variant="outline"
@@ -662,7 +645,7 @@ onUnmounted(() => clearTimeout(morphTimer))
                 class="ylf-auth-button-secondary"
                 @click="showResetPassword = false"
               />
-              <UButton
+              <AppButton
                 label="发送验证码"
                 color="primary"
                 class="ylf-auth-button-primary"
@@ -675,9 +658,9 @@ onUnmounted(() => clearTimeout(morphTimer))
 
           <!-- 步骤 2: 输入验证码 + 新密码 -->
           <form v-else-if="resetStep === 'verify'" class="space-y-4" @submit.prevent="handleConfirmReset">
-            <UFormField label="验证码">
+            <AppFormField label="验证码">
               <div class="flex gap-2">
-                <UInput
+                <AppInput
                   v-model="resetOtpCode"
                   inputmode="numeric"
                   autocomplete="one-time-code"
@@ -688,7 +671,7 @@ onUnmounted(() => clearTimeout(morphTimer))
                   :disabled="loading"
                   class="flex-1"
                 />
-                <UButton
+                <AppButton
                   :label="resetCountdownActive ? `${resetCountdown}s` : '重新发送'"
                   color="neutral"
                   variant="outline"
@@ -699,10 +682,10 @@ onUnmounted(() => clearTimeout(morphTimer))
                   @click="handleSendReset"
                 />
               </div>
-            </UFormField>
+            </AppFormField>
 
-            <UFormField label="新密码">
-              <UInput
+            <AppFormField label="新密码">
+              <AppInput
                 v-model="newPassword"
                 type="password"
                 placeholder="至少 6 位字符"
@@ -712,10 +695,13 @@ onUnmounted(() => clearTimeout(morphTimer))
                 :disabled="loading"
                 class="w-full"
               />
-            </UFormField>
+            </AppFormField>
 
-            <UFormField label="确认新密码">
-              <UInput
+            <AppFormField
+              label="确认新密码"
+              :error="confirmNewPassword && newPassword !== confirmNewPassword ? '两次输入的密码不一致' : undefined"
+            >
+              <AppInput
                 v-model="confirmNewPassword"
                 type="password"
                 placeholder="再次输入新密码"
@@ -725,13 +711,10 @@ onUnmounted(() => clearTimeout(morphTimer))
                 :disabled="loading"
                 class="w-full"
               />
-              <template v-if="confirmNewPassword && newPassword !== confirmNewPassword" #hint>
-                <span class="text-xs text-error">两次输入的密码不一致</span>
-              </template>
-            </UFormField>
+            </AppFormField>
 
             <div class="flex justify-end gap-3">
-              <UButton
+              <AppButton
                 label="返回"
                 color="neutral"
                 variant="outline"
@@ -739,7 +722,7 @@ onUnmounted(() => clearTimeout(morphTimer))
                 class="ylf-auth-button-secondary"
                 @click="resetStep = 'input'"
               />
-              <UButton
+              <AppButton
                 label="重置密码"
                 type="submit"
                 color="primary"
@@ -751,7 +734,7 @@ onUnmounted(() => clearTimeout(morphTimer))
           </form>
         </div>
       </template>
-    </UModal>
+    </AppModal>
   </div>
 </template>
 

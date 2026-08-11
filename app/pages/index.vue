@@ -100,15 +100,15 @@ onMounted(() => {
 </script>
 
 <template>
-  <main>
+  <div>
     <section class="ylf-home-hero relative isolate overflow-hidden">
       <SkyScene :sun="false" class="pointer-events-none" />
       <div class="ylf-home-hero__scrim pointer-events-none absolute inset-0 z-[1]" aria-hidden="true" />
       <div class="ylf-home-hero__fade pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-28" aria-hidden="true" />
-      <UContainer class="relative z-[2] py-20 sm:py-28 lg:py-32">
+      <AppContainer class="relative z-[2] py-20 sm:py-28 lg:py-32">
         <div class="max-w-2xl">
           <span class="ylf-glass ylf-hero-shadow inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-white">
-            <UIcon name="i-lucide-cloud-sun" class="size-4" aria-hidden="true" />
+            <Icon name="i-lucide-cloud-sun" class="size-4" aria-hidden="true" />
             {{ page.headline }}
           </span>
           <h1 class="ylf-dreamy-display ylf-hero-shadow mt-5 text-4xl leading-[1.15] text-white sm:text-5xl lg:text-6xl">
@@ -118,7 +118,7 @@ onMounted(() => {
             {{ page.description }}
           </p>
           <div class="mt-8 flex flex-wrap items-center gap-3">
-            <UButton
+            <AppButton
               :to="page.hero.links[0]?.to"
               :label="page.hero.links[0]?.label"
               :icon="page.hero.links[0]?.icon"
@@ -126,7 +126,7 @@ onMounted(() => {
               size="xl"
               class="ylf-brand-btn"
             />
-            <UButton
+            <AppButton
               v-if="accountAction"
               :to="accountAction.to"
               :label="accountAction.label"
@@ -138,13 +138,13 @@ onMounted(() => {
             />
           </div>
         </div>
-      </UContainer>
+      </AppContainer>
     </section>
 
     <LazyHomeAppShowcase />
 
     <section class="home-journey" aria-labelledby="home-journey-title">
-      <UContainer>
+      <AppContainer>
         <header class="home-journey__header">
           <p>{{ journey.headline }}</p>
           <h2 id="home-journey-title">
@@ -157,29 +157,29 @@ onMounted(() => {
           <li v-for="(item, index) in journey.items" :key="item.title">
             <span class="home-journey__index">{{ String(index + 1).padStart(2, '0') }}</span>
             <span class="home-journey__icon" aria-hidden="true">
-              <UIcon :name="item.icon" />
+              <Icon :name="item.icon" />
             </span>
             <div>
               <h3>{{ item.title }}</h3>
               <p>{{ item.description }}</p>
               <NuxtLink v-if="item.to" :to="item.to">
                 {{ item.linkLabel }}
-                <UIcon name="i-lucide-arrow-right" aria-hidden="true" />
+                <Icon name="i-lucide-arrow-right" aria-hidden="true" />
               </NuxtLink>
             </div>
           </li>
         </ol>
-      </UContainer>
+      </AppContainer>
     </section>
 
-    <UContainer class="pb-16 sm:pb-24">
-      <UPageCTA
+    <AppContainer class="pb-16 sm:pb-24">
+      <AppPageCta
         v-bind="cta"
         variant="subtle"
         class="home-cta"
       />
-    </UContainer>
-  </main>
+    </AppContainer>
+  </div>
 </template>
 
 <style scoped>

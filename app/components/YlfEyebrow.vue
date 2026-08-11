@@ -44,7 +44,7 @@ const parsed = computed(() => {
 
 <template>
   <span class="ylf-eyebrow">
-    <UIcon
+    <Icon
       :name="parsed.icon"
       class="size-3.5 shrink-0"
     />

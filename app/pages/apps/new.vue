@@ -128,15 +128,15 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <UContainer class="py-12">
+  <AppContainer class="py-12">
     <div v-if="authLoading" class="flex justify-center py-20">
-      <UIcon name="i-lucide-loader-2" class="text-3xl text-muted animate-spin" />
+      <Icon name="i-lucide-loader-2" class="text-3xl text-muted animate-spin" />
     </div>
 
     <div v-else class="max-w-xl mx-auto space-y-6">
       <!-- 导航 -->
       <div class="flex items-center gap-3">
-        <UButton
+        <AppButton
           icon="i-lucide-arrow-left"
           color="neutral"
           variant="ghost"
@@ -147,90 +147,94 @@ async function handleSubmit() {
         </h1>
       </div>
 
-      <UPageCard class="p-6">
+      <AppPageCard class="p-6">
         <form class="space-y-5" @submit.prevent="handleSubmit">
           <!-- 名称 -->
-          <UFormField label="应用名称" required>
-            <UInput
+          <AppFormField label="应用名称" required>
+            <AppInput
               v-model="form.name"
               placeholder="我的应用"
               icon="i-lucide-box"
               class="w-full"
             />
-          </UFormField>
+          </AppFormField>
 
           <!-- 标识符 -->
-          <UFormField label="标识符" :error="slugError" required hint="唯一标识，用于 URL">
-            <UInput
+          <AppFormField label="标识符" :error="slugError" required hint="唯一标识，用于 URL">
+            <AppInput
               v-model="form.slug"
               placeholder="my-app"
               icon="i-lucide-tag"
               class="w-full font-mono"
               @input="onSlugInput"
             />
-          </UFormField>
+          </AppFormField>
 
           <!-- 描述 -->
-          <UFormField label="描述">
-            <UTextarea
+          <AppFormField label="描述">
+            <AppTextarea
               v-model="form.description"
               placeholder="简短描述你的应用..."
               :rows="3"
               class="w-full"
             />
-          </UFormField>
+          </AppFormField>
 
           <!-- GitHub 仓库 -->
-          <UFormField label="GitHub 仓库" hint="可选，应用的源码仓库">
+          <AppFormField label="GitHub 仓库" hint="可选，应用的源码仓库">
             <GitHubRepoField
               v-model="form.githubRepo"
               placeholder="owner/repo"
               @update:model-value="onRepoInput"
             />
-          </UFormField>
+          </AppFormField>
 
           <!-- 网页链接 -->
-          <UFormField label="网页链接" hint="应用的官方网站地址">
-            <UInput
+          <AppFormField label="网页链接" hint="应用的官方网站地址">
+            <AppInput
               v-model="form.websiteUrl"
               placeholder="https://example.com"
               icon="i-lucide-globe"
               class="w-full"
             />
-          </UFormField>
+          </AppFormField>
 
           <!-- 备用链接 -->
-          <UFormField label="备用链接" hint="可选">
-            <UInput
+          <AppFormField label="备用链接" hint="可选">
+            <AppInput
               v-model="form.backupUrl"
               placeholder="https://mirror.example.com"
               icon="i-lucide-link"
               class="w-full"
             />
-          </UFormField>
+          </AppFormField>
 
           <!-- 是否公开 -->
           <div class="flex items-center justify-between py-2">
             <div>
-              <p class="text-sm font-medium">
+              <p id="new-app-public-label" class="text-sm font-medium">
                 公开应用
               </p>
-              <p class="text-xs text-muted">
+              <p id="new-app-public-description" class="text-xs text-muted">
                 公开后其他用户可以查看此应用
               </p>
             </div>
-            <USwitch v-model="form.isPublic" />
+            <AppSwitch
+              v-model="form.isPublic"
+              aria-labelledby="new-app-public-label"
+              aria-describedby="new-app-public-description"
+            />
           </div>
 
           <!-- 提交 -->
           <div class="flex justify-end gap-3 pt-2">
-            <UButton
+            <AppButton
               to="/apps"
               label="取消"
               color="neutral"
               variant="outline"
             />
-            <UButton
+            <AppButton
               type="submit"
               label="创建应用"
               icon="i-lucide-plus"
@@ -239,7 +243,7 @@ async function handleSubmit() {
             />
           </div>
         </form>
-      </UPageCard>
+      </AppPageCard>
     </div>
-  </UContainer>
+  </AppContainer>
 </template>

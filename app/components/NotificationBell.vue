@@ -20,7 +20,7 @@ watch(() => user.value?.id, (id) => {
 
 <template>
   <template v-if="user">
-    <UButton
+    <AppButton
       icon="i-lucide-bell"
       color="neutral"
       variant="ghost"
@@ -34,7 +34,7 @@ watch(() => user.value?.id, (id) => {
       >
         {{ unread > 99 ? '99+' : unread }}
       </span>
-    </UButton>
+    </AppButton>
     <NotificationModal v-model:open="open" />
   </template>
 </template>

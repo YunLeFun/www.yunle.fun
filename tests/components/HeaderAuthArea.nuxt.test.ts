@@ -16,7 +16,7 @@ vi.mock('~/composables/auth/useAuthSession', () => ({
 }))
 
 const globalStubs = {
-  UButton: {
+  AppButton: {
     props: ['label'],
     template: '<button type="button"><slot>{{ label }}</slot></button>',
   },

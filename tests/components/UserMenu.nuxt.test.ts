@@ -31,25 +31,41 @@ const globalStubs = {
   UIcon: {
     template: '<span aria-hidden="true" />',
   },
-  UPopover: {
+  Popover: {
     props: ['open'],
     emits: ['update:open'],
     template: `
       <div data-testid="popover">
         <button data-testid="simulate-popover-outside-close" @pointerdown="$emit('update:open', false)" />
-        <slot v-if="open" name="content" />
+        <slot />
       </div>
     `,
   },
-  UDrawer: {
+  PopoverAnchor: {
+    template: '<slot />',
+  },
+  PopoverContent: {
+    template: '<div><slot /></div>',
+  },
+  Sheet: {
     props: ['open'],
     emits: ['update:open'],
-    template: `
-      <div data-testid="drawer">
-        <div data-testid="drawer-trigger" @click="$emit('update:open', !open)"><slot /></div>
-        <slot v-if="open" name="content" />
-      </div>
-    `,
+    template: '<div data-testid="drawer"><slot /></div>',
+  },
+  SheetTrigger: {
+    template: '<div data-testid="drawer-trigger"><slot /></div>',
+  },
+  SheetContent: {
+    template: '<div><slot /></div>',
+  },
+  SheetHeader: {
+    template: '<div><slot /></div>',
+  },
+  SheetTitle: {
+    template: '<h2><slot /></h2>',
+  },
+  SheetDescription: {
+    template: '<p><slot /></p>',
   },
   UserAccountPanel: {
     emits: ['close', 'logout'],

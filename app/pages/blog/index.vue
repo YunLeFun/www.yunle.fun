@@ -16,19 +16,19 @@ useSeoMeta({
 </script>
 
 <template>
-  <UContainer>
-    <UPageHeader
+  <AppContainer>
+    <AppPageHeader
       v-bind="page"
       class="py-[50px]"
     >
       <template #headline>
         <YlfEyebrow label="🗞️ 博客" />
       </template>
-    </UPageHeader>
+    </AppPageHeader>
 
-    <UPageBody>
-      <UBlogPosts>
-        <UBlogPost
+    <AppPageBody>
+      <AppBlogPosts>
+        <AppBlogPost
           v-for="(post, index) in posts"
           :key="index"
           :to="post.path"
@@ -45,7 +45,7 @@ useSeoMeta({
             description: 'line-clamp-2',
           }"
         />
-      </UBlogPosts>
-    </UPageBody>
-  </UContainer>
+      </AppBlogPosts>
+    </AppPageBody>
+  </AppContainer>
 </template>

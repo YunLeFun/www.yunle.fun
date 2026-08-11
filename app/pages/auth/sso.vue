@@ -257,22 +257,22 @@ onMounted(async () => {
 <template>
   <div class="mx-auto flex w-full max-w-[21rem] min-w-0 flex-col items-center text-center space-y-6">
     <div class="flex justify-center">
-      <UIcon
+      <Icon
         v-if="status === 'checking'"
         name="i-lucide-loader-circle"
         class="h-14 w-14 animate-spin text-primary"
       />
-      <UIcon
+      <Icon
         v-else-if="status === 'confirmation'"
         name="i-lucide-user-round-check"
         class="h-14 w-14 text-primary"
       />
-      <UIcon
+      <Icon
         v-else-if="status === 'success'"
         name="i-lucide-check-circle"
         class="h-14 w-14 text-green-500"
       />
-      <UIcon
+      <Icon
         v-else
         name="i-lucide-x-circle"
         class="h-14 w-14 text-red-500"
@@ -297,7 +297,7 @@ onMounted(async () => {
           class="h-11 w-11 rounded-full object-cover"
         >
         <div v-else class="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <UIcon name="i-lucide-user-round" class="h-5 w-5" />
+          <Icon name="i-lucide-user-round" class="h-5 w-5" />
         </div>
         <div class="min-w-0 flex-1">
           <strong class="block truncate text-sm">{{ currentAccountName }}</strong>
@@ -310,15 +310,15 @@ onMounted(async () => {
       </p>
 
       <div class="grid gap-2">
-        <UButton
+        <AppButton
           block
           size="lg"
           data-testid="sso-continue-current-account"
           @click="continueWithCurrentAccount"
         >
           继续使用此账号
-        </UButton>
-        <UButton
+        </AppButton>
+        <AppButton
           v-if="accountSwitchAllowed"
           block
           size="lg"
@@ -328,8 +328,8 @@ onMounted(async () => {
           @click="loginWithOtherAccount"
         >
           使用其他账号
-        </UButton>
-        <UButton
+        </AppButton>
+        <AppButton
           block
           size="lg"
           color="neutral"
@@ -338,7 +338,7 @@ onMounted(async () => {
           @click="denyAuthorization"
         >
           取消
-        </UButton>
+        </AppButton>
       </div>
     </div>
   </div>

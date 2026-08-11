@@ -1,9 +1,16 @@
 <script setup lang="ts">
-import type { DropdownMenuItem } from '@nuxt/ui'
+import { CheckIcon, ChevronDownIcon } from '@lucide/vue'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 const activeItem = '官网'
 
-const menuItems: DropdownMenuItem[] = [
+const menuItems = [
   {
     label: '官网',
     to: 'https://www.yunle.fun',
@@ -51,24 +58,27 @@ const menuItems: DropdownMenuItem[] = [
 </script>
 
 <template>
-  <UDropdownMenu
-    v-slot="{ open }"
-    :modal="false"
-    :items="menuItems"
-    :content="{ align: 'start' }"
-    :ui="{ content: 'min-w-fit' }"
-    size="xs"
-  >
-    <UButton
-      :label="activeItem"
-      variant="subtle"
-      trailing-icon="i-lucide-chevron-down"
-      size="xs"
-      class="font-semibold rounded-full truncate"
-      :class="[open && 'bg-primary/15']"
-      :ui="{
-        trailingIcon: ['transition-transform duration-200', open ? 'rotate-180' : undefined].filter(Boolean).join(' '),
-      }"
-    />
-  </UDropdownMenu>
+  <DropdownMenu v-slot="{ open }" :modal="false">
+    <DropdownMenuTrigger as-child>
+      <AppButton
+        variant="subtle"
+        size="xs"
+        class="rounded-full font-semibold"
+        :class="open ? 'bg-primary/15' : undefined"
+      >
+        {{ activeItem }}
+        <ChevronDownIcon data-icon="inline-end" class="transition-transform duration-200" :class="open ? 'rotate-180' : undefined" />
+      </AppButton>
+    </DropdownMenuTrigger>
+    <DropdownMenuContent align="start" class="min-w-36">
+      <DropdownMenuGroup>
+        <DropdownMenuItem v-for="item in menuItems" :key="item.to" as-child>
+          <NuxtLink :to="item.to">
+            {{ item.label }}
+            <CheckIcon v-if="item.checked" class="ml-auto" />
+          </NuxtLink>
+        </DropdownMenuItem>
+      </DropdownMenuGroup>
+    </DropdownMenuContent>
+  </DropdownMenu>
 </template>

@@ -24,6 +24,8 @@
 
 :root {
   color-scheme: light;
+  /* blue-600 guarantees WCAG AA for primary links and white button labels on light surfaces. */
+  --ui-primary: #2563eb;
   --ui-bg: #f8fafc;
   --ui-bg-muted: #f1f5f9;
   --ui-bg-elevated: #ffffff;
@@ -93,7 +95,7 @@
   --ylf-dopa-amber: #f59e0b;
   --ylf-dopa-lime: #65a30d;
   --ylf-dopa-green: #10b981;
-  --ylf-dopa-cyan: #0891b2;
+  --ylf-dopa-cyan: #0e7490;
   --ylf-dopa-blue: #2563eb;
   --ylf-dopa-violet: #7c3aed;
 
@@ -124,6 +126,8 @@
   --ui-color-neutral-950: #0b1022;
   --ui-color-neutral-900: #0f1630;
   --ui-color-neutral-800: #1b2440;
+  --ui-primary: #60a5fa;
+  --primary-foreground: #0f172a;
   --ui-bg: #0b1022;
   --ui-bg-muted: #0f1630;
   --ui-bg-elevated: #141c33;
