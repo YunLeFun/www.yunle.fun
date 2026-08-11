@@ -2,6 +2,7 @@
 import type { TcbOtpData, TcbResetPasswordData } from '~/composables/useTcbAuth'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { GITHUB_PROVIDER_ID, isOAuthProviderEnabled, WECHAT_PROVIDER_ID } from '~/utils/authProviders'
+import { getSafeLoginRedirect } from '~/utils/authRoutes'
 import { isAuthUsernameCompatible } from '~/utils/username'
 
 const RE_EMAIL = /^[^\s@]+@[^\s@][^\s.@]*\.[^\s@]+$/
@@ -36,8 +37,8 @@ const toast = useAppToast()
 // 如果已登录，重定向（优先 redirect 查询参数，回退首页）
 watch(isAuthenticated, (value) => {
   if (value) {
-    const redirect = router.currentRoute.value.query.redirect as string
-    router.push(redirect || '/')
+    const redirect = getSafeLoginRedirect(router.currentRoute.value.query.redirect)
+    router.replace(redirect)
   }
 }, { immediate: true })
 
