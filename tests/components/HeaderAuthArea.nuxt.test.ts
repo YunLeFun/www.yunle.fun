@@ -1,5 +1,5 @@
 // @vitest-environment nuxt
-import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
+import { mockComponent, mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import { flushPromises } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick, ref } from 'vue'
@@ -10,6 +10,12 @@ const h = vi.hoisted(() => ({
 }))
 
 mockNuxtImport('preloadComponents', () => (...args: unknown[]) => h.s.preloadComponents(...args))
+
+// LazyUserMenu is a Nuxt-generated async component. Mock its source module so
+// no real dynamic import can outlive the mounted test environment on slower CI.
+mockComponent('UserMenu', {
+  template: '<div data-testid="user-menu">user menu</div>',
+})
 
 vi.mock('~/composables/auth/useAuthSession', () => ({
   useTcbAuthSession: () => h.s.auth,
