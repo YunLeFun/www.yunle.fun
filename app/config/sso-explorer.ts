@@ -71,6 +71,7 @@ const presentationByAppId: Record<string, SsoPresentation> = {
     description: '在浏览器中重温经典红白机游戏',
     fallbackMark: '游',
     accent: 'var(--ylf-dopa-orange)',
+    logoUrl: 'https://fc.yunle.fun/fc-mark.svg',
     position: { x: 50, y: 29 },
   },
   'support': {
