@@ -10,22 +10,19 @@ import {
 } from '@/components/ui/input-otp'
 
 const props = defineProps<{
-  modelValue: string
   disabled?: boolean
+  invalid?: boolean
+  ariaDescribedby?: string
   countdownActive?: boolean
   countdown?: number
   testId?: string
 }>()
 
 const emit = defineEmits<{
-  'update:modelValue': [value: string]
-  'resend': []
+  resend: []
 }>()
 
-const value = computed({
-  get: () => props.modelValue,
-  set: (next: string) => emit('update:modelValue', next),
-})
+const value = defineModel<string>({ required: true })
 </script>
 
 <template>
@@ -36,6 +33,8 @@ const value = computed({
       :maxlength="6"
       :pattern="REGEXP_ONLY_DIGITS"
       :disabled="props.disabled"
+      :aria-invalid="props.invalid || undefined"
+      :aria-describedby="props.ariaDescribedby"
       autocomplete="one-time-code"
     >
       <InputOTPGroup>

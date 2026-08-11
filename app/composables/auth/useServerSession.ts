@@ -33,7 +33,7 @@ export function useServerSession() {
   /**
    * 启动：凭 httpOnly cookie 取出原始令牌，setSession 恢复**原始会话**。
    * 相比 custom-ticket，恢复的是原始会话（openid 正确 → 直读数据库可用）。
-   * 无 cookie（bootstrap 返回 401）时静默返回 false。
+   * 无 cookie（bootstrap 返回 204）时静默返回 false。
    */
   async function bootstrapFromCookie(): Promise<boolean> {
     if (import.meta.server)

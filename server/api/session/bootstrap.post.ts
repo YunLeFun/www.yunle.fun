@@ -12,10 +12,14 @@ export default defineEventHandler(async (event) => {
   assertSameOrigin(event)
   rateLimit(event, { key: 'session-bootstrap', limit: 60, windowMs: 60_000 })
 
-  const session = await requireUserSession(event)
+  // bootstrap 本身负责判断是否有可恢复会话，因此游客态不能使用会主动抛 401 的 requireUserSession。
+  const session = await getUserSession(event)
   const accessToken = session.secure?.accessToken
   const refreshToken = session.secure?.refreshToken
-  if (!accessToken || !refreshToken)
-    throw createError({ statusCode: 401, statusMessage: 'no stored session tokens' })
+  // 游客没有可恢复的会话是正常启动状态，不应以 4xx 污染浏览器控制台。
+  if (!accessToken || !refreshToken) {
+    setResponseStatus(event, 204)
+    return
+  }
   return { accessToken, refreshToken }
 })
