@@ -45,6 +45,7 @@
     "@yunlefun/types": "catalog:",
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",
+    "h3": "catalog:",
     "nuxt": "catalog:",
     "nuxt-auth-utils": "catalog:",
     "qrcode": "catalog:",
