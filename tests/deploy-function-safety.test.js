@@ -136,6 +136,18 @@ describe('云函数部署环境变量门禁', () => {
     expect(() => assertFunctionEnvironmentReady(
       productionConfig,
       TEST_IDENTITY_FUNCTIONS,
+      { ...env, PLAY_PACHINKO_ACCOUNT_API_TOKEN: 'short' },
+    )).toThrow('32～512 bytes')
+
+    expect(() => assertFunctionEnvironmentReady(
+      productionConfig,
+      TEST_IDENTITY_FUNCTIONS,
+      { ...env, PLAY_PACHINKO_ACCOUNT_API_TOKEN: env.AI_GATEWAY_ACCOUNT_API_TOKEN },
+    )).toThrow('跨用途复用')
+
+    expect(() => assertFunctionEnvironmentReady(
+      productionConfig,
+      TEST_IDENTITY_FUNCTIONS,
       { ...env, AUTH_ISSUER_ENVIRONMENT: 'development' },
     )).toThrow('AUTH_ISSUER_ENVIRONMENT=production')
   })
@@ -147,6 +159,7 @@ function completeTestIdentityEnv() {
   return {
     ACCOUNT_API_INTERNAL_TOKEN: token('a'),
     AI_GATEWAY_ACCOUNT_API_TOKEN: token('b'),
+    PLAY_PACHINKO_ACCOUNT_API_TOKEN: token('d'),
     TEST_BROKER_ACCOUNT_API_TOKEN: token('c'),
     REWARD_CONTROL_TOKENS: key(4),
     REWARD_CLAIM_LINK_HASH_KEY: token('e'),

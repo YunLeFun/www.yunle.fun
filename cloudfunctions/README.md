@@ -647,6 +647,12 @@ IAP 会员退款只在发放快照与当前最后一笔订单一致时回滚该�
 | `coin_transactions` | `idx_app_time`  | `appId` ASC, `createdAt` DESC         | 非唯一 |
 | `coin_transactions` | `idx_ref_uniq`  | `userId` ASC, `type` ASC, `refId` ASC | 唯一   |
 
+Play 弹珠机正式云币结算还需要服务端专用集合
+`pachinko_wallet_settlements`。它按回合哈希作为文档 ID，保存 payout/refund
+互斥结算意图与确认状态；客户端读、写、创建、删除权限必须全部关闭。该集合只按文档
+ID 事务访问，当前不要求二级索引。正式功能开启前还必须为 `account-api` 配置独立的
+`PLAY_PACHINKO_ACCOUNT_API_TOKEN`，不得复用通用内部或奖励 token。
+
 > ⚠️ `user_wallet.idx_user` 必须**唯一**，否则余额的乐观锁（`version` 比对）在并发下可能产生多条钱包记录。
 >
 > ✅ 充值、扣费、追回都在 CloudBase 事务内同时更新 `user_wallet` 并写入 `coin_transactions`：

@@ -12,9 +12,10 @@ const TEST_IDENTITY_BASE64_NAMES = [
   'TEST_BROKER_SWEEP_KEY',
 ]
 
-const TEST_IDENTITY_TOKEN_NAMES = [
+const INDEPENDENT_SERVICE_TOKEN_NAMES = [
   'ACCOUNT_API_INTERNAL_TOKEN',
   'AI_GATEWAY_ACCOUNT_API_TOKEN',
+  'PLAY_PACHINKO_ACCOUNT_API_TOKEN',
   'TEST_BROKER_ACCOUNT_API_TOKEN',
   'TEST_BROKER_INTERNAL_TOKEN',
   'TEST_BROKER_RECONCILE_TOKEN',
@@ -65,7 +66,7 @@ export function assertFunctionEnvironmentReady(config, functionNames, env) {
       throw new Error(`拒绝部署：${name} 必须是标准 32-byte base64`)
   }
 
-  for (const name of TEST_IDENTITY_TOKEN_NAMES) {
+  for (const name of INDEPENDENT_SERVICE_TOKEN_NAMES) {
     if (requiredNames.includes(name) && !isSecureToken(env[name]))
       throw new Error(`拒绝部署：${name} 必须是 32～512 bytes 的独立高熵令牌`)
   }
@@ -73,7 +74,7 @@ export function assertFunctionEnvironmentReady(config, functionNames, env) {
   const independentSecretNames = [
     ...REWARD_CLAIM_SECRET_NAMES,
     ...TEST_IDENTITY_BASE64_NAMES,
-    ...TEST_IDENTITY_TOKEN_NAMES,
+    ...INDEPENDENT_SERVICE_TOKEN_NAMES,
   ].filter(name => requiredNames.includes(name))
   const independentSecretValues = independentSecretNames.map(name => env[name])
   if (new Set(independentSecretValues).size !== independentSecretValues.length)
