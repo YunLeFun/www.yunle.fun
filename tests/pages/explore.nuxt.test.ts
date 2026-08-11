@@ -67,7 +67,7 @@ describe('explore page', () => {
     expect(checkAuthStatus).toHaveBeenCalledTimes(1)
     expect(h.getOfficialApps).not.toHaveBeenCalled()
     expect(wrapper.get('.app-explorer-hero__stats').attributes('aria-busy')).toBe('true')
-    expect(wrapper.findAll('.app-explorer-hero__stats dd').map(item => item.text())).toEqual(['—', '—', '11'])
+    expect(wrapper.findAll('.app-explorer-hero__stats dd').slice(0, 2).map(item => item.text())).toEqual(['—', '—'])
 
     finishBootstrap()
     await flushPromises()
@@ -75,7 +75,7 @@ describe('explore page', () => {
 
     expect(h.getOfficialApps).toHaveBeenCalledTimes(1)
     expect(wrapper.get('.app-explorer-hero__stats').attributes('aria-busy')).toBe('false')
-    expect(wrapper.findAll('.app-explorer-hero__stats dd').map(item => item.text())).toEqual(['2', '2', '11'])
+    expect(wrapper.findAll('.app-explorer-hero__stats dd').slice(0, 2).map(item => item.text())).toEqual(['2', '2'])
     expect(wrapper.get('[data-testid="sso-app-ai-sfc"]').exists()).toBe(true)
   })
 

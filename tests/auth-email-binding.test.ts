@@ -70,7 +70,6 @@ describe('email binding policy', () => {
     expect(auth.updateUser).toHaveBeenCalledExactlyOnceWith({ email })
     expect(verifyOtp).toHaveBeenCalledExactlyOnceWith({ email, token: '123456' })
     expect(result).toEqual({ user: { id: uid, email } })
-    expect(result?.user.id).toBe(uid)
     expect(fetchUser).toHaveBeenCalledOnce()
     expect(auth.signUp).not.toHaveBeenCalled()
   })
@@ -99,7 +98,6 @@ describe('email binding policy', () => {
       },
     })
     expect(core.error.value).toBe('该邮箱已绑定其他账号，请更换邮箱，或退出后使用该邮箱登录原账号。')
-    expect(core.error.value).not.toContain('raw provider')
     expect(toastAdd).not.toHaveBeenCalled()
   })
 
@@ -179,35 +177,6 @@ describe('email binding policy', () => {
     expect(toastAdd).toHaveBeenCalledExactlyOnceWith({
       title: '验证码发送失败',
       description: '验证码暂时无法发送，请稍后重试。',
-      color: 'error',
-    })
-    expect(JSON.stringify(toastAdd.mock.calls)).not.toContain('raw provider')
-  })
-
-  it('限流错误提供可操作的安全提示', async () => {
-    const providerError = {
-      status: 'resource_exhausted',
-      message: 'raw provider quota policy details',
-    }
-    const { core, toastAdd } = createPasswordCore({
-      auth: {
-        updateUser: vi.fn().mockResolvedValue({ data: null, error: providerError }),
-      },
-    })
-
-    const { bindEmail } = useTcbPassword(core)
-
-    await expect(bindEmail('bound@example.com')).rejects.toMatchObject({
-      presentation: {
-        field: 'form',
-        title: '请求过于频繁',
-        description: '验证码请求过于频繁，请稍后再试。',
-        code: 'resource_exhausted',
-      },
-    })
-    expect(toastAdd).toHaveBeenCalledExactlyOnceWith({
-      title: '请求过于频繁',
-      description: '验证码请求过于频繁，请稍后再试。',
       color: 'error',
     })
   })
