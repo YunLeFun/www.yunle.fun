@@ -200,7 +200,7 @@ function createRegistryStore(database, source = database) {
         .orderBy('updatedAt', 'desc')
         .limit(limit)
         .get()
-      return rows(result).map(document => ({ draftId: document._id, ...withoutId(document) }))
+      return rows(result).map(document => ({ ...withoutId(document), draftId: document._id }))
     },
     async getSnapshot(id) {
       return withoutId(row(await ref(COLLECTIONS.snapshots, id).get()))

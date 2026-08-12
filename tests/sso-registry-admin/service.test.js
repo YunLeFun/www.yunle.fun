@@ -32,7 +32,7 @@ function memoryStore() {
         ...structuredClone(value),
       }),
       listDrafts: async (environment, status, limit = 20) => [...target().drafts.entries()]
-        .map(([draftId, value]) => ({ draftId, ...structuredClone(value) }))
+        .map(([draftId, value]) => ({ ...structuredClone(value), draftId }))
         .filter(value => value.environment === environment && value.status === status)
         .sort((left, right) => right.updatedAt - left.updatedAt)
         .slice(0, limit),
@@ -208,9 +208,9 @@ describe('sso-registry-admin service', () => {
       securityChanged: ['sample-web'],
     })
     expect(result).toMatchObject({
-      changeReason: 'test change',
-      createdBy: 'test-operator',
-      updatedBy: 'test-operator',
+      changeReason: 'test registry change',
+      createdBy: 'registry-maintainer',
+      updatedBy: 'registry-maintainer',
       changes: [{
         clientId: 'sample-web',
         categories: ['security', 'display'],
