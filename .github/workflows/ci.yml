@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - packages/authorization-core/src/generated/*-registry.json
+      - packages/authorization-core/src/generated/*-release.json
   pull_request:
     branches:
       - main
