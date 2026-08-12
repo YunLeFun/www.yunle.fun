@@ -194,6 +194,14 @@ function createRegistryStore(database, source = database) {
     async updateDraft(id, fields) {
       assertDatabaseResult(await ref(COLLECTIONS.drafts, id).update(withoutId(fields)), true)
     },
+    async listDrafts(environment, status, limit = 20) {
+      const result = await source.collection(COLLECTIONS.drafts)
+        .where({ environment, status })
+        .orderBy('updatedAt', 'desc')
+        .limit(limit)
+        .get()
+      return rows(result).map(document => ({ ...withoutId(document), draftId: document._id }))
+    },
     async getSnapshot(id) {
       return withoutId(row(await ref(COLLECTIONS.snapshots, id).get()))
     },

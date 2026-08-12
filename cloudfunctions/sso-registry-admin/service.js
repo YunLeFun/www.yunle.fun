@@ -141,6 +141,58 @@ function registryDiff(previous, next) {
   return { added, displayChanged, modified, removed, securityChanged }
 }
 
+function listLimit(value) {
+  if (value === undefined)
+    return 20
+  if (!Number.isSafeInteger(value) || value < 1 || value > 50)
+    throw new RegistryAdminError('list_limit_invalid')
+  return value
+}
+
+function timestamp(value, code) {
+  const parsed = Number(value)
+  if (!Number.isSafeInteger(parsed) || parsed < 0)
+    throw new RegistryAdminError(code)
+  return parsed
+}
+
+function clientReviewSummary(client) {
+  if (!client)
+    return null
+  return {
+    clientId: client.clientId,
+    appId: client.appId,
+    displayName: client.displayName,
+    status: client.status,
+    adapters: client.adapters.map(adapter => ({
+      kind: adapter.kind,
+      consent: adapter.consent,
+      allowedScopes: [...adapter.allowedScopes],
+      origins: [...(adapter.origins || [])],
+      redirectUris: [...(adapter.redirectUris || [])],
+    })),
+  }
+}
+
+function clientReviewChanges(previous, next, diff) {
+  const before = new Map((previous?.clients || []).map(client => [client.clientId, client]))
+  const after = new Map(next.clients.map(client => [client.clientId, client]))
+  return diff.modified.concat(diff.added, diff.removed)
+    .filter((clientId, index, values) => values.indexOf(clientId) === index)
+    .sort()
+    .map(clientId => ({
+      clientId,
+      categories: [
+        ...(diff.added.includes(clientId) ? ['added'] : []),
+        ...(diff.removed.includes(clientId) ? ['removed'] : []),
+        ...(diff.securityChanged.includes(clientId) ? ['security'] : []),
+        ...(diff.displayChanged.includes(clientId) ? ['display'] : []),
+      ],
+      before: clientReviewSummary(before.get(clientId)),
+      after: clientReviewSummary(after.get(clientId)),
+    }))
+}
+
 function publicEnvelope(state, snapshot) {
   return {
     formatVersion: 1,
@@ -505,6 +557,7 @@ function createRegistryAdminService(options) {
       else if (draft.status !== 'draft') {
         throw new RegistryAdminError('draft_unavailable')
       }
+      const diff = registryDiff(current?.snapshot.registry, registry)
       return {
         draftId: id,
         baseSnapshotId: draft.status === 'published'
@@ -515,7 +568,47 @@ function createRegistryAdminService(options) {
         clientCount: registry.clients.length,
         contentHash: hashes.contentHash,
         securityHash: hashes.securityHash,
-        diffSummary: registryDiff(current?.snapshot.registry, registry),
+        diffSummary: diff,
+        changes: clientReviewChanges(current?.snapshot.registry, registry, diff),
+        changeReason: text(draft.changeReason, 'draft_change_reason_invalid', 512),
+        createdBy: text(draft.createdBy, 'draft_created_by_invalid', 192),
+        createdAt: timestamp(draft.createdAt, 'draft_created_at_invalid'),
+        updatedBy: text(draft.updatedBy, 'draft_updated_by_invalid', 192),
+        updatedAt: timestamp(draft.updatedAt, 'draft_updated_at_invalid'),
+      }
+    },
+
+    async listApprovalDrafts(input) {
+      if (environment !== 'production')
+        throw new RegistryAdminError('admin_approval_production_only')
+      requestMetadata(input)
+      const current = await activeEnvelope()
+      const drafts = await store.listDrafts(environment, 'draft', listLimit(input?.limit))
+      return {
+        environment,
+        activeGeneration: current?.state.generation || 0,
+        activePolicyVersion: current?.snapshot.policyVersion || null,
+        items: drafts.map((draft) => {
+          const registry = parseRegistry(draft.registry)
+          const hashes = hashRegistry(registry)
+          const diff = registryDiff(current?.snapshot.registry, registry)
+          return {
+            draftId: draftId(draft.draftId, randomId),
+            baseSnapshotId: draft.baseSnapshotId,
+            policyVersion: registry.policyVersion,
+            clientCount: registry.clients.length,
+            contentHash: hashes.contentHash,
+            securityHash: hashes.securityHash,
+            diffSummary: diff,
+            changes: clientReviewChanges(current?.snapshot.registry, registry, diff),
+            changeReason: text(draft.changeReason, 'draft_change_reason_invalid', 512),
+            createdBy: text(draft.createdBy, 'draft_created_by_invalid', 192),
+            createdAt: timestamp(draft.createdAt, 'draft_created_at_invalid'),
+            updatedBy: text(draft.updatedBy, 'draft_updated_by_invalid', 192),
+            updatedAt: timestamp(draft.updatedAt, 'draft_updated_at_invalid'),
+            staleBase: draft.baseSnapshotId !== (current?.state.activeSnapshotId || null),
+          }
+        }),
       }
     },
 
