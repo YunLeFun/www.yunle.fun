@@ -8,6 +8,7 @@ const CODE_RE = /^[\w-]{43}$/
 const PKCE_CHALLENGE_RE = /^[\w-]{43}$/
 const PKCE_VERIFIER_RE = /^[\w.~-]{43,128}$/
 const SCOPE_RE = /^[a-z][a-z0-9]*(?::[a-z][a-z0-9]*)?$/
+const ALLOWED_PROMPTS = new Set(['consent', 'select_account'])
 
 class SsoRequestError extends Error {
   constructor(reason, message = reason) {
@@ -106,6 +107,44 @@ function validateIssueRequest(payload, options) {
   }
 }
 
+/**
+ * Resolves a host-assisted authorization request against the same authoritative
+ * Registry that will be used again when the code is issued. Presentation data
+ * is always derived from the Registry, never from the embedded page.
+ */
+function resolveAuthorizationRequest(payload, options) {
+  const request = validateIssueRequest(payload, options)
+  const suppliedPrompt = payload?.prompt
+  if (suppliedPrompt !== undefined && !ALLOWED_PROMPTS.has(suppliedPrompt))
+    throw new SsoRequestError('invalid_request', 'unsupported authorization prompt')
+
+  const prompt = suppliedPrompt || (request.consent === 'explicit' ? 'consent' : '')
+  return {
+    issuer: request.issuer,
+    policyVersion: request.policyVersion,
+    registrationFingerprint: request.registrationFingerprint,
+    request: {
+      mode: request.mode,
+      clientId: request.clientId,
+      targetOrigin: request.targetOrigin,
+      returnUrl: request.returnUrl,
+      scope: request.scopes.join(' '),
+      nonce: request.nonce,
+      codeChallenge: request.codeChallenge,
+      codeChallengeMethod: 'S256',
+    },
+    presentation: {
+      appId: request.appId,
+      applicationName: request.displayName,
+      applicationOrigin: request.targetOrigin,
+      ...(request.iconUrl ? { applicationIconUrl: request.iconUrl } : {}),
+      permissionDescription: '账号标识、昵称和头像',
+      consent: request.consent,
+      ...(prompt ? { prompt } : {}),
+    },
+  }
+}
+
 function validateExchangeRequest(payload, requestOrigin, options) {
   assertNoCallerSelectedSubject(payload)
   const clientId = typeof payload?.clientId === 'string' ? payload.clientId : ''
@@ -145,6 +184,7 @@ module.exports = {
   assertNoCallerSelectedSubject,
   isAllowedRequestOrigin,
   readScopes,
+  resolveAuthorizationRequest,
   validateExchangeRequest,
   validateIssueRequest,
 }

@@ -142,6 +142,12 @@ describe('cloudBase test identity deployment manifest', () => {
     expect(functions.get('ai-gateway').aclRule).toEqual({ invoke: 'auth != null' })
   })
 
+  it('keeps SDK issuance authenticated while exposing only policy resolution over HTTP', () => {
+    expect(ssoTicketSource).toContain('payload.action === \'resolveSsoAuthorization\'')
+    expect(ssoTicketSource).toContain('!isHttp && payload && payload.action === \'issueSsoCode\'')
+    expect(ssoTicketSource).toContain('isHttp && payload && payload.action === \'exchangeSsoCode\'')
+  })
+
   it('publishes identity JWKS and admits a trusted phone fact before minting SSO credentials', () => {
     expect(ssoTicketSource).toContain('event.httpMethod === \'GET\'')
     expect(ssoTicketSource).toContain('identityRuntime.publicJwks()')
