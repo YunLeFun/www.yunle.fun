@@ -13,7 +13,7 @@ const crypto = require('node:crypto')
 const TICKET_UID_RE = /^[\w#@~=*(){}[\]:.,<>+-]{4,32}$/
 
 function isAnonUid(uid) {
-  return !uid || /^anonymous/i.test(uid)
+  return !uid || uid === 'anon' || /^anonymous/i.test(uid)
 }
 
 function isValidTicketUid(uid) {

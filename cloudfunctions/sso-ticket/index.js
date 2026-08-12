@@ -42,6 +42,7 @@ const {
   SsoRequestError,
   assertNoCallerSelectedSubject,
   isAllowedRequestOrigin,
+  resolveAuthorizationRequest,
   validateExchangeRequest,
   validateIssueRequest,
 } = require('./sso-request')
@@ -177,11 +178,36 @@ function positiveEnvInt(name, fallback, maximum) {
 
 function securityLimits() {
   return {
+    // Apps uses a same-origin server proxy, so many devices may share one
+    // trusted egress address. Keep this abuse ceiling high enough for that fan-in.
+    resolvePerIp: positiveEnvInt('SSO_RESOLVE_PER_IP_PER_MINUTE', 5_000, 50_000),
     issuePerUser: positiveEnvInt('SSO_ISSUE_PER_USER_PER_MINUTE', 10, 1_000),
     issuePerIp: positiveEnvInt('SSO_ISSUE_PER_IP_PER_MINUTE', 30, 5_000),
     exchangePerIp: positiveEnvInt('SSO_EXCHANGE_PER_IP_PER_MINUTE', 60, 5_000),
     exchangePerOrigin: positiveEnvInt('SSO_EXCHANGE_PER_ORIGIN_PER_MINUTE', 300, 10_000),
   }
+}
+
+// 路径 0：无需业务登录，只解析并返回服务端 Registry 认可的请求与展示信息。
+// 该结果不会签发任何凭证；签发阶段仍会重新执行完整 Registry 校验。
+async function resolveSsoAuthorization(payload, clientAddress = 'unknown') {
+  const limits = securityLimits()
+  await ssoRateLimiter.consume({
+    scope: 'resolve-ip',
+    key: clientAddress,
+    limit: limits.resolvePerIp,
+    windowMs: 60_000,
+  })
+  const resolved = resolveAuthorizationRequest(payload, ssoRequestOptions())
+  auditSecurity('sso_authorization_resolved', {
+    clientId: resolved.request.clientId,
+    appId: resolved.presentation.appId,
+    issuer: resolved.issuer,
+    origin: resolved.request.targetOrigin,
+    policyVersion: resolved.policyVersion,
+    registrationFingerprint: resolved.registrationFingerprint,
+  })
+  return { ok: true, ...resolved }
 }
 
 function auditId(value) {
@@ -422,6 +448,8 @@ exports.main = async function main(event) {
     assertNoCallerSelectedSubject(payload)
     if (payload && payload.action === 'mintForTestLease')
       result = await mintForTestLease(payload)
+    else if (payload && payload.action === 'resolveSsoAuthorization')
+      result = await resolveSsoAuthorization(payload, clientAddress(event, isHttp))
     else if (isHttp && payload && payload.action === 'exchangeSsoCode')
       result = await exchangeSsoCode(payload, requestOrigin, clientAddress(event, true))
     else if (!isHttp && payload && payload.action === 'issueSsoCode')
@@ -475,5 +503,6 @@ exports._private = {
   issueSsoCode,
   mintForTestLease,
   mintTicket,
+  resolveSsoAuthorization,
   testLeaseHttpStatus,
 }
