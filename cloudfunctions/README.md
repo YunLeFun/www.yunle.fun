@@ -254,6 +254,8 @@ P1 的 `generated/*.json` 初始为 `minimumGeneration=0`、`activeEnvelope=null
 公钥并在事务内重算全部证据，验证 allowlist uid 后才生成签名 release intent、outbox 和审计。旧的邮件审批码
 入口暂保留为灾备，不再作为发布前置条件。development 可直接排队，但仍生成相同的签名与审计产物。
 
+受管 YunLeFun 客户端可由 Admin 机器策略自动审批，但不是裸后缀放行：Admin 必须实时证明已发布官方应用、精确网站 Origin、当前 EdgeOne 项目、自定义域名和 GitHub 仓库一致；Registry 随后独立重算差异，只接受纯新增、`web-sso`、`trusted`、唯一 `identity:bootstrap` scope、同源精确 HTTPS 回调且无查询/片段的客户端。任何既有客户端修改、删除、扩权、陈旧基线或证明缺失都会失败关闭并保留人工审批。机器证明使用独立 `admin-registry-managed-20260812` Ed25519 信任锚，只能调用 `evaluateAndAutoApproveDraft`，不能伪造 owner 审批。
+
 ### sso-registry-release-dispatcher 环境变量
 
 | 变量名                                    | 必填 | 说明                                                               |

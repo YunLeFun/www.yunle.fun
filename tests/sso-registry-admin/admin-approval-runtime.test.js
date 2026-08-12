@@ -7,7 +7,11 @@ import {
   ADMIN_APPROVAL_ACTION,
   ADMIN_APPROVAL_AUDIENCE,
   ADMIN_APPROVAL_ISSUER,
+  ADMIN_APPROVAL_TRUST_ANCHORS,
+  MANAGED_APPROVAL_ACTION,
+  MANAGED_APPROVAL_TRUST_ANCHORS,
   verifyAdminApprovalProof,
+  verifyManagedApprovalProof,
 } from '../../cloudfunctions/sso-registry-admin/admin-approval-runtime.js'
 
 const NOW = 1_785_700_000_000
@@ -97,5 +101,72 @@ describe('admin Registry approval proof', () => {
       .toEqual(Buffer.from(validSignature, 'base64url'))
     expect(() => verifyAdminApprovalProof(nonCanonical, valid.options))
       .toThrow(expect.objectContaining({ code: 'admin_approval_signature_invalid' }))
+  })
+})
+
+describe('managed Registry approval proof', () => {
+  it('uses a trust anchor that cannot sign owner approvals', () => {
+    expect(Object.keys(MANAGED_APPROVAL_TRUST_ANCHORS.production)).toEqual([
+      'admin-registry-managed-20260812',
+    ])
+    expect(ADMIN_APPROVAL_TRUST_ANCHORS.production['admin-registry-managed-20260812']).toBeUndefined()
+    expect(MANAGED_APPROVAL_TRUST_ANCHORS.production['admin-registry-approval-20260809']).toBeUndefined()
+  })
+
+  it('verifies short-lived machine evidence for exact managed clients', () => {
+    const managedClients = [{
+      clientId: 'fan-web',
+      appId: 'fan',
+      origin: 'https://fan.yunle.fun',
+      projectId: 'pages-fan',
+      repository: 'YunLeFun/fan',
+    }]
+    const { proof, options } = fixture({
+      action: MANAGED_APPROVAL_ACTION,
+      sub: 'policy:managed-yunlefun',
+      managedClients,
+      login: undefined,
+      role: undefined,
+    })
+
+    expect(verifyManagedApprovalProof(proof, options)).toMatchObject({
+      action: MANAGED_APPROVAL_ACTION,
+      sub: 'policy:managed-yunlefun',
+      managedClients,
+    })
+  })
+
+  it('rejects wildcard evidence and unexpected machine subjects', () => {
+    const wildcard = fixture({
+      action: MANAGED_APPROVAL_ACTION,
+      sub: 'policy:managed-yunlefun',
+      managedClients: [{
+        clientId: 'fan-web',
+        appId: 'fan',
+        origin: 'https://*.yunle.fun',
+        projectId: 'pages-fan',
+        repository: 'YunLeFun/fan',
+      }],
+      login: undefined,
+      role: undefined,
+    })
+    expect(() => verifyManagedApprovalProof(wildcard.proof, wildcard.options))
+      .toThrow(expect.objectContaining({ code: 'managed_approval_origin_invalid' }))
+
+    const subject = fixture({
+      action: MANAGED_APPROVAL_ACTION,
+      sub: 'admin:yunyoujun',
+      managedClients: [{
+        clientId: 'fan-web',
+        appId: 'fan',
+        origin: 'https://fan.yunle.fun',
+        projectId: 'pages-fan',
+        repository: 'YunLeFun/fan',
+      }],
+      login: undefined,
+      role: undefined,
+    })
+    expect(() => verifyManagedApprovalProof(subject.proof, subject.options))
+      .toThrow(expect.objectContaining({ code: 'managed_approval_claims_invalid' }))
   })
 })

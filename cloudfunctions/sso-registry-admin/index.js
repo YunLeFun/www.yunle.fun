@@ -10,7 +10,7 @@ const {
   registryTrustAnchors,
 } = require('@yunlefun/authorization-core')
 const { assertRegistryAdminActionAllowed } = require('./action-policy')
-const { verifyAdminApprovalProof } = require('./admin-approval-runtime')
+const { verifyAdminApprovalProof, verifyManagedApprovalProof } = require('./admin-approval-runtime')
 const {
   createApprovalEmailSender,
   createManager,
@@ -69,6 +69,7 @@ function loadService(environment = currentEnvironment(), context = {}, action = 
     store: createRegistryStore(db),
     randomId: () => randomBytes(12).toString('base64url'),
     verifyAdminApprovalProof,
+    verifyManagedApprovalProof,
   }
   if (environment === 'production') {
     options.approverUids = parseApproverUids(process.env.SSO_REGISTRY_APPROVER_UIDS)
@@ -127,6 +128,9 @@ exports.main = async (event, context) => {
         break
       case 'approveAndQueueReleaseByAdmin':
         data = await runtime.approveAndQueueReleaseByAdmin(request)
+        break
+      case 'evaluateAndAutoApproveDraft':
+        data = await runtime.evaluateAndAutoApproveDraft(request)
         break
       case 'requestRollbackApproval':
         data = await runtime.requestRollbackApproval(request)
