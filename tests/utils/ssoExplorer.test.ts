@@ -8,19 +8,14 @@ import { productionRegistry } from '../../packages/authorization-core/src/regist
 
 describe('sso explorer configuration', () => {
   it('derives only active Web SSO clients from the authorization registry', () => {
-    expect(ssoExplorerApps.map(app => app.appId)).toEqual([
-      'saier',
-      'cms',
-      'drive',
-      'dayun-kicker',
-      'ai-sfc',
-      'home',
-      'wenta',
-      'play',
-      'smap',
-      'fc',
-      'support',
-    ])
+    const controlPlaneClients = new Set(['admin-web', 'studio-web'])
+    const expectedAppIds = productionRegistry.clients
+      .filter(client => client.status === 'active')
+      .filter(client => !controlPlaneClients.has(client.clientId))
+      .filter(client => client.adapters.some(adapter => adapter.kind === 'web-sso'))
+      .map(client => client.appId)
+
+    expect(ssoExplorerApps.map(app => app.appId).toSorted()).toEqual(expectedAppIds.toSorted())
     expect(ssoExplorerApps.some(app => app.appId === 'admin')).toBe(false)
     expect(ssoExplorerApps.every(app => app.origin.startsWith('https://'))).toBe(true)
     expect(ssoExplorerApps.every(app =>
