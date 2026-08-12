@@ -281,9 +281,9 @@
       },
       "triggers": [
         {
-          "name": "testIdentitySweepEveryMinute",
+          "name": "testIdentitySweepEveryTenMinutes",
           "type": "timer",
-          "config": "0 * * * * * *"
+          "config": "0 */10 * * * * *"
         }
       ]
     },

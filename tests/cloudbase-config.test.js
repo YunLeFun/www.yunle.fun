@@ -60,12 +60,12 @@ describe('cloudBase test identity deployment manifest', () => {
     expect(ssoTicketSource).not.toMatch(/phoneNumberVerified:\s*true/)
   })
 
-  it('runs the HMAC-authenticated sweep every minute', () => {
+  it('runs the HMAC-authenticated sweep every ten minutes', () => {
     expect(functions.get('test-identity-sweeper')).toMatchObject({
       aclRule: { invoke: false },
       timeout: 30,
       envVariables: { TEST_BROKER_SWEEP_KEY: '{{env.TEST_BROKER_SWEEP_KEY}}' },
-      triggers: [{ name: 'testIdentitySweepEveryMinute', type: 'timer', config: '0 * * * * * *' }],
+      triggers: [{ name: 'testIdentitySweepEveryTenMinutes', type: 'timer', config: '0 */10 * * * * *' }],
     })
   })
 
@@ -140,6 +140,12 @@ describe('cloudBase test identity deployment manifest', () => {
     expect(functions.get('sso-ticket').aclRule).toEqual({ invoke: 'auth != null' })
     expect(functions.get('account-api').aclRule).toEqual({ invoke: 'auth != null' })
     expect(functions.get('ai-gateway').aclRule).toEqual({ invoke: 'auth != null' })
+  })
+
+  it('keeps SDK issuance authenticated while exposing only policy resolution over HTTP', () => {
+    expect(ssoTicketSource).toContain('payload.action === \'resolveSsoAuthorization\'')
+    expect(ssoTicketSource).toContain('!isHttp && payload && payload.action === \'issueSsoCode\'')
+    expect(ssoTicketSource).toContain('isHttp && payload && payload.action === \'exchangeSsoCode\'')
   })
 
   it('publishes identity JWKS and admits a trusted phone fact before minting SSO credentials', () => {

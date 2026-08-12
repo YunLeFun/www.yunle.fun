@@ -9,9 +9,10 @@ import {
 } from '../../cloudfunctions/sso-ticket/mint.js'
 
 describe('sso-ticket mint 纯函数', () => {
-  it('isAnonUid：空 / anonymous* 视为匿名', () => {
+  it('isAnonUid：空 / anon / anonymous* 视为匿名', () => {
     expect(isAnonUid('')).toBe(true)
     expect(isAnonUid(undefined)).toBe(true)
+    expect(isAnonUid('anon')).toBe(true)
     expect(isAnonUid('anonymous_abc')).toBe(true)
     expect(isAnonUid('user_42')).toBe(false)
   })
@@ -22,6 +23,7 @@ describe('sso-ticket mint 纯函数', () => {
     expect(isValidTicketUid('abc')).toBe(false) // 太短
     expect(isValidTicketUid('a'.repeat(33))).toBe(false) // 太长（>32）
     expect(isValidTicketUid('has space')).toBe(false) // 非法字符
+    expect(isValidTicketUid('anon')).toBe(false) // Publishable Key 保留匿名主体
     expect(isValidTicketUid('anonymous_x1')).toBe(false) // 匿名
     expect(isValidTicketUid(null)).toBe(false)
     expect(isValidTicketUid(12345)).toBe(false) // 非字符串

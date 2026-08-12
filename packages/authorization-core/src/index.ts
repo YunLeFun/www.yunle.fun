@@ -21,6 +21,7 @@ export interface AuthorizationDecision {
   clientId: string
   appId: string
   displayName: string
+  iconUrl?: string
   adapter: AuthorizationAdapter
   consent: ConsentMode
   scopes: string[]
@@ -144,6 +145,7 @@ export function createAuthorizationCore(options: CreateAuthorizationCoreOptions)
         clientId: client.clientId,
         appId: client.appId,
         displayName: client.displayName,
+        ...(client.iconUrl ? { iconUrl: client.iconUrl } : {}),
         adapter: adapter.kind,
         consent: adapter.consent,
         scopes,
