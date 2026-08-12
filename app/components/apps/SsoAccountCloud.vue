@@ -39,7 +39,7 @@ const gradientId = computed(() => `sso-account-cloud-${props.surface}`)
       <span class="sso-account-cloud__identity" aria-hidden="true">
         <MemberAvatar
           v-if="account.status === 'authenticated'"
-          :src="account.avatar || '/yunle-account-avatar.png'"
+          :src="account.avatar || '/app-icons/home-brand-mark.svg'"
           :alt="account.displayName"
           size="lg"
         />
@@ -50,9 +50,11 @@ const gradientId = computed(() => `sso-account-cloud-${props.surface}`)
         />
         <img
           v-else
-          src="/yunle-account-avatar.png"
+          src="/app-icons/home-brand-mark.svg"
           alt=""
-          class="sso-account-cloud__default-avatar"
+          width="64"
+          height="64"
+          class="sso-account-cloud__account-mark"
         >
       </span>
 
@@ -123,7 +125,7 @@ const gradientId = computed(() => `sso-account-cloud-${props.surface}`)
   height: 1.3rem;
 }
 
-.sso-account-cloud__default-avatar {
+.sso-account-cloud__account-mark {
   width: 100%;
   height: 100%;
   border-radius: inherit;

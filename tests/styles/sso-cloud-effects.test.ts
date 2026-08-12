@@ -39,11 +39,12 @@ describe('sso cloud visual effects', () => {
     expect(interactionRule).not.toMatch(/\bfilter\s*:/)
   })
 
-  it('renders the sky scene once without offscreen animation pausing', async () => {
-    const [sceneSource, mapSource, homeSource, heroSource, authLayoutSource] = await Promise.all([
+  it('renders the sky scene once and defers the offscreen cloud map', async () => {
+    const [sceneSource, mapSource, homePageSource, homeShowcaseSource, heroSource, authLayoutSource] = await Promise.all([
       readComponent('SkyScene.vue'),
       readComponent('apps/AppSsoCloudMap.vue'),
       readApp('pages/index.vue'),
+      readComponent('HomeAppShowcase.vue'),
       readComponent('SkyHero.vue'),
       readApp('layouts/auth.vue'),
     ])
@@ -51,9 +52,11 @@ describe('sso cloud visual effects', () => {
     expect(sceneSource).not.toContain('hydrationVersion')
     expect(sceneSource).toContain('var(--ylf-sky-scene-background)')
     expect(sceneSource).toContain(':global(.dark)')
-    expect(mapSource).not.toContain('useIntersectionObserver')
+    expect(homeShowcaseSource).toContain('useIntersectionObserver')
+    expect(homeShowcaseSource).toContain('defineAsyncComponent')
+    expect(homeShowcaseSource).toContain('rootMargin: \'0px 0px -20% 0px\'')
     expect(mapSource).not.toContain('app-sso-cloud-map--paused')
-    for (const consumer of [mapSource, homeSource, heroSource, authLayoutSource])
+    for (const consumer of [mapSource, homePageSource, heroSource, authLayoutSource])
       expect(consumer).not.toContain(':theme="skyTheme"')
   })
 })

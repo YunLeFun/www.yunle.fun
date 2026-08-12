@@ -27,7 +27,8 @@ describe('edgeOne production configuration', () => {
     expect(headers['Content-Security-Policy']).toContain('frame-ancestors \'none\'')
     expect(headers['Content-Security-Policy']).toContain('object-src \'none\'')
     expect(headers['Content-Security-Policy']).toContain('https://*.api.tcloudbasegateway.com')
-    expect(headers['Content-Security-Policy']).toContain('https://fonts.loli.net')
+    expect(headers['Content-Security-Policy']).not.toContain('fonts.loli.net')
+    expect(headers['Content-Security-Policy']).not.toContain('gstatic.loli.net')
   })
 
   it('prevents claim links from leaking referrer context', () => {

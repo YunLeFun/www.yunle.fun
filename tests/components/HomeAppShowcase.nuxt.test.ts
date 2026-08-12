@@ -9,11 +9,17 @@ import { ssoExplorerApps } from '../../app/config/sso-explorer'
 const h = vi.hoisted(() => ({
   getOfficialApps: vi.fn(),
   auth: {} as Record<string, unknown>,
+  intersectionCallback: null as null | ((entries: Array<{ isIntersecting: boolean }>) => void),
 }))
 
 mockNuxtImport('useApps', () => () => ({
   getOfficialApps: h.getOfficialApps,
 }))
+
+mockNuxtImport('useIntersectionObserver', () => (_target, callback) => {
+  h.intersectionCallback = callback
+  return { stop: vi.fn() }
+})
 
 vi.mock('~/composables/auth/useAuthSession', () => ({
   useTcbAuthSession: () => h.auth,
@@ -22,6 +28,7 @@ vi.mock('~/composables/auth/useAuthSession', () => ({
 describe('home app showcase', () => {
   beforeEach(() => {
     h.getOfficialApps.mockReset()
+    h.intersectionCallback = null
     h.auth = {
       user: ref(null),
       authStatus: ref('guest'),
@@ -36,12 +43,22 @@ describe('home app showcase', () => {
 
     expect(h.getOfficialApps).not.toHaveBeenCalled()
     expect(wrapper.text()).toContain('一个账号，连接每一朵云')
+    expect(wrapper.find('[data-testid="sso-map-placeholder"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="sso-account-cloud"]').exists()).toBe(false)
+
+    h.intersectionCallback?.([{ isIntersecting: true }])
+    await flushPromises()
+    await nextTick()
+    await vi.waitFor(() => {
+      expect(wrapper.find('[data-testid="sso-account-cloud"]').exists()).toBe(true)
+    })
+
     expect(wrapper.get('[data-testid="sso-account-cloud"]').attributes('href'))
       .toContain('/login?redirect=%2F')
 
-    const desktop = wrapper.get('.app-sso-cloud-map__desktop')
+    const appList = wrapper.get('.app-sso-cloud-map__apps')
     for (const app of ssoExplorerApps)
-      expect(desktop.get(`[data-testid="sso-app-${app.appId}"]`).exists()).toBe(true)
+      expect(appList.get(`[data-testid="sso-app-${app.appId}"]`).exists()).toBe(true)
   })
 
   it('links an authenticated account cloud to the profile', async () => {
@@ -55,7 +72,12 @@ describe('home app showcase', () => {
     }
 
     const wrapper = await mountSuspended(HomeAppShowcase)
+    h.intersectionCallback?.([{ isIntersecting: true }])
+    await flushPromises()
     await nextTick()
+    await vi.waitFor(() => {
+      expect(wrapper.find('[data-testid="sso-account-cloud"]').exists()).toBe(true)
+    })
 
     expect(wrapper.get('[data-testid="sso-account-cloud"]').attributes('href')).toContain('/profile')
     expect(wrapper.get('[data-testid="sso-account-cloud"]').text()).toContain('云游君')

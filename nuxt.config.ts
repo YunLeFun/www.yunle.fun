@@ -56,25 +56,6 @@ export default defineNuxtConfig({
     enabled: process.env.NODE_ENV === 'development',
   },
 
-  // 预连接外部域名加速首屏
-  app: {
-    head: {
-      link: [
-        // 梦幻晴空品牌字体（站酷小薇 ZCOOL XiaoWei + Baloo 2），走国内镜像 loli.net；
-        // 镜像 CSS 已按 unicode-range 切片，浏览器只下载页面实际用到的字形分片；
-        // 用 preload→onload 切回 stylesheet，避免字体 CSS 往返阻塞首屏渲染（display=swap 期间用系统字体兜底）。
-        { rel: 'preconnect', href: 'https://fonts.loli.net' },
-        { rel: 'preconnect', href: 'https://gstatic.loli.net', crossorigin: '' },
-        {
-          rel: 'preload',
-          as: 'style',
-          href: 'https://fonts.loli.net/css2?family=Baloo+2:wght@500;600;700&family=ZCOOL+XiaoWei&display=swap',
-          onload: 'this.onload=null;this.rel=\'stylesheet\'',
-        },
-      ],
-    },
-  },
-
   css: ['~/assets/css/main.css'],
 
   colorMode: {

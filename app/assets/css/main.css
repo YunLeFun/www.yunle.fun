@@ -113,9 +113,9 @@
   /* 会员身份渐变 —— 「晴空落日 → 珊瑚」暖橙融珊瑚红，足够深以承载白字 */
   --ylf-gradient-member: linear-gradient(135deg, #fb8a2e 0%, #f4516a 52%, #e6315f 100%);
 
-  /* 梦幻晴空品牌字体（含系统回退，镜像加载失败也不破版） */
-  --ylf-font-dreamy: 'ZCOOL XiaoWei', 'PingFang SC', 'Songti SC', ui-serif, serif;
-  --ylf-font-round: 'Baloo 2', 'PingFang SC', ui-sans-serif, system-ui, sans-serif;
+  /* 系统字体优先：避免首屏为装饰字体下载多个中文分片，并消除字体切换造成的闪动。 */
+  --ylf-font-dreamy: 'STKaiti', 'KaiTi', 'Kaiti SC', 'Songti SC', ui-serif, serif;
+  --ylf-font-round: ui-rounded, 'PingFang SC', 'Hiragino Sans GB', ui-sans-serif, system-ui, sans-serif;
 }
 
 .dark {

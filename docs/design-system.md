@@ -48,15 +48,14 @@
 
 ## 3. 字体
 
-| 变量                | 字体栈                                                     | 用途                             |
-| ------------------- | ---------------------------------------------------------- | -------------------------------- |
-| `--ylf-font-dreamy` | `'ZCOOL XiaoWei','PingFang SC','Songti SC',ui-serif,serif` | 标志性大标题（中文「站酷小薇」） |
-| `--ylf-font-round`  | `'Baloo 2','PingFang SC',ui-sans-serif,system-ui`          | 圆润拉丁/数字                    |
+| 变量                | 字体栈                                                                | 用途          |
+| ------------------- | --------------------------------------------------------------------- | ------------- |
+| `--ylf-font-dreamy` | `'STKaiti','KaiTi','Kaiti SC','Songti SC',ui-serif,serif`             | 标志性大标题  |
+| `--ylf-font-round`  | `ui-rounded,'PingFang SC','Hiragino Sans GB',ui-sans-serif,system-ui` | 圆润拉丁/数字 |
 
-- 通过 `nuxt.config.ts` 的 `app.head` 从**国内镜像 loli.net** 加载（`fonts.loli.net` + `gstatic.loli.net`），带系统字体回退——镜像挂了也不破版。
-- **加载策略（提速）**：`preload` → `onload` 切回 `stylesheet`，不阻塞首屏；`display=swap` 期间系统字体兜底；镜像 CSS 已按 `unicode-range` 切片，浏览器只下载页面用到的字形分片。
+- 全站使用系统字体栈，不依赖第三方字体服务；避免中文字体分片占用首屏带宽，也不会发生 Web Font 切换闪动。
 - 大标题用工具类 `.ylf-dreamy-display`（= `--ylf-font-dreamy` + 字重 400 + 微字距）。
-- **不建议**硬 `&text=` 子集化：会破坏动态文字（如个人中心昵称）且每次新增标题都要维护字符表；如需极致体积再考虑自托管子集。
+- 若未来恢复品牌 Web Font，应采用自托管、按实际字形子集化，并重新通过 Lighthouse 性能预算。
 
 ---
 

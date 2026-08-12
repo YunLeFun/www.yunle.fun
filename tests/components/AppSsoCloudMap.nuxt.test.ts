@@ -19,12 +19,15 @@ describe('appSsoCloudMap', () => {
 
     expect(wrapper.get('[data-testid="sso-account-cloud"]').attributes('href'))
       .toContain('/login?redirect=%2Fexplore')
-    expect(wrapper.get('.sso-account-cloud__default-avatar').attributes('src'))
-      .toBe('/yunle-account-avatar.png')
+    expect(wrapper.findAll('[data-testid="sso-account-cloud"]')).toHaveLength(1)
+    expect(wrapper.get('.sso-account-cloud__account-mark').attributes('src'))
+      .toBe('/app-icons/home-brand-mark.svg')
+    expect(wrapper.find('img[src="/yunle-account-avatar.png"]').exists()).toBe(false)
 
-    const desktop = wrapper.get('.app-sso-cloud-map__desktop')
+    const appList = wrapper.get('.app-sso-cloud-map__apps')
     for (const app of ssoExplorerApps) {
-      const node = desktop.get(`[data-testid="sso-app-${app.appId}"]`)
+      expect(wrapper.findAll(`[data-testid="sso-app-${app.appId}"]`)).toHaveLength(1)
+      const node = appList.get(`[data-testid="sso-app-${app.appId}"]`)
       const externalLink = node.get('.sso-app-node__link')
       expect(externalLink.attributes('href')).toBe(app.origin)
       expect(externalLink.attributes('target')).toBe('_blank')
@@ -47,7 +50,7 @@ describe('appSsoCloudMap', () => {
     })
 
     const link = wrapper
-      .get('.app-sso-cloud-map__desktop')
+      .get('.app-sso-cloud-map__apps')
       .get('[data-testid="sso-app-ai-sfc"]')
       .get('.sso-app-node__link')
 
@@ -72,7 +75,7 @@ describe('appSsoCloudMap', () => {
       .map(gradient => gradient.attributes('id'))
 
     expect(gradientIds).toContain('sso-account-cloud-desktop')
-    expect(gradientIds).toContain('sso-account-cloud-mobile')
+    expect(gradientIds).not.toContain('sso-account-cloud-mobile')
     expect(gradientIds).toContain('sso-cloud-route-gradient')
     expect(new Set(gradientIds)).toHaveLength(gradientIds.length)
   })
