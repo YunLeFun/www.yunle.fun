@@ -1,24 +1,21 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildSsoExplorerApps,
   isSsoExplorerAppSlug,
   ssoExplorerApps,
 } from '../../app/config/sso-explorer'
+import { productionRegistry } from '../../packages/authorization-core/src/registry'
 
 describe('sso explorer configuration', () => {
   it('derives only active Web SSO clients from the authorization registry', () => {
-    expect(ssoExplorerApps.map(app => app.appId)).toEqual([
-      'saier',
-      'cms',
-      'drive',
-      'dayun-kicker',
-      'ai-sfc',
-      'home',
-      'wenta',
-      'play',
-      'smap',
-      'fc',
-      'support',
-    ])
+    const controlPlaneClients = new Set(['admin-web', 'studio-web'])
+    const expectedAppIds = productionRegistry.clients
+      .filter(client => client.status === 'active')
+      .filter(client => !controlPlaneClients.has(client.clientId))
+      .filter(client => client.adapters.some(adapter => adapter.kind === 'web-sso'))
+      .map(client => client.appId)
+
+    expect(ssoExplorerApps.map(app => app.appId).toSorted()).toEqual(expectedAppIds.toSorted())
     expect(ssoExplorerApps.some(app => app.appId === 'admin')).toBe(false)
     expect(ssoExplorerApps.every(app => app.origin.startsWith('https://'))).toBe(true)
     expect(ssoExplorerApps.every(app =>
@@ -64,5 +61,36 @@ describe('sso explorer configuration', () => {
     expect(isSsoExplorerAppSlug('smap')).toBe(true)
     expect(isSsoExplorerAppSlug('support')).toBe(true)
     expect(isSsoExplorerAppSlug('fc')).toBe(true)
+  })
+
+  it('prepares explorer presentation before activating a new Web SSO client', () => {
+    const nextRegistry = {
+      ...productionRegistry,
+      clients: [
+        ...productionRegistry.clients,
+        {
+          clientId: 'everything-generator-web',
+          appId: 'everything-generator',
+          displayName: '万物生成器',
+          iconUrl: 'https://dao.yunle.fun/favicon.ico',
+          status: 'active' as const,
+          adapters: [{
+            kind: 'web-sso' as const,
+            consent: 'trusted' as const,
+            allowedScopes: ['identity:bootstrap'],
+            origins: ['https://dao.yunle.fun'],
+            redirectUris: ['https://dao.yunle.fun/'],
+          }],
+        },
+      ],
+    }
+
+    expect(buildSsoExplorerApps(nextRegistry).find(app => app.appId === 'everything-generator'))
+      .toMatchObject({
+        clientId: 'everything-generator-web',
+        name: '万物生成器',
+        origin: 'https://dao.yunle.fun',
+        logoUrl: 'https://dao.yunle.fun/favicon.ico',
+      })
   })
 })

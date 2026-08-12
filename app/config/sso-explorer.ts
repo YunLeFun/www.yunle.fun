@@ -81,6 +81,12 @@ const presentationByAppId: Record<string, SsoPresentation> = {
     accent: 'var(--ylf-dopa-orange)',
     position: { x: 76, y: 83 },
   },
+  'everything-generator': {
+    description: '汇集实用、有趣又便于分享的在线生成器',
+    fallbackMark: '万',
+    accent: 'var(--ylf-dopa-violet)',
+    position: { x: 50, y: 71 },
+  },
 }
 
 /** 安全控制面可参与 SSO，但不属于面向用户的公开应用探索图谱。 */
@@ -104,36 +110,40 @@ function getWebSsoOrigin(client: (typeof productionRegistry.clients)[number]) {
   return adapter.origins[0] ?? null
 }
 
-export const ssoExplorerApps: SsoExplorerApp[] = productionRegistry.clients.flatMap((client) => {
-  if (client.status !== 'active')
-    return []
-  if (nonDiscoverableSsoClientIds.has(client.clientId))
-    return []
+export function buildSsoExplorerApps(registry: typeof productionRegistry): SsoExplorerApp[] {
+  return registry.clients.flatMap((client) => {
+    if (client.status !== 'active')
+      return []
+    if (nonDiscoverableSsoClientIds.has(client.clientId))
+      return []
 
-  const origin = getWebSsoOrigin(client)
-  const iconUrl = 'iconUrl' in client ? client.iconUrl : null
-  const presentation = presentationByAppId[client.appId]
-  if (!origin)
-    return []
-  if (!iconUrl || !presentation)
-    throw new Error(`Active Web SSO client "${client.clientId}" is missing explorer presentation metadata`)
+    const origin = getWebSsoOrigin(client)
+    const iconUrl = 'iconUrl' in client ? client.iconUrl : null
+    const presentation = presentationByAppId[client.appId]
+    if (!origin)
+      return []
+    if (!iconUrl || !presentation)
+      throw new Error(`Active Web SSO client "${client.clientId}" is missing explorer presentation metadata`)
 
-  return [{
-    clientId: client.clientId,
-    appId: client.appId,
-    name: client.displayName,
-    origin,
-    description: presentation.description,
-    logoUrl: presentation.logoUrl ?? iconUrl,
-    fallbackMark: presentation.fallbackMark,
-    accent: presentation.accent,
-    detailSlug: presentation.detailSlug,
-    position: presentation.position,
-  }]
-}).sort((left, right) =>
-  (discoverableAppOrderIndex.get(left.appId) ?? Number.MAX_SAFE_INTEGER)
-  - (discoverableAppOrderIndex.get(right.appId) ?? Number.MAX_SAFE_INTEGER),
-)
+    return [{
+      clientId: client.clientId,
+      appId: client.appId,
+      name: client.displayName,
+      origin,
+      description: presentation.description,
+      logoUrl: presentation.logoUrl ?? iconUrl,
+      fallbackMark: presentation.fallbackMark,
+      accent: presentation.accent,
+      detailSlug: presentation.detailSlug,
+      position: presentation.position,
+    }]
+  }).sort((left, right) =>
+    (discoverableAppOrderIndex.get(left.appId) ?? Number.MAX_SAFE_INTEGER)
+    - (discoverableAppOrderIndex.get(right.appId) ?? Number.MAX_SAFE_INTEGER),
+  )
+}
+
+export const ssoExplorerApps = buildSsoExplorerApps(productionRegistry)
 
 const ssoExplorerSlugs = new Set(
   ssoExplorerApps.flatMap(app =>
