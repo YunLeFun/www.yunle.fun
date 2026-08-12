@@ -1,3 +1,4 @@
+import { productionRegistry } from '@yunlefun/authorization-core'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -22,7 +23,7 @@ describe('sSO Client Registry adapter', () => {
       returnUrl: 'https://cms.yunle.fun/',
       scopes: ['identity:bootstrap'],
       consent: 'trusted',
-      policyVersion: '2026-08-03.2',
+      policyVersion: productionRegistry.policyVersion,
     })
   })
 
@@ -42,7 +43,7 @@ describe('sSO Client Registry adapter', () => {
       returnUrl: 'https://smap.yunle.fun/tabs/profile',
       scopes: ['identity:bootstrap'],
       consent: 'trusted',
-      policyVersion: '2026-08-03.2',
+      policyVersion: productionRegistry.policyVersion,
     })
   })
 
@@ -63,7 +64,7 @@ describe('sSO Client Registry adapter', () => {
         returnUrl: `${origin}/`,
         scopes: ['identity:bootstrap'],
         consent: 'trusted',
-        policyVersion: '2026-08-03.2',
+        policyVersion: productionRegistry.policyVersion,
       })
     }
   })
