@@ -87,10 +87,16 @@ const presentationByAppId: Record<string, SsoPresentation> = {
     accent: 'var(--ylf-dopa-violet)',
     position: { x: 50, y: 71 },
   },
+  'cook': {
+    description: '收藏菜谱、记录烹饪灵感与日常饮食',
+    fallbackMark: '食',
+    accent: 'var(--ylf-dopa-amber)',
+    position: { x: 24, y: 50 },
+  },
 }
 
-/** 安全控制面可参与 SSO，但不属于面向用户的公开应用探索图谱。 */
-const nonDiscoverableSsoClientIds = new Set(['admin-web', 'studio-web'])
+/** 安全控制面与原生伴生客户端可参与 SSO，但不单独展示为公开 Web 应用。 */
+const nonDiscoverableSsoClientIds = new Set(['admin-web', 'cook-mobile', 'studio-web'])
 const discoverableAppOrderIndex = new Map(
   Object.keys(presentationByAppId).map((appId, index) => [appId, index]),
 )
