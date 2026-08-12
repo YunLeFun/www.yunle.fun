@@ -74,8 +74,7 @@ describe('appSsoCloudMap', () => {
       .findAll('linearGradient')
       .map(gradient => gradient.attributes('id'))
 
-    expect(gradientIds).toContain('sso-account-cloud-desktop')
-    expect(gradientIds).not.toContain('sso-account-cloud-mobile')
+    expect(gradientIds.filter(id => id.startsWith('sso-account-cloud-'))).toHaveLength(1)
     expect(gradientIds).toContain('sso-cloud-route-gradient')
     expect(new Set(gradientIds)).toHaveLength(gradientIds.length)
   })

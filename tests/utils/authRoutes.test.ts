@@ -3,6 +3,7 @@ import {
   getSafeLoginRedirect,
   hasPersistedCloudbaseCredentials,
   isPublicAuthRoute,
+  resolveAuthRestorationState,
   shouldRestoreAuthOnRoute,
 } from '../../app/utils/authRoutes'
 
@@ -31,6 +32,32 @@ describe('public authentication routes', () => {
     expect(shouldRestoreAuthOnRoute('/', false)).toBe(false)
     expect(shouldRestoreAuthOnRoute('/', true)).toBe(true)
     expect(shouldRestoreAuthOnRoute('/wallet', false)).toBe(true)
+  })
+
+  it('keeps cookie-only sessions pending until the server session is ready', () => {
+    expect(resolveAuthRestorationState({
+      cookieSessionEnabled: true,
+      hasCurrentUser: false,
+      hasPersistedCredentials: false,
+      serverSessionLoggedIn: false,
+      serverSessionReady: false,
+    })).toBe('pending')
+
+    expect(resolveAuthRestorationState({
+      cookieSessionEnabled: true,
+      hasCurrentUser: false,
+      hasPersistedCredentials: false,
+      serverSessionLoggedIn: true,
+      serverSessionReady: true,
+    })).toBe('restorable')
+
+    expect(resolveAuthRestorationState({
+      cookieSessionEnabled: true,
+      hasCurrentUser: false,
+      hasPersistedCredentials: false,
+      serverSessionLoggedIn: false,
+      serverSessionReady: true,
+    })).toBe('anonymous')
   })
 
   it('detects the CloudBase credential key without parsing session contents', () => {

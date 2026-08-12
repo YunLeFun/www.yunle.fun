@@ -42,7 +42,7 @@ function deactivate(appId: string) {
       />
 
       <div class="app-sso-cloud-map__account">
-        <SsoAccountCloud :account="account" surface="desktop" />
+        <SsoAccountCloud :account="account" />
       </div>
 
       <div class="app-sso-cloud-map__mobile-route" aria-hidden="true">

@@ -9,10 +9,20 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   const config = useRuntimeConfig()
   const currentUser = useState<{ id?: string } | null>('auth_user', () => null)
-  const serverSession = config.public.cookieSession ? useUserSession() : null
-  const hasRestorableSession = Boolean(currentUser.value?.id)
-    || hasPersistedCloudbaseCredentials(config.public.cloudbaseEnvId)
-    || Boolean(serverSession?.loggedIn.value)
+  const cookieSessionEnabled = config.public.cookieSession === true
+  const serverSession = cookieSessionEnabled ? useUserSession() : null
+  const restorationState = () => resolveAuthRestorationState({
+    cookieSessionEnabled,
+    hasCurrentUser: Boolean(currentUser.value?.id),
+    hasPersistedCredentials: hasPersistedCloudbaseCredentials(config.public.cloudbaseEnvId),
+    serverSessionLoggedIn: Boolean(serverSession?.loggedIn.value),
+    serverSessionReady: !cookieSessionEnabled || Boolean(serverSession?.ready.value),
+  })
+
+  if (restorationState() === 'pending')
+    await serverSession?.fetch()
+
+  const hasRestorableSession = restorationState() === 'restorable'
 
   // 公开页面无需为明确的匿名访客初始化 CloudBase。已有本地 / cookie 会话时仍恢复
   // 完整认证态并执行账号限制检查；受保护页面则始终走原有认证门禁。

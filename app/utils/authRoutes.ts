@@ -27,6 +27,16 @@ const POST_LOGIN_REDIRECT_BLOCKLIST = [
   '/auth/callback',
 ]
 
+export type AuthRestorationState = 'anonymous' | 'pending' | 'restorable'
+
+export interface AuthRestorationSignals {
+  cookieSessionEnabled: boolean
+  hasCurrentUser: boolean
+  hasPersistedCredentials: boolean
+  serverSessionLoggedIn: boolean
+  serverSessionReady: boolean
+}
+
 function normalizeRoutePath(path: string) {
   if (path === '/')
     return path
@@ -41,6 +51,23 @@ export function isPublicAuthRoute(path: string) {
 
 export function shouldRestoreAuthOnRoute(path: string, hasRestorableSession: boolean) {
   return hasRestorableSession || !isPublicAuthRoute(path)
+}
+
+export function resolveAuthRestorationState(
+  signals: AuthRestorationSignals,
+): AuthRestorationState {
+  if (
+    signals.hasCurrentUser
+    || signals.hasPersistedCredentials
+    || signals.serverSessionLoggedIn
+  ) {
+    return 'restorable'
+  }
+
+  if (signals.cookieSessionEnabled && !signals.serverSessionReady)
+    return 'pending'
+
+  return 'anonymous'
 }
 
 export function hasPersistedCloudbaseCredentials(

@@ -14,20 +14,21 @@ const config = useRuntimeConfig()
 const cookieSessionEnabled = config.public.cookieSession === true
 const serverSession = cookieSessionEnabled ? useUserSession() : null
 
-const serverSessionPending = computed(() =>
-  cookieSessionEnabled
-  && !hasPersistedCredentials()
-  && !serverSession?.ready.value,
-)
+const restorationState = computed(() => resolveAuthRestorationState({
+  cookieSessionEnabled,
+  hasCurrentUser: Boolean(user.value?.id),
+  hasPersistedCredentials: hasPersistedCredentials(),
+  serverSessionLoggedIn: Boolean(serverSession?.loggedIn.value),
+  serverSessionReady: !cookieSessionEnabled || Boolean(serverSession?.ready.value),
+}))
+const serverSessionPending = computed(() => restorationState.value === 'pending')
 
 function hasPersistedCredentials() {
   return hasPersistedCloudbaseCredentials(config.public.cloudbaseEnvId)
 }
 
 function hasRestorableSession() {
-  return Boolean(user.value?.id)
-    || hasPersistedCredentials()
-    || Boolean(serverSession?.loggedIn.value)
+  return restorationState.value === 'restorable'
 }
 
 function revealAuthenticatedArea() {

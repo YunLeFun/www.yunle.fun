@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import type { SsoAccountState } from '~/types/app-explorer'
-import { computed } from 'vue'
+import { useId } from 'vue'
 
-const props = defineProps<{
+defineProps<{
   account: SsoAccountState
-  surface: 'desktop' | 'mobile'
 }>()
 
-const gradientId = computed(() => `sso-account-cloud-${props.surface}`)
+const gradientId = `sso-account-cloud-${useId()}`
 </script>
 
 <template>
