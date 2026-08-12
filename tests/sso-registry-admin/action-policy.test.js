@@ -10,7 +10,7 @@ describe('sso-registry-admin action policy', () => {
       expect(() => assertRegistryAdminActionAllowed(action, 'development')).not.toThrow()
     }
 
-    for (const action of ['saveDraft', 'validateDraft', 'getActiveEnvelope', 'getStatus'])
+    for (const action of ['saveDraft', 'rebaseDraft', 'validateDraft', 'getActiveEnvelope', 'getStatus'])
       expect(() => assertRegistryAdminActionAllowed(action, 'production')).not.toThrow()
   })
 

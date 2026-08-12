@@ -141,6 +141,39 @@ function registryDiff(previous, next) {
   return { added, displayChanged, modified, removed, securityChanged }
 }
 
+function sameRegistryValue(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right)
+}
+
+function mergeRegistryValue(base, draft, current) {
+  if (sameRegistryValue(draft, base))
+    return current
+  if (sameRegistryValue(current, base) || sameRegistryValue(current, draft))
+    return draft
+  throw new RegistryAdminError('draft_rebase_conflict')
+}
+
+function rebaseRegistry(base, draft, current) {
+  const baseClients = new Map(base.clients.map(client => [client.clientId, client]))
+  const draftClients = new Map(draft.clients.map(client => [client.clientId, client]))
+  const currentClients = new Map(current.clients.map(client => [client.clientId, client]))
+  const clientIds = new Set([...baseClients.keys(), ...draftClients.keys(), ...currentClients.keys()])
+  const clients = [...clientIds]
+    .sort()
+    .map(clientId => mergeRegistryValue(
+      baseClients.get(clientId),
+      draftClients.get(clientId),
+      currentClients.get(clientId),
+    ))
+    .filter(Boolean)
+  return {
+    schemaVersion: mergeRegistryValue(base.schemaVersion, draft.schemaVersion, current.schemaVersion),
+    policyVersion: mergeRegistryValue(base.policyVersion, draft.policyVersion, current.policyVersion),
+    issuer: mergeRegistryValue(base.issuer, draft.issuer, current.issuer),
+    clients,
+  }
+}
+
 function listLimit(value) {
   if (value === undefined)
     return 20
@@ -511,6 +544,102 @@ function createRegistryAdminService(options) {
           details: { baseSnapshotId },
         })
         return { draftId: id, draft }
+      })
+    },
+
+    async rebaseDraft(input) {
+      if (environment !== 'production')
+        throw new RegistryAdminError('draft_rebase_production_only')
+      const meta = requestMetadata(input)
+      const id = draftId(input?.draftId, randomId)
+      return store.transaction(async (transaction) => {
+        const draft = await transaction.getDraft(id)
+        if (!draft || draft.status !== 'draft')
+          throw new RegistryAdminError('draft_unavailable')
+        if (draft.rollbackTargetSnapshotId)
+          throw new RegistryAdminError('draft_rebase_rollback_unsupported')
+        const current = await activeEnvelope(transaction)
+        if (!current)
+          throw new RegistryAdminError('active_snapshot_missing')
+        if (draft.baseSnapshotId === current.state.activeSnapshotId) {
+          return {
+            draftId: id,
+            outcome: 'already_current',
+            activeGeneration: current.state.generation,
+            baseSnapshotId: current.state.activeSnapshotId,
+            policyVersion: current.snapshot.policyVersion,
+            diffSummary: registryDiff(current.snapshot.registry, parseRegistry(draft.registry)),
+          }
+        }
+        if (!draft.baseSnapshotId)
+          throw new RegistryAdminError('draft_rebase_base_missing')
+        const sourceSnapshot = await transaction.getSnapshot(draft.baseSnapshotId)
+        if (!sourceSnapshot)
+          throw new RegistryAdminError('draft_rebase_base_missing')
+        let baseSnapshot
+        try {
+          baseSnapshot = parseRegistrySnapshotRecord(sourceSnapshot, { environment })
+        }
+        catch (error) {
+          throw new RegistryAdminError(error?.code || 'draft_rebase_base_invalid')
+        }
+        const baseKey = trustAnchors?.[environment]?.[baseSnapshot.keyId]
+        if (!baseKey || !verifyRegistrySnapshotSignature(baseSnapshot, baseKey))
+          throw new RegistryAdminError('draft_rebase_base_signature_invalid')
+
+        const mergedRegistry = parseRegistry(rebaseRegistry(
+          baseSnapshot.registry,
+          parseRegistry(draft.registry),
+          current.snapshot.registry,
+        ))
+        const hashes = hashRegistry(mergedRegistry)
+        const rebasedAt = now()
+        const alreadyApplied = hashes.contentHash === current.snapshot.contentHash
+          && hashes.securityHash === current.snapshot.securityHash
+        const pendingApproval = await transaction.findPendingApprovalByDraft(environment, id)
+        if (pendingApproval) {
+          await transaction.updateApproval(pendingApproval.approvalId, {
+            status: 'canceled',
+            updatedAt: rebasedAt,
+          })
+        }
+        await transaction.updateDraft(id, alreadyApplied
+          ? {
+              status: 'superseded',
+              supersededBySnapshotId: current.state.activeSnapshotId,
+              updatedBy: meta.operator,
+              updatedAt: rebasedAt,
+            }
+          : {
+              baseSnapshotId: current.state.activeSnapshotId,
+              registry: mergedRegistry,
+              validation: { valid: true, errors: [], checkedAt: rebasedAt },
+              updatedBy: meta.operator,
+              updatedAt: rebasedAt,
+            })
+        await transaction.putAudit(auditId(rebasedAt, randomId), {
+          environment,
+          action: alreadyApplied ? 'draft_superseded' : 'draft_rebased',
+          operator: meta.operator,
+          reason: meta.changeReason,
+          draftId: id,
+          requestId: meta.requestId,
+          createdAt: rebasedAt,
+          details: {
+            previousSnapshotId: draft.baseSnapshotId,
+            baseSnapshotId: current.state.activeSnapshotId,
+            contentHash: hashes.contentHash,
+            securityHash: hashes.securityHash,
+          },
+        })
+        return {
+          draftId: id,
+          outcome: alreadyApplied ? 'already_applied' : 'rebased',
+          activeGeneration: current.state.generation,
+          baseSnapshotId: current.state.activeSnapshotId,
+          policyVersion: mergedRegistry.policyVersion,
+          diffSummary: registryDiff(current.snapshot.registry, mergedRegistry),
+        }
       })
     },
 

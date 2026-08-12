@@ -107,6 +107,9 @@ exports.main = async (event, context) => {
       case 'saveDraft':
         data = await runtime.saveDraft(request)
         break
+      case 'rebaseDraft':
+        data = await runtime.rebaseDraft(request)
+        break
       case 'validateDraft':
         data = await runtime.validateDraft(request)
         break

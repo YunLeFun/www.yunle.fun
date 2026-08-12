@@ -190,6 +190,94 @@ describe('sso-registry-admin service', () => {
       .toEqual(expect.objectContaining({ code: 'draft_base_conflict' }))
   })
 
+  it('rebases a stale draft without dropping clients published after its base', async () => {
+    const { service } = setup()
+    const initialDraft = await service.saveDraft(request({ registry: registry() }))
+    await service.publishDraft(request({ draftId: initialDraft.draftId }))
+
+    const staleRegistry = registry('2026-08-12.1')
+    staleRegistry.clients.push({
+      ...structuredClone(staleRegistry.clients[0]),
+      clientId: 'draft-web',
+      appId: 'draft',
+      displayName: 'Draft client',
+    })
+    const staleDraft = await service.saveDraft(request({ registry: staleRegistry }))
+
+    const concurrentRegistry = registry('2026-08-12.1')
+    concurrentRegistry.clients.push({
+      ...structuredClone(concurrentRegistry.clients[0]),
+      clientId: 'concurrent-web',
+      appId: 'concurrent',
+      displayName: 'Concurrent client',
+    })
+    const concurrentDraft = await service.saveDraft(request({ registry: concurrentRegistry }))
+    await service.publishDraft(request({ draftId: concurrentDraft.draftId }))
+
+    const rebased = await service.rebaseDraft(request({ draftId: staleDraft.draftId }))
+    const diff = await service.getDraftDiff(request({ draftId: staleDraft.draftId }))
+
+    expect(rebased).toMatchObject({ outcome: 'rebased', activeGeneration: 2 })
+    expect(diff.diffSummary).toMatchObject({
+      added: ['draft-web'],
+      removed: [],
+    })
+    expect(diff.changes.map(change => change.clientId)).toEqual(['draft-web'])
+
+    const published = await service.publishDraft(request({ draftId: staleDraft.draftId }))
+    expect(published.envelope.snapshot.registry.clients.map(client => client.clientId)).toEqual([
+      'concurrent-web',
+      'draft-web',
+      'sample-web',
+    ])
+  })
+
+  it('archives a stale draft when its change is already active', async () => {
+    const { memory, service } = setup()
+    const initialDraft = await service.saveDraft(request({ registry: registry() }))
+    await service.publishDraft(request({ draftId: initialDraft.draftId }))
+
+    const changed = registry('2026-08-12.1', 'Already active')
+    const staleDraft = await service.saveDraft(request({ registry: changed }))
+    const concurrentDraft = await service.saveDraft(request({ registry: changed }))
+    const active = await service.publishDraft(request({ draftId: concurrentDraft.draftId }))
+
+    const rebased = await service.rebaseDraft(request({ draftId: staleDraft.draftId }))
+    const queue = await service.listApprovalDrafts(request({ limit: 10 }))
+
+    expect(rebased).toMatchObject({
+      outcome: 'already_applied',
+      activeGeneration: 2,
+      baseSnapshotId: active.snapshotId,
+    })
+    expect(queue.items.map(item => item.draftId)).not.toContain(staleDraft.draftId)
+    expect(memory.snapshot().drafts.get(staleDraft.draftId)).toMatchObject({
+      status: 'superseded',
+      supersededBySnapshotId: active.snapshotId,
+    })
+  })
+
+  it('rejects rebasing when the draft and production changed the same client differently', async () => {
+    const { memory, service } = setup()
+    const initialDraft = await service.saveDraft(request({ registry: registry() }))
+    const initial = await service.publishDraft(request({ draftId: initialDraft.draftId }))
+    const staleDraft = await service.saveDraft(request({
+      registry: registry('2026-08-12.1', 'Draft edit'),
+    }))
+    const concurrentDraft = await service.saveDraft(request({
+      registry: registry('2026-08-12.1', 'Production edit'),
+    }))
+    await service.publishDraft(request({ draftId: concurrentDraft.draftId }))
+
+    await expect(service.rebaseDraft(request({ draftId: staleDraft.draftId })))
+      .rejects
+      .toEqual(expect.objectContaining({ code: 'draft_rebase_conflict' }))
+    expect(memory.snapshot().drafts.get(staleDraft.draftId)).toMatchObject({
+      status: 'draft',
+      baseSnapshotId: initial.snapshotId,
+    })
+  })
+
   it('returns security and display diff classifications for a draft', async () => {
     const { service } = setup()
     const initialDraft = await service.saveDraft(request({ registry: registry() }))
