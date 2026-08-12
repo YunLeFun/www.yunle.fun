@@ -31,6 +31,11 @@ function memoryStore() {
         ...target().drafts.get(id),
         ...structuredClone(value),
       }),
+      listDrafts: async (environment, status, limit = 20) => [...target().drafts.entries()]
+        .map(([draftId, value]) => ({ draftId, ...structuredClone(value) }))
+        .filter(value => value.environment === environment && value.status === status)
+        .sort((left, right) => right.updatedAt - left.updatedAt)
+        .slice(0, limit),
       getSnapshot: async id => structuredClone(target().snapshots.get(id) || null),
       putSnapshot: async (id, value) => target().snapshots.set(id, structuredClone(value)),
       getState: async id => structuredClone(target().state.get(id) || null),
@@ -201,6 +206,64 @@ describe('sso-registry-admin service', () => {
       modified: ['sample-web'],
       removed: [],
       securityChanged: ['sample-web'],
+    })
+    expect(result).toMatchObject({
+      changeReason: 'test change',
+      createdBy: 'test-operator',
+      updatedBy: 'test-operator',
+      changes: [{
+        clientId: 'sample-web',
+        categories: ['security', 'display'],
+        before: { displayName: 'Sample' },
+        after: {
+          displayName: 'Renamed',
+          adapters: [{
+            allowedScopes: ['identity:bootstrap', 'membership:read'],
+            redirectUris: ['https://sample.yunle.fun/'],
+          }],
+        },
+      }],
+    })
+  })
+
+  it('lists production drafts as review-ready approval tasks', async () => {
+    const { service } = setup()
+    const initialDraft = await service.saveDraft(request({ registry: registry() }))
+    await service.publishDraft(request({ draftId: initialDraft.draftId }))
+    const changed = registry('2026-08-12.1', 'Everything Generator')
+    changed.clients[0].adapters[0].allowedScopes = ['identity:bootstrap', 'membership:read']
+    const draft = await service.saveDraft(request({
+      changeReason: 'Register Everything Generator production SSO client',
+      registry: changed,
+    }))
+
+    const queue = await service.listApprovalDrafts(request({ limit: 10 }))
+
+    expect(queue).toMatchObject({
+      environment: 'production',
+      activeGeneration: 1,
+      activePolicyVersion: '2026-08-03.1',
+      items: [{
+        draftId: draft.draftId,
+        policyVersion: '2026-08-12.1',
+        changeReason: 'Register Everything Generator production SSO client',
+        staleBase: false,
+        diffSummary: {
+          securityChanged: ['sample-web'],
+        },
+        changes: [{
+          clientId: 'sample-web',
+          categories: ['security', 'display'],
+          after: {
+            appId: 'sample',
+            adapters: [{
+              allowedScopes: ['identity:bootstrap', 'membership:read'],
+              origins: ['https://sample.yunle.fun'],
+              redirectUris: ['https://sample.yunle.fun/'],
+            }],
+          },
+        }],
+      }],
     })
   })
 

@@ -113,6 +113,9 @@ exports.main = async (event, context) => {
       case 'getDraftDiff':
         data = await runtime.getDraftDiff(request)
         break
+      case 'listApprovalDrafts':
+        data = await runtime.listApprovalDrafts(request)
+        break
       case 'requestPublishApproval':
         data = await runtime.requestPublishApproval(request)
         break
