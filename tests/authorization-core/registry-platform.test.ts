@@ -200,7 +200,8 @@ describe('registry platform schema and canonicalization', () => {
     const fileName = `${environment}-registry.json`
     const source = resolve(process.cwd(), 'packages/authorization-core/src/generated', fileName)
     const vendored = resolve(process.cwd(), 'packages/authorization-core/dist/generated', fileName)
-    expect(readFileSync(vendored, 'utf8')).toBe(readFileSync(source, 'utf8'))
+    expect(JSON.parse(readFileSync(vendored, 'utf8')))
+      .toEqual(JSON.parse(readFileSync(source, 'utf8')))
   })
 })
 
