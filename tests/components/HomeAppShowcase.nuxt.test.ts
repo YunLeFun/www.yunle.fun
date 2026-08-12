@@ -8,8 +8,11 @@ import { ssoExplorerApps } from '../../app/config/sso-explorer'
 
 const h = vi.hoisted(() => ({
   getOfficialApps: vi.fn(),
-  auth: {} as Record<string, unknown>,
   intersectionCallback: null as null | ((entries: Array<{ isIntersecting: boolean }>) => void),
+  useTcbAuthSession: vi.fn(() => ({
+    user: { value: null },
+    authStatus: { value: 'guest' },
+  })),
 }))
 
 mockNuxtImport('useApps', () => () => ({
@@ -22,17 +25,16 @@ mockNuxtImport('useIntersectionObserver', () => (_target, callback) => {
 })
 
 vi.mock('~/composables/auth/useAuthSession', () => ({
-  useTcbAuthSession: () => h.auth,
+  useTcbAuthSession: h.useTcbAuthSession,
 }))
 
 describe('home app showcase', () => {
   beforeEach(() => {
     h.getOfficialApps.mockReset()
+    h.useTcbAuthSession.mockClear()
     h.intersectionCallback = null
-    h.auth = {
-      user: ref(null),
-      authStatus: ref('guest'),
-    }
+    useState<boolean>('auth_ready', () => false).value = true
+    useState<Record<string, unknown> | null>('auth_user', () => null).value = null
   })
 
   it('renders the registry-backed SSO cloud without querying the marketplace', async () => {
@@ -42,6 +44,7 @@ describe('home app showcase', () => {
     await nextTick()
 
     expect(h.getOfficialApps).not.toHaveBeenCalled()
+    expect(h.useTcbAuthSession).not.toHaveBeenCalled()
     expect(wrapper.text()).toContain('一个账号，连接每一朵云')
     expect(wrapper.find('[data-testid="sso-map-placeholder"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="sso-account-cloud"]').exists()).toBe(false)
@@ -62,13 +65,11 @@ describe('home app showcase', () => {
   })
 
   it('links an authenticated account cloud to the profile', async () => {
-    h.auth = {
-      user: ref({
-        nickname: '云游君',
-        login: 'yunyoujun',
-        avatar: null,
-      }),
-      authStatus: ref('authenticated'),
+    useState<Record<string, unknown> | null>('auth_user').value = {
+      id: 'user-1',
+      nickname: '云游君',
+      login: 'yunyoujun',
+      avatar: null,
     }
 
     const wrapper = await mountSuspended(HomeAppShowcase)

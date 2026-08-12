@@ -39,6 +39,31 @@ export function isPublicAuthRoute(path: string) {
     || PUBLIC_AUTH_ROUTE_PREFIXES.some(route => normalizedPath === route || normalizedPath.startsWith(`${route}/`))
 }
 
+export function shouldRestoreAuthOnRoute(path: string, hasRestorableSession: boolean) {
+  return hasRestorableSession || !isPublicAuthRoute(path)
+}
+
+export function hasPersistedCloudbaseCredentials(
+  envId: unknown,
+  storage?: Pick<Storage, 'getItem'>,
+) {
+  const normalizedEnvId = String(envId || '')
+  if (!normalizedEnvId)
+    return false
+
+  try {
+    const resolvedStorage = storage
+      ?? (typeof localStorage === 'undefined' ? undefined : localStorage)
+    return resolvedStorage
+      ? resolvedStorage.getItem(`credentials_${normalizedEnvId}`) !== null
+      : false
+  }
+  catch {
+    // 隐私模式或受限 iframe 可能禁止访问 Storage；此时按无本地会话处理。
+    return false
+  }
+}
+
 export function getSafeLoginRedirect(value: unknown) {
   if (typeof value !== 'string' || !value.startsWith('/'))
     return '/'

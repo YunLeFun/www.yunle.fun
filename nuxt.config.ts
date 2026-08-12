@@ -221,6 +221,30 @@ export default defineNuxtConfig({
     // 落地页数据（content/*.yml）直接 import，无需 @nuxt/content（见 docs/nuxt-content-removal.md）
     // cast：@rollup/plugin-yaml 与 vite 内置 rollup 版本不同，类型不兼容（运行时无碍）
     plugins: [yaml() as unknown as Plugin],
+    build: {
+      rolldownOptions: {
+        output: {
+          // CloudBase Web SDK 体积大且仅认证/数据页需要。使用 Vite 8 / Rolldown
+          // 的显式分组 API，并禁止递归吸收 Vue、Toast、$fetch 等公共依赖。
+          codeSplitting: {
+            groups: [
+              {
+                name: 'cloudbase-sdk',
+                test: /[\\/]node_modules[\\/](?:\.pnpm[\\/][^\\/]*@cloudbase\+|@cloudbase[\\/])/,
+                priority: 20,
+                includeDependenciesRecursively: false,
+              },
+              {
+                name: 'cloudbase-client',
+                test: /[\\/]app[\\/]composables[\\/](?:auth[\\/]|use(?:AccountAccess|Cloudbase|UserProfile)\.ts(?:$|\?))/,
+                priority: 10,
+                includeDependenciesRecursively: false,
+              },
+            ],
+          },
+        },
+      },
+    },
     server: {
       allowedHosts: true,
     },
@@ -230,6 +254,12 @@ export default defineNuxtConfig({
   // 本地调试时用 `ENABLE_TEST_PAGES=true pnpm dev` 显式开启。
   // 注意：旧的 `ignore: ['pages/test/**']` 在 nuxt generate 下不可靠，故改用 pages:extend 钩子确定性移除。
   hooks: {
+    'build:manifest': (manifest) => {
+      for (const entry of Object.values(manifest)) {
+        if (entry.name === 'cloudbase-sdk' || entry.name === 'cloudbase-client')
+          entry.prefetch = false
+      }
+    },
     'pages:extend': (pages) => {
       if (process.env.ENABLE_TEST_PAGES === 'true')
         return
