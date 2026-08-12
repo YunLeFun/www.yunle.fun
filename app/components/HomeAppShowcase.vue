@@ -1,10 +1,29 @@
 <script setup lang="ts">
-import AppSsoCloudMap from '~/components/apps/AppSsoCloudMap.vue'
+import { defineAsyncComponent, ref } from 'vue'
 import { useSsoAccountState } from '~/composables/useSsoAccountState'
 import { ssoExplorerApps } from '~/config/sso-explorer'
 
+const AppSsoCloudMap = defineAsyncComponent({
+  loader: () => import('~/components/apps/AppSsoCloudMap.vue'),
+  suspensible: false,
+})
+
 const prefersReducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
 const accountState = useSsoAccountState('/')
+const mapHost = ref<HTMLElement | null>(null)
+const shouldRenderMap = ref(false)
+
+const { stop: stopObservingMap } = useIntersectionObserver(
+  mapHost,
+  ([entry]) => {
+    if (!entry?.isIntersecting)
+      return
+
+    shouldRenderMap.value = true
+    stopObservingMap()
+  },
+  { rootMargin: '0px 0px -20% 0px' },
+)
 
 function browseApps() {
   return navigateTo('/explore')
@@ -39,12 +58,23 @@ function browseApps() {
         />
       </header>
 
-      <AppSsoCloudMap
-        :apps="ssoExplorerApps"
-        :account="accountState"
-        :reduced-motion="prefersReducedMotion"
-        @scroll-to-grid="browseApps"
-      />
+      <div ref="mapHost" class="home-app-showcase__map">
+        <AppSsoCloudMap
+          v-if="shouldRenderMap"
+          :apps="ssoExplorerApps"
+          :account="accountState"
+          :reduced-motion="prefersReducedMotion"
+          @scroll-to-grid="browseApps"
+        />
+        <div
+          v-else
+          class="home-app-showcase__map-placeholder"
+          data-testid="sso-map-placeholder"
+          aria-hidden="true"
+        >
+          <Icon name="i-lucide-cloud-sun" />
+        </div>
+      </div>
     </AppContainer>
   </section>
 </template>
@@ -98,6 +128,38 @@ function browseApps() {
   color: var(--ui-text-muted);
   font-size: 1rem;
   line-height: 1.75;
+}
+
+.home-app-showcase__map {
+  content-visibility: auto;
+  contain-intrinsic-block-size: 34rem;
+}
+
+.home-app-showcase__map-placeholder {
+  display: grid;
+  min-height: 34rem;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--ylf-sso-cloud-top) 62%, transparent);
+  border-radius: 1.75rem;
+  background: var(--ylf-sso-sky);
+  color: color-mix(in srgb, var(--ylf-sso-accent) 72%, transparent);
+}
+
+.home-app-showcase__map-placeholder svg {
+  width: 3rem;
+  height: 3rem;
+}
+
+@media (max-width: 767px) {
+  .home-app-showcase__map {
+    contain-intrinsic-block-size: 30rem;
+  }
+
+  .home-app-showcase__map-placeholder {
+    min-height: 30rem;
+    border-radius: 1.45rem;
+  }
 }
 
 @media (min-width: 768px) {

@@ -7,6 +7,30 @@ export default defineNuxtRouteMiddleware(async (to) => {
   if (import.meta.server)
     return
 
+  const config = useRuntimeConfig()
+  const currentUser = useState<{ id?: string } | null>('auth_user', () => null)
+  const cookieSessionEnabled = config.public.cookieSession === true
+  const serverSession = cookieSessionEnabled ? useUserSession() : null
+  const restorationState = () => resolveAuthRestorationState({
+    cookieSessionEnabled,
+    hasCurrentUser: Boolean(currentUser.value?.id),
+    hasPersistedCredentials: hasPersistedCloudbaseCredentials(config.public.cloudbaseEnvId),
+    serverSessionLoggedIn: Boolean(serverSession?.loggedIn.value),
+    serverSessionReady: !cookieSessionEnabled || Boolean(serverSession?.ready.value),
+  })
+
+  if (restorationState() === 'pending')
+    await serverSession?.fetch()
+
+  const hasRestorableSession = restorationState() === 'restorable'
+
+  // 公开页面无需为明确的匿名访客初始化 CloudBase。已有本地 / cookie 会话时仍恢复
+  // 完整认证态并执行账号限制检查；受保护页面则始终走原有认证门禁。
+  if (!shouldRestoreAuthOnRoute(to.path, hasRestorableSession)) {
+    useState<boolean>('auth_ready', () => false).value = true
+    return
+  }
+
   const { useTcbAuthSession } = await import('~/composables/auth/useAuthSession')
   const { checkAuthStatus, isAuthenticated, authReady } = useTcbAuthSession()
 
@@ -16,6 +40,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
     await checkAuthStatus()
 
   if (isAuthenticated.value) {
+    const { useAccountAccess } = await import('~/composables/useAccountAccess')
     const { access, refresh } = useAccountAccess()
     const { user } = useTcbAuthSession()
     // 状态页必须绕过短缓存，避免用户刚提交注销后仍被旧 active 状态送回首页。

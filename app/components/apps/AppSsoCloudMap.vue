@@ -34,7 +34,7 @@ function deactivate(appId: string) {
     <SkyScene clouds="mini" class="app-sso-cloud-map__sky" />
     <div class="app-sso-cloud-map__veil" aria-hidden="true" />
 
-    <div class="app-sso-cloud-map__desktop">
+    <div class="app-sso-cloud-map__content">
       <SsoCloudRoutes
         :apps="apps"
         :active-app-id="activeAppId"
@@ -42,43 +42,30 @@ function deactivate(appId: string) {
       />
 
       <div class="app-sso-cloud-map__account">
-        <SsoAccountCloud :account="account" surface="desktop" />
+        <SsoAccountCloud :account="account" />
       </div>
-
-      <div
-        v-for="app in apps"
-        :key="app.appId"
-        class="app-sso-cloud-map__app"
-        :style="{
-          left: `${app.position.x}%`,
-          top: `${app.position.y}%`,
-        }"
-      >
-        <SsoAppCloud
-          :app="app"
-          :active="activeAppId === app.appId"
-          @activate="activeAppId = $event"
-          @deactivate="deactivate"
-        />
-      </div>
-    </div>
-
-    <div class="app-sso-cloud-map__mobile">
-      <SsoAccountCloud :account="account" surface="mobile" />
 
       <div class="app-sso-cloud-map__mobile-route" aria-hidden="true">
         <span />
       </div>
 
-      <div class="app-sso-cloud-map__rail" aria-label="支持统一账号的应用">
-        <SsoAppCloud
+      <div class="app-sso-cloud-map__apps" aria-label="支持统一账号的应用">
+        <div
           v-for="app in apps"
-          :key="`mobile-${app.appId}`"
-          :app="app"
-          :active="activeAppId === app.appId"
-          @activate="activeAppId = $event"
-          @deactivate="deactivate"
-        />
+          :key="app.appId"
+          class="app-sso-cloud-map__app"
+          :style="{
+            left: `${app.position.x}%`,
+            top: `${app.position.y}%`,
+          }"
+        >
+          <SsoAppCloud
+            :app="app"
+            :active="activeAppId === app.appId"
+            @activate="activeAppId = $event"
+            @deactivate="deactivate"
+          />
+        </div>
       </div>
     </div>
 
@@ -125,10 +112,14 @@ function deactivate(appId: string) {
   pointer-events: none;
 }
 
-.app-sso-cloud-map__desktop {
+.app-sso-cloud-map__content {
   position: absolute;
   z-index: 2;
   inset: 0;
+}
+
+.app-sso-cloud-map__apps {
+  display: contents;
 }
 
 .app-sso-cloud-map__account {
@@ -145,7 +136,7 @@ function deactivate(appId: string) {
   transform: translate(-50%, -50%);
 }
 
-.app-sso-cloud-map__mobile {
+.app-sso-cloud-map__mobile-route {
   display: none;
 }
 
@@ -176,20 +167,28 @@ function deactivate(appId: string) {
     border-radius: 1.45rem;
   }
 
-  .app-sso-cloud-map__desktop {
-    display: none;
-  }
-
-  .app-sso-cloud-map__mobile {
+  .app-sso-cloud-map__content {
     position: absolute;
     z-index: 4;
     display: grid;
+    grid-template-rows: auto 1.8rem minmax(0, 1fr);
     justify-items: center;
     padding-top: 1rem;
     inset: 0;
   }
 
+  .app-sso-cloud-map__content :deep(.sso-cloud-routes) {
+    display: none;
+  }
+
+  .app-sso-cloud-map__account {
+    position: static;
+    scale: 1;
+    transform: none;
+  }
+
   .app-sso-cloud-map__mobile-route {
+    display: block;
     position: relative;
     width: 100%;
     height: 1.8rem;
@@ -215,7 +214,7 @@ function deactivate(appId: string) {
     inset: auto 1.5rem 0;
   }
 
-  .app-sso-cloud-map__rail {
+  .app-sso-cloud-map__apps {
     display: flex;
     width: 100%;
     gap: 0.75rem;
@@ -227,14 +226,21 @@ function deactivate(appId: string) {
     scrollbar-width: none;
   }
 
-  .app-sso-cloud-map__rail::-webkit-scrollbar {
+  .app-sso-cloud-map__apps::-webkit-scrollbar {
     display: none;
   }
 
-  .app-sso-cloud-map__rail :deep(.sso-app-node) {
+  .app-sso-cloud-map__app {
+    position: static;
     width: 15rem;
     flex: 0 0 15rem;
+    scale: 1;
     scroll-snap-align: center;
+    transform: none;
+  }
+
+  .app-sso-cloud-map__app :deep(.sso-app-node) {
+    width: 100%;
   }
 
   .app-sso-cloud-map__browse {

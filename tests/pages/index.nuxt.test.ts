@@ -1,20 +1,15 @@
 // @vitest-environment nuxt
 import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { describe, expect, it, vi } from 'vitest'
-import { nextTick, ref } from 'vue'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
 import IndexPage from '../../app/pages/index.vue'
 
 const h = vi.hoisted(() => ({
-  authStatus: undefined as unknown as ReturnType<typeof ref<'pending' | 'authenticated' | 'guest'>>,
-  checkAuthStatus: () => Promise.resolve(),
+  useTcbAuthSession: vi.fn(),
 }))
 
 vi.mock('~/composables/auth/useAuthSession', () => ({
-  useTcbAuthSession: () => ({
-    authReady: { value: true },
-    authStatus: h.authStatus,
-    checkAuthStatus: h.checkAuthStatus,
-  }),
+  useTcbAuthSession: h.useTcbAuthSession,
 }))
 
 const globalStubs = {
@@ -51,8 +46,15 @@ const globalStubs = {
 }
 
 describe('homepage account actions', () => {
+  beforeEach(() => {
+    h.useTcbAuthSession.mockClear()
+    useState<boolean>('auth_ready', () => false).value = false
+    useState<{ id?: string } | null>('auth_user', () => null).value = null
+  })
+
   it('replaces signup links with the profile entry for authenticated users', async () => {
-    h.authStatus = ref('authenticated')
+    useState<boolean>('auth_ready').value = true
+    useState<{ id: string } | null>('auth_user').value = { id: 'user-1' }
 
     const wrapper = await mountSuspended(IndexPage, {
       global: { stubs: globalStubs },
@@ -61,15 +63,17 @@ describe('homepage account actions', () => {
     expect(wrapper.findAll('a[href="/signup"]')).toHaveLength(0)
     expect(wrapper.findAll('a[href="/profile"]').length).toBeGreaterThan(0)
     expect(wrapper.text()).not.toContain('创建账号')
+    expect(h.useTcbAuthSession).not.toHaveBeenCalled()
 
-    h.authStatus.value = 'pending'
+    useState<boolean>('auth_ready').value = false
     await nextTick()
 
     expect(wrapper.findAll('a[href="/signup"]')).toHaveLength(0)
     expect(wrapper.findAll('a[href="/profile"]')).toHaveLength(0)
     expect(wrapper.text()).not.toContain('创建账号')
 
-    h.authStatus.value = 'guest'
+    useState<{ id: string } | null>('auth_user').value = null
+    useState<boolean>('auth_ready').value = true
     await nextTick()
 
     expect(wrapper.findAll('a[href="/signup"]').length).toBeGreaterThan(0)

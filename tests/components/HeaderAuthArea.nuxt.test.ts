@@ -16,6 +16,9 @@ mockNuxtImport('preloadComponents', () => (...args: unknown[]) => h.s.preloadCom
 mockComponent('UserMenu', {
   template: '<div data-testid="user-menu">user menu</div>',
 })
+mockComponent('NotificationBell', {
+  template: '<button data-testid="notification-bell" />',
+})
 
 vi.mock('~/composables/auth/useAuthSession', () => ({
   useTcbAuthSession: () => h.s.auth,
@@ -48,6 +51,7 @@ const globalStubs = {
 
 describe('headerAuthArea', () => {
   beforeEach(() => {
+    localStorage.clear()
     h.s.authReady = ref(false)
     h.s.isAuthenticated = ref(false)
     h.s.checkAuthStatus = vi.fn(async () => {
@@ -65,8 +69,22 @@ describe('headerAuthArea', () => {
     useState<{ id?: string } | null>('auth_user', () => null).value = null
   })
 
-  it('keeps the complete auth skeleton visible while checking the session', async () => {
+  it('shows guest actions without loading CloudBase when no restorable session exists', async () => {
+    const wrapper = await mountSuspended(HeaderAuthArea, {
+      global: { stubs: globalStubs },
+    })
+    await flushPromises()
+    await nextTick()
+
+    expect(h.s.checkAuthStatus).not.toHaveBeenCalled()
+    expect(useState<boolean>('auth_ready').value).toBe(true)
+    expect(wrapper.text()).toContain('登录')
+    expect(wrapper.find('[data-testid="header-auth-skeleton"]').exists()).toBe(false)
+  })
+
+  it('keeps the complete auth skeleton visible while restoring a persisted session', async () => {
     let resolveAuthCheck!: () => void
+    localStorage.setItem(`credentials_${useRuntimeConfig().public.cloudbaseEnvId}`, '{}')
     h.s.checkAuthStatus.mockImplementationOnce(() => new Promise<void>((resolve) => {
       resolveAuthCheck = () => {
         h.s.authReady.value = true
@@ -96,6 +114,7 @@ describe('headerAuthArea', () => {
   })
 
   it('switches atomically to the fixed authenticated slot after authentication', async () => {
+    localStorage.setItem(`credentials_${useRuntimeConfig().public.cloudbaseEnvId}`, '{}')
     h.s.checkAuthStatus.mockImplementationOnce(async () => {
       h.s.authReady.value = true
       h.s.isAuthenticated.value = true
@@ -114,7 +133,7 @@ describe('headerAuthArea', () => {
     await nextTick()
 
     expect(h.s.checkAuthStatus).toHaveBeenCalledTimes(1)
-    expect(h.s.preloadComponents).toHaveBeenCalledWith('UserMenu')
+    expect(h.s.preloadComponents).toHaveBeenCalledWith(['UserMenu', 'NotificationBell'])
     expect(wrapper.find('[data-testid="notification-bell"]').exists()).toBe(true)
     expect(
       wrapper.find('[data-testid="user-menu"]').exists()
@@ -141,7 +160,7 @@ describe('headerAuthArea', () => {
     await flushPromises()
     await nextTick()
 
-    expect(h.s.preloadComponents).toHaveBeenCalledWith('UserMenu')
+    expect(h.s.preloadComponents).toHaveBeenCalledWith(['UserMenu', 'NotificationBell'])
     expect(wrapper.find('[data-testid="notification-bell"]').exists()).toBe(true)
     expect(
       wrapper.find('[data-testid="user-menu"]').exists()

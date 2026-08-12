@@ -27,6 +27,16 @@ const POST_LOGIN_REDIRECT_BLOCKLIST = [
   '/auth/callback',
 ]
 
+export type AuthRestorationState = 'anonymous' | 'pending' | 'restorable'
+
+export interface AuthRestorationSignals {
+  cookieSessionEnabled: boolean
+  hasCurrentUser: boolean
+  hasPersistedCredentials: boolean
+  serverSessionLoggedIn: boolean
+  serverSessionReady: boolean
+}
+
 function normalizeRoutePath(path: string) {
   if (path === '/')
     return path
@@ -37,6 +47,48 @@ export function isPublicAuthRoute(path: string) {
   const normalizedPath = normalizeRoutePath(path)
   return PUBLIC_AUTH_ROUTE_EXACT.includes(normalizedPath)
     || PUBLIC_AUTH_ROUTE_PREFIXES.some(route => normalizedPath === route || normalizedPath.startsWith(`${route}/`))
+}
+
+export function shouldRestoreAuthOnRoute(path: string, hasRestorableSession: boolean) {
+  return hasRestorableSession || !isPublicAuthRoute(path)
+}
+
+export function resolveAuthRestorationState(
+  signals: AuthRestorationSignals,
+): AuthRestorationState {
+  if (
+    signals.hasCurrentUser
+    || signals.hasPersistedCredentials
+    || signals.serverSessionLoggedIn
+  ) {
+    return 'restorable'
+  }
+
+  if (signals.cookieSessionEnabled && !signals.serverSessionReady)
+    return 'pending'
+
+  return 'anonymous'
+}
+
+export function hasPersistedCloudbaseCredentials(
+  envId: unknown,
+  storage?: Pick<Storage, 'getItem'>,
+) {
+  const normalizedEnvId = String(envId || '')
+  if (!normalizedEnvId)
+    return false
+
+  try {
+    const resolvedStorage = storage
+      ?? (typeof localStorage === 'undefined' ? undefined : localStorage)
+    return resolvedStorage
+      ? resolvedStorage.getItem(`credentials_${normalizedEnvId}`) !== null
+      : false
+  }
+  catch {
+    // 隐私模式或受限 iframe 可能禁止访问 Storage；此时按无本地会话处理。
+    return false
+  }
 }
 
 export function getSafeLoginRedirect(value: unknown) {

@@ -1,9 +1,11 @@
+import type { User } from '~/composables/auth/types'
 import type { SsoAccountState } from '~/types/app-explorer'
 import { computed, onMounted, shallowRef } from 'vue'
-import { useTcbAuthSession } from '~/composables/auth/useAuthSession'
 
 export function useSsoAccountState(redirectTo = '/') {
-  const authSession = useTcbAuthSession()
+  // 云图只读取页头恢复后的共享状态，避免公开页为了展示账号节点同步拉取认证 SDK。
+  const user = useState<User | null>('auth_user', () => null)
+  const authReady = useState<boolean>('auth_ready', () => false)
   const hydrated = shallowRef(false)
   const loginTarget = `/login?redirect=${encodeURIComponent(redirectTo)}`
 
@@ -11,16 +13,18 @@ export function useSsoAccountState(redirectTo = '/') {
     if (!hydrated.value)
       return 'pending'
 
-    return authSession.authStatus?.value
-      ?? (authSession.user?.value ? 'authenticated' : 'guest')
+    if (!authReady.value)
+      return 'pending'
+
+    return user.value ? 'authenticated' : 'guest'
   })
 
   const accountState = computed<SsoAccountState>(() => ({
     status: status.value,
-    displayName: authSession.user?.value?.nickname
-      || authSession.user?.value?.login
+    displayName: user.value?.nickname
+      || user.value?.login
       || '云乐坊账号',
-    avatar: authSession.user?.value?.avatar,
+    avatar: user.value?.avatar,
     to: status.value === 'authenticated' ? '/profile' : loginTarget,
   }))
 

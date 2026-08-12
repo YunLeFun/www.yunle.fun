@@ -1,10 +1,15 @@
 <script setup lang="ts">
-import { useTcbAuthSession } from '~/composables/auth/useAuthSession'
 import { homePage as page } from '~/config'
 
 const title = page.seo.title || page.title
 const description = page.seo.description || page.description
-const { authReady, authStatus, checkAuthStatus } = useTcbAuthSession()
+// 首页只消费页头恢复后的轻量共享状态，不直接导入 CloudBase 认证实现。
+// 匿名访客因此无需为首屏下载认证 SDK；已有会话仍会由 HeaderAuthArea 恢复并更新这里。
+const authReady = useState<boolean>('auth_ready', () => false)
+const user = useState<{ id?: string } | null>('auth_user', () => null)
+const authStatus = computed<'pending' | 'authenticated' | 'guest'>(() =>
+  !authReady.value ? 'pending' : user.value ? 'authenticated' : 'guest',
+)
 
 useSeoMeta({
   titleTemplate: '',
@@ -94,8 +99,6 @@ const cta = computed(() => {
 
 onMounted(() => {
   clientMounted.value = true
-  if (!authReady.value)
-    void checkAuthStatus()
 })
 </script>
 
