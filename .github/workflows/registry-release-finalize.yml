@@ -155,6 +155,16 @@ jobs:
           --operator github-actions
           --reason "registry pull request CI did not succeed"
 
+      - name: Supersede failed release for fresh approval
+        if: ${{ github.event.workflow_run.conclusion != 'success' }}
+        run: >-
+          pnpm sso:registry record-ci
+          --environment "${{ steps.release.outputs.environment }}"
+          --release-intent "${{ steps.verified.outputs.release-intent-id }}"
+          --status superseded
+          --operator github-actions
+          --reason "registry pull request CI failed and requires fresh Admin approval"
+
       - name: Require successful CI
         env:
           CI_CONCLUSION: ${{ steps.release.outputs.ci-conclusion }}

@@ -189,3 +189,14 @@ jobs:
           --failure registry_release_workflow_failed
           --operator github-actions
           --reason "registry release workflow failed"
+
+      - name: Supersede failed release for fresh approval
+        if: ${{ failure() && steps.intent.outputs.environment != '' }}
+        continue-on-error: true
+        run: >-
+          pnpm sso:registry record-ci
+          --environment "${{ steps.intent.outputs.environment }}"
+          --release-intent "${{ inputs.releaseIntentId }}"
+          --status superseded
+          --operator github-actions
+          --reason "registry release failed and requires fresh Admin approval"
