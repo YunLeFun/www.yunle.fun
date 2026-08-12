@@ -127,7 +127,13 @@ describe('sso explorer configuration', () => {
     ]
     const nextRegistry = {
       ...productionRegistry,
-      clients: [...productionRegistry.clients, ...cookClients],
+      // Keep the fixture independent from the currently published Registry.
+      // Once Cook is present in production, blindly appending the pair would
+      // test duplicate fixture data instead of native companion filtering.
+      clients: [
+        ...productionRegistry.clients.filter(client => client.appId !== 'cook'),
+        ...cookClients,
+      ],
     }
 
     expect(buildSsoExplorerApps(nextRegistry).filter(app => app.appId === 'cook'))
