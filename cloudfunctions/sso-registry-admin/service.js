@@ -226,6 +226,98 @@ function clientReviewChanges(previous, next, diff) {
     }))
 }
 
+function managedAutoApprovalEvidence(value) {
+  if (!Array.isArray(value) || value.length < 1 || value.length > 20)
+    throw new RegistryAdminError('managed_auto_approval_evidence_mismatch')
+  const clientIds = new Set()
+  return value.map((item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item))
+      throw new RegistryAdminError('managed_auto_approval_evidence_mismatch')
+    const evidence = {
+      clientId: text(item.clientId, 'managed_auto_approval_evidence_mismatch', 128),
+      appId: text(item.appId, 'managed_auto_approval_evidence_mismatch', 128),
+      origin: text(item.origin, 'managed_auto_approval_evidence_mismatch', 256),
+      projectId: text(item.projectId, 'managed_auto_approval_evidence_mismatch', 192),
+      repository: text(item.repository, 'managed_auto_approval_evidence_mismatch', 256),
+    }
+    if (clientIds.has(evidence.clientId))
+      throw new RegistryAdminError('managed_auto_approval_evidence_mismatch')
+    clientIds.add(evidence.clientId)
+    return evidence
+  })
+}
+
+function assertManagedAutoApprovalPolicy(currentRegistry, nextRegistry, claims) {
+  const diff = registryDiff(currentRegistry, nextRegistry)
+  if (!diff.added.length
+    || diff.modified.length
+    || diff.removed.length
+    || diff.securityChanged.length
+    || diff.displayChanged.length) {
+    throw new RegistryAdminError('managed_auto_approval_policy_rejected')
+  }
+
+  const evidence = managedAutoApprovalEvidence(claims.managedClients)
+  const evidenceByClient = new Map(evidence.map(item => [item.clientId, item]))
+  if (evidence.length !== diff.added.length
+    || diff.added.some(clientId => !evidenceByClient.has(clientId))) {
+    throw new RegistryAdminError('managed_auto_approval_evidence_mismatch')
+  }
+
+  const clients = new Map(nextRegistry.clients.map(client => [client.clientId, client]))
+  for (const clientId of diff.added) {
+    const client = clients.get(clientId)
+    const attestation = evidenceByClient.get(clientId)
+    const expectedOrigin = attestation?.origin
+    const adapter = client?.adapters?.[0]
+    let managedOrigin
+    try {
+      managedOrigin = new URL(expectedOrigin)
+    }
+    catch {
+      throw new RegistryAdminError('managed_auto_approval_policy_rejected')
+    }
+    if (!client
+      || client.status !== 'active'
+      || client.clientId !== `${client.appId}-web`
+      || client.adapters.length !== 1
+      || adapter.kind !== 'web-sso'
+      || adapter.consent !== 'trusted'
+      || adapter.allowedScopes.length !== 1
+      || adapter.allowedScopes[0] !== 'identity:bootstrap'
+      || adapter.origins.length !== 1
+      || adapter.origins[0] !== expectedOrigin
+      || !Array.isArray(adapter.redirectUris)
+      || adapter.redirectUris.length < 1
+      || attestation.appId !== client.appId
+      || managedOrigin.protocol !== 'https:'
+      || managedOrigin.origin !== expectedOrigin
+      || managedOrigin.port
+      || managedOrigin.hostname.includes('*')
+      || !managedOrigin.hostname.endsWith('.yunle.fun')) {
+      throw new RegistryAdminError('managed_auto_approval_policy_rejected')
+    }
+
+    for (const redirectUri of adapter.redirectUris) {
+      let parsed
+      try {
+        parsed = new URL(redirectUri)
+      }
+      catch {
+        throw new RegistryAdminError('managed_auto_approval_policy_rejected')
+      }
+      if (parsed.protocol !== 'https:'
+        || parsed.origin !== expectedOrigin
+        || parsed.username
+        || parsed.password
+        || parsed.search
+        || parsed.hash) {
+        throw new RegistryAdminError('managed_auto_approval_policy_rejected')
+      }
+    }
+  }
+}
+
 function publicEnvelope(state, snapshot) {
   return {
     formatVersion: 1,
@@ -250,6 +342,7 @@ function createRegistryAdminService(options) {
   const resolveApproverEmail = options.resolveApproverEmail
   const sendApprovalEmail = options.sendApprovalEmail
   const verifyAdminApprovalProof = options.verifyAdminApprovalProof
+  const verifyManagedApprovalProof = options.verifyManagedApprovalProof
   if (!['production', 'development'].includes(environment))
     throw new TypeError('Registry environment is invalid')
   if (!keyId || !signingKey || !store || typeof randomId !== 'function')
@@ -1103,6 +1196,75 @@ function createRegistryAdminService(options) {
             })
         return queuePublishedRelease(transaction, {
           approvalId: `admin:${claims.jti}`,
+          baseCommitSha,
+          draftId: id,
+          meta,
+          published,
+        })
+      })
+    },
+
+    async evaluateAndAutoApproveDraft(input) {
+      if (environment !== 'production')
+        throw new RegistryAdminError('managed_auto_approval_production_only')
+      if (typeof verifyManagedApprovalProof !== 'function')
+        throw new RegistryAdminError('managed_auto_approval_verifier_unavailable')
+      const claims = verifyManagedApprovalProof(input?.approvalProof)
+      if (claims.sub !== 'policy:managed-yunlefun')
+        throw new RegistryAdminError('managed_auto_approval_subject_invalid')
+
+      const id = draftId(claims.draftId, randomId)
+      const baseCommitSha = commitSha(claims.baseCommitSha)
+      const meta = requestMetadata({
+        operator: claims.sub,
+        changeReason: claims.changeReason,
+        requestId: input?.requestId,
+      })
+      return store.transaction(async (transaction) => {
+        const draft = await transaction.getDraft(id)
+        if (!draft)
+          throw new RegistryAdminError('draft_not_found')
+        if (draft.status === 'published' && draft.releaseIntentId) {
+          const existingIntent = await transaction.getReleaseIntent(draft.releaseIntentId)
+          if (!existingIntent
+            || existingIntent.baseCommitSha !== baseCommitSha
+            || existingIntent.policyVersion !== claims.policyVersion
+            || existingIntent.contentHash !== claims.contentHash
+            || existingIntent.securityHash !== claims.securityHash) {
+            throw new RegistryAdminError('managed_auto_approval_evidence_mismatch')
+          }
+          return {
+            idempotent: true,
+            releaseIntentId: draft.releaseIntentId,
+            snapshotId: existingIntent.snapshotId,
+            generation: existingIntent.generation,
+            status: existingIntent.status,
+          }
+        }
+        if (draft.status !== 'draft' || draft.rollbackTargetSnapshotId)
+          throw new RegistryAdminError('managed_auto_approval_policy_rejected')
+
+        const registry = parseRegistry(draft.registry)
+        const current = await activeEnvelope(transaction)
+        const currentSnapshotId = current?.state.activeSnapshotId || null
+        const hashes = hashRegistry(registry)
+        if (draft.baseSnapshotId !== currentSnapshotId
+          || registry.policyVersion !== claims.policyVersion
+          || registry.clients.length !== claims.clientCount
+          || hashes.contentHash !== claims.contentHash
+          || hashes.securityHash !== claims.securityHash) {
+          throw new RegistryAdminError('managed_auto_approval_evidence_mismatch')
+        }
+        assertManagedAutoApprovalPolicy(current?.snapshot.registry, registry, claims)
+
+        const published = await publishDraftTransaction(transaction, {
+          draft,
+          id,
+          meta,
+          auditAction: null,
+        })
+        return queuePublishedRelease(transaction, {
+          approvalId: `managed:${claims.jti}`,
           baseCommitSha,
           draftId: id,
           meta,

@@ -70,7 +70,7 @@ pnpm dev
 
 ## SSO Client Registry
 
-应用展示、允许的 Origin、回调地址和接入类型统一由 Client Registry 管理。开发环境可以自动生成、校验、合并并部署 Registry；production 发布必须经过审批和显式环境门禁。
+应用展示、允许的 Origin、回调地址和接入类型统一由 Client Registry 管理。开发环境可以自动生成、校验、合并并部署 Registry；production 发布必须经过人工 owner 审批，或经过受管 YunLeFun 客户端的独立机器策略审批，并继续通过显式环境门禁。机器策略仅允许纯新增、低权限、精确 HTTPS 回调且有实时官方应用/EdgeOne 项目归属证明的客户端；不会注册 `*.yunle.fun` 通配回调。
 
 不要手工修改 `packages/authorization-core/src/generated/*-registry.json` 或 `*-release.json`。接入方式、静态页面适配器和发布模型见 [SSO 集成指南](./docs/sso-integration.md)。
 

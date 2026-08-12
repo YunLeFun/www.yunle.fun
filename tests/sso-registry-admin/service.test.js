@@ -94,6 +94,30 @@ function registry(policyVersion = '2026-08-03.1', displayName = 'Sample', enviro
   }
 }
 
+function registryWithManagedClient(policyVersion = '2026-08-12.2', overrides = {}) {
+  return {
+    ...registry(policyVersion),
+    clients: [
+      ...registry(policyVersion).clients,
+      {
+        clientId: 'everything-generator-web',
+        appId: 'everything-generator',
+        displayName: 'Everything Generator',
+        iconUrl: 'https://dao.yunle.fun/icon.svg',
+        status: 'active',
+        adapters: [{
+          kind: 'web-sso',
+          consent: 'trusted',
+          allowedScopes: ['identity:bootstrap'],
+          origins: ['https://dao.yunle.fun'],
+          redirectUris: ['https://dao.yunle.fun/auth/callback'],
+          ...overrides,
+        }],
+      },
+    ],
+  }
+}
+
 function setup(options = {}) {
   const keys = generateKeyPairSync('ed25519')
   const memory = memoryStore()
@@ -620,6 +644,102 @@ describe('sso-registry-admin service', () => {
       operator: 'admin:registry-owner (admin-uid)',
       reason: claims.changeReason,
     })
+  })
+
+  it('auto-approves only an attested managed YunLeFun client addition', async () => {
+    const claims = {
+      sub: 'policy:managed-yunlefun',
+      draftId: 'draft:managed-auto',
+      policyVersion: '2026-08-12.2',
+      clientCount: 2,
+      contentHash: '',
+      securityHash: '',
+      baseCommitSha: '4'.repeat(40),
+      changeReason: 'Managed YunLeFun client passed policy evaluation',
+      jti: 'managed-proof-id',
+      managedClients: [{
+        clientId: 'everything-generator-web',
+        appId: 'everything-generator',
+        origin: 'https://dao.yunle.fun',
+        projectId: 'pages-everything-generator',
+        repository: 'YunYouJun/everything-generator',
+      }],
+    }
+    const { memory, service } = setup({
+      verifyManagedApprovalProof: proof => proof,
+    })
+    const base = await service.saveDraft(request({ registry: registry() }))
+    await service.publishDraft(request({ draftId: base.draftId }))
+    const saved = await service.saveDraft(request({
+      draftId: claims.draftId,
+      registry: registryWithManagedClient(),
+    }))
+    const diff = await service.getDraftDiff(request({ draftId: saved.draftId }))
+    claims.contentHash = diff.contentHash
+    claims.securityHash = diff.securityHash
+
+    const queued = await service.evaluateAndAutoApproveDraft({
+      approvalProof: claims,
+      requestId: 'managed-auto-request',
+    })
+
+    expect(queued).toMatchObject({ status: 'approved', generation: 2 })
+    expect(memory.snapshot().intents.get(queued.releaseIntentId)).toMatchObject({
+      approvalId: 'managed:managed-proof-id',
+      baseCommitSha: '4'.repeat(40),
+    })
+    expect([...memory.snapshot().audits.values()].at(-1)).toMatchObject({
+      action: 'release_approved',
+      operator: 'policy:managed-yunlefun',
+    })
+  })
+
+  it('keeps suffix-only, modified, or broadened clients in manual review', async () => {
+    const { service } = setup({
+      verifyManagedApprovalProof: proof => proof,
+    })
+    const base = await service.saveDraft(request({ registry: registry() }))
+    await service.publishDraft(request({ draftId: base.draftId }))
+    const saved = await service.saveDraft(request({ registry: registryWithManagedClient() }))
+    const diff = await service.getDraftDiff(request({ draftId: saved.draftId }))
+    const proof = {
+      sub: 'policy:managed-yunlefun',
+      draftId: saved.draftId,
+      policyVersion: diff.policyVersion,
+      clientCount: diff.clientCount,
+      contentHash: diff.contentHash,
+      securityHash: diff.securityHash,
+      baseCommitSha: '5'.repeat(40),
+      changeReason: 'Suffix alone is not ownership evidence',
+      jti: 'suffix-only-proof',
+      managedClients: [],
+    }
+
+    await expect(service.evaluateAndAutoApproveDraft({
+      approvalProof: proof,
+      requestId: 'suffix-only-request',
+    })).rejects.toEqual(expect.objectContaining({ code: 'managed_auto_approval_evidence_mismatch' }))
+
+    await service.saveDraft(request({
+      draftId: saved.draftId,
+      registry: registryWithManagedClient('2026-08-12.2', { consent: 'explicit' }),
+    }))
+    const broadened = await service.getDraftDiff(request({ draftId: saved.draftId }))
+    await expect(service.evaluateAndAutoApproveDraft({
+      approvalProof: {
+        ...proof,
+        contentHash: broadened.contentHash,
+        securityHash: broadened.securityHash,
+        managedClients: [{
+          clientId: 'everything-generator-web',
+          appId: 'everything-generator',
+          origin: 'https://dao.yunle.fun',
+          projectId: 'pages-everything-generator',
+          repository: 'YunYouJun/everything-generator',
+        }],
+      },
+      requestId: 'broadened-request',
+    })).rejects.toEqual(expect.objectContaining({ code: 'managed_auto_approval_policy_rejected' }))
   })
 
   it('requeues a superseded production release against the newly reviewed main commit', async () => {
