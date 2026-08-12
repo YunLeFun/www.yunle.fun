@@ -30,6 +30,7 @@ const GENERATED_PATHS = {
 function usage() {
   return `Usage:
   node scripts/sso-registry.mjs validate <file> --environment <production|development>
+  node scripts/sso-registry.mjs draft <file> --environment <production|development> --operator <id> --reason <text>
   node scripts/sso-registry.mjs seed --environment <env> --operator <id> --reason <text> [--apply]
   node scripts/sso-registry.mjs diff --environment <env> --draft <id> --operator <id> --reason <text>
   node scripts/sso-registry.mjs request-approval --environment production --draft <id> --base-commit <sha> --operator <id> --reason <text>
@@ -49,7 +50,7 @@ seed is dry-run unless --apply is present. export prints to stdout unless --outp
 function parseArgs(argv) {
   const [command, positional, ...rest] = argv
   const options = { command, positional, apply: false }
-  const tokens = ['validate', 'verify-release'].includes(command) ? rest : [positional, ...rest].filter(Boolean)
+  const tokens = ['validate', 'draft', 'verify-release'].includes(command) ? rest : [positional, ...rest].filter(Boolean)
   for (let index = 0; index < tokens.length; index++) {
     const token = tokens[index]
     if (token === '--apply') {
@@ -156,6 +157,20 @@ function validate(options, core) {
     contentHash: hashes.contentHash,
     securityHash: hashes.securityHash,
   }, null, 2))
+}
+
+function saveDraft(options, core) {
+  if (!options.positional)
+    throw new Error('draft requires a JSON file')
+  const targetEnvironment = environment(options.environment)
+  const input = readJson(resolve(process.cwd(), options.positional))
+  const registry = input?.formatVersion === 1 && input?.registry
+    ? core.parseGeneratedRegistryArtifact(input, targetEnvironment).registry
+    : core.parseClientRegistrySnapshot(input, { environment: targetEnvironment })
+  return invokeAdmin(targetEnvironment, 'saveDraft', {
+    ...managementMetadata(options, 'Registry draft save'),
+    registry,
+  })
 }
 
 function seed(options, core) {
@@ -387,6 +402,8 @@ try {
   const core = loadCore()
   if (options.command === 'validate')
     validate(options, core)
+  else if (options.command === 'draft')
+    console.log(JSON.stringify(saveDraft(options, core), null, 2))
   else if (options.command === 'seed')
     seed(options, core)
   else if (options.command === 'diff')

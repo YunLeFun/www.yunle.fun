@@ -8,7 +8,7 @@ import { productionRegistry } from '../../packages/authorization-core/src/regist
 
 describe('sso explorer configuration', () => {
   it('derives only active Web SSO clients from the authorization registry', () => {
-    const controlPlaneClients = new Set(['admin-web', 'studio-web'])
+    const controlPlaneClients = new Set(['admin-web', 'cook-mobile', 'studio-web'])
     const expectedAppIds = productionRegistry.clients
       .filter(client => client.status === 'active')
       .filter(client => !controlPlaneClients.has(client.clientId))
@@ -92,5 +92,51 @@ describe('sso explorer configuration', () => {
         origin: 'https://dao.yunle.fun',
         logoUrl: 'https://dao.yunle.fun/favicon.ico',
       })
+  })
+
+  it('shows one Web app when a native companion client shares the same app ID', () => {
+    const cookClients = [
+      {
+        clientId: 'cook-mobile',
+        appId: 'cook',
+        displayName: 'Cook 食用手册',
+        iconUrl: 'https://cook.yunyoujun.cn/favicon.svg',
+        status: 'active' as const,
+        adapters: [{
+          kind: 'web-sso' as const,
+          consent: 'explicit' as const,
+          allowedScopes: ['identity:bootstrap'],
+          origins: ['https://cook.yunyoujun.cn'],
+          redirectUris: ['https://cook.yunyoujun.cn/auth/callback?platform=native'],
+        }],
+      },
+      {
+        clientId: 'cook-web',
+        appId: 'cook',
+        displayName: 'Cook 食用手册',
+        iconUrl: 'https://cook.yunyoujun.cn/favicon.svg',
+        status: 'active' as const,
+        adapters: [{
+          kind: 'web-sso' as const,
+          consent: 'trusted' as const,
+          allowedScopes: ['identity:bootstrap'],
+          origins: ['https://cook.yunyoujun.cn'],
+          redirectUris: ['https://cook.yunyoujun.cn/auth/callback'],
+        }],
+      },
+    ]
+    const nextRegistry = {
+      ...productionRegistry,
+      clients: [...productionRegistry.clients, ...cookClients],
+    }
+
+    expect(buildSsoExplorerApps(nextRegistry).filter(app => app.appId === 'cook'))
+      .toEqual([
+        expect.objectContaining({
+          clientId: 'cook-web',
+          name: 'Cook 食用手册',
+          origin: 'https://cook.yunyoujun.cn',
+        }),
+      ])
   })
 })
