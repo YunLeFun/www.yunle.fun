@@ -27,4 +27,16 @@ describe('public repository workflows', () => {
     expect(source).toContain('GH_TOKEN: $' + '{{ github.token }}')
     expect(source).not.toContain('npx ')
   })
+
+  it('delegates registry-only pushes to the registry deployment workflow', () => {
+    const source = workflow('ci.yml')
+    const registryDeploy = workflow('registry-deploy.yml')
+
+    expect(source).toContain(`    paths-ignore:
+      - packages/authorization-core/src/generated/*-registry.json
+      - packages/authorization-core/src/generated/*-release.json`)
+    expect(registryDeploy).toContain(`    paths:
+      - packages/authorization-core/src/generated/*-registry.json
+      - packages/authorization-core/src/generated/*-release.json`)
+  })
 })
