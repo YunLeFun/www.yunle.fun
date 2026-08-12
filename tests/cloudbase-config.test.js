@@ -60,12 +60,12 @@ describe('cloudBase test identity deployment manifest', () => {
     expect(ssoTicketSource).not.toMatch(/phoneNumberVerified:\s*true/)
   })
 
-  it('runs the HMAC-authenticated sweep every minute', () => {
+  it('runs the HMAC-authenticated sweep every ten minutes', () => {
     expect(functions.get('test-identity-sweeper')).toMatchObject({
       aclRule: { invoke: false },
       timeout: 30,
       envVariables: { TEST_BROKER_SWEEP_KEY: '{{env.TEST_BROKER_SWEEP_KEY}}' },
-      triggers: [{ name: 'testIdentitySweepEveryMinute', type: 'timer', config: '0 * * * * * *' }],
+      triggers: [{ name: 'testIdentitySweepEveryTenMinutes', type: 'timer', config: '0 */10 * * * * *' }],
     })
   })
 
