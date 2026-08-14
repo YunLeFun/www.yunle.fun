@@ -27,10 +27,16 @@
 'use strict'
 
 const { Buffer } = require('node:buffer')
-const { createHash } = require('node:crypto')
 const process = require('node:process')
 const cloudbase = require('@cloudbase/node-sdk')
 const { assertActiveAccountForUid } = require('./account-access')
+const {
+  buildAuthorizationResolvedAudit,
+  buildSsoCodeConsumedAudit,
+  buildSsoCodeIssuedAudit,
+  buildSsoRequestRejectedAudit,
+  emitSecurityAudit,
+} = require('./audit-log')
 const { resolveFixedTestIdentityAdmission } = require('./fixed-test-identity-admission')
 const { IdentityAdmissionError, resolvePhoneVerificationAdmission } = require('./identity-admission')
 const { createIdentityAssertionRuntime } = require('./identity-assertion')
@@ -199,23 +205,8 @@ async function resolveSsoAuthorization(payload, clientAddress = 'unknown') {
     windowMs: 60_000,
   })
   const resolved = resolveAuthorizationRequest(payload, ssoRequestOptions())
-  auditSecurity('sso_authorization_resolved', {
-    clientId: resolved.request.clientId,
-    appId: resolved.presentation.appId,
-    issuer: resolved.issuer,
-    origin: resolved.request.targetOrigin,
-    policyVersion: resolved.policyVersion,
-    registrationFingerprint: resolved.registrationFingerprint,
-  })
+  emitSecurityAudit(buildAuthorizationResolvedAudit(resolved))
   return { ok: true, ...resolved }
-}
-
-function auditId(value) {
-  return createHash('sha256').update(String(value || 'unknown')).digest('hex').slice(0, 16)
-}
-
-function auditSecurity(event, details) {
-  console.warn('[sso-ticket] security_event', JSON.stringify({ event, ...details }))
 }
 
 // 路径 1：已认证调用者上下文签发一次性授权码，uid 只从运行时上下文取得。
@@ -231,16 +222,7 @@ async function issueSsoCode(payload, clientAddress = 'unknown') {
     ssoRateLimiter.consume({ scope: 'issue-ip', key: clientAddress, limit: limits.issuePerIp, windowMs: 60_000 }),
   ])
   const issued = await ssoCodeStore.issue({ uid, ...request })
-  auditSecurity('sso_code_issued', {
-    subject: auditId(uid),
-    clientId: request.clientId,
-    appId: request.appId,
-    issuer: request.issuer,
-    scopes: request.scopes,
-    origin: request.targetOrigin,
-    policyVersion: request.policyVersion,
-    registrationFingerprint: request.registrationFingerprint,
-  })
+  emitSecurityAudit(buildSsoCodeIssuedAudit(uid, request))
   return { ok: true, code: issued.code, expiresAt: issued.expiresAt }
 }
 
@@ -267,16 +249,7 @@ async function exchangeSsoCode(payload, requestOrigin, clientAddress = 'unknown'
         : 'production',
     }),
   })
-  auditSecurity('sso_code_consumed', {
-    subject: auditId(uid),
-    clientId: request.clientId,
-    appId: request.appId,
-    issuer: request.issuer,
-    scopes: request.scopes,
-    origin: requestOrigin,
-    policyVersion: request.policyVersion,
-    registrationFingerprint: request.registrationFingerprint,
-  })
+  emitSecurityAudit(buildSsoCodeConsumedAudit(uid, request, requestOrigin))
   const ticketResult = mintTicket(uid)
   if (!ticketResult.ok)
     return ticketResult
@@ -460,15 +433,15 @@ exports.main = async function main(event) {
   catch (error) {
     if (error instanceof SsoRequestError || error instanceof SsoCodeStoreError || error instanceof SsoRateLimitError) {
       result = { ok: false, reason: error.reason }
-      auditSecurity('sso_request_rejected', { reason: error.reason, origin: requestOrigin || undefined })
+      emitSecurityAudit(buildSsoRequestRejectedAudit(error.reason, requestOrigin))
     }
     else if (typeof error?.code === 'string' && error.code.startsWith('account_')) {
       result = { ok: false, reason: error.code }
-      auditSecurity('sso_request_rejected', { reason: error.code, origin: requestOrigin || undefined })
+      emitSecurityAudit(buildSsoRequestRejectedAudit(error.code, requestOrigin))
     }
     else if (error instanceof IdentityAdmissionError) {
       result = { ok: false, reason: error.reason }
-      auditSecurity('sso_request_rejected', { reason: error.reason, origin: requestOrigin || undefined })
+      emitSecurityAudit(buildSsoRequestRejectedAudit(error.reason, requestOrigin))
     }
     else {
       console.error('[sso-ticket] request failed:', error && error.message)
