@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { HTMLAttributes } from 'vue'
 import { Input } from '@/components/ui/input'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
 import { Spinner } from '@/components/ui/spinner'
@@ -22,6 +23,11 @@ const inputModel = computed<string | number>({
 })
 const fieldId = inject(formFieldIdKey, undefined)
 const attrs = useAttrs()
+const controlAttrs = computed(() => {
+  const { class: _class, ...rest } = attrs
+  return rest
+})
+const inputGroupClass = computed(() => attrs.class as HTMLAttributes['class'])
 const controlId = computed(() => attrs.id as string | undefined || fieldId?.controlId)
 const usesFieldContext = computed(() => controlId.value === fieldId?.controlId)
 const ariaDescribedby = computed(() => attrs['aria-describedby'] as string | undefined
@@ -33,14 +39,17 @@ const ariaRequired = computed(() => attrs['aria-required'] as string | boolean |
 </script>
 
 <template>
-  <InputGroup v-if="icon || trailingIcon || loading || $slots.leading || $slots.trailing">
+  <InputGroup
+    v-if="icon || trailingIcon || loading || $slots.leading || $slots.trailing"
+    :class="inputGroupClass"
+  >
     <InputGroupAddon v-if="icon || $slots.leading" align="inline-start">
       <slot name="leading">
         <Icon v-if="icon" :name="icon" />
       </slot>
     </InputGroupAddon>
     <InputGroupInput
-      v-bind="$attrs"
+      v-bind="controlAttrs"
       :id="controlId"
       v-model="inputModel"
       :disabled="disabled"

@@ -260,7 +260,7 @@ function openResetPassword() {
 }
 
 // 表单区高度平滑过渡：切换登录方式 / 展开验证码时，卡片尺寸渐变而非硬跳
-const formAreaRef = ref<HTMLElement>()
+const formAreaRef = useTemplateRef<HTMLElement>('formArea')
 const { height: formAreaHeight } = useElementSize(formAreaRef)
 const morphing = ref(false)
 let morphTimer: ReturnType<typeof setTimeout> | undefined
@@ -278,9 +278,9 @@ onUnmounted(() => clearTimeout(morphTimer))
 <template>
   <div class="ylf-auth-login w-full space-y-6">
     <!-- 标题区域 -->
-    <div class="text-center space-y-3">
+    <div class="ylf-auth-hero text-center space-y-3">
       <div class="flex justify-center">
-        <div class="ylf-gradient-tile flex h-14 w-16 items-center justify-center rounded-2xl">
+        <div class="ylf-auth-mark ylf-gradient-tile flex h-14 w-16 items-center justify-center rounded-2xl">
           <YlfLogo
             class="h-8 w-11 text-white"
             aria-hidden="true"
@@ -297,13 +297,13 @@ onUnmounted(() => clearTimeout(morphTimer))
 
     <!-- 登录方式切换 -->
     <ToggleGroup v-model="loginMode" type="single" :spacing="1" class="ylf-auth-tabs grid w-full grid-cols-3 p-1" aria-label="登录方式">
-      <ToggleGroupItem value="phone" class="w-full">
+      <ToggleGroupItem value="phone" class="ylf-auth-tab w-full">
         手机号
       </ToggleGroupItem>
-      <ToggleGroupItem value="email" class="w-full">
+      <ToggleGroupItem value="email" class="ylf-auth-tab w-full">
         邮箱
       </ToggleGroupItem>
-      <ToggleGroupItem value="password" class="w-full">
+      <ToggleGroupItem value="password" class="ylf-auth-tab w-full">
         密码登录
       </ToggleGroupItem>
     </ToggleGroup>
@@ -314,241 +314,251 @@ onUnmounted(() => clearTimeout(morphTimer))
       :class="{ 'ylf-auth-morph--active': morphing }"
       :style="formAreaHeight ? { height: `${formAreaHeight}px` } : undefined"
     >
-      <div ref="formAreaRef">
-        <!-- 手机号登录 -->
-        <div v-if="loginMode === 'phone'" class="space-y-4">
-          <AppFormField
-            label="手机号"
-            name="login-phone"
-            :error="phoneInvalid ? '请输入正确的手机号' : undefined"
-            hint="当前仅支持中国大陆手机号；未注册手机号验证后将自动创建账号"
+      <div ref="formArea" class="ylf-auth-form-stage">
+        <Transition name="ylf-auth-form">
+          <!-- 手机号登录 -->
+          <div
+            v-if="loginMode === 'phone'"
+            :key="phoneCodeSent ? 'phone-code' : 'phone-account'"
+            class="space-y-4"
           >
-            <div class="flex gap-2">
-              <AppSelect
-                id="login-phone-area"
-                v-model="phoneAreaCode"
-                :items="phoneAreaCodes"
-                value-key="value"
+            <AppFormField
+              label="手机号"
+              name="login-phone"
+              :error="phoneInvalid ? '请输入正确的手机号' : undefined"
+              hint="当前仅支持中国大陆手机号；未注册手机号验证后将自动创建账号"
+            >
+              <div class="flex gap-2">
+                <AppSelect
+                  id="login-phone-area"
+                  v-model="phoneAreaCode"
+                  :items="phoneAreaCodes"
+                  value-key="value"
+                  size="lg"
+                  class="w-24 shrink-0"
+                  :disabled="loading"
+                  aria-label="国家或地区代码"
+                />
+                <AppInput
+                  id="login-phone"
+                  v-model.trim="phone"
+                  type="tel"
+                  inputmode="numeric"
+                  autocomplete="tel"
+                  maxlength="11"
+                  placeholder="请输入手机号"
+                  size="lg"
+                  icon="i-lucide-smartphone"
+                  :disabled="loading"
+                  class="flex-1"
+                  @keyup.enter="phoneCodeSent ? handleVerifyPhoneOtp() : handleSendPhoneOtp()"
+                />
+              </div>
+            </AppFormField>
+
+            <!-- 验证码输入 -->
+            <div v-if="phoneCodeSent" class="space-y-4">
+              <AppFormField label="验证码">
+                <div class="flex gap-2">
+                  <AppInput
+                    v-model="phoneOtpCode"
+                    inputmode="numeric"
+                    autocomplete="one-time-code"
+                    placeholder="输入 6 位验证码"
+                    size="lg"
+                    icon="i-lucide-shield-check"
+                    maxlength="6"
+                    :disabled="loading"
+                    class="flex-1"
+                    @keyup.enter="handleVerifyPhoneOtp()"
+                  />
+                  <AppButton
+                    :label="phoneCountdownActive ? `${phoneCountdown}s` : '重新发送'"
+                    color="neutral"
+                    variant="outline"
+                    size="lg"
+                    class="ylf-auth-button-secondary"
+                    :disabled="phoneCountdownActive || loading"
+                    @click="handleSendPhoneOtp"
+                  />
+                </div>
+              </AppFormField>
+
+              <AppButton
+                label="登录"
+                color="primary"
                 size="lg"
-                class="w-24 shrink-0"
-                :disabled="loading"
-                aria-label="国家或地区代码"
-              />
-              <AppInput
-                id="login-phone"
-                v-model.trim="phone"
-                type="tel"
-                inputmode="numeric"
-                autocomplete="tel"
-                maxlength="11"
-                placeholder="请输入手机号"
-                size="lg"
-                icon="i-lucide-smartphone"
-                :disabled="loading"
-                class="flex-1"
-                @keyup.enter="phoneCodeSent ? handleVerifyPhoneOtp() : handleSendPhoneOtp()"
+                block
+                class="ylf-auth-button-primary"
+                :loading="loading"
+                :disabled="!RE_OTP.test(phoneOtpCode)"
+                @click="handleVerifyPhoneOtp"
               />
             </div>
-          </AppFormField>
 
-          <!-- 验证码输入 -->
-          <div v-if="phoneCodeSent" class="space-y-4">
-            <AppFormField label="验证码">
-              <div class="flex gap-2">
-                <AppInput
-                  v-model="phoneOtpCode"
-                  inputmode="numeric"
-                  autocomplete="one-time-code"
-                  placeholder="输入 6 位验证码"
-                  size="lg"
-                  icon="i-lucide-shield-check"
-                  maxlength="6"
-                  :disabled="loading"
-                  class="flex-1"
-                  @keyup.enter="handleVerifyPhoneOtp()"
-                />
-                <AppButton
-                  :label="phoneCountdownActive ? `${phoneCountdown}s` : '重新发送'"
-                  color="neutral"
-                  variant="outline"
-                  size="lg"
-                  class="ylf-auth-button-secondary"
-                  :disabled="phoneCountdownActive || loading"
-                  @click="handleSendPhoneOtp"
-                />
-              </div>
-            </AppFormField>
-
+            <!-- 发送验证码按钮 -->
             <AppButton
-              label="登录"
+              v-else
+              label="获取验证码"
               color="primary"
               size="lg"
               block
               class="ylf-auth-button-primary"
               :loading="loading"
-              :disabled="!RE_OTP.test(phoneOtpCode)"
-              @click="handleVerifyPhoneOtp"
+              :disabled="!phoneValid"
+              @click="handleSendPhoneOtp"
             />
           </div>
 
-          <!-- 发送验证码按钮 -->
-          <AppButton
-            v-else
-            label="获取验证码"
-            color="primary"
-            size="lg"
-            block
-            class="ylf-auth-button-primary"
-            :loading="loading"
-            :disabled="!phoneValid"
-            @click="handleSendPhoneOtp"
-          />
-        </div>
-
-        <!-- 邮箱登录 -->
-        <div v-else-if="loginMode === 'email'" class="space-y-4">
-          <AppFormField
-            label="邮箱"
-            :error="emailInvalid ? '请输入正确的邮箱地址' : undefined"
+          <!-- 邮箱登录 -->
+          <div
+            v-else-if="loginMode === 'email'"
+            :key="emailCodeSent ? 'email-code' : 'email-account'"
+            class="space-y-4"
           >
-            <AppInput
-              v-model.trim="email"
-              type="email"
-              autocomplete="email"
-              placeholder="请输入您的邮箱"
-              size="lg"
-              icon="i-lucide-mail"
-              :disabled="loading"
-              class="w-full"
-              @keyup.enter="emailCodeSent ? handleVerifyEmailOtp() : handleSendEmailOtp()"
-            />
-          </AppFormField>
-
-          <!-- 验证码输入 -->
-          <div v-if="emailCodeSent" class="space-y-4">
-            <AppFormField label="验证码">
-              <div class="flex gap-2">
-                <AppInput
-                  v-model="emailOtpCode"
-                  inputmode="numeric"
-                  autocomplete="one-time-code"
-                  placeholder="输入 6 位验证码"
-                  size="lg"
-                  icon="i-lucide-shield-check"
-                  maxlength="6"
-                  :disabled="loading"
-                  class="flex-1"
-                  @keyup.enter="handleVerifyEmailOtp()"
-                />
-                <AppButton
-                  :label="emailCountdownActive ? `${emailCountdown}s` : '重新发送'"
-                  color="neutral"
-                  variant="outline"
-                  size="lg"
-                  class="ylf-auth-button-secondary"
-                  :disabled="emailCountdownActive || loading"
-                  @click="handleSendEmailOtp"
-                />
-              </div>
+            <AppFormField
+              label="邮箱"
+              :error="emailInvalid ? '请输入正确的邮箱地址' : undefined"
+            >
+              <AppInput
+                v-model.trim="email"
+                type="email"
+                autocomplete="email"
+                placeholder="请输入您的邮箱"
+                size="lg"
+                icon="i-lucide-mail"
+                :disabled="loading"
+                class="w-full"
+                @keyup.enter="emailCodeSent ? handleVerifyEmailOtp() : handleSendEmailOtp()"
+              />
             </AppFormField>
 
+            <!-- 验证码输入 -->
+            <div v-if="emailCodeSent" class="space-y-4">
+              <AppFormField label="验证码">
+                <div class="flex gap-2">
+                  <AppInput
+                    v-model="emailOtpCode"
+                    inputmode="numeric"
+                    autocomplete="one-time-code"
+                    placeholder="输入 6 位验证码"
+                    size="lg"
+                    icon="i-lucide-shield-check"
+                    maxlength="6"
+                    :disabled="loading"
+                    class="flex-1"
+                    @keyup.enter="handleVerifyEmailOtp()"
+                  />
+                  <AppButton
+                    :label="emailCountdownActive ? `${emailCountdown}s` : '重新发送'"
+                    color="neutral"
+                    variant="outline"
+                    size="lg"
+                    class="ylf-auth-button-secondary"
+                    :disabled="emailCountdownActive || loading"
+                    @click="handleSendEmailOtp"
+                  />
+                </div>
+              </AppFormField>
+
+              <AppButton
+                label="登录"
+                color="primary"
+                size="lg"
+                block
+                class="ylf-auth-button-primary"
+                :loading="loading"
+                :disabled="!RE_OTP.test(emailOtpCode)"
+                @click="handleVerifyEmailOtp"
+              />
+            </div>
+
+            <!-- 发送验证码按钮 -->
             <AppButton
-              label="登录"
+              v-else
+              label="获取验证码"
               color="primary"
               size="lg"
               block
               class="ylf-auth-button-primary"
               :loading="loading"
-              :disabled="!RE_OTP.test(emailOtpCode)"
-              @click="handleVerifyEmailOtp"
+              :disabled="!emailValid"
+              @click="handleSendEmailOtp"
             />
+
+            <p class="text-xs text-muted text-center">
+              邮箱不能单独注册；请先用手机号或 GitHub 登录，并在账号设置中绑定
+            </p>
           </div>
 
-          <!-- 发送验证码按钮 -->
-          <AppButton
-            v-else
-            label="获取验证码"
-            color="primary"
-            size="lg"
-            block
-            class="ylf-auth-button-primary"
-            :loading="loading"
-            :disabled="!emailValid"
-            @click="handleSendEmailOtp"
-          />
+          <!-- 密码登录 -->
+          <form v-else key="password" class="space-y-4" @submit.prevent="handlePasswordLogin">
+            <AppFormField label="用户名、邮箱或手机号">
+              <AppInput
+                v-model.trim="passwordAccount"
+                placeholder="请输入用户名、邮箱或手机号"
+                size="lg"
+                icon="i-lucide-user"
+                autocomplete="username"
+                :disabled="loading"
+                class="w-full"
+              />
+            </AppFormField>
 
-          <p class="text-xs text-muted text-center">
-            邮箱不能单独注册；请先用手机号或 GitHub 登录，并在账号设置中绑定
-          </p>
-        </div>
+            <AppFormField label="密码">
+              <AppInput
+                v-model="password"
+                :type="showPassword ? 'text' : 'password'"
+                placeholder="请输入密码"
+                size="lg"
+                icon="i-lucide-key-round"
+                autocomplete="current-password"
+                :disabled="loading"
+                class="w-full"
+              >
+                <template #trailing>
+                  <AppButton
+                    :icon="showPassword ? 'i-lucide-eye-off' : 'i-lucide-eye'"
+                    :aria-label="showPassword ? '隐藏密码' : '显示密码'"
+                    :aria-pressed="showPassword"
+                    color="neutral"
+                    variant="ghost"
+                    size="xs"
+                    type="button"
+                    :padded="false"
+                    @click="showPassword = !showPassword"
+                  />
+                </template>
+              </AppInput>
+            </AppFormField>
 
-        <!-- 密码登录 -->
-        <form v-else class="space-y-4" @submit.prevent="handlePasswordLogin">
-          <AppFormField label="用户名、邮箱或手机号">
-            <AppInput
-              v-model.trim="passwordAccount"
-              placeholder="请输入用户名、邮箱或手机号"
-              size="lg"
-              icon="i-lucide-user"
-              autocomplete="username"
-              :disabled="loading"
-              class="w-full"
-            />
-          </AppFormField>
+            <div class="flex justify-end">
+              <AppButton
+                label="忘记密码？"
+                color="primary"
+                variant="link"
+                size="xs"
+                type="button"
+                @click="openResetPassword"
+              />
+            </div>
 
-          <AppFormField label="密码">
-            <AppInput
-              v-model="password"
-              :type="showPassword ? 'text' : 'password'"
-              placeholder="请输入密码"
-              size="lg"
-              icon="i-lucide-key-round"
-              autocomplete="current-password"
-              :disabled="loading"
-              class="w-full"
-            >
-              <template #trailing>
-                <AppButton
-                  :icon="showPassword ? 'i-lucide-eye-off' : 'i-lucide-eye'"
-                  :aria-label="showPassword ? '隐藏密码' : '显示密码'"
-                  :aria-pressed="showPassword"
-                  color="neutral"
-                  variant="ghost"
-                  size="xs"
-                  type="button"
-                  :padded="false"
-                  @click="showPassword = !showPassword"
-                />
-              </template>
-            </AppInput>
-          </AppFormField>
-
-          <div class="flex justify-end">
             <AppButton
-              label="忘记密码？"
+              label="登录"
+              type="submit"
               color="primary"
-              variant="link"
-              size="xs"
-              type="button"
-              @click="openResetPassword"
+              size="lg"
+              block
+              class="ylf-auth-button-primary"
+              :loading="loading"
+              :disabled="!passwordFormValid"
             />
-          </div>
 
-          <AppButton
-            label="登录"
-            type="submit"
-            color="primary"
-            size="lg"
-            block
-            class="ylf-auth-button-primary"
-            :loading="loading"
-            :disabled="!passwordFormValid"
-          />
-
-          <p class="text-xs text-muted text-center">
-            密码登录需先在账号安全设置中设置密码
-          </p>
-        </form>
+            <p class="text-xs text-muted text-center">
+              密码登录需先在账号安全设置中设置密码
+            </p>
+          </form>
+        </Transition>
       </div>
     </div>
 
@@ -743,17 +753,51 @@ onUnmounted(() => clearTimeout(morphTimer))
 .ylf-auth-tabs {
   background: color-mix(in srgb, var(--ylf-surface-muted) 72%, var(--ylf-surface));
   border: 1px solid var(--ui-border-muted);
+  border-radius: 0.875rem;
+  box-shadow: inset 0 1px 2px color-mix(in srgb, var(--ui-text) 5%, transparent);
 }
 
 .ylf-auth-tab {
   min-width: 0;
   min-height: 2.5rem;
+  border: 1px solid transparent;
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+
+.ylf-auth-tab[data-state='on'] {
+  border-color: color-mix(in srgb, var(--ui-primary) 22%, #fff);
+  background: color-mix(in srgb, var(--ylf-surface) 94%, var(--ui-primary));
+  box-shadow:
+    0 1px 0 color-mix(in srgb, #fff 86%, transparent) inset,
+    0 8px 18px -14px color-mix(in srgb, var(--ui-primary) 82%, transparent);
+  transform: translateY(-1px);
 }
 
 .ylf-auth-tab:focus-visible {
   box-shadow:
     inset 0 0 0 1px color-mix(in srgb, var(--ui-primary) 58%, transparent),
     0 0 0 3px var(--ylf-ring);
+}
+
+.ylf-auth-mark {
+  position: relative;
+  box-shadow:
+    0 1px 0 color-mix(in srgb, #fff 56%, transparent) inset,
+    0 16px 30px -18px color-mix(in srgb, var(--ui-primary) 78%, transparent);
+}
+
+.ylf-auth-mark::after {
+  position: absolute;
+  border: 1px solid color-mix(in srgb, #fff 52%, transparent);
+  border-radius: inherit;
+  content: '';
+  inset: 1px;
+  pointer-events: none;
 }
 
 .ylf-auth-login :deep(input[data-slot='base']),
@@ -844,14 +888,56 @@ onUnmounted(() => clearTimeout(morphTimer))
   transition: height 240ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+.ylf-auth-form-stage {
+  position: relative;
+}
+
+/* 登录方式切换：像薄雾散开再落定，只动画 transform / opacity / filter。 */
+.ylf-auth-form-enter-active,
+.ylf-auth-form-leave-active {
+  transition:
+    opacity 180ms ease,
+    filter 220ms ease,
+    transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+  transform-origin: top center;
+  will-change: opacity, filter, transform;
+}
+
+.ylf-auth-form-leave-active {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  pointer-events: none;
+}
+
+.ylf-auth-form-enter-from {
+  opacity: 0;
+  filter: blur(5px);
+  transform: translate3d(0, 8px, 0) scale(0.992);
+}
+
+.ylf-auth-form-leave-to {
+  opacity: 0;
+  filter: blur(3px);
+  transform: translate3d(0, -4px, 0) scale(0.996);
+}
+
 /* 仅过渡进行中裁剪溢出；静止时不裁剪，避免裁掉输入框聚焦描边 */
 .ylf-auth-morph--active {
   overflow: hidden;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ylf-auth-morph {
+  .ylf-auth-morph,
+  .ylf-auth-form-enter-active,
+  .ylf-auth-form-leave-active,
+  .ylf-auth-tab {
     transition: none;
+  }
+
+  .ylf-auth-tab[data-state='on'] {
+    transform: none;
   }
 }
 </style>

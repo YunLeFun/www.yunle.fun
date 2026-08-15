@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { HTMLAttributes } from 'vue'
 import { computed } from 'vue'
 import {
   Select,
@@ -8,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { cn } from '@/lib/utils'
 import { formFieldIdKey } from '@/utils/formField'
 
 type SelectItemValue = string | number | Record<string, unknown>
@@ -28,6 +30,11 @@ const props = withDefaults(defineProps<{
 const model = defineModel<string | number>()
 const fieldId = inject(formFieldIdKey, undefined)
 const attrs = useAttrs()
+const triggerAttrs = computed(() => {
+  const { class: _class, ...rest } = attrs
+  return rest
+})
+const triggerClass = computed(() => cn('w-full', attrs.class as HTMLAttributes['class']))
 const controlId = computed(() => attrs.id as string | undefined || fieldId?.controlId)
 const usesFieldContext = computed(() => controlId.value === fieldId?.controlId)
 const ariaDescribedby = computed(() => attrs['aria-describedby'] as string | undefined
@@ -51,9 +58,9 @@ const normalizedItems = computed(() => props.items.map((item) => {
 <template>
   <Select v-model="model" :disabled="disabled">
     <SelectTrigger
-      v-bind="$attrs"
+      v-bind="triggerAttrs"
       :id="controlId"
-      class="w-full"
+      :class="triggerClass"
       :aria-describedby="ariaDescribedby"
       :aria-invalid="ariaInvalid"
       :aria-required="ariaRequired"
