@@ -93,6 +93,12 @@ const presentationByAppId: Record<string, SsoPresentation> = {
     accent: 'var(--ylf-dopa-amber)',
     position: { x: 24, y: 50 },
   },
+  'advjs-studio': {
+    description: '用 AI 辅助创作视觉小说与互动叙事',
+    fallbackMark: 'ADV',
+    accent: 'var(--ylf-dopa-violet)',
+    position: { x: 76, y: 50 },
+  },
 }
 
 /** 安全控制面与原生伴生客户端可参与 SSO，但不单独展示为公开 Web 应用。 */
