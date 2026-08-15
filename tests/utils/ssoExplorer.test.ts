@@ -63,6 +63,38 @@ describe('sso explorer configuration', () => {
     expect(isSsoExplorerAppSlug('fc')).toBe(true)
   })
 
+  it('prepares ADV.JS Studio presentation before activating its Web SSO client', () => {
+    const nextRegistry = {
+      ...productionRegistry,
+      clients: [
+        ...productionRegistry.clients.filter(client => client.clientId !== 'advjs-studio-web'),
+        {
+          clientId: 'advjs-studio-web',
+          appId: 'advjs-studio',
+          displayName: 'ADV.JS Studio',
+          iconUrl: 'https://studio.advjs.org/favicon.ico',
+          status: 'active' as const,
+          adapters: [{
+            kind: 'web-sso' as const,
+            consent: 'trusted' as const,
+            allowedScopes: ['identity:bootstrap'],
+            origins: ['https://studio.advjs.org'],
+            redirectUris: ['https://studio.advjs.org/'],
+          }],
+        },
+      ],
+    }
+
+    expect(buildSsoExplorerApps(nextRegistry).find(app => app.appId === 'advjs-studio'))
+      .toMatchObject({
+        clientId: 'advjs-studio-web',
+        name: 'ADV.JS Studio',
+        description: '用 AI 辅助创作视觉小说与互动叙事',
+        origin: 'https://studio.advjs.org',
+        logoUrl: 'https://studio.advjs.org/favicon.ico',
+      })
+  })
+
   it('prepares explorer presentation before activating a new Web SSO client', () => {
     const nextRegistry = {
       ...productionRegistry,
