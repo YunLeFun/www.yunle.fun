@@ -22,14 +22,15 @@ const TestForm = defineComponent({
       error="请输入正确的手机号"
       required
     >
-      <div>
+      <div class="flex gap-2">
         <AppSelect
           id="phone-area"
           v-model="area"
           :items="areas"
+          class="w-24 shrink-0"
           aria-label="国家或地区代码"
         />
-        <AppInput id="phone" v-model="phone" />
+        <AppInput id="phone" v-model="phone" icon="i-lucide-smartphone" class="flex-1" />
       </div>
     </AppFormField>
   `,
@@ -57,5 +58,16 @@ describe('appFormField accessibility wiring', () => {
     expect(select.attributes('aria-label')).toBe('国家或地区代码')
     expect(select.attributes('aria-describedby')).toBeUndefined()
     expect(wrapper.findAll('#phone')).toHaveLength(1)
+  })
+
+  it('forwards layout classes to compound control roots', async () => {
+    const wrapper = await mountSuspended(TestForm)
+    const select = wrapper.get('button[role="combobox"]')
+    const inputGroup = wrapper.get('[data-slot="input-group"]')
+
+    expect(select.classes()).toContain('w-24')
+    expect(select.classes()).toContain('shrink-0')
+    expect(select.classes()).not.toContain('w-full')
+    expect(inputGroup.classes()).toContain('flex-1')
   })
 })
