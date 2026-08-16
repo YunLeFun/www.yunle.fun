@@ -15,8 +15,8 @@ describe('page SEO titles', () => {
   it('explains the staged auto-registration policy on the login page', () => {
     const source = readFileSync(new URL('../../app/pages/login.vue', import.meta.url), 'utf8')
 
-    expect(source).toContain('未注册手机号验证后将自动创建账号')
-    expect(source).toContain('邮箱不能单独注册；请先用手机号或 GitHub 登录，并在账号设置中绑定')
-    expect(source).toContain('首次使用 GitHub 将自动创建账号')
+    expect(source).toContain('仅支持中国大陆手机号，首次验证自动创建账号')
+    expect(source).toContain('邮箱登录需先在账号设置中完成绑定')
+    expect(source).toContain('手机号或 GitHub 首次验证后自动创建账号')
   })
 })

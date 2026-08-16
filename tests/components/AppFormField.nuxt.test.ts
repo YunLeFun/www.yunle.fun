@@ -12,10 +12,12 @@ const TestForm = defineComponent({
     return {
       area: ref('+86'),
       phone: ref(''),
+      wide: ref(false),
       areas: [{ label: '+86', value: '+86' }],
     }
   },
   template: `
+    <button data-testid="toggle-layout" @click="wide = !wide">切换布局</button>
     <AppFormField
       name="phone"
       label="手机号"
@@ -27,10 +29,15 @@ const TestForm = defineComponent({
           id="phone-area"
           v-model="area"
           :items="areas"
-          class="w-24 shrink-0"
+          :class="wide ? 'w-full' : 'w-24 shrink-0'"
           aria-label="国家或地区代码"
         />
-        <AppInput id="phone" v-model="phone" icon="i-lucide-smartphone" class="flex-1" />
+        <AppInput
+          id="phone"
+          v-model="phone"
+          icon="i-lucide-smartphone"
+          :class="wide ? 'w-full' : 'flex-1'"
+        />
       </div>
     </AppFormField>
   `,
@@ -69,5 +76,16 @@ describe('appFormField accessibility wiring', () => {
     expect(select.classes()).toContain('shrink-0')
     expect(select.classes()).not.toContain('w-full')
     expect(inputGroup.classes()).toContain('flex-1')
+  })
+
+  it('updates forwarded layout classes reactively', async () => {
+    const wrapper = await mountSuspended(TestForm)
+
+    await wrapper.get('[data-testid="toggle-layout"]').trigger('click')
+
+    expect(wrapper.get('button[role="combobox"]').classes()).toContain('w-full')
+    expect(wrapper.get('button[role="combobox"]').classes()).not.toContain('w-24')
+    expect(wrapper.get('[data-slot="input-group"]').classes()).toContain('w-full')
+    expect(wrapper.get('[data-slot="input-group"]').classes()).not.toContain('flex-1')
   })
 })

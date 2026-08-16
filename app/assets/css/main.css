@@ -41,6 +41,7 @@
   --ylf-surface: #ffffff;
   --ylf-surface-muted: #f1f5f9;
   --ylf-surface-hover: #f8fafc;
+  --ylf-glass-highlight: #ffffff;
   --ylf-ring: color-mix(in srgb, var(--ui-primary) 36%, transparent);
   --ylf-border-subtle: #e2e8f0;
   --ylf-border: #cbd5e1;

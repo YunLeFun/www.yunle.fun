@@ -9,7 +9,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { cn } from '@/lib/utils'
 import { formFieldIdKey } from '@/utils/formField'
 
 type SelectItemValue = string | number | Record<string, unknown>
@@ -17,6 +16,7 @@ type SelectItemValue = string | number | Record<string, unknown>
 defineOptions({ inheritAttrs: false })
 
 const props = withDefaults(defineProps<{
+  class?: HTMLAttributes['class']
   disabled?: boolean
   items: SelectItemValue[]
   labelKey?: string
@@ -30,11 +30,6 @@ const props = withDefaults(defineProps<{
 const model = defineModel<string | number>()
 const fieldId = inject(formFieldIdKey, undefined)
 const attrs = useAttrs()
-const triggerAttrs = computed(() => {
-  const { class: _class, ...rest } = attrs
-  return rest
-})
-const triggerClass = computed(() => cn('w-full', attrs.class as HTMLAttributes['class']))
 const controlId = computed(() => attrs.id as string | undefined || fieldId?.controlId)
 const usesFieldContext = computed(() => controlId.value === fieldId?.controlId)
 const ariaDescribedby = computed(() => attrs['aria-describedby'] as string | undefined
@@ -58,9 +53,10 @@ const normalizedItems = computed(() => props.items.map((item) => {
 <template>
   <Select v-model="model" :disabled="disabled">
     <SelectTrigger
-      v-bind="triggerAttrs"
+      v-bind="$attrs"
       :id="controlId"
-      :class="triggerClass"
+      class="w-full"
+      :class="props.class"
       :aria-describedby="ariaDescribedby"
       :aria-invalid="ariaInvalid"
       :aria-required="ariaRequired"
