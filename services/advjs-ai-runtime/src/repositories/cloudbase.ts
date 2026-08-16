@@ -141,7 +141,17 @@ function usageDocumentId(taskId: string, attempt: number): string {
 }
 
 class CloudBaseTaskRepository implements TaskRepository {
-  constructor(private readonly database: CloudBaseDatabase) {}
+  constructor(
+    private readonly database: CloudBaseDatabase,
+    private readonly applicationId?: string,
+  ) {}
+
+  private applicationConditions(conditions: Record<string, unknown>): Record<string, unknown> {
+    return {
+      ...(this.applicationId ? { appId: this.applicationId } : {}),
+      ...conditions,
+    }
+  }
 
   async create(task: RuntimeTaskRecord): Promise<void> {
     await this.database.runTransaction(async (transaction) => {
@@ -177,12 +187,15 @@ class CloudBaseTaskRepository implements TaskRepository {
   async claimNext(input: ClaimTaskInput): Promise<RuntimeTaskRecord | undefined> {
     const candidates = [
       ...queryData(await this.database.collection(TASKS_COLLECTION)
-        .where({ status: 'queued' })
+        .where(this.applicationConditions({ status: 'queued' }))
         .orderBy('createdAt', 'asc')
         .limit(1)
         .get()),
       ...queryData(await this.database.collection(TASKS_COLLECTION)
-        .where({ status: 'running', leaseExpiresAt: this.database.command.lte(input.now) })
+        .where(this.applicationConditions({
+          status: 'running',
+          leaseExpiresAt: this.database.command.lte(input.now),
+        }))
         .orderBy('leaseExpiresAt', 'asc')
         .limit(1)
         .get()),
@@ -250,6 +263,7 @@ class CloudBaseTaskRepository implements TaskRepository {
     const tasks: RuntimeTaskRecord[] = []
     for (let offset = 0; ; offset += PAGE_SIZE) {
       const page = queryData(await this.database.collection(TASKS_COLLECTION)
+        .where(this.applicationConditions({}))
         .orderBy('createdAt', 'asc')
         .skip(offset)
         .limit(PAGE_SIZE)
@@ -339,9 +353,12 @@ class CloudBaseRuntimeControlRepository implements RuntimeControlRepository {
   }
 }
 
-export function createCloudBaseRepositories(database: CloudBaseDatabase): CloudBaseRuntimeRepositories {
+export function createCloudBaseRepositories(
+  database: CloudBaseDatabase,
+  options: { applicationId?: string } = {},
+): CloudBaseRuntimeRepositories {
   return {
-    tasks: new CloudBaseTaskRepository(database),
+    tasks: new CloudBaseTaskRepository(database, options.applicationId),
     usage: new CloudBaseUsageRepository(database),
     runtimeControl: new CloudBaseRuntimeControlRepository(database),
   }

@@ -60,8 +60,18 @@ function assertInternalServiceToken(serviceToken, expectedToken = getExpectedInt
 function assertAiPointServiceToken(event, options = {}) {
   const expectedToken = Object.hasOwn(options, 'expectedToken')
     ? options.expectedToken
-    : process.env.ADVJS_AI_RUNTIME_ACCOUNT_API_TOKEN || ''
+    : getExpectedAiPointServiceToken(process.env)
   assertInternalServiceToken(event?.serviceToken, expectedToken)
+}
+
+function getExpectedAiPointServiceToken(env = process.env) {
+  const current = env.YUNLEFUN_AI_RUNTIME_ACCOUNT_API_TOKEN
+    || env.YUNLEFUN_AI_ACCOUNT_API_TOKEN
+    || ''
+  const legacy = env.ADVJS_AI_RUNTIME_ACCOUNT_API_TOKEN || ''
+  if (current && legacy && current !== legacy)
+    throw new Error('AI 点数内部服务鉴权配置冲突')
+  return current || legacy
 }
 
 function assertUserId(userId) {

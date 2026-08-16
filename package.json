@@ -25,6 +25,7 @@
     "typecheck": "nuxt typecheck",
     "test": "vitest run",
     "test:watch": "vitest",
+    "verify:ai-runtime:p4": "node scripts/verify-ai-runtime-platform-p4.mjs",
     "sync:wxpay-lib": "node scripts/sync-wxpay-lib.mjs",
     "sso:registry": "node scripts/sso-registry.mjs",
     "sso:identity-key": "node scripts/prepare-sso-identity-key.mjs",

@@ -189,6 +189,38 @@ describe('cloudBase runtime repositories', () => {
     })
   })
 
+  it('isolates production worker and sweeper queries to the configured legacy application', async () => {
+    const database = new FakeDatabase()
+    const unfiltered = createCloudBaseRepositories(database)
+    const legacy = createCloudBaseRepositories(database, { applicationId: 'advjs-studio-web' })
+    await unfiltered.tasks.create({
+      appId: 'other-runtime',
+      createdAt: 1,
+      id: 'task_other_runtime',
+      status: 'queued',
+      uid: 'uid_other_runtime',
+      version: 0,
+    })
+    await unfiltered.tasks.create({
+      appId: 'advjs-studio-web',
+      createdAt: 2,
+      id: 'task_advjs_runtime',
+      status: 'queued',
+      uid: 'uid_advjs_runtime',
+      version: 0,
+    })
+
+    await expect(legacy.tasks.claimNext({
+      leaseDurationMs: 1_000,
+      leaseOwner: 'worker_advjs',
+      now: 100,
+    })).resolves.toMatchObject({ id: 'task_advjs_runtime' })
+    await expect(legacy.tasks.list()).resolves.toEqual([
+      expect.objectContaining({ id: 'task_advjs_runtime' }),
+    ])
+    await expect(unfiltered.tasks.get('task_other_runtime')).resolves.toMatchObject({ status: 'queued' })
+  })
+
   it('persists immutable usage attempts and daily budget transactions', async () => {
     const database = new FakeDatabase()
     const repositories = createCloudBaseRepositories(database)

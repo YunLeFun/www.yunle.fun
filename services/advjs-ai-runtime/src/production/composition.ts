@@ -52,7 +52,9 @@ function lifecycleError(activity: 'worker' | 'sweeper', error: unknown): void {
 export function createProductionRuntime(config: ProductionRuntimeConfig): ProductionRuntimeComposition {
   const app = cloudbase.init({ env: config.envId })
   const database = app.database() as unknown as CloudBaseDatabase
-  const repositories = createCloudBaseRepositories(database)
+  const repositories = createCloudBaseRepositories(database, {
+    applicationId: config.clientAppId,
+  })
   const clock: Clock = { now: () => Date.now() }
   const ids: IdGenerator = {
     generate(prefix) {
@@ -100,6 +102,15 @@ export function createProductionRuntime(config: ProductionRuntimeConfig): Produc
         audience: 'advjs-ai-runtime-admin',
         token: config.adminToken,
       }),
+      ...(config.readProjectionToken
+        ? {
+            readProjectionAuth: new StaticBearerServiceAuthVerifier({
+              actor: 'ai-runtime-shadow',
+              audience: 'advjs-ai-runtime-read-projection',
+              token: config.readProjectionToken,
+            }),
+          }
+        : {}),
       allowedOrigins: config.allowedOrigins,
       appId: config.clientAppId,
       logger,
