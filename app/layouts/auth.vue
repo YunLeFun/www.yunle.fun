@@ -45,7 +45,7 @@ import { Card } from '@/components/ui/card'
 }
 
 :global(html:has(.ylf-auth-shell)) {
-  scrollbar-gutter: stable both-edges;
+  scrollbar-gutter: stable;
 }
 
 /* 磨砂玻璃卡片 —— 让晴空背景隐约透出；圆角由模板按端响应式控制（移动端只圆上方） */
