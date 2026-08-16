@@ -7,7 +7,8 @@ import { formFieldIdKey } from '@/utils/formField'
 
 defineOptions({ inheritAttrs: false })
 
-defineProps<{
+const props = defineProps<{
+  class?: HTMLAttributes['class']
   disabled?: boolean
   icon?: string
   loading?: boolean
@@ -23,11 +24,6 @@ const inputModel = computed<string | number>({
 })
 const fieldId = inject(formFieldIdKey, undefined)
 const attrs = useAttrs()
-const controlAttrs = computed(() => {
-  const { class: _class, ...rest } = attrs
-  return rest
-})
-const inputGroupClass = computed(() => attrs.class as HTMLAttributes['class'])
 const controlId = computed(() => attrs.id as string | undefined || fieldId?.controlId)
 const usesFieldContext = computed(() => controlId.value === fieldId?.controlId)
 const ariaDescribedby = computed(() => attrs['aria-describedby'] as string | undefined
@@ -41,7 +37,7 @@ const ariaRequired = computed(() => attrs['aria-required'] as string | boolean |
 <template>
   <InputGroup
     v-if="icon || trailingIcon || loading || $slots.leading || $slots.trailing"
-    :class="inputGroupClass"
+    :class="props.class"
   >
     <InputGroupAddon v-if="icon || $slots.leading" align="inline-start">
       <slot name="leading">
@@ -49,7 +45,7 @@ const ariaRequired = computed(() => attrs['aria-required'] as string | boolean |
       </slot>
     </InputGroupAddon>
     <InputGroupInput
-      v-bind="controlAttrs"
+      v-bind="$attrs"
       :id="controlId"
       v-model="inputModel"
       :disabled="disabled"
@@ -69,6 +65,7 @@ const ariaRequired = computed(() => attrs['aria-required'] as string | boolean |
     v-bind="$attrs"
     :id="controlId"
     v-model="inputModel"
+    :class="props.class"
     :disabled="disabled"
     :aria-describedby="ariaDescribedby"
     :aria-invalid="ariaInvalid"

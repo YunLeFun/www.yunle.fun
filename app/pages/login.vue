@@ -276,18 +276,18 @@ onUnmounted(() => clearTimeout(morphTimer))
 </script>
 
 <template>
-  <div class="ylf-auth-login w-full space-y-6">
+  <div class="ylf-auth-login w-full space-y-5">
     <!-- 标题区域 -->
-    <div class="ylf-auth-hero text-center space-y-3">
+    <div class="text-center space-y-2">
       <div class="flex justify-center">
-        <div class="ylf-auth-mark ylf-gradient-tile flex h-14 w-16 items-center justify-center rounded-2xl">
+        <div class="ylf-auth-mark ylf-gradient-tile flex h-12 w-14 items-center justify-center rounded-2xl">
           <YlfLogo
-            class="h-8 w-11 text-white"
+            class="h-7 w-10 text-white"
             aria-hidden="true"
           />
         </div>
       </div>
-      <h1 class="ylf-dreamy-display text-3xl">
+      <h1 class="font-heading text-3xl font-semibold tracking-tight">
         登录或注册 <span class="ylf-gradient-text">云乐坊</span>
       </h1>
       <p class="text-sm text-muted">
@@ -326,7 +326,7 @@ onUnmounted(() => clearTimeout(morphTimer))
               label="手机号"
               name="login-phone"
               :error="phoneInvalid ? '请输入正确的手机号' : undefined"
-              hint="当前仅支持中国大陆手机号；未注册手机号验证后将自动创建账号"
+              hint="仅支持中国大陆手机号，首次验证自动创建账号"
             >
               <div class="flex gap-2">
                 <AppSelect
@@ -487,7 +487,7 @@ onUnmounted(() => clearTimeout(morphTimer))
             />
 
             <p class="text-xs text-muted text-center">
-              邮箱不能单独注册；请先用手机号或 GitHub 登录，并在账号设置中绑定
+              邮箱登录需先在账号设置中完成绑定
             </p>
           </div>
 
@@ -576,7 +576,7 @@ onUnmounted(() => clearTimeout(morphTimer))
         </div>
       </div>
 
-      <div class="space-y-2">
+      <div class="grid gap-2">
         <AppButton
           v-for="provider in providers"
           :key="provider.id"
@@ -589,22 +589,16 @@ onUnmounted(() => clearTimeout(morphTimer))
           class="ylf-auth-button-secondary"
           @click="provider.onClick"
         />
-        <p
-          v-if="providers.some(provider => provider.id === GITHUB_PROVIDER_ID)"
-          class="text-center text-xs text-muted"
-        >
-          首次使用 GitHub 将自动创建账号
-        </p>
       </div>
     </template>
 
     <!-- 统一登录 / 注册说明 -->
-    <p class="text-center text-sm text-muted">
-      无需单独注册：手机号或 GitHub 首次验证后自动创建账号
+    <p class="text-center text-xs leading-5 text-muted sm:whitespace-nowrap">
+      手机号或 GitHub 首次验证后自动创建账号
     </p>
 
     <!-- 服务条款 -->
-    <p class="text-center text-xs text-dimmed">
+    <p class="text-center text-xs leading-5 text-dimmed">
       继续即表示您同意我们的
       <NuxtLink to="/docs/terms-of-service" class="text-primary font-medium">
         服务条款
@@ -770,10 +764,10 @@ onUnmounted(() => clearTimeout(morphTimer))
 }
 
 .ylf-auth-tab[data-state='on'] {
-  border-color: color-mix(in srgb, var(--ui-primary) 22%, #fff);
+  border-color: color-mix(in srgb, var(--ui-primary) 22%, var(--ylf-glass-highlight));
   background: color-mix(in srgb, var(--ylf-surface) 94%, var(--ui-primary));
   box-shadow:
-    0 1px 0 color-mix(in srgb, #fff 86%, transparent) inset,
+    0 1px 0 color-mix(in srgb, var(--ylf-glass-highlight) 86%, transparent) inset,
     0 8px 18px -14px color-mix(in srgb, var(--ui-primary) 82%, transparent);
   transform: translateY(-1px);
 }
@@ -787,13 +781,13 @@ onUnmounted(() => clearTimeout(morphTimer))
 .ylf-auth-mark {
   position: relative;
   box-shadow:
-    0 1px 0 color-mix(in srgb, #fff 56%, transparent) inset,
+    0 1px 0 color-mix(in srgb, var(--ylf-glass-highlight) 56%, transparent) inset,
     0 16px 30px -18px color-mix(in srgb, var(--ui-primary) 78%, transparent);
 }
 
 .ylf-auth-mark::after {
   position: absolute;
-  border: 1px solid color-mix(in srgb, #fff 52%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ylf-glass-highlight) 52%, transparent);
   border-radius: inherit;
   content: '';
   inset: 1px;
@@ -840,8 +834,8 @@ onUnmounted(() => clearTimeout(morphTimer))
 
 .ylf-auth-login :deep(.ylf-auth-button-primary[data-slot='base']) {
   background: var(--ylf-gradient-brand);
-  box-shadow: 0 10px 22px -12px color-mix(in srgb, #7c3aed 70%, transparent);
-  color: white;
+  box-shadow: 0 10px 22px -12px color-mix(in srgb, var(--ylf-dopa-violet) 70%, transparent);
+  color: var(--ylf-glass-highlight);
 }
 
 .ylf-auth-login :deep(.ylf-auth-button-primary[data-slot='base']:hover:not(:disabled)) {
@@ -860,7 +854,7 @@ onUnmounted(() => clearTimeout(morphTimer))
 .ylf-auth-login :deep(.ylf-auth-button-primary[data-slot='base'][aria-disabled='true']) {
   background: color-mix(in srgb, var(--ui-primary) 42%, var(--ylf-surface));
   box-shadow: none;
-  color: color-mix(in srgb, white 82%, var(--ui-text-muted));
+  color: color-mix(in srgb, var(--ylf-glass-highlight) 82%, var(--ui-text-muted));
   opacity: 1;
   transform: none;
 }
@@ -892,15 +886,13 @@ onUnmounted(() => clearTimeout(morphTimer))
   position: relative;
 }
 
-/* 登录方式切换：像薄雾散开再落定，只动画 transform / opacity / filter。 */
+/* 登录方式切换：轻微位移与淡入淡出，避免卡片内容硬切。 */
 .ylf-auth-form-enter-active,
 .ylf-auth-form-leave-active {
   transition:
-    opacity 180ms ease,
-    filter 220ms ease,
-    transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+    opacity 160ms ease,
+    transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
   transform-origin: top center;
-  will-change: opacity, filter, transform;
 }
 
 .ylf-auth-form-leave-active {
@@ -913,14 +905,12 @@ onUnmounted(() => clearTimeout(morphTimer))
 
 .ylf-auth-form-enter-from {
   opacity: 0;
-  filter: blur(5px);
-  transform: translate3d(0, 8px, 0) scale(0.992);
+  transform: translate3d(0, 6px, 0);
 }
 
 .ylf-auth-form-leave-to {
   opacity: 0;
-  filter: blur(3px);
-  transform: translate3d(0, -4px, 0) scale(0.996);
+  transform: translate3d(0, -3px, 0);
 }
 
 /* 仅过渡进行中裁剪溢出；静止时不裁剪，避免裁掉输入框聚焦描边 */

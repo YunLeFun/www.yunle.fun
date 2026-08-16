@@ -26,18 +26,12 @@ import { Card } from '@/components/ui/card'
     </div>
 
     <!-- 移动端：晴空铺满顶部，表单做成贴底全宽「上滑卡」；桌面端：居中玻璃卡 -->
-    <!-- 桌面端顶部锚定（而非垂直居中）：切换 Tab 内容变高时只向下生长，卡片顶边/Logo/标题/Tab 栏不动；矮屏也不会被裁顶 -->
-    <main class="ylf-auth-main relative z-10 flex min-h-screen min-h-dvh flex-col justify-end pt-[calc(env(safe-area-inset-top)_+_5rem)] sm:items-center sm:justify-start sm:px-6 sm:pb-10 sm:pt-[12vh]">
+    <!-- 桌面端顶部锚定：内容变高时向下生长；紧凑上边距为矮屏保留可用高度 -->
+    <main class="ylf-auth-main relative z-10 flex min-h-screen min-h-dvh flex-col justify-end pt-[calc(env(safe-area-inset-top)_+_5rem)] sm:items-center sm:justify-start sm:px-6 sm:pb-6 sm:pt-[clamp(4.75rem,8vh,7rem)]">
       <Card
         class="ylf-auth-card relative isolate w-full gap-0 overflow-hidden rounded-t-3xl rounded-b-none py-0 pb-[env(safe-area-inset-bottom)] sm:mx-auto sm:max-w-sm sm:rounded-b-3xl sm:pb-0"
       >
-        <!-- 晨光掠过玻璃卡边缘：认证页唯一的持续性品牌动效 -->
-        <div class="ylf-auth-card-glow" aria-hidden="true" />
-        <div class="ylf-auth-card-border" aria-hidden="true">
-          <div class="ylf-auth-card-beam" />
-        </div>
-
-        <div class="ylf-auth-card-content p-4 sm:p-6">
+        <div class="ylf-auth-card-content p-4 sm:p-5">
           <slot />
         </div>
       </Card>
@@ -50,25 +44,24 @@ import { Card } from '@/components/ui/card'
   isolation: isolate;
 }
 
+:global(html:has(.ylf-auth-shell)) {
+  scrollbar-gutter: stable both-edges;
+}
+
 /* 磨砂玻璃卡片 —— 让晴空背景隐约透出；圆角由模板按端响应式控制（移动端只圆上方） */
 .ylf-auth-card {
   background: color-mix(in srgb, var(--ylf-surface) 90%, transparent);
-  border: 1px solid color-mix(in srgb, #fff 55%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ylf-glass-highlight) 55%, transparent);
   box-shadow:
-    0 1px 0 0 color-mix(in srgb, #fff 70%, transparent) inset,
-    0 30px 64px -28px color-mix(in srgb, #0b82c4 55%, transparent);
+    0 1px 0 0 color-mix(in srgb, var(--ylf-glass-highlight) 70%, transparent) inset,
+    0 30px 64px -28px color-mix(in srgb, var(--ui-primary) 55%, transparent);
   backdrop-filter: blur(16px) saturate(140%);
   -webkit-backdrop-filter: blur(16px) saturate(140%);
-  animation: ylf-auth-card-enter 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  overflow-anchor: none;
 }
 
-.ylf-auth-card-content {
-  position: relative;
-  z-index: 2;
-}
-
-/* 静态晨光晕染负责氛围，动态只留给边框光束，避免多个效果争抢注意力。 */
-.ylf-auth-card-glow {
+/* 单层静态晨光保留云乐坊识别度，不引入持续动画或额外装饰节点。 */
+.ylf-auth-card::before {
   position: absolute;
   z-index: 0;
   top: -8rem;
@@ -78,54 +71,30 @@ import { Card } from '@/components/ui/card'
   border-radius: 9999px;
   background: radial-gradient(
     circle,
-    color-mix(in srgb, #fff 86%, transparent) 0%,
+    color-mix(in srgb, var(--ylf-glass-highlight) 86%, transparent) 0%,
     color-mix(in srgb, var(--ui-primary) 14%, transparent) 42%,
     transparent 70%
   );
+  content: '';
   filter: blur(8px);
   opacity: 0.58;
   pointer-events: none;
 }
 
-.ylf-auth-card-border {
-  position: absolute;
+.ylf-auth-card-content {
+  position: relative;
   z-index: 1;
-  overflow: hidden;
-  padding: 1.5px;
-  border-radius: inherit;
-  pointer-events: none;
-  inset: 0;
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
 }
 
-.ylf-auth-card-beam {
-  position: absolute;
-  inset: -85%;
-  background: conic-gradient(
-    from 84deg,
-    transparent 0deg 252deg,
-    color-mix(in srgb, var(--ui-primary) 20%, transparent) 278deg,
-    color-mix(in srgb, #fff 94%, transparent) 306deg,
-    color-mix(in srgb, var(--ui-primary) 74%, #fff) 326deg,
-    transparent 352deg
-  );
-  animation: ylf-auth-beam-spin 10s linear infinite;
-  transform-origin: center;
-}
-
-:global(.dark) .ylf-auth-card {
+:global(.dark .ylf-auth-card) {
   background: color-mix(in srgb, var(--ylf-surface) 80%, transparent);
-  border-color: color-mix(in srgb, #fff 16%, transparent);
+  border-color: color-mix(in srgb, var(--ylf-glass-highlight) 16%, transparent);
   box-shadow:
-    0 1px 0 0 color-mix(in srgb, #fff 10%, transparent) inset,
-    0 30px 64px -28px color-mix(in srgb, #000 72%, transparent);
+    0 1px 0 0 color-mix(in srgb, var(--ylf-glass-highlight) 10%, transparent) inset,
+    0 30px 64px -28px color-mix(in srgb, var(--ylf-shadow-color) 72%, transparent);
 }
 
-:global(.dark) .ylf-auth-card-glow {
+:global(.dark .ylf-auth-card::before) {
   opacity: 0.24;
 }
 
@@ -157,34 +126,11 @@ import { Card } from '@/components/ui/card'
     0 10px 24px -18px var(--ui-text);
 }
 
-@keyframes ylf-auth-card-enter {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 14px, 0) scale(0.985);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-}
-
-@keyframes ylf-auth-beam-spin {
-  to {
-    transform: rotate(1turn);
-  }
-}
-
 /* 矮屏仍从安全区下方开始，内容向下生长并由页面自然滚动承接。 */
-@media (min-width: 640px) and (max-height: 719px) {
+@media (min-width: 640px) and (max-height: 799px) {
   .ylf-auth-main {
-    padding-top: calc(env(safe-area-inset-top) + 4.5rem);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .ylf-auth-card,
-  .ylf-auth-card-beam {
-    animation: none;
+    padding-top: calc(env(safe-area-inset-top) + 4rem);
+    padding-bottom: 1rem;
   }
 }
 </style>
