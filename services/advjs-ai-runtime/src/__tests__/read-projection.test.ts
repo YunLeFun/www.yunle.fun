@@ -106,7 +106,7 @@ function projectionRequest(
     method: input.method ?? 'GET',
     path: `/internal/v1/read-projection/tasks/${TASK_ID}`,
     headers: {
-      authorization: input.serviceAuthorization ?? PROJECTION_AUTHORIZATION,
+      'authorization': input.serviceAuthorization ?? PROJECTION_AUTHORIZATION,
       'x-yunlefun-user-authorization': input.userAuthorization ?? `Bearer ${OWNER_TOKEN}`,
       ...(input.origin === undefined ? {} : { origin: input.origin }),
     },
@@ -159,11 +159,14 @@ describe('read-only task projection broker', () => {
     const { handler } = await createHarness()
 
     await expect(projectionRequest(handler, { userAuthorization: 'Bearer other-access-token-fixture' }))
-      .resolves.toMatchObject({ status: 404, body: { error: { code: 'TASK_NOT_FOUND' } } })
+      .resolves
+      .toMatchObject({ status: 404, body: { error: { code: 'TASK_NOT_FOUND' } } })
     await expect(projectionRequest(handler, { userAuthorization: '' }))
-      .resolves.toMatchObject({ status: 401, body: { error: { code: 'USER_AUTH_REQUIRED' } } })
+      .resolves
+      .toMatchObject({ status: 401, body: { error: { code: 'USER_AUTH_REQUIRED' } } })
     await expect(projectionRequest(handler, { serviceAuthorization: 'Bearer wrong-service-token' }))
-      .resolves.toMatchObject({ status: 401, body: { error: { code: 'READ_PROJECTION_AUTH_REQUIRED' } } })
+      .resolves
+      .toMatchObject({ status: 401, body: { error: { code: 'READ_PROJECTION_AUTH_REQUIRED' } } })
   })
 
   it('rejects mutation methods before authentication and cannot reuse the token on admin routes', async () => {

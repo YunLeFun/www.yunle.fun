@@ -6,6 +6,7 @@ import type {
   CloudBaseTransaction,
 } from '../repositories/cloudbase.js'
 import { describe, expect, it } from 'vitest'
+import { createDefaultRuntimePolicy } from '../domain/budget.js'
 import { createBetaPricingSnapshot } from '../domain/pricing.js'
 import { createCloudBaseRepositories } from '../repositories/cloudbase.js'
 
@@ -218,6 +219,8 @@ describe('cloudBase runtime repositories', () => {
     await expect(legacy.tasks.list()).resolves.toEqual([
       expect.objectContaining({ id: 'task_advjs_runtime' }),
     ])
+    await expect(legacy.tasks.get('task_other_runtime')).resolves.toBeUndefined()
+    await expect(legacy.tasks.update('task_other_runtime', task => task)).rejects.toThrowError(/does not exist/i)
     await expect(unfiltered.tasks.get('task_other_runtime')).resolves.toMatchObject({ status: 'queued' })
   })
 
@@ -273,6 +276,14 @@ describe('cloudBase runtime repositories', () => {
       reservedProviderCostMicroCny: 10,
       version: 1,
     })
+
+    const policy = createDefaultRuntimePolicy({
+      version: 'policy_fixture_v1',
+      model: 'deepseek-v4-flash',
+      pricing,
+    })
+    await repositories.runtimeControl.setActivePolicy(policy)
+    await expect(createCloudBaseRepositories(database).runtimeControl.getActivePolicy()).resolves.toEqual(policy)
   })
 
   it('atomically deletes only expired resolved task content', async () => {

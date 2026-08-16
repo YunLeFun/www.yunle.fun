@@ -9,10 +9,13 @@ const wwwRoot = path.resolve(new URL('..', import.meta.url).pathname)
 async function requiredRoot(name) {
   const value = process.env[name]
   if (!value || !path.isAbsolute(value))
-    throw new Error(name + ' must be an absolute local checkout path')
+    throw new Error(`${name} must be an absolute local checkout path`)
   await stat(value)
   return value
 }
+
+const apiRoot = await requiredRoot('YUNLEFUN_API_RUNTIME_ROOT')
+const studioRoot = await requiredRoot('ADVJS_STUDIO_ROOT')
 
 async function text(root, relative) {
   return readFile(path.join(root, relative), 'utf8')
@@ -36,18 +39,16 @@ async function studioAgent(relative, encoding) {
         throw error
     }
   }
-  throw new Error('ADV.JS Agent source is missing ' + relative)
+  throw new Error(`ADV.JS Agent source is missing ${relative}`)
 }
 
 function assertContains(value, fragments, label) {
   for (const fragment of fragments) {
     if (!value.includes(fragment))
-      throw new Error(label + ' is missing ' + fragment)
+      throw new Error(`${label} is missing ${fragment}`)
   }
 }
 
-const apiRoot = await requiredRoot('YUNLEFUN_API_RUNTIME_ROOT')
-const studioRoot = await requiredRoot('ADVJS_STUDIO_ROOT')
 const fixtures = [
   ['www legacy Runtime', await bytes(wwwRoot, 'services/advjs-ai-runtime/src/contracts/fixtures/agent-runtime-v1.json')],
   ['API v1 Adapter', await bytes(apiRoot, 'packages/ai-runtime-advjs/src/contracts/fixtures/agent-runtime-v1.json')],
@@ -56,7 +57,7 @@ const fixtures = [
 for (const [label, value] of fixtures) {
   const hash = createHash('sha256').update(value).digest('hex')
   if (hash !== expectedFixtureHash)
-    throw new Error(label + ' fixture drifted: ' + hash)
+    throw new Error(`${label} fixture drifted: ${hash}`)
 }
 if (!fixtures.slice(1).every(([, value]) => value.equals(fixtures[0][1])))
   throw new Error('Runtime, Adapter and Studio fixtures are not byte-identical')
@@ -80,13 +81,13 @@ assertContains(studioTransport, ['last-event-id', 'IDEMPOTENCY_CONFLICT', 'INVAL
 const lifecycle = await text(wwwRoot, 'services/advjs-ai-runtime/src/production/lifecycle.ts')
 const oldConfig = await text(wwwRoot, 'services/advjs-ai-runtime/src/production/config.ts')
 assertContains(lifecycle, ['#runWorkerCycle', '#runSweepCycle'], 'legacy background lifecycle')
-assertContains(oldConfig, ["'ADVJS_AI_WORKER_POLL_MS', 500", 'ADVJS_AI_ACCOUNT_API_TOKEN'], 'legacy Runtime configuration')
+assertContains(oldConfig, ['\'ADVJS_AI_WORKER_POLL_MS\', 500', 'ADVJS_AI_ACCOUNT_API_TOKEN'], 'legacy Runtime configuration')
 
-process.stdout.write(JSON.stringify({
+process.stdout.write(`${JSON.stringify({
   mode: 'local-only',
   network: false,
   applied: false,
   fixtureSha256: expectedFixtureHash,
   compared: fixtures.map(([label]) => label),
   legacyRuntimePreserved: true,
-}, null, 2) + '\n')
+}, null, 2)}\n`)
