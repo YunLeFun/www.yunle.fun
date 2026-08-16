@@ -53,10 +53,10 @@ const AI_RUNTIME_COLLECTION_MANIFESTS = Object.freeze([
         { field: 'attempt', order: 'asc' },
       ],
     }, {
-      name: 'user_created',
+      name: 'uid_created',
       unique: false,
       fields: [
-        { field: 'userId', order: 'asc' },
+        { field: 'uid', order: 'asc' },
         { field: 'createdAt', order: 'desc' },
       ],
     }, {
@@ -73,12 +73,19 @@ const AI_RUNTIME_COLLECTION_MANIFESTS = Object.freeze([
     access: 'ADMINONLY',
     retention: '7d',
     indexes: [{
-      name: 'user_status_created',
+      name: 'uid_status_created',
       unique: false,
       fields: [
-        { field: 'userId', order: 'asc' },
+        { field: 'uid', order: 'asc' },
         { field: 'status', order: 'asc' },
         { field: 'createdAt', order: 'desc' },
+      ],
+    }, {
+      name: 'status_created',
+      unique: false,
+      fields: [
+        { field: 'status', order: 'asc' },
+        { field: 'createdAt', order: 'asc' },
       ],
     }, {
       name: 'status_lease_expiry',

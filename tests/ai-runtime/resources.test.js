@@ -26,10 +26,33 @@ describe('ai runtime cloudbase resource manifest', () => {
     expect(AI_RUNTIME_COLLECTION_MANIFESTS.find(item => item.collection === 'ai_point_accounts')?.indexes)
       .toContainEqual(expect.objectContaining({ name: 'user_id_unique', unique: true }))
     expect(AI_RUNTIME_COLLECTION_MANIFESTS.find(item => item.collection === 'ai_usage_records')?.indexes)
-      .toContainEqual(expect.objectContaining({ name: 'task_attempt_unique', unique: true }))
+      .toEqual(expect.arrayContaining([
+        expect.objectContaining({ name: 'task_attempt_unique', unique: true }),
+        expect.objectContaining({
+          name: 'uid_created',
+          fields: [
+            { field: 'uid', order: 'asc' },
+            { field: 'createdAt', order: 'desc' },
+          ],
+        }),
+      ]))
     expect(AI_RUNTIME_COLLECTION_MANIFESTS.find(item => item.collection === 'ai_tasks')?.indexes)
       .toEqual(expect.arrayContaining([
-        expect.objectContaining({ name: 'user_status_created' }),
+        expect.objectContaining({
+          name: 'uid_status_created',
+          fields: [
+            { field: 'uid', order: 'asc' },
+            { field: 'status', order: 'asc' },
+            { field: 'createdAt', order: 'desc' },
+          ],
+        }),
+        expect.objectContaining({
+          name: 'status_created',
+          fields: [
+            { field: 'status', order: 'asc' },
+            { field: 'createdAt', order: 'asc' },
+          ],
+        }),
         expect.objectContaining({ name: 'status_lease_expiry' }),
         expect.objectContaining({ name: 'expires_at' }),
       ]))

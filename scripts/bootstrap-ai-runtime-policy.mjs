@@ -123,8 +123,8 @@ else {
     const reference = transaction.collection('ai_runtime_control').doc('policy:active')
     if (documentData(await reference.get()))
       throw new Error('Active policy already exists; bootstrap never overwrites it')
-    const next = { ...policy, _id: 'policy:active', updatedAt: Date.now() }
-    await reference.set({ data: next })
+    const next = { ...policy, updatedAt: Date.now() }
+    await reference.set(next)
     return next
   })
   const { reference } = await policyReference(selected.envId)

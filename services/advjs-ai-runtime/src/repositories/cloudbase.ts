@@ -1,3 +1,4 @@
+import type { CloudBase } from '@cloudbase/node-sdk'
 import type { DailyBudgetDocument, RuntimePolicyDocument } from '../domain/budget.js'
 import type { RuntimeTaskRecord, RuntimeUsageRecord } from '../domain/task.js'
 import type {
@@ -15,6 +16,11 @@ const TASKS_COLLECTION = 'ai_tasks'
 const USAGE_COLLECTION = 'ai_usage_records'
 const CONTROL_COLLECTION = 'ai_runtime_control'
 const PAGE_SIZE = 100
+
+type CloudBaseSdkDatabase = ReturnType<CloudBase['database']>
+type CloudBaseSdkCollection = ReturnType<CloudBaseSdkDatabase['collection']>
+type CloudBaseSdkDocumentReference = ReturnType<CloudBaseSdkCollection['doc']>
+type CloudBaseSetInput = Parameters<CloudBaseSdkDocumentReference['set']>[0]
 
 export interface CloudBaseQueryResult {
   data?: unknown[]
@@ -35,7 +41,7 @@ export interface CloudBaseQuery {
 export interface CloudBaseDocumentReference {
   get: () => Promise<CloudBaseDocumentResult>
   remove: () => Promise<unknown>
-  set: (input: { data: Record<string, unknown> }) => Promise<unknown>
+  set: (data: CloudBaseSetInput) => Promise<unknown>
 }
 
 export interface CloudBaseCollection extends CloudBaseQuery {
@@ -89,7 +95,7 @@ function withoutUndefined(value: unknown): unknown {
 }
 
 function toDocument(value: { id: string }): Record<string, unknown> {
-  return withoutUndefined({ ...value, _id: value.id }) as Record<string, unknown>
+  return withoutUndefined(value) as Record<string, unknown>
 }
 
 function requireString(value: unknown, field: string): string {
@@ -142,7 +148,7 @@ class CloudBaseTaskRepository implements TaskRepository {
       const reference = transaction.collection(TASKS_COLLECTION).doc(task.id)
       if (documentData(await reference.get()))
         throw new Error(`Task already exists: ${task.id}`)
-      await reference.set({ data: toDocument(task) })
+      await reference.set(toDocument(task))
     })
   }
 
@@ -163,7 +169,7 @@ class CloudBaseTaskRepository implements TaskRepository {
       const updated = updater(taskFromDocument(value))
       if (updated.id !== taskId)
         throw new Error('Task updater cannot change the task id')
-      await reference.set({ data: toDocument(updated) })
+      await reference.set(toDocument(updated))
       return structuredClone(updated)
     })
   }
@@ -203,7 +209,7 @@ class CloudBaseTaskRepository implements TaskRepository {
         const updated = queued
           ? transitionTask(current, 'running', input.now, lease)
           : patchTask(current, input.now, lease)
-        await reference.set({ data: toDocument(updated) })
+        await reference.set(toDocument(updated))
         return updated
       })
       if (claimed)
@@ -224,7 +230,7 @@ class CloudBaseTaskRepository implements TaskRepository {
       const updated = patchTask(current, input.now, {
         leaseExpiresAt: input.now + input.leaseDurationMs,
       })
-      await reference.set({ data: toDocument(updated) })
+      await reference.set(toDocument(updated))
       return true
     })
   }
@@ -275,7 +281,7 @@ class CloudBaseUsageRepository implements UsageRepository {
         if (duplicate)
           throw new ProviderRequestConflictError(record.providerGroup, record.providerRequestId)
       }
-      await reference.set({ data: { ...withoutUndefined(record) as Record<string, unknown>, _id: id } })
+      await reference.set(withoutUndefined(record) as Record<string, unknown>)
     })
   }
 
@@ -327,7 +333,7 @@ class CloudBaseRuntimeControlRepository implements RuntimeControlRepository {
       const reference = transaction.collection(CONTROL_COLLECTION).doc(`budget:${dateKey}`)
       const value = documentData(await reference.get())
       const operation = update(value ? budgetFromDocument(value) : undefined)
-      await reference.set({ data: toDocument(operation.document) })
+      await reference.set(toDocument(operation.document))
       return structuredClone(operation.result)
     })
   }

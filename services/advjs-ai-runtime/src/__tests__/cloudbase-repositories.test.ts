@@ -37,8 +37,10 @@ class FakeDocumentReference implements CloudBaseDocumentReference {
     this.documents.delete(this.id)
   }
 
-  set = async (input: { data: Record<string, unknown> }) => {
-    this.documents.set(this.id, { ...structuredClone(input.data), _id: this.id })
+  set = async (data: object) => {
+    if ('_id' in data)
+      throw new Error('CloudBase document.set does not allow writing _id')
+    this.documents.set(this.id, { ...structuredClone(data), _id: this.id })
   }
 }
 
