@@ -13,6 +13,12 @@ import { patchTask, TaskIdempotencyConflictError } from '../domain/task.js'
 import { taskSnapshot } from '../sse/task-events.js'
 import { RuntimeSweeper } from '../worker/sweeper.js'
 import { RuntimeTaskService } from '../worker/task-service.js'
+import {
+  READ_PROJECTION_AUDIENCE,
+  READ_PROJECTION_PREFIX,
+  READ_PROJECTION_USER_AUTHORIZATION_HEADER,
+  readTaskProjection,
+} from './read-projection.js'
 
 const MAX_REQUEST_BODY_BYTES = 64 * 1_024
 const MAX_IDEMPOTENCY_KEY_LENGTH = 128
@@ -71,6 +77,7 @@ export interface RuntimeApiOptions {
   appId: string
   allowedOrigins: readonly string[]
   adminAuth?: ServiceAuthVerifier
+  readProjectionAuth?: ServiceAuthVerifier
   logger?: RuntimeLogger
   rateLimiter?: RateLimiter
   maxRequestBodyBytes?: number
@@ -557,6 +564,60 @@ export function createRuntimeApiHandler(
           protocolVersion: AGENT_PROTOCOL_VERSION,
           service: 'advjs-ai-runtime',
         }, {}, currentRequestId)
+      }
+      else if (path.startsWith(READ_PROJECTION_PREFIX)) {
+        if (origin) {
+          throw new ApiFailure({
+            status: 403,
+            code: 'ORIGIN_FORBIDDEN',
+            message: 'Browser origins cannot call internal APIs',
+          })
+        }
+        if (method !== 'GET') {
+          throw new ApiFailure({
+            status: 405,
+            code: 'READ_PROJECTION_READ_ONLY',
+            message: 'The read projection only accepts GET requests',
+          })
+        }
+        if (!options.readProjectionAuth) {
+          throw new ApiFailure({
+            status: 401,
+            code: 'READ_PROJECTION_AUTH_REQUIRED',
+            message: 'Read projection authentication is required',
+          })
+        }
+        try {
+          await options.readProjectionAuth.verify(headers.authorization ?? '', READ_PROJECTION_AUDIENCE)
+        }
+        catch {
+          throw new ApiFailure({
+            status: 401,
+            code: 'READ_PROJECTION_AUTH_REQUIRED',
+            message: 'Read projection authentication is required',
+          })
+        }
+        const taskMatch = /^\/internal\/v1\/read-projection\/tasks\/([\w.-]+)$/.exec(path)
+        if (!taskMatch?.[1])
+          throw new ApiFailure({ status: 404, code: 'ROUTE_NOT_FOUND', message: 'Route was not found' })
+        const forwardedAuthorization = {
+          authorization: headers[READ_PROJECTION_USER_AUTHORIZATION_HEADER] ?? '',
+        }
+        let projectionUid: string
+        try {
+          projectionUid = (await dependencies.auth.verifyAccessToken(bearerToken(forwardedAuthorization))).uid
+        }
+        catch {
+          throw new ApiFailure({
+            status: 401,
+            code: 'USER_AUTH_REQUIRED',
+            message: 'User authentication is required',
+          })
+        }
+        const projection = await readTaskProjection(dependencies, taskMatch[1], projectionUid)
+        if (!projection)
+          throw new ApiFailure({ status: 404, code: 'TASK_NOT_FOUND', message: 'Task was not found' })
+        response = success(200, projection as unknown as JsonValue, {}, currentRequestId)
       }
       else if (path.startsWith('/internal/v1/')) {
         if (origin) {

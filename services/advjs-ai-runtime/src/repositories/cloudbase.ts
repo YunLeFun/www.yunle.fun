@@ -141,9 +141,25 @@ function usageDocumentId(taskId: string, attempt: number): string {
 }
 
 class CloudBaseTaskRepository implements TaskRepository {
-  constructor(private readonly database: CloudBaseDatabase) {}
+  constructor(
+    private readonly database: CloudBaseDatabase,
+    private readonly applicationId?: string,
+  ) {}
+
+  private applicationConditions(conditions: Record<string, unknown>): Record<string, unknown> {
+    return {
+      ...(this.applicationId ? { appId: this.applicationId } : {}),
+      ...conditions,
+    }
+  }
+
+  private belongsToApplication(task: RuntimeTaskRecord): boolean {
+    return !this.applicationId || task.appId === this.applicationId
+  }
 
   async create(task: RuntimeTaskRecord): Promise<void> {
+    if (!this.belongsToApplication(task))
+      throw new Error(`Task belongs to another application: ${task.id}`)
     await this.database.runTransaction(async (transaction) => {
       const reference = transaction.collection(TASKS_COLLECTION).doc(task.id)
       if (documentData(await reference.get()))
@@ -154,7 +170,10 @@ class CloudBaseTaskRepository implements TaskRepository {
 
   async get(taskId: string): Promise<RuntimeTaskRecord | undefined> {
     const value = documentData(await this.database.collection(TASKS_COLLECTION).doc(taskId).get())
-    return value ? taskFromDocument(value) : undefined
+    if (!value)
+      return undefined
+    const task = taskFromDocument(value)
+    return this.belongsToApplication(task) ? task : undefined
   }
 
   async update(
@@ -166,9 +185,14 @@ class CloudBaseTaskRepository implements TaskRepository {
       const value = documentData(await reference.get())
       if (!value)
         throw new Error(`Task does not exist: ${taskId}`)
-      const updated = updater(taskFromDocument(value))
+      const current = taskFromDocument(value)
+      if (!this.belongsToApplication(current))
+        throw new Error(`Task does not exist: ${taskId}`)
+      const updated = updater(current)
       if (updated.id !== taskId)
         throw new Error('Task updater cannot change the task id')
+      if (!this.belongsToApplication(updated))
+        throw new Error('Task updater cannot change the task application')
       await reference.set(toDocument(updated))
       return structuredClone(updated)
     })
@@ -177,12 +201,15 @@ class CloudBaseTaskRepository implements TaskRepository {
   async claimNext(input: ClaimTaskInput): Promise<RuntimeTaskRecord | undefined> {
     const candidates = [
       ...queryData(await this.database.collection(TASKS_COLLECTION)
-        .where({ status: 'queued' })
+        .where(this.applicationConditions({ status: 'queued' }))
         .orderBy('createdAt', 'asc')
         .limit(1)
         .get()),
       ...queryData(await this.database.collection(TASKS_COLLECTION)
-        .where({ status: 'running', leaseExpiresAt: this.database.command.lte(input.now) })
+        .where(this.applicationConditions({
+          status: 'running',
+          leaseExpiresAt: this.database.command.lte(input.now),
+        }))
         .orderBy('leaseExpiresAt', 'asc')
         .limit(1)
         .get()),
@@ -196,6 +223,8 @@ class CloudBaseTaskRepository implements TaskRepository {
         if (!value)
           return undefined
         const current = taskFromDocument(value)
+        if (!this.belongsToApplication(current))
+          return undefined
         const queued = current.status === 'queued'
         const expired = current.status === 'running' && (current.leaseExpiresAt ?? Number.POSITIVE_INFINITY) <= input.now
         if (!queued && !expired)
@@ -225,8 +254,11 @@ class CloudBaseTaskRepository implements TaskRepository {
       if (!value)
         return false
       const current = taskFromDocument(value)
-      if (current.status !== 'running' || current.leaseOwner !== input.leaseOwner)
+      if (!this.belongsToApplication(current)
+        || current.status !== 'running'
+        || current.leaseOwner !== input.leaseOwner) {
         return false
+      }
       const updated = patchTask(current, input.now, {
         leaseExpiresAt: input.now + input.leaseDurationMs,
       })
@@ -239,7 +271,10 @@ class CloudBaseTaskRepository implements TaskRepository {
     return this.database.runTransaction(async (transaction) => {
       const reference = transaction.collection(TASKS_COLLECTION).doc(taskId)
       const value = documentData(await reference.get())
-      if (!value || !isTaskContentExpired(taskFromDocument(value), now))
+      if (!value)
+        return false
+      const task = taskFromDocument(value)
+      if (!this.belongsToApplication(task) || !isTaskContentExpired(task, now))
         return false
       await reference.remove()
       return true
@@ -250,6 +285,7 @@ class CloudBaseTaskRepository implements TaskRepository {
     const tasks: RuntimeTaskRecord[] = []
     for (let offset = 0; ; offset += PAGE_SIZE) {
       const page = queryData(await this.database.collection(TASKS_COLLECTION)
+        .where(this.applicationConditions({}))
         .orderBy('createdAt', 'asc')
         .skip(offset)
         .limit(PAGE_SIZE)
@@ -311,9 +347,7 @@ class CloudBaseRuntimeControlRepository implements RuntimeControlRepository {
 
   async setActivePolicy(policy: RuntimePolicyDocument): Promise<void> {
     await this.database.runTransaction(async (transaction) => {
-      await transaction.collection(CONTROL_COLLECTION).doc('policy:active').set({
-        data: toDocument(policy),
-      })
+      await transaction.collection(CONTROL_COLLECTION).doc('policy:active').set(toDocument(policy))
     })
   }
 
@@ -339,9 +373,12 @@ class CloudBaseRuntimeControlRepository implements RuntimeControlRepository {
   }
 }
 
-export function createCloudBaseRepositories(database: CloudBaseDatabase): CloudBaseRuntimeRepositories {
+export function createCloudBaseRepositories(
+  database: CloudBaseDatabase,
+  options: { applicationId?: string } = {},
+): CloudBaseRuntimeRepositories {
   return {
-    tasks: new CloudBaseTaskRepository(database),
+    tasks: new CloudBaseTaskRepository(database, options.applicationId),
     usage: new CloudBaseUsageRepository(database),
     runtimeControl: new CloudBaseRuntimeControlRepository(database),
   }

@@ -6,6 +6,7 @@ export interface ProductionRuntimeConfig {
   allowedOrigins: readonly string[]
   adminToken: string
   accountApiToken: string
+  readProjectionToken?: string
   clientAppId: 'advjs-studio-web'
   billingAppId: 'advjs-studio'
   scope: 'studio-managed-ai'
@@ -28,6 +29,15 @@ function required(environment: RuntimeEnvironment, name: string): string {
 
 function serviceCredential(environment: RuntimeEnvironment, name: string): string {
   const value = required(environment, name)
+  if (value.length < TOKEN_MINIMUM_LENGTH || /\s/.test(value))
+    throw new TypeError(`${name} must be a strong service credential`)
+  return value
+}
+
+function optionalServiceCredential(environment: RuntimeEnvironment, name: string): string | undefined {
+  const value = environment[name]?.trim()
+  if (!value)
+    return undefined
   if (value.length < TOKEN_MINIMUM_LENGTH || /\s/.test(value))
     throw new TypeError(`${name} must be a strong service credential`)
   return value
@@ -88,12 +98,16 @@ export function loadProductionRuntimeConfig(environment: RuntimeEnvironment): Pr
   const accountApiToken = serviceCredential(environment, 'ADVJS_AI_ACCOUNT_API_TOKEN')
   if (adminToken === accountApiToken)
     throw new TypeError('Admin and account-api credentials must remain separate')
+  const readProjectionToken = optionalServiceCredential(environment, 'ADVJS_AI_READ_PROJECTION_TOKEN')
+  if (readProjectionToken && [adminToken, accountApiToken].includes(readProjectionToken))
+    throw new TypeError('Read projection, admin and account-api credentials must remain separate')
 
   return {
     envId,
     allowedOrigins: allowedOrigins(environment),
     adminToken,
     accountApiToken,
+    ...(readProjectionToken ? { readProjectionToken } : {}),
     clientAppId: 'advjs-studio-web',
     billingAppId: 'advjs-studio',
     scope: 'studio-managed-ai',

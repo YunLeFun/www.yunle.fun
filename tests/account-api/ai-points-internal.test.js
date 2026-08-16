@@ -48,6 +48,45 @@ describe('account-api internal ai point actions', () => {
     }
   })
 
+  it('accepts the dedicated YunLeFun Runtime token, preserves the legacy token and fails on conflicts', async () => {
+    const names = [
+      'YUNLEFUN_AI_RUNTIME_ACCOUNT_API_TOKEN',
+      'YUNLEFUN_AI_ACCOUNT_API_TOKEN',
+      'ADVJS_AI_RUNTIME_ACCOUNT_API_TOKEN',
+    ]
+    const previous = Object.fromEntries(names.map(name => [name, process.env[name]]))
+    try {
+      process.env.YUNLEFUN_AI_RUNTIME_ACCOUNT_API_TOKEN = TOKEN
+      delete process.env.YUNLEFUN_AI_ACCOUNT_API_TOKEN
+      delete process.env.ADVJS_AI_RUNTIME_ACCOUNT_API_TOKEN
+      await expect(handleGetAiPointAccountForUser(makeFakeDb({}), {
+        serviceToken: TOKEN,
+        userId: 'user_fixture_001',
+      })).resolves.toBeNull()
+
+      delete process.env.YUNLEFUN_AI_RUNTIME_ACCOUNT_API_TOKEN
+      process.env.ADVJS_AI_RUNTIME_ACCOUNT_API_TOKEN = TOKEN
+      await expect(handleGetAiPointAccountForUser(makeFakeDb({}), {
+        serviceToken: TOKEN,
+        userId: 'user_fixture_001',
+      })).resolves.toBeNull()
+
+      process.env.YUNLEFUN_AI_RUNTIME_ACCOUNT_API_TOKEN = 'different-runtime-token'
+      await expect(handleGetAiPointAccountForUser(makeFakeDb({}), {
+        serviceToken: TOKEN,
+        userId: 'user_fixture_001',
+      })).rejects.toThrow(/配置冲突/)
+    }
+    finally {
+      for (const name of names) {
+        if (previous[name] === undefined)
+          delete process.env[name]
+        else
+          process.env[name] = previous[name]
+      }
+    }
+  })
+
   it('uses server time for grant, reserve, settle and private reads', async () => {
     const db = makeFakeDb({})
     const common = {

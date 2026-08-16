@@ -4,6 +4,7 @@ import { loadProductionRuntimeConfig } from '../production/config.js'
 
 const ADMIN_TOKEN = 'runtime-admin-token-fixture-000000000001'
 const ACCOUNT_TOKEN = 'account-api-token-fixture-000000000001'
+const READ_PROJECTION_TOKEN = 'read-projection-token-fixture-0000000001'
 
 describe('production runtime configuration', () => {
   it('loads an explicit canonical environment and exact HTTPS origins', () => {
@@ -12,6 +13,7 @@ describe('production runtime configuration', () => {
       ADVJS_AI_ADMIN_TOKEN: ADMIN_TOKEN,
       ADVJS_AI_ALLOWED_ORIGINS: 'https://studio.advjs.org,https://studio-staging.advjs.org',
       ADVJS_AI_CLOUDBASE_ENV_ID: 'yunlefun-test-123456',
+      ADVJS_AI_READ_PROJECTION_TOKEN: READ_PROJECTION_TOKEN,
     })).toMatchObject({
       accountApiToken: ACCOUNT_TOKEN,
       adminToken: ADMIN_TOKEN,
@@ -19,6 +21,7 @@ describe('production runtime configuration', () => {
       billingAppId: 'advjs-studio',
       clientAppId: 'advjs-studio-web',
       envId: 'yunlefun-test-123456',
+      readProjectionToken: READ_PROJECTION_TOKEN,
       scope: 'studio-managed-ai',
     })
   })
@@ -34,6 +37,8 @@ describe('production runtime configuration', () => {
     expect(() => loadProductionRuntimeConfig({ ...base, ADVJS_AI_ALLOWED_ORIGINS: '*' })).toThrowError(/origin/i)
     expect(() => loadProductionRuntimeConfig({ ...base, ADVJS_AI_ADMIN_TOKEN: 'short' })).toThrowError(/credential/i)
     expect(() => loadProductionRuntimeConfig({ ...base, ADVJS_AI_ACCOUNT_API_TOKEN: ADMIN_TOKEN })).toThrowError(/separate/i)
+    expect(() => loadProductionRuntimeConfig({ ...base, ADVJS_AI_READ_PROJECTION_TOKEN: 'short' })).toThrowError(/credential/i)
+    expect(() => loadProductionRuntimeConfig({ ...base, ADVJS_AI_READ_PROJECTION_TOKEN: ADMIN_TOKEN })).toThrowError(/separate/i)
   })
 })
 
