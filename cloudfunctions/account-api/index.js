@@ -59,6 +59,7 @@ const {
   requestAccountDeletion,
 } = require('./account-deletion')
 const { dispatchAuthenticatedAction } = require('./account-routing')
+const { dispatchAiPointInternalAction, isAiPointInternalAction } = require('./ai-point-routing')
 const { uploadAvatar } = require('./avatars')
 const { getFollowingFeed } = require('./feed')
 const { followUser, getRelation, listFollowers, listFollowing, unfollowUser } = require('./follows')
@@ -187,6 +188,8 @@ const CORS_HEADERS = {
 /** 路由分发（payload 同 SDK event 形态 { action, ... }）。纯逻辑，HTTP 包装见 main。 */
 async function dispatch(event) {
   const { action } = event || {}
+  if (isAiPointInternalAction(action))
+    return await dispatchAiPointInternalAction(db, event)
   if (isRewardClaimAction(action)) {
     return await getRewardClaimActionRouter().dispatch({
       event,
@@ -362,6 +365,7 @@ exports.main = async (event) => {
 exports._private = {
   assertInternalServiceToken,
   assertUserId,
+  dispatchAiPointInternalAction,
   handleAdminAdjustCoin,
   handleAdminBanAccount,
   handleAdminCorrectReward,

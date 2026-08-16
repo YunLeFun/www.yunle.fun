@@ -135,7 +135,10 @@ export function makeFakeDb(initial = {}) {
     if (!store[name])
       store[name] = []
     let whereClause = null
-    let limitClause = Infinity
+    // CloudBase get() defaults to 100 documents when limit() is omitted.
+    // Keeping the fake aligned prevents tests from silently relying on an
+    // unbounded query that production will truncate.
+    let limitClause = 100
     let skipClause = 0
     let orderByClause = null
 

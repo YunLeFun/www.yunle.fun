@@ -7,6 +7,16 @@ const process = require('node:process')
 const { getAccountSnapshot } = require('./account')
 const { assertAccountActionAllowed, getAccountAccess } = require('./account-access')
 const { banAccount, expireAccountRestrictions, unbanAccount } = require('./account-restrictions')
+const {
+  adjustAiPoints,
+  getAiPointAccount,
+  grantAiPoints,
+  listAiPointTransactions,
+  refundAiPoints,
+  releaseAiPoints,
+  reserveAiPoints,
+  settleAiPoints,
+} = require('./ai-points')
 const { assertAppId, assertDeductCoinInput } = require('./lib/validation')
 const { creditCoin, deductCoin } = require('./lib/wallet')
 const { assertRewardControlToken } = require('./reward-control-token')
@@ -45,6 +55,13 @@ function assertInternalServiceToken(serviceToken, expectedToken = getExpectedInt
     throw new Error('内部服务鉴权未配置')
   if (!timingSafeEqualStr(serviceToken, expectedToken))
     throw new Error('内部服务鉴权失败')
+}
+
+function assertAiPointServiceToken(event, options = {}) {
+  const expectedToken = Object.hasOwn(options, 'expectedToken')
+    ? options.expectedToken
+    : process.env.ADVJS_AI_RUNTIME_ACCOUNT_API_TOKEN || ''
+  assertInternalServiceToken(event?.serviceToken, expectedToken)
 }
 
 function assertUserId(userId) {
@@ -106,6 +123,57 @@ async function handleGetAccountForUser(targetDb, event, options = {}) {
   assertInternalServiceToken(event?.serviceToken, options.expectedToken)
   const userId = assertUserId(event?.userId)
   return getAccountSnapshot(targetDb, userId, options.now || Date.now())
+}
+
+async function handleGrantAiPointsForUser(targetDb, event, options = {}) {
+  assertAiPointServiceToken(event, options)
+  return grantAiPoints(targetDb, { ...event, now: options.now ?? Date.now() })
+}
+
+async function handleReserveAiPointsForTask(targetDb, event, options = {}) {
+  assertAiPointServiceToken(event, options)
+  const now = options.now ?? Date.now()
+  const userId = assertUserId(event?.userId)
+  await assertAccountActionAllowed(targetDb, {
+    userId,
+    action: 'reserveAiPointsForTask',
+    now,
+  })
+  return reserveAiPoints(targetDb, { ...event, userId, now })
+}
+
+async function handleSettleAiPointsForTask(targetDb, event, options = {}) {
+  assertAiPointServiceToken(event, options)
+  return settleAiPoints(targetDb, { ...event, now: options.now ?? Date.now() })
+}
+
+async function handleReleaseAiPointsForTask(targetDb, event, options = {}) {
+  assertAiPointServiceToken(event, options)
+  return releaseAiPoints(targetDb, { ...event, now: options.now ?? Date.now() })
+}
+
+async function handleRefundAiPointsForTask(targetDb, event, options = {}) {
+  assertAiPointServiceToken(event, options)
+  return refundAiPoints(targetDb, { ...event, now: options.now ?? Date.now() })
+}
+
+async function handleAdjustAiPointsForUser(targetDb, event, options = {}) {
+  assertAiPointServiceToken(event, options)
+  return adjustAiPoints(targetDb, { ...event, now: options.now ?? Date.now() })
+}
+
+async function handleGetAiPointAccountForUser(targetDb, event, options = {}) {
+  assertAiPointServiceToken(event, options)
+  return getAiPointAccount(targetDb, assertUserId(event?.userId))
+}
+
+async function handleListAiPointTransactionsForUser(targetDb, event, options = {}) {
+  assertAiPointServiceToken(event, options)
+  return listAiPointTransactions(targetDb, {
+    userId: assertUserId(event?.userId),
+    skip: event?.skip,
+    limit: event?.limit,
+  })
 }
 
 async function handleAdminGrantReward(targetDb, event, options = {}) {
@@ -291,14 +359,22 @@ module.exports = {
   assertInternalServiceToken,
   assertUserId,
   assertAdminAdjustInput,
+  handleAdjustAiPointsForUser,
   handleDeductCoinForUser,
+  handleGetAiPointAccountForUser,
   handleGetAccountAccessForUser,
   handleGetAccountForUser,
+  handleGrantAiPointsForUser,
+  handleListAiPointTransactionsForUser,
   handleAdminAdjustCoin,
   handleAdminBanAccount,
   handleAdminCorrectReward,
   handleAdminGrantReward,
   handleAdminUnbanAccount,
   handleExpireAccountRestrictions,
+  handleRefundAiPointsForTask,
+  handleReleaseAiPointsForTask,
+  handleReserveAiPointsForTask,
+  handleSettleAiPointsForTask,
   assertSyntheticReset,
 }

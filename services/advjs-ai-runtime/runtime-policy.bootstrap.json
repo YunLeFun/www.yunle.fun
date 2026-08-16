@@ -1,0 +1,33 @@
+{
+  "id": "policy:active",
+  "enabled": false,
+  "version": "runtime-bootstrap-2026-08-15-v1",
+  "betaOnly": true,
+  "initialGrantMicroPoints": 0,
+  "perUserDailyTaskLimit": 20,
+  "perUserDailyChargeLimitMicroPoints": 500000,
+  "globalDailyProviderCapMicroCny": 50000000,
+  "providerGroup": "cloudbase",
+  "model": "deepseek-v4-flash",
+  "modelEnabled": false,
+  "pricing": {
+    "version": "cloudbase_deepseek-v4-flash_2026-08-15_v1",
+    "billingUnit": 1000000,
+    "inputMicroCnyPerUnit": 1000000,
+    "outputMicroCnyPerUnit": 2000000,
+    "cachedInputMicroCnyPerUnit": 200000,
+    "reasoningMicroCnyPerUnit": 2000000,
+    "userRateBps": 10000,
+    "fixedCapabilityFeeMicroPoints": 0,
+    "minimumChargeMicroPoints": 0
+  },
+  "capabilities": {
+    "generate-outline": false,
+    "generate-chapter-draft": false,
+    "suggest-plot": false,
+    "simulate-roleplay": false,
+    "check-consistency": false
+  },
+  "updatedBy": "bootstrap:advjs-ai-runtime",
+  "updatedAt": 0
+}
