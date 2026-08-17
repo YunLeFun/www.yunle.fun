@@ -253,14 +253,19 @@ function parseProjectPatch(value: unknown, index: number): AgentProjectPatch {
   }
 
   const key = expectString(source.key, `proposal.patches.${index}.key`)
-  if (source.value !== undefined && !isJsonValue(source.value))
-    throw new TypeError(`proposal.patches.${index}.value must be JSON-compatible`)
-  if (kind === 'json-set') {
-    if (source.value === undefined)
-      throw new TypeError(`proposal.patches.${index}.value is required`)
-    return { kind, path, key, value: source.value }
+  const patchValue = source.value
+  let parsedValue: JsonValue | undefined
+  if (patchValue !== undefined) {
+    if (!isJsonValue(patchValue))
+      throw new TypeError(`proposal.patches.${index}.value must be JSON-compatible`)
+    parsedValue = patchValue
   }
-  return { kind, path, key, value: source.value }
+  if (kind === 'json-set') {
+    if (parsedValue === undefined)
+      throw new TypeError(`proposal.patches.${index}.value is required`)
+    return { kind, path, key, value: parsedValue }
+  }
+  return { kind, path, key, value: parsedValue }
 }
 
 function parseDiagnostic(value: unknown, index: number): AgentDiagnostic {
