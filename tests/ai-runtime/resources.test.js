@@ -158,7 +158,7 @@ describe('ai runtime cloudbase resource manifest', () => {
       '--instance-id=tnt-fixture',
       '--region=ap-shanghai',
       '--config-file=cloudbaserc.json',
-      '--confirm-write=CREATE_ADVJS_AI_RUNTIME_RESOURCES',
+      '--confirm-write=CREATE_YUNLEFUN_AI_RUNTIME_RESOURCES',
     ], { cwd: root, encoding: 'utf8' })
     expect(productionWithoutGate.status).not.toBe(0)
     expect(productionWithoutGate.stderr).toMatch(/confirm-production/)

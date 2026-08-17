@@ -1,12 +1,12 @@
 import { createHash } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
-import fixture from '../../services/advjs-ai-runtime/src/contracts/fixtures/agent-runtime-v1.json'
+import fixture from '../fixtures/ai-runtime/agent-runtime-v1.json'
 import {
   parseAgentEventEnvelope,
   parseAgentTaskSnapshot,
   parseCreateTaskRequest,
   parseCreateTaskResponse,
-} from '../../services/advjs-ai-runtime/src/contracts/v1'
+} from '../fixtures/ai-runtime/v1'
 
 describe('adv.js ai runtime v1 contracts', () => {
   it('pins the cross-repository fixture payload', () => {
