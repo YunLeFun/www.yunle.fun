@@ -10,6 +10,62 @@ import {
 } from '../../packages/authorization-core/src/index'
 
 describe('production authorization registry', () => {
+  it('presents Cook as 食用手册 with a native-decodable icon on both production domains', () => {
+    const expectedIconUrl = 'https://cook.yunle.fun/pwa-512x512.png'
+    const expectedOrigins = ['https://cook.yunle.fun', 'https://cook.yunyoujun.cn']
+    const clients = productionRegistry.clients.filter(client => client.appId === 'cook')
+
+    expect(clients).toContainEqual({
+      clientId: 'cook-mobile',
+      appId: 'cook',
+      displayName: '食用手册',
+      iconUrl: expectedIconUrl,
+      status: 'active',
+      adapters: [{
+        kind: 'web-sso',
+        consent: 'explicit',
+        allowedScopes: ['identity:bootstrap'],
+        origins: expectedOrigins,
+        redirectUris: [
+          'https://cook.yunle.fun/auth/callback?platform=native',
+          'https://cook.yunyoujun.cn/auth/callback?platform=native',
+        ],
+      }],
+    })
+    expect(clients).toContainEqual({
+      clientId: 'cook-web',
+      appId: 'cook',
+      displayName: '食用手册',
+      iconUrl: expectedIconUrl,
+      status: 'active',
+      adapters: [{
+        kind: 'web-sso',
+        consent: 'trusted',
+        allowedScopes: ['identity:bootstrap'],
+        origins: expectedOrigins,
+        redirectUris: [
+          'https://cook.yunle.fun/auth/callback',
+          'https://cook.yunyoujun.cn/auth/callback',
+        ],
+      }],
+    })
+
+    for (const origin of expectedOrigins) {
+      expect(createAuthorizationCore({ registry: productionRegistry }).authorize({
+        issuer: productionRegistry.issuer,
+        clientId: 'cook-mobile',
+        adapter: 'web-sso',
+        requestedScopes: ['identity:bootstrap'],
+        origin,
+        redirectUri: `${origin}/auth/callback?platform=native`,
+      })).toMatchObject({
+        appId: 'cook',
+        displayName: '食用手册',
+        iconUrl: expectedIconUrl,
+      })
+    }
+  })
+
   it('enables the Saier Web client with exact production and development callbacks', () => {
     expect(productionRegistry.clients).toContainEqual({
       clientId: 'saier-web',
