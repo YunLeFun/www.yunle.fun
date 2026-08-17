@@ -8,7 +8,7 @@
 - 本仓库：`cloudfunctions/account-api/ai-points.js`、`ai-point-resources.js`、资源规划/检查脚本，以及冻结的 v1 contract fixture。
 - ADV.JS Studio：浏览器侧 v1 transport 与 proposal 应用流程。
 
-冻结的 v1 fixture/parser 位于 `tests/fixtures/ai-runtime`。`pnpm verify:ai-runtime:p4` 会跨三个工作树检查它们逐字节一致，并确认平台生产 Runtime 直接读取 CloudBase，不依赖已退役的 www read-projection broker。
+冻结的 v1 fixture/parser 位于 `tests/fixtures/ai-runtime`。`pnpm verify:ai-runtime:p4` 会跨三个工作树逐字节检查 fixture，逐字节检查 www 与 API Adapter 的 parser，并检查 Studio 的 v1 transport 行为；同时确认平台生产 Runtime 直接读取 CloudBase，不依赖已退役的 www read-projection broker。
 
 ## 合并与发布门禁
 
