@@ -131,8 +131,8 @@ describe('sso explorer configuration', () => {
       {
         clientId: 'cook-mobile',
         appId: 'cook',
-        displayName: 'Cook 食用手册',
-        iconUrl: 'https://cook.yunyoujun.cn/favicon.svg',
+        displayName: '食用手册',
+        iconUrl: 'https://cook.yunle.fun/pwa-512x512.png',
         status: 'active' as const,
         adapters: [{
           kind: 'web-sso' as const,
@@ -145,8 +145,8 @@ describe('sso explorer configuration', () => {
       {
         clientId: 'cook-web',
         appId: 'cook',
-        displayName: 'Cook 食用手册',
-        iconUrl: 'https://cook.yunyoujun.cn/favicon.svg',
+        displayName: '食用手册',
+        iconUrl: 'https://cook.yunle.fun/pwa-512x512.png',
         status: 'active' as const,
         adapters: [{
           kind: 'web-sso' as const,
@@ -172,7 +172,7 @@ describe('sso explorer configuration', () => {
       .toEqual([
         expect.objectContaining({
           clientId: 'cook-web',
-          name: 'Cook 食用手册',
+          name: '食用手册',
           origin: 'https://cook.yunyoujun.cn',
         }),
       ])
