@@ -142,6 +142,57 @@ describe('account-api ai point ledger', () => {
     })
   })
 
+  it('does not write CloudBase-managed document IDs when updating an existing account', async () => {
+    const baseDb = makeFakeDb({})
+    await grantAiPoints(baseDb, grantInput())
+    const originalRunTransaction = baseDb.runTransaction
+    const db = {
+      ...baseDb,
+      runTransaction(callback) {
+        return originalRunTransaction((transaction) => {
+          const originalCollection = transaction.collection
+          return callback({
+            ...transaction,
+            collection(name) {
+              const collection = originalCollection(name)
+              return {
+                ...collection,
+                doc(id) {
+                  const document = collection.doc(id)
+                  return {
+                    ...document,
+                    async set(value) {
+                      if (Object.hasOwn(value, '_id'))
+                        throw new Error('cannot update the value of _id')
+                      return document.set(value)
+                    },
+                  }
+                },
+              }
+            },
+          })
+        })
+      },
+    }
+
+    await expect(reserveAiPoints(db, {
+      userId: 'user_fixture_001',
+      appId: 'advjs-studio',
+      scope: 'studio-managed-ai',
+      taskId: 'task_fixture_cloudbase_id_001',
+      amountMicroPoints: 30_000,
+      idempotencyKey: 'reserve:task_fixture_cloudbase_id_001',
+      activeTaskExpiresAt: NOW + 10 * 60 * 1000,
+      now: NOW + 1,
+    })).resolves.toMatchObject({
+      account: {
+        availableMicroPoints: 70_000,
+        reservedMicroPoints: 30_000,
+      },
+      deduped: false,
+    })
+  })
+
   it('replays the immutable original result after later account mutations', async () => {
     const db = makeFakeDb({})
     await grantAiPoints(db, grantInput())

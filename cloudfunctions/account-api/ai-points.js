@@ -27,9 +27,13 @@ function stableId(namespace, ...parts) {
 }
 
 function docData(result) {
-  if (Array.isArray(result?.data))
-    return result.data[0] || null
-  return result?.data && typeof result.data === 'object' ? result.data : null
+  const document = Array.isArray(result?.data)
+    ? result.data[0]
+    : result?.data
+  if (!document || typeof document !== 'object')
+    return null
+  const { _id: _documentId, ...data } = document
+  return data
 }
 
 function docsData(result) {
