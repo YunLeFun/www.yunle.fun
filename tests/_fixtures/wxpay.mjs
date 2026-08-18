@@ -95,7 +95,7 @@ export function makeCallbackEvent({
  *   db.collection(name).doc(id).remove()
  *   db.runTransaction(callback)（串行执行，异常时回滚内存快照）
  *
- * 支持 where 等值匹配、command.in / command.gt 与 db.RegExp 条件。
+ * 支持 where 等值匹配、command.in / command.gt / command.lt / command.lte 与 db.RegExp 条件。
  */
 export function makeFakeDb(initial = {}) {
   const store = {}
@@ -121,6 +121,12 @@ export function makeFakeDb(initial = {}) {
     // 支持 command.gt：{ __op: 'gt', value }（游标分页用）
     if (cond && typeof cond === 'object' && cond.__op === 'gt')
       return docVal > cond.value
+    // 支持 command.lt：{ __op: 'lt', value }（只读流水快照游标用）
+    if (cond && typeof cond === 'object' && cond.__op === 'lt')
+      return docVal < cond.value
+    // 支持 command.lte：{ __op: 'lte', value }（只读流水快照游标用）
+    if (cond && typeof cond === 'object' && cond.__op === 'lte')
+      return docVal <= cond.value
     // 支持 db.RegExp：{ __op: 'regexp', regexp, options }
     if (cond && typeof cond === 'object' && cond.__op === 'regexp')
       return typeof docVal === 'string' && new RegExp(cond.regexp, cond.options).test(docVal)
@@ -255,6 +261,8 @@ export function makeFakeDb(initial = {}) {
     command: {
       in: values => ({ __op: 'in', values }),
       gt: value => ({ __op: 'gt', value }),
+      lt: value => ({ __op: 'lt', value }),
+      lte: value => ({ __op: 'lte', value }),
     },
     RegExp: ({ regexp, options = '' }) => ({ __op: 'regexp', regexp, options }),
     collection,

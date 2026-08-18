@@ -317,8 +317,10 @@ describe('account-api synthetic mutation guard', () => {
     expect(db._store[COIN_TX_COLLECTION] ?? []).toHaveLength(0)
   })
 
-  it('allows only getAccount and listTransactions for a logged-in synthetic identity', () => {
+  it('allows only account ledger reads for a logged-in synthetic identity', () => {
     expect(() => assertSyntheticSessionAction('getAccount')).not.toThrow()
+    expect(() => assertSyntheticSessionAction('getMyAiPointAccount')).not.toThrow()
+    expect(() => assertSyntheticSessionAction('listMyAiPointTransactions')).not.toThrow()
     expect(() => assertSyntheticSessionAction('listTransactions')).not.toThrow()
     expect(() => assertSyntheticSessionAction('signIn')).toThrow(/测试身份/)
     expect(() => assertSyntheticSessionAction('deductCoin')).toThrow(/测试身份/)

@@ -8,13 +8,20 @@ const process = require('node:process')
 
 const { COIN_TX_COLLECTION, WALLET_COLLECTION } = require('./lib/wallet')
 
-const ALLOWED_SESSION_ACTIONS = new Set(['getAccount', 'listTransactions'])
+const ALLOWED_SESSION_ACTIONS = new Set([
+  'getAccount',
+  'getMyAiPointAccount',
+  'listMyAiPointTransactions',
+  'listTransactions',
+])
 const FIXED_ACCOUNT_ALLOWED_SESSION_ACTIONS = new Set([
   'deductCoin',
   'getAccount',
   'getAccountAccessStatus',
   'getMembership',
+  'getMyAiPointAccount',
   'listOrders',
+  'listMyAiPointTransactions',
   'listTransactions',
 ])
 const SYNTHETIC_BASELINE_COIN_MAX = 20

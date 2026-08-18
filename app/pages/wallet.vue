@@ -2,18 +2,33 @@
 import type { OrderSummary, RewardHistoryItem } from '~/composables/useCoin'
 import type { CoinPackId, CoinTransaction } from '~/types/payment'
 import { Button } from '@/components/ui/button'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { COIN_TX_TYPE_NAMES } from '~/composables/useCoin'
 import { formatPrice } from '~/composables/usePaymentFlow'
 import { COIN_CUSTOM_MAX, COIN_CUSTOM_MIN, COIN_PACKS, COIN_RATE_FEN } from '~/types/payment'
 
 useSeoMeta({
   title: '我的钱包',
-  description: '云币余额、充值与消费记录',
+  description: '云币与 AI 点数余额、充值和消费记录',
 })
 
 const { user } = useTcbAuth()
+const route = useRoute()
 const coin = useCoin()
 const recharge = useCoinRecharge()
+
+type WalletAsset = 'coin' | 'ai-points'
+const activeAsset = computed<WalletAsset>({
+  get: () => route.query.asset === 'ai-points' ? 'ai-points' : 'coin',
+  set: (asset) => {
+    const query = { ...route.query }
+    if (asset === 'ai-points')
+      query.asset = asset
+    else
+      delete query.asset
+    void navigateTo({ path: '/wallet', query }, { replace: true })
+  },
+})
 
 const showModal = ref(false)
 
@@ -252,9 +267,26 @@ onMounted(async () => {
         我的钱包
       </h1>
       <p class="text-sm text-muted">
-        管理你的云币余额、充值与消费记录
+        {{ activeAsset === 'coin' ? '管理你的云币余额、充值与消费记录' : '查看你的 AI 点数余额与不可变流水' }}
       </p>
     </header>
+
+    <ToggleGroup
+      v-if="user"
+      v-model="activeAsset"
+      type="single"
+      class="ylf-soft-panel grid w-full max-w-sm grid-cols-2 rounded-xl p-1"
+      aria-label="选择钱包资产"
+    >
+      <ToggleGroupItem value="coin" class="w-full rounded-lg" data-testid="wallet-asset-coin">
+        <Icon name="i-lucide-coins" class="size-4" />
+        云币
+      </ToggleGroupItem>
+      <ToggleGroupItem value="ai-points" class="w-full rounded-lg" data-testid="wallet-asset-ai-points">
+        <Icon name="i-lucide-sparkles" class="size-4" />
+        AI 点数
+      </ToggleGroupItem>
+    </ToggleGroup>
 
     <!-- 未登录 -->
     <div
@@ -272,7 +304,7 @@ onMounted(async () => {
       </AppButton>
     </div>
 
-    <template v-else>
+    <template v-else-if="activeAsset === 'coin'">
       <!-- 余额 + 会员状态 -->
       <div class="grid gap-4 sm:grid-cols-2">
         <!-- 余额：渐变主卡 -->
@@ -621,8 +653,11 @@ onMounted(async () => {
       <AppTipLeaderboard :limit="10" />
     </template>
 
+    <WalletAiPointsPanel v-else />
+
     <!-- 充值弹窗 -->
     <CoinRechargeModal
+      v-if="activeAsset === 'coin'"
       v-model:open="showModal"
       :coin="recharge.selectedCoin.value"
       :price="recharge.selectedPrice.value"

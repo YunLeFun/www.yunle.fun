@@ -4,6 +4,8 @@
  * 路由 action：
  *   - getAccount        一次拿到账户全貌（云币余额 + 会员状态），需登录
  *   - getMembership     读取本人会员记录，需登录（替代浏览器直读集合）
+ *   - getMyAiPointAccount 读取本人 AI 点数余额（需登录，只读）
+ *   - listMyAiPointTransactions 本人 AI 点数流水游标分页（需登录，只读）
  *   - deductCoin        按次扣云币（需登录，幂等键 bizId）
  *   - signIn            每日签到领云币（需登录，免费 1 / 会员 2，按东八区切日幂等）
  *   - getSignInStatus   读今日签到态（需登录）
@@ -60,6 +62,7 @@ const {
 } = require('./account-deletion')
 const { dispatchAuthenticatedAction } = require('./account-routing')
 const { dispatchAiPointInternalAction, isAiPointInternalAction } = require('./ai-point-routing')
+const { handleGetMyAiPointAccount, handleListMyAiPointTransactions } = require('./ai-point-self')
 const { uploadAvatar } = require('./avatars')
 const { getFollowingFeed } = require('./feed')
 const { followUser, getRelation, listFollowers, listFollowing, unfollowUser } = require('./follows')
@@ -257,6 +260,8 @@ async function dispatch(event) {
       return await listFollowers(db, { userId: event.userId, viewerId: getCallerUid(), skip: event.skip, limit: event.limit })
     case 'getAccount':
     case 'getMembership':
+    case 'getMyAiPointAccount':
+    case 'listMyAiPointTransactions':
     case 'deductCoin':
     case 'listTransactions':
     case 'listRewardHistory':
@@ -289,6 +294,8 @@ async function dispatch(event) {
         handlers: {
           getAccount: () => handleGetAccount(uid),
           getMembership: () => handleGetMembership(uid),
+          getMyAiPointAccount: () => handleGetMyAiPointAccount(db, uid),
+          listMyAiPointTransactions: () => handleListMyAiPointTransactions(db, uid, event, { now }),
           deductCoin: () => handleDeductCoin(uid, event, classification),
           listTransactions: () => handleListTransactions(uid, event),
           listRewardHistory: () => listRewardHistory(db, { userId: uid, skip: event.skip, limit: event.limit }),
