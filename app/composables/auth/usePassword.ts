@@ -1,6 +1,7 @@
 /**
  * 密码认证（登录、修改、重置）和邮箱/手机号绑定
  */
+import type { SignInWithPasswordCredentials } from '@cloudbase/auth'
 import type { EmailBindingPhase, TcbBindVerificationData, TcbResetPasswordData } from './types'
 import { getAuthErrorPresentation, getErrorMessage, toEmailBindingError } from './types'
 
@@ -24,7 +25,7 @@ export function useTcbPassword(core: ReturnType<typeof import('./useAuthCore').u
     throw bindingError
   }
 
-  const signInWithPassword = async (params: { email?: string, phone?: string, username?: string, password: string }) => {
+  const signInWithPassword = async (params: SignInWithPasswordCredentials) => {
     try {
       loading.value = true
       error.value = null

@@ -5,6 +5,6 @@
   "dependencies": {
     "@cloudbase/node-sdk": "^3.18.3",
     "@yunlefun/authorization-core": "workspace:*",
-    "ws": "^8.21.1"
+    "ws": "^8.21.3"
   }
 }
