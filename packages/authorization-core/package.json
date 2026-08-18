@@ -10,5 +10,9 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json && node scripts/copy-generated.mjs && node scripts/validate-generated.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
   }
 }

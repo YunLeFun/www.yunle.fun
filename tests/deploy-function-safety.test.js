@@ -148,13 +148,13 @@ describe('云函数部署环境变量门禁', () => {
     expect(() => assertFunctionEnvironmentReady(
       productionConfig,
       TEST_IDENTITY_FUNCTIONS,
-      { ...env, ADVJS_AI_RUNTIME_ACCOUNT_API_TOKEN: 'short' },
+      { ...env, YUNLEFUN_AI_RUNTIME_ACCOUNT_API_TOKEN: 'short' },
     )).toThrow('32～512 bytes')
 
     expect(() => assertFunctionEnvironmentReady(
       productionConfig,
       TEST_IDENTITY_FUNCTIONS,
-      { ...env, ADVJS_AI_RUNTIME_ACCOUNT_API_TOKEN: env.ACCOUNT_API_INTERNAL_TOKEN },
+      { ...env, YUNLEFUN_AI_RUNTIME_ACCOUNT_API_TOKEN: env.ACCOUNT_API_INTERNAL_TOKEN },
     )).toThrow('跨用途复用')
 
     expect(() => assertFunctionEnvironmentReady(
@@ -170,7 +170,7 @@ function completeTestIdentityEnv() {
   const token = fill => `${fill}`.repeat(64)
   return {
     ACCOUNT_API_INTERNAL_TOKEN: token('a'),
-    ADVJS_AI_RUNTIME_ACCOUNT_API_TOKEN: token('j'),
+    YUNLEFUN_AI_RUNTIME_ACCOUNT_API_TOKEN: token('j'),
     AI_GATEWAY_ACCOUNT_API_TOKEN: token('b'),
     PLAY_PACHINKO_ACCOUNT_API_TOKEN: token('d'),
     TEST_BROKER_ACCOUNT_API_TOKEN: token('c'),

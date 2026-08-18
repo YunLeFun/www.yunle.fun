@@ -17,11 +17,12 @@ describe('cloudBase test identity deployment manifest', () => {
 
   it('versions every private test-identity environment variable as a placeholder', () => {
     expect(functions.get('account-api').envVariables).toMatchObject({
-      ADVJS_AI_RUNTIME_ACCOUNT_API_TOKEN: '{{env.ADVJS_AI_RUNTIME_ACCOUNT_API_TOKEN}}',
+      YUNLEFUN_AI_RUNTIME_ACCOUNT_API_TOKEN: '{{env.YUNLEFUN_AI_RUNTIME_ACCOUNT_API_TOKEN}}',
       AI_GATEWAY_ACCOUNT_API_TOKEN: '{{env.AI_GATEWAY_ACCOUNT_API_TOKEN}}',
       PLAY_PACHINKO_ACCOUNT_API_TOKEN: '{{env.PLAY_PACHINKO_ACCOUNT_API_TOKEN}}',
       TEST_BROKER_ACCOUNT_API_TOKEN: '{{env.TEST_BROKER_ACCOUNT_API_TOKEN}}',
     })
+    expect(functions.get('account-api').envVariables).not.toHaveProperty('ADVJS_AI_RUNTIME_ACCOUNT_API_TOKEN')
     expect(functions.get('ai-gateway').envVariables).toMatchObject({
       AI_GATEWAY_ACCOUNT_API_TOKEN: '{{env.AI_GATEWAY_ACCOUNT_API_TOKEN}}',
       TEST_BROKER_RECONCILE_TOKEN: '{{env.TEST_BROKER_RECONCILE_TOKEN}}',

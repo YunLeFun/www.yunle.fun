@@ -50,19 +50,37 @@ describe('production authorization registry', () => {
       }],
     })
 
-    for (const origin of expectedOrigins) {
-      expect(createAuthorizationCore({ registry: productionRegistry }).authorize({
-        issuer: productionRegistry.issuer,
+    const authorizations = [
+      {
         clientId: 'cook-mobile',
-        adapter: 'web-sso',
-        requestedScopes: ['identity:bootstrap'],
-        origin,
-        redirectUri: `${origin}/auth/callback?platform=native`,
-      })).toMatchObject({
-        appId: 'cook',
-        displayName: '食用手册',
-        iconUrl: expectedIconUrl,
-      })
+        redirectSuffix: '?platform=native',
+        registrationFingerprint: '5cf6c67bd506ce183cb532ebd7caa185cded80c4cc886fa21a9d678359f2b15e',
+      },
+      {
+        clientId: 'cook-web',
+        redirectSuffix: '',
+        registrationFingerprint: '413af7558f6f45c0f92c2ad91ddfbdc90a07c01f93e460117cfdea35667dd132',
+      },
+    ]
+
+    for (const origin of expectedOrigins) {
+      for (const authorization of authorizations) {
+        expect(createAuthorizationCore({ registry: productionRegistry }).authorize({
+          issuer: productionRegistry.issuer,
+          clientId: authorization.clientId,
+          adapter: 'web-sso',
+          requestedScopes: ['identity:bootstrap'],
+          origin,
+          redirectUri: `${origin}/auth/callback${authorization.redirectSuffix}`,
+        })).toMatchObject({
+          appId: 'cook',
+          clientId: authorization.clientId,
+          displayName: '食用手册',
+          iconUrl: expectedIconUrl,
+          scopes: ['identity:bootstrap'],
+          registrationFingerprint: authorization.registrationFingerprint,
+        })
+      }
     }
   })
 

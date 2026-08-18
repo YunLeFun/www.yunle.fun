@@ -5,6 +5,7 @@ import process from 'node:process'
 
 const expectedFixtureHash = '49e09a599a19c3c20e6e0afee1e3a6d9883cb0f77774302a150dab5c21477b86'
 const wwwRoot = path.resolve(new URL('..', import.meta.url).pathname)
+const retiredRuntimeRoot = path.join(wwwRoot, 'services/advjs-ai-runtime')
 
 async function requiredRoot(name) {
   const value = process.env[name]
@@ -49,8 +50,22 @@ function assertContains(value, fragments, label) {
   }
 }
 
+async function assertMissing(target, label) {
+  try {
+    await stat(target)
+  }
+  catch (error) {
+    if (error?.code === 'ENOENT')
+      return
+    throw error
+  }
+  throw new Error(`${label} must be retired: ${target}`)
+}
+
+await assertMissing(retiredRuntimeRoot, 'www legacy Runtime')
+
 const fixtures = [
-  ['www legacy Runtime', await bytes(wwwRoot, 'services/advjs-ai-runtime/src/contracts/fixtures/agent-runtime-v1.json')],
+  ['www frozen v1 contract', await bytes(wwwRoot, 'tests/fixtures/ai-runtime/agent-runtime-v1.json')],
   ['API v1 Adapter', await bytes(apiRoot, 'packages/ai-runtime-advjs/src/contracts/fixtures/agent-runtime-v1.json')],
   ['ADV.JS Studio', await studioAgent('contracts/fixtures/agent-runtime-v1.json')],
 ]
@@ -62,32 +77,40 @@ for (const [label, value] of fixtures) {
 if (!fixtures.slice(1).every(([, value]) => value.equals(fixtures[0][1])))
   throw new Error('Runtime, Adapter and Studio fixtures are not byte-identical')
 
-const oldContract = await text(wwwRoot, 'services/advjs-ai-runtime/src/contracts/v1.ts')
+const frozenContract = await text(wwwRoot, 'tests/fixtures/ai-runtime/v1.ts')
 const adapterContract = await text(apiRoot, 'packages/ai-runtime-advjs/src/contracts/v1.ts')
-if (oldContract !== adapterContract)
-  throw new Error('API v1 parser drifted from the frozen Runtime parser')
+if (frozenContract !== adapterContract)
+  throw new Error('API v1 parser drifted from the frozen www compatibility contract')
 
-const oldApi = await text(wwwRoot, 'services/advjs-ai-runtime/src/api/runtime-api.ts')
 const newHttp = await text(apiRoot, 'services/ai-runtime/src/handler.ts')
 const newCompatibility = await text(apiRoot, 'packages/ai-runtime-advjs/src/compatibility/v1.ts')
+const productionPublic = await text(apiRoot, 'services/ai-runtime/src/production-public.ts')
+const productionUnit = await text(apiRoot, 'services/ai-runtime/runtime.unit.json')
 const studioManaged = await studioAgent('managed/runtime.ts', 'utf8')
 const studioTransport = await studioAgent('managed/transport.ts', 'utf8')
-assertContains(oldApi, ['/v1/tasks', '/cancel', '/events'], 'old Runtime')
 assertContains(newHttp, ['\\/v1\\/tasks', 'cancel|events'], 'API compatibility entry')
 assertContains(studioManaged, ['/v1/tasks', '/cancel', '/events'], 'Studio managed transport')
 assertContains(newCompatibility, ['toV1Cursor', 'toV2Cursor', 'proposal.ready'], 'API v1 projection')
 assertContains(studioTransport, ['last-event-id', 'IDEMPOTENCY_CONFLICT', 'INVALID_CURSOR'], 'Studio transport')
-
-const lifecycle = await text(wwwRoot, 'services/advjs-ai-runtime/src/production/lifecycle.ts')
-const oldConfig = await text(wwwRoot, 'services/advjs-ai-runtime/src/production/config.ts')
-assertContains(lifecycle, ['#runWorkerCycle', '#runSweepCycle'], 'legacy background lifecycle')
-assertContains(oldConfig, ['\'ADVJS_AI_WORKER_POLL_MS\', 500', 'ADVJS_AI_ACCOUNT_API_TOKEN'], 'legacy Runtime configuration')
+assertContains(
+  productionPublic,
+  ['CloudBaseNodeRuntimeDatabase', 'legacyTaskProjector', 'projectLegacyAdvjsTask'],
+  'API production direct legacy reader',
+)
+assertContains(productionUnit, ['production-read-only', 'task and ledger data stay authoritative'], 'API rollback unit')
+if (productionPublic.includes('LegacyReadProjectionClient'))
+  throw new Error('Production Runtime must not depend on the retired www read-projection broker')
 
 process.stdout.write(`${JSON.stringify({
   mode: 'local-only',
   network: false,
   applied: false,
   fixtureSha256: expectedFixtureHash,
-  compared: fixtures.map(([label]) => label),
-  legacyRuntimePreserved: true,
+  fixtureCompared: fixtures.map(([label]) => label),
+  parserCompared: ['www frozen v1 contract', 'API v1 Adapter'],
+  studioCompatibilityChecks: ['managed v1 routes', 'SSE cursor and error handling'],
+  runtimeOwner: 'YunLeFun/api',
+  legacyRuntimeRetired: true,
+  legacyContractPreserved: true,
+  rollbackOwner: 'YunLeFun/api production-read-only',
 }, null, 2)}\n`)

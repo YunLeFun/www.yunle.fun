@@ -56,11 +56,11 @@ function assertApplyGate() {
   const confirmEnv = argument('confirm-env')
   if (confirmEnv !== target.envId)
     throw new Error(`--confirm-env=${target.envId} is required with --apply`)
-  if (argument('confirm-write') !== 'CREATE_ADVJS_AI_RUNTIME_RESOURCES')
-    throw new Error('--confirm-write=CREATE_ADVJS_AI_RUNTIME_RESOURCES is required with --apply')
+  if (argument('confirm-write') !== 'CREATE_YUNLEFUN_AI_RUNTIME_RESOURCES')
+    throw new Error('--confirm-write=CREATE_YUNLEFUN_AI_RUNTIME_RESOURCES is required with --apply')
   if (target.environment === 'production'
-    && argument('confirm-production') !== 'PROVISION_ADVJS_AI_RUNTIME_PRODUCTION') {
-    throw new Error('--confirm-production=PROVISION_ADVJS_AI_RUNTIME_PRODUCTION is required for production')
+    && argument('confirm-production') !== 'PROVISION_YUNLEFUN_AI_RUNTIME_PRODUCTION') {
+    throw new Error('--confirm-production=PROVISION_YUNLEFUN_AI_RUNTIME_PRODUCTION is required for production')
   }
   return target
 }
