@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { SignInWithPasswordCredentials } from '@cloudbase/auth'
 import type { TcbOtpData, TcbResetPasswordData } from '~/composables/useTcbAuth'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { GITHUB_PROVIDER_ID, isOAuthProviderEnabled, WECHAT_PROVIDER_ID } from '~/utils/authProviders'
@@ -194,15 +195,15 @@ async function handlePasswordLogin() {
   if (!passwordFormValid.value)
     return
   try {
-    const params: { email?: string, phone?: string, username?: string, password: string } = { password: password.value }
+    let params: SignInWithPasswordCredentials
     if (isPasswordEmail.value) {
-      params.email = passwordAccount.value
+      params = { email: passwordAccount.value, password: password.value }
     }
     else if (isPasswordPhone.value) {
-      params.phone = passwordAccount.value
+      params = { phone: passwordAccount.value, password: password.value }
     }
     else {
-      params.username = passwordAccount.value
+      params = { username: passwordAccount.value, password: password.value }
     }
     await signInWithPassword(params)
   }
