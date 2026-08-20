@@ -73,7 +73,8 @@ async function readTransactionDoc(ref) {
 }
 
 async function setTransactionDoc(ref, data) {
-  const result = await ref.set(data)
+  const { _id: _documentId, ...writable } = data
+  const result = await ref.set(writable)
   assertDatabaseResult(result)
 }
 

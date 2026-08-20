@@ -15,7 +15,7 @@ import { makeFakeDb } from '../_fixtures/wxpay.mjs'
 const NOW = Date.parse('2026-08-20T12:00:00+08:00')
 
 async function fundedDb() {
-  const db = makeFakeDb({})
+  const db = makeFakeDb({}, { rejectDocumentIdWrites: true })
   await creditCoin(db, {
     userId: 'coin_user',
     appId: 'wallet',

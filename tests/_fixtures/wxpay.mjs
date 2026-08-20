@@ -97,8 +97,9 @@ export function makeCallbackEvent({
  *
  * 支持 where 等值匹配、command.in / command.gt / command.lt / command.lte 与 db.RegExp 条件。
  */
-export function makeFakeDb(initial = {}) {
+export function makeFakeDb(initial = {}, options = {}) {
   const store = {}
+  const rejectDocumentIdWrites = options.rejectDocumentIdWrites === true
   for (const [k, v] of Object.entries(initial))
     store[k] = v.map(doc => ({ ...doc }))
   let transactionTail = Promise.resolve()
@@ -210,6 +211,8 @@ export function makeFakeDb(initial = {}) {
             return { data: doc ? { ...doc } : null }
           },
           async set(doc) {
+            if (rejectDocumentIdWrites && Object.hasOwn(doc, '_id'))
+              throw new Error('不能更新_id的值')
             const index = store[name].findIndex(d => d._id === id)
             const full = { ...doc, _id: id }
             if (index >= 0)
