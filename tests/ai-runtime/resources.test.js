@@ -59,29 +59,6 @@ describe('ai runtime cloudbase resource manifest', () => {
           ],
         }),
         expect.objectContaining({
-          name: 'app_id_created',
-          fields: [
-            { field: 'appId', order: 'asc' },
-            { field: 'createdAt', order: 'asc' },
-          ],
-        }),
-        expect.objectContaining({
-          name: 'app_id_status_created',
-          fields: [
-            { field: 'appId', order: 'asc' },
-            { field: 'status', order: 'asc' },
-            { field: 'createdAt', order: 'asc' },
-          ],
-        }),
-        expect.objectContaining({
-          name: 'app_id_status_lease_expiry',
-          fields: [
-            { field: 'appId', order: 'asc' },
-            { field: 'status', order: 'asc' },
-            { field: 'leaseExpiresAt', order: 'asc' },
-          ],
-        }),
-        expect.objectContaining({
           name: 'status_created',
           fields: [
             { field: 'status', order: 'asc' },

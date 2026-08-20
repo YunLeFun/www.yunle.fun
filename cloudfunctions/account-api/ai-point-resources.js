@@ -125,29 +125,6 @@ const AI_RUNTIME_COLLECTION_MANIFESTS = Object.freeze([
         { field: 'createdAt', order: 'desc' },
       ],
     }, {
-      name: 'app_id_created',
-      unique: false,
-      fields: [
-        { field: 'appId', order: 'asc' },
-        { field: 'createdAt', order: 'asc' },
-      ],
-    }, {
-      name: 'app_id_status_created',
-      unique: false,
-      fields: [
-        { field: 'appId', order: 'asc' },
-        { field: 'status', order: 'asc' },
-        { field: 'createdAt', order: 'asc' },
-      ],
-    }, {
-      name: 'app_id_status_lease_expiry',
-      unique: false,
-      fields: [
-        { field: 'appId', order: 'asc' },
-        { field: 'status', order: 'asc' },
-        { field: 'leaseExpiresAt', order: 'asc' },
-      ],
-    }, {
       name: 'status_created',
       unique: false,
       fields: [
