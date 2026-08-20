@@ -1,7 +1,9 @@
 'use strict'
 
 const AI_POINT_ACCOUNTS_COLLECTION = 'ai_point_accounts'
+const AI_POINT_RESERVATIONS_COLLECTION = 'ai_point_reservations'
 const AI_POINT_TRANSACTIONS_COLLECTION = 'ai_point_transactions'
+const COIN_RESERVATIONS_COLLECTION = 'coin_reservations'
 const AI_USAGE_RECORDS_COLLECTION = 'ai_usage_records'
 const AI_TASKS_COLLECTION = 'ai_tasks'
 const AI_RUNTIME_CONTROL_COLLECTION = 'ai_runtime_control'
@@ -39,6 +41,48 @@ const AI_RUNTIME_COLLECTION_MANIFESTS = Object.freeze([
       name: 'idempotency_key',
       unique: false,
       fields: [{ field: 'idempotencyKey', order: 'asc' }],
+    }],
+  },
+  {
+    collection: AI_POINT_RESERVATIONS_COLLECTION,
+    access: 'ADMINONLY',
+    retention: 'ledger',
+    indexes: [{
+      name: 'user_status_expires',
+      unique: false,
+      fields: [
+        { field: 'userId', order: 'asc' },
+        { field: 'status', order: 'asc' },
+        { field: 'expiresAt', order: 'asc' },
+      ],
+    }, {
+      name: 'status_expires',
+      unique: false,
+      fields: [
+        { field: 'status', order: 'asc' },
+        { field: 'expiresAt', order: 'asc' },
+      ],
+    }],
+  },
+  {
+    collection: COIN_RESERVATIONS_COLLECTION,
+    access: 'ADMINONLY',
+    retention: 'ledger',
+    indexes: [{
+      name: 'user_status_expires',
+      unique: false,
+      fields: [
+        { field: 'userId', order: 'asc' },
+        { field: 'status', order: 'asc' },
+        { field: 'expiresAt', order: 'asc' },
+      ],
+    }, {
+      name: 'status_expires',
+      unique: false,
+      fields: [
+        { field: 'status', order: 'asc' },
+        { field: 'expiresAt', order: 'asc' },
+      ],
     }],
   },
   {
@@ -133,7 +177,9 @@ const AI_RUNTIME_COLLECTION_MANIFESTS = Object.freeze([
 
 module.exports = {
   AI_POINT_ACCOUNTS_COLLECTION,
+  AI_POINT_RESERVATIONS_COLLECTION,
   AI_POINT_TRANSACTIONS_COLLECTION,
+  COIN_RESERVATIONS_COLLECTION,
   AI_RUNTIME_COLLECTION_MANIFESTS,
   AI_RUNTIME_CONTROL_COLLECTION,
   AI_TASKS_COLLECTION,

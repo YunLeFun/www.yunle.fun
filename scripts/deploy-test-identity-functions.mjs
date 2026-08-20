@@ -11,7 +11,6 @@ const CONFIG_PATH = resolve(ROOT, 'cloudbaserc.json')
 
 export const TEST_IDENTITY_FUNCTIONS = Object.freeze([
   'account-api',
-  'ai-gateway',
   'sso-ticket',
   'test-identity-sweeper',
 ])
@@ -26,7 +25,7 @@ function deploymentPlan() {
     if (item.runtime !== 'Nodejs18.15' || item.handler !== 'index.main')
       throw new Error(`云函数 ${name} 必须使用 Nodejs18.15 与 index.main`)
   }
-  for (const name of ['account-api', 'ai-gateway', 'sso-ticket']) {
+  for (const name of ['account-api', 'sso-ticket']) {
     if (configuredFunctions.get(name).aclRule?.invoke !== 'auth != null')
       throw new Error(`云函数 ${name} 必须要求 CloudBase authentication`)
   }

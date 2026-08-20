@@ -64,7 +64,7 @@ function validDocuments() {
   const target = {
     platformAppId: 'app_01',
     origin: 'https://wish.example.test',
-    serviceAudience: 'ai-gateway',
+    serviceAudience: 'ai-runtime',
     billingAppId: 'everything-generator',
     scopeIds: ['wish'],
     allowedActions: ['wish:audit', 'wish:finalize'],

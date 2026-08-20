@@ -30,23 +30,22 @@ async function seedAccount(db, userId = 'user_fixture_001') {
 }
 
 describe('account-api self-service AI point reads', () => {
-  it('returns an uninitialized zero view without creating a ledger account', async () => {
+  it('initializes a zero-balance v2 account on the first authenticated read', async () => {
     const db = makeFakeDb({})
 
-    await expect(handleGetMyAiPointAccount(db, 'user_missing')).resolves.toEqual({
-      schemaVersion: 1,
+    await expect(handleGetMyAiPointAccount(db, 'user_missing', { now: NOW })).resolves.toEqual({
+      schemaVersion: 2,
       account: {
-        initialized: false,
-        access: 'none',
+        initialized: true,
         availableMicroPoints: 0,
         reservedMicroPoints: 0,
+        activeReservationCount: 0,
         lifetimeGrantedMicroPoints: 0,
         lifetimeChargedMicroPoints: 0,
-        activeTask: null,
-        updatedAt: null,
+        updatedAt: NOW,
       },
     })
-    expect(db._store[AI_POINT_ACCOUNTS_COLLECTION]).toEqual([])
+    expect(db._store[AI_POINT_ACCOUNTS_COLLECTION]).toHaveLength(1)
     expect(db._store[AI_POINT_TRANSACTIONS_COLLECTION] ?? []).toEqual([])
   })
 
@@ -58,12 +57,11 @@ describe('account-api self-service AI point reads', () => {
     const account = await handleGetMyAiPointAccount(db, 'caller_user')
     expect(account.account).toEqual({
       initialized: true,
-      access: 'beta',
       availableMicroPoints: 100_000,
       reservedMicroPoints: 0,
+      activeReservationCount: 0,
       lifetimeGrantedMicroPoints: 100_000,
       lifetimeChargedMicroPoints: 0,
-      activeTask: null,
       updatedAt: NOW,
     })
     expect(account.account).not.toHaveProperty('userId')
@@ -76,7 +74,7 @@ describe('account-api self-service AI point reads', () => {
     }, { now: NOW + 1 })
     expect(page.items).toHaveLength(1)
     expect(page.items[0]).toEqual(expect.objectContaining({
-      type: 'beta_grant',
+      type: 'grant',
       appId: 'advjs-studio',
       availableDelta: 100_000,
       availableAfter: 100_000,
@@ -125,7 +123,7 @@ describe('account-api self-service AI point reads', () => {
       cursor: first.nextCursor,
       limit: 1,
     }, { now: NOW + 4 })
-    expect(second.items.map(item => item.type)).toEqual(['beta_grant'])
+    expect(second.items.map(item => item.type)).toEqual(['grant'])
     expect(second.nextCursor).toBeNull()
   })
 

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import { AI_POINT_TRANSACTIONS_COLLECTION } from '../../cloudfunctions/account-api/ai-points.js'
 import {
+  handleEnsureHostedAiStarterEntitlementForUser,
   handleGetAiPointAccountForUser,
   handleGrantAiPointsForUser,
   handleListAiPointTransactionsForUser,
@@ -110,7 +111,7 @@ describe('account-api internal ai point actions', () => {
       taskId: 'task_fixture_001',
       amountMicroPoints: 30_000,
       idempotencyKey: 'reserve:task_fixture_001',
-      activeTaskExpiresAt: NOW + 10 * 60 * 1000,
+      reservationExpiresAt: NOW + 10 * 60 * 1000,
       now: 1,
     }, { expectedToken: TOKEN, now: NOW + 1 })
     await handleSettleAiPointsForTask(db, {
@@ -134,8 +135,105 @@ describe('account-api internal ai point actions', () => {
       userId: 'user_fixture_001',
       limit: 10,
     }, { expectedToken: TOKEN })
-    expect(history.items.map(item => item.type)).toEqual(['settle', 'reserve', 'beta_grant'])
+    expect(history.items.map(item => item.type)).toEqual(['settle', 'reserve', 'grant'])
     expect(history.items.map(item => item.createdAt)).toEqual([NOW + 2, NOW + 1, NOW])
+  })
+
+  it('grants 100 starter points, then only the 200 point membership delta', async () => {
+    const db = makeFakeDb({})
+    const event = {
+      serviceToken: TOKEN,
+      userId: 'user_starter_fixture',
+    }
+
+    const standard = await handleEnsureHostedAiStarterEntitlementForUser(db, event, {
+      expectedToken: TOKEN,
+      now: NOW,
+    })
+    const standardReplay = await handleEnsureHostedAiStarterEntitlementForUser(db, event, {
+      expectedToken: TOKEN,
+      now: NOW + 1,
+    })
+    expect(standard).toMatchObject({
+      membershipActive: false,
+      targetMicroPoints: 100_000,
+      account: {
+        availableMicroPoints: 100_000,
+        lifetimeGrantedMicroPoints: 100_000,
+      },
+    })
+    expect(standardReplay.account).toMatchObject({
+      availableMicroPoints: 100_000,
+      lifetimeGrantedMicroPoints: 100_000,
+    })
+
+    await db.collection('user_memberships').doc('user_starter_fixture').set({
+      userId: 'user_starter_fixture',
+      level: 'pro',
+      expireAt: NOW + 30 * 24 * 60 * 60 * 1000,
+    })
+    const member = await handleEnsureHostedAiStarterEntitlementForUser(db, event, {
+      expectedToken: TOKEN,
+      now: NOW + 2,
+    })
+    const memberReplay = await handleEnsureHostedAiStarterEntitlementForUser(db, event, {
+      expectedToken: TOKEN,
+      now: NOW + 3,
+    })
+
+    expect(member).toMatchObject({
+      membershipActive: true,
+      targetMicroPoints: 300_000,
+      account: {
+        availableMicroPoints: 300_000,
+        lifetimeGrantedMicroPoints: 300_000,
+      },
+    })
+    expect(memberReplay.account).toMatchObject({ availableMicroPoints: 300_000 })
+    expect(db._store[AI_POINT_TRANSACTIONS_COLLECTION].map(item => ({
+      type: item.type,
+      amount: item.availableDelta,
+      rule: item.meta.rule,
+    }))).toEqual([
+      { type: 'grant', amount: 100_000, rule: 'hosted-ai-starter-standard-v1' },
+      { type: 'grant', amount: 200_000, rule: 'hosted-ai-starter-member-v1' },
+    ])
+  })
+
+  it('does not grant or reserve hosted AI points for a managed synthetic identity', async () => {
+    const db = makeFakeDb({
+      test_identities: [{
+        _id: 'managed_identity',
+        uid: 'managed_synthetic_user',
+        synthetic: true,
+        source: 'managed',
+        status: 'leased',
+      }],
+    })
+    const common = {
+      serviceToken: TOKEN,
+      userId: 'managed_synthetic_user',
+      appId: 'advjs-studio',
+      scope: 'studio-managed-ai',
+    }
+
+    await expect(handleEnsureHostedAiStarterEntitlementForUser(db, common, {
+      expectedToken: TOKEN,
+      now: NOW,
+    })).rejects.toMatchObject({ code: 'synthetic_action_forbidden' })
+    await expect(handleReserveAiPointsForTask(db, {
+      ...common,
+      taskId: 'task_managed_synthetic',
+      amountMicroPoints: 10_000,
+      idempotencyKey: 'reserve:task_managed_synthetic',
+      reservationExpiresAt: NOW + 10 * 60 * 1000,
+    }, { expectedToken: TOKEN, now: NOW })).rejects.toMatchObject({
+      code: 'synthetic_action_forbidden',
+    })
+
+    expect(db._store.ai_point_accounts ?? []).toHaveLength(0)
+    expect(db._store.ai_point_reservations ?? []).toHaveLength(0)
+    expect(db._store[AI_POINT_TRANSACTIONS_COLLECTION] ?? []).toHaveLength(0)
   })
 
   it.each([
@@ -178,7 +276,7 @@ describe('account-api internal ai point actions', () => {
       taskId: 'task_fixture_restricted_001',
       amountMicroPoints: 10_000,
       idempotencyKey: 'reserve:task_fixture_restricted_001',
-      activeTaskExpiresAt: NOW + 10 * 60 * 1000,
+      reservationExpiresAt: NOW + 10 * 60 * 1000,
     }, { expectedToken: TOKEN, now: NOW + 1 })).rejects.toThrow(expectedError)
 
     const history = await handleListAiPointTransactionsForUser(db, {
@@ -186,6 +284,6 @@ describe('account-api internal ai point actions', () => {
       userId: 'user_fixture_001',
       limit: 10,
     }, { expectedToken: TOKEN })
-    expect(history.items.map(item => item.type)).toEqual(['beta_grant'])
+    expect(history.items.map(item => item.type)).toEqual(['grant'])
   })
 })

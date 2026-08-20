@@ -27,7 +27,6 @@ const ciConfig = JSON.parse(await readFile(new URL('../cloudbaserc.ci.json', imp
 const envExample = await readFile(new URL('../.env.example', import.meta.url), 'utf8')
 const TEST_IDENTITY_FUNCTIONS = [
   'account-api',
-  'ai-gateway',
   'sso-ticket',
   'test-identity-sweeper',
 ]
@@ -124,25 +123,13 @@ describe('云函数部署环境变量门禁', () => {
     expect(() => assertFunctionEnvironmentReady(
       productionConfig,
       TEST_IDENTITY_FUNCTIONS,
-      { ...env, TEST_BROKER_RECONCILE_TOKEN: 'short' },
-    )).toThrow('32～512 bytes')
-
-    expect(() => assertFunctionEnvironmentReady(
-      productionConfig,
-      TEST_IDENTITY_FUNCTIONS,
-      { ...env, TEST_BROKER_RECONCILE_TOKEN: env.AI_GATEWAY_ACCOUNT_API_TOKEN },
-    )).toThrow('跨用途复用')
-
-    expect(() => assertFunctionEnvironmentReady(
-      productionConfig,
-      TEST_IDENTITY_FUNCTIONS,
       { ...env, PLAY_PACHINKO_ACCOUNT_API_TOKEN: 'short' },
     )).toThrow('32～512 bytes')
 
     expect(() => assertFunctionEnvironmentReady(
       productionConfig,
       TEST_IDENTITY_FUNCTIONS,
-      { ...env, PLAY_PACHINKO_ACCOUNT_API_TOKEN: env.AI_GATEWAY_ACCOUNT_API_TOKEN },
+      { ...env, PLAY_PACHINKO_ACCOUNT_API_TOKEN: env.YUNLEFUN_AI_COIN_ACCOUNT_API_TOKEN },
     )).toThrow('跨用途复用')
 
     expect(() => assertFunctionEnvironmentReady(
@@ -171,14 +158,12 @@ function completeTestIdentityEnv() {
   return {
     ACCOUNT_API_INTERNAL_TOKEN: token('a'),
     YUNLEFUN_AI_RUNTIME_ACCOUNT_API_TOKEN: token('j'),
-    AI_GATEWAY_ACCOUNT_API_TOKEN: token('b'),
+    YUNLEFUN_AI_COIN_ACCOUNT_API_TOKEN: token('b'),
     PLAY_PACHINKO_ACCOUNT_API_TOKEN: token('d'),
     TEST_BROKER_ACCOUNT_API_TOKEN: token('c'),
     REWARD_CONTROL_TOKENS: key(4),
     REWARD_CLAIM_LINK_HASH_KEY: token('e'),
     REWARD_CLAIM_RATE_TICKET_SECRET: token('f'),
-    TEST_LEASE_CAPABILITY_SIGNING_KEY: key(7),
-    TEST_BROKER_RECONCILE_TOKEN: token('h'),
     SSO_TICKET_PRIVATE_KEY_ID: 'private-key-id',
     SSO_TICKET_PRIVATE_KEY: 'private-key',
     SSO_TICKET_REFRESH_SEC: '2592000',

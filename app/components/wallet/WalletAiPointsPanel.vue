@@ -5,7 +5,7 @@ const points = useAiPoints()
 
 const TRANSACTION_NAMES: Record<string, string> = {
   adjust: '点数调整',
-  beta_grant: 'Beta 点数发放',
+  grant: 'AI 点数发放',
   refund: '任务退款',
   release: '预占释放',
   reserve: '任务预占',
@@ -124,7 +124,7 @@ onMounted(() => points.refresh())
               </p>
             </div>
             <p class="mt-4 text-xs text-muted">
-              {{ points.account.value.activeTask ? `${appName(points.account.value.activeTask.appId)} 任务进行中，完成后按实际用量结算` : '当前没有进行中的 AI 任务' }}
+              {{ points.account.value.activeReservationCount > 0 ? `${points.account.value.activeReservationCount} 个任务进行中，完成后按实际用量结算` : '当前没有进行中的 AI 任务' }}
             </p>
           </div>
         </div>

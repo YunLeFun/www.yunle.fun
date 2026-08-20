@@ -14,11 +14,14 @@ describe('account-api ai point routing', () => {
   it('recognizes only the approved private ledger actions', () => {
     expect([...AI_POINT_INTERNAL_ACTIONS].sort()).toEqual([
       'adjustAiPointsForUser',
+      'ensureAiPointAccountForUser',
+      'ensureHostedAiStarterEntitlementForUser',
       'getAiPointAccountForUser',
       'grantAiPointsForUser',
       'listAiPointTransactionsForUser',
       'refundAiPointsForTask',
       'releaseAiPointsForTask',
+      'releaseExpiredAiPointReservations',
       'reserveAiPointsForTask',
       'settleAiPointsForTask',
     ])
@@ -28,6 +31,18 @@ describe('account-api ai point routing', () => {
 
   it('dispatches through token-protected handlers without trusting event time', async () => {
     const db = makeFakeDb({})
+    await expect(dispatchAiPointInternalAction(db, {
+      action: 'ensureAiPointAccountForUser',
+      serviceToken: TOKEN,
+      userId: 'user_fixture_001',
+      now: 1,
+    }, { expectedToken: TOKEN, now: NOW })).resolves.toMatchObject({
+      created: true,
+      account: {
+        schemaVersion: 2,
+        availableMicroPoints: 0,
+      },
+    })
     await dispatchAiPointInternalAction(db, {
       action: 'grantAiPointsForUser',
       serviceToken: TOKEN,

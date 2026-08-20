@@ -4,10 +4,10 @@ const { Buffer } = require('node:buffer')
 
 const {
   AI_POINT_TRANSACTIONS_COLLECTION,
-  getAiPointAccount,
+  ensureAiPointAccount,
 } = require('./ai-points')
 
-const AI_POINT_SELF_SCHEMA_VERSION = 1
+const AI_POINT_SELF_SCHEMA_VERSION = 2
 const DEFAULT_PAGE_LIMIT = 20
 const MAX_PAGE_LIMIT = 50
 const MAX_CURSOR_LENGTH = 256
@@ -31,39 +31,14 @@ function safeInteger(value, field) {
   return value
 }
 
-function projectActiveTask(activeTask) {
-  if (!activeTask)
-    return null
-  return {
-    taskId: requiredString(activeTask.taskId, 'activeTask.taskId'),
-    appId: requiredString(activeTask.appId, 'activeTask.appId'),
-    scope: requiredString(activeTask.scope, 'activeTask.scope'),
-    reservedMicroPoints: safeInteger(activeTask.reservedMicroPoints, 'activeTask.reservedMicroPoints'),
-    expiresAt: safeInteger(activeTask.expiresAt, 'activeTask.expiresAt'),
-  }
-}
-
 function projectAccount(account) {
-  if (!account) {
-    return {
-      initialized: false,
-      access: 'none',
-      availableMicroPoints: 0,
-      reservedMicroPoints: 0,
-      lifetimeGrantedMicroPoints: 0,
-      lifetimeChargedMicroPoints: 0,
-      activeTask: null,
-      updatedAt: null,
-    }
-  }
   return {
     initialized: true,
-    access: requiredString(account.access, 'account.access'),
     availableMicroPoints: safeInteger(account.availableMicroPoints, 'account.availableMicroPoints'),
     reservedMicroPoints: safeInteger(account.reservedMicroPoints, 'account.reservedMicroPoints'),
+    activeReservationCount: safeInteger(account.activeReservationCount, 'account.activeReservationCount'),
     lifetimeGrantedMicroPoints: safeInteger(account.lifetimeGrantedMicroPoints, 'account.lifetimeGrantedMicroPoints'),
     lifetimeChargedMicroPoints: safeInteger(account.lifetimeChargedMicroPoints, 'account.lifetimeChargedMicroPoints'),
-    activeTask: projectActiveTask(account.activeTask),
     updatedAt: safeInteger(account.updatedAt, 'account.updatedAt'),
   }
 }
@@ -126,11 +101,14 @@ function decodeCursor(cursor, now) {
   }
 }
 
-async function handleGetMyAiPointAccount(db, callerUserId) {
-  const account = await getAiPointAccount(db, assertUserId(callerUserId))
+async function handleGetMyAiPointAccount(db, callerUserId, options = {}) {
+  const ensured = await ensureAiPointAccount(db, {
+    userId: assertUserId(callerUserId),
+    now: options.now ?? Date.now(),
+  })
   return {
     schemaVersion: AI_POINT_SELF_SCHEMA_VERSION,
-    account: projectAccount(account),
+    account: projectAccount(ensured.account),
   }
 }
 

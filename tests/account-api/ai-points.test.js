@@ -33,7 +33,7 @@ function grantInput(extra = {}) {
 }
 
 describe('account-api ai point ledger', () => {
-  it('grants beta points once and appends one immutable transaction', async () => {
+  it('grants points once and appends one immutable transaction', async () => {
     const db = makeFakeDb({})
 
     const first = await grantAiPoints(db, grantInput())
@@ -42,10 +42,11 @@ describe('account-api ai point ledger', () => {
     expect(first).toMatchObject({
       deduped: false,
       account: {
+        schemaVersion: 2,
         userId: 'user_fixture_001',
-        access: 'beta',
         availableMicroPoints: 100_000,
         reservedMicroPoints: 0,
+        activeReservationCount: 0,
         lifetimeGrantedMicroPoints: 100_000,
         lifetimeChargedMicroPoints: 0,
         version: 1,
@@ -64,7 +65,7 @@ describe('account-api ai point ledger', () => {
         userId: 'user_fixture_001',
         appId: 'advjs-studio',
         scope: 'studio-managed-ai',
-        type: 'beta_grant',
+        type: 'grant',
         availableDelta: 100_000,
         reservedDelta: 0,
         chargedMicroPoints: 0,
@@ -90,14 +91,14 @@ describe('account-api ai point ledger', () => {
       taskId: 'task_fixture_001',
       amountMicroPoints: 30_000,
       idempotencyKey: 'reserve:task_fixture_001',
-      activeTaskExpiresAt: NOW + 10 * 60 * 1000,
+      reservationExpiresAt: NOW + 10 * 60 * 1000,
       now: NOW + 1,
     }
 
     const first = await reserveAiPoints(db, input)
     const replay = await reserveAiPoints(db, {
       ...input,
-      activeTaskExpiresAt: NOW + 11 * 60 * 1000,
+      reservationExpiresAt: NOW + 11 * 60 * 1000,
       now: NOW + 2,
     })
 
@@ -106,14 +107,9 @@ describe('account-api ai point ledger', () => {
       account: {
         availableMicroPoints: 70_000,
         reservedMicroPoints: 30_000,
-        activeTask: {
-          taskId: 'task_fixture_001',
-          reservedMicroPoints: 30_000,
-          expiresAt: NOW + 10 * 60 * 1000,
-        },
+        activeReservationCount: 1,
         daily: {
           dateKey: '2026-08-14',
-          acceptedTasks: 1,
           reservedMicroPoints: 30_000,
           chargedMicroPoints: 0,
         },
@@ -125,8 +121,7 @@ describe('account-api ai point ledger', () => {
       account: {
         availableMicroPoints: 70_000,
         reservedMicroPoints: 30_000,
-        activeTask: { expiresAt: NOW + 10 * 60 * 1000 },
-        daily: { acceptedTasks: 1 },
+        activeReservationCount: 1,
         version: 2,
       },
     })
@@ -182,7 +177,7 @@ describe('account-api ai point ledger', () => {
       taskId: 'task_fixture_cloudbase_id_001',
       amountMicroPoints: 30_000,
       idempotencyKey: 'reserve:task_fixture_cloudbase_id_001',
-      activeTaskExpiresAt: NOW + 10 * 60 * 1000,
+      reservationExpiresAt: NOW + 10 * 60 * 1000,
       now: NOW + 1,
     })).resolves.toMatchObject({
       account: {
@@ -203,7 +198,7 @@ describe('account-api ai point ledger', () => {
       taskId: 'task_fixture_replay_001',
       amountMicroPoints: 30_000,
       idempotencyKey: 'reserve:task_fixture_replay_001',
-      activeTaskExpiresAt: NOW + 10 * 60 * 1000,
+      reservationExpiresAt: NOW + 10 * 60 * 1000,
       now: NOW + 1,
     }
     const first = await reserveAiPoints(db, reserveInput)
@@ -238,7 +233,7 @@ describe('account-api ai point ledger', () => {
       taskId: 'task_fixture_insufficient_001',
       amountMicroPoints: 100_001,
       idempotencyKey: 'reserve:task_fixture_insufficient_001',
-      activeTaskExpiresAt: NOW + 10 * 60 * 1000,
+      reservationExpiresAt: NOW + 10 * 60 * 1000,
       now: NOW + 1,
     })).rejects.toThrow(/AI 点数余额不足/)
 
@@ -246,7 +241,6 @@ describe('account-api ai point ledger', () => {
       availableMicroPoints: 100_000,
       reservedMicroPoints: 0,
       daily: {
-        acceptedTasks: 0,
         chargedMicroPoints: 0,
         reservedMicroPoints: 0,
       },
@@ -265,7 +259,7 @@ describe('account-api ai point ledger', () => {
       taskId: 'task_fixture_001',
       amountMicroPoints: 30_000,
       idempotencyKey: 'reserve:task_fixture_001',
-      activeTaskExpiresAt: NOW + 10 * 60 * 1000,
+      reservationExpiresAt: NOW + 10 * 60 * 1000,
       now: NOW + 1,
     })
     const input = {
@@ -286,10 +280,10 @@ describe('account-api ai point ledger', () => {
       account: {
         availableMicroPoints: 88_000,
         reservedMicroPoints: 0,
+        activeReservationCount: 0,
         lifetimeGrantedMicroPoints: 100_000,
         lifetimeChargedMicroPoints: 12_000,
         daily: {
-          acceptedTasks: 1,
           reservedMicroPoints: 0,
           chargedMicroPoints: 12_000,
         },
@@ -320,7 +314,7 @@ describe('account-api ai point ledger', () => {
       taskId: 'task_fixture_failed_001',
       amountMicroPoints: 30_000,
       idempotencyKey: 'reserve:task_fixture_failed_001',
-      activeTaskExpiresAt: NOW + 10 * 60 * 1000,
+      reservationExpiresAt: NOW + 10 * 60 * 1000,
       now: NOW + 1,
     })
     const input = {
@@ -341,9 +335,9 @@ describe('account-api ai point ledger', () => {
       account: {
         availableMicroPoints: 100_000,
         reservedMicroPoints: 0,
+        activeReservationCount: 0,
         lifetimeChargedMicroPoints: 0,
         daily: {
-          acceptedTasks: 1,
           reservedMicroPoints: 0,
           chargedMicroPoints: 0,
         },
@@ -371,7 +365,7 @@ describe('account-api ai point ledger', () => {
       taskId: 'task_fixture_refund_001',
       amountMicroPoints: 30_000,
       idempotencyKey: 'reserve:task_fixture_refund_001',
-      activeTaskExpiresAt: NOW + 10 * 60 * 1000,
+      reservationExpiresAt: NOW + 10 * 60 * 1000,
       now: NOW + 1,
     })
     await settleAiPoints(db, {
@@ -444,7 +438,7 @@ describe('account-api ai point ledger', () => {
       taskId: 'task_fixture_operator_001',
       amountMicroPoints: 10_000,
       idempotencyKey: 'reserve:task_fixture_operator_001',
-      activeTaskExpiresAt: NOW + 10 * 60 * 1000,
+      reservationExpiresAt: NOW + 10 * 60 * 1000,
       now: NOW + 1,
     })
     await settleAiPoints(db, {
@@ -485,7 +479,7 @@ describe('account-api ai point ledger', () => {
         taskId,
         amountMicroPoints: chargedMicroPoints,
         idempotencyKey: `reserve:${taskId}`,
-        activeTaskExpiresAt: NOW + 10 * 60 * 1000,
+        reservationExpiresAt: NOW + 10 * 60 * 1000,
         now: NOW + 1,
       })
       await settleAiPoints(db, {
@@ -622,13 +616,13 @@ describe('account-api ai point ledger', () => {
     expect(firstPage.items[0]).not.toHaveProperty('resultAccount')
     expect(firstPage.nextSkip).toBe(1)
     expect(secondPage.items).toEqual([
-      expect.objectContaining({ type: 'beta_grant', createdAt: NOW }),
+      expect.objectContaining({ type: 'grant', createdAt: NOW }),
     ])
     expect(secondPage.nextSkip).toBe(2)
     expect([...firstPage.items, ...secondPage.items].every(item => item.userId === 'user_fixture_001')).toBe(true)
   })
 
-  it('allows only one concurrent active task', async () => {
+  it('allows independent concurrent task reservations', async () => {
     const db = makeFakeDb({})
     await grantAiPoints(db, grantInput())
     const reserve = taskId => reserveAiPoints(db, {
@@ -638,7 +632,7 @@ describe('account-api ai point ledger', () => {
       taskId,
       amountMicroPoints: 10_000,
       idempotencyKey: `reserve:${taskId}`,
-      activeTaskExpiresAt: NOW + 10 * 60 * 1000,
+      reservationExpiresAt: NOW + 10 * 60 * 1000,
       now: NOW + 1,
     })
 
@@ -647,11 +641,9 @@ describe('account-api ai point ledger', () => {
       reserve('task_fixture_concurrent_b'),
     ])
 
-    expect(outcomes.filter(item => item.status === 'fulfilled')).toHaveLength(1)
-    expect(outcomes.filter(item => item.status === 'rejected')).toEqual([
-      expect.objectContaining({ reason: expect.objectContaining({ message: expect.stringMatching(/进行中的 AI 任务/) }) }),
-    ])
-    expect(db._store[AI_POINT_TRANSACTIONS_COLLECTION]).toHaveLength(2)
+    expect(outcomes.filter(item => item.status === 'fulfilled')).toHaveLength(2)
+    expect(outcomes.filter(item => item.status === 'rejected')).toHaveLength(0)
+    expect(db._store[AI_POINT_TRANSACTIONS_COLLECTION]).toHaveLength(3)
   })
 
   it('fails closed on idempotency conflicts and settlement overages', async () => {
@@ -667,7 +659,7 @@ describe('account-api ai point ledger', () => {
       taskId: 'task_fixture_overage_001',
       amountMicroPoints: 30_000,
       idempotencyKey: 'reserve:task_fixture_overage_001',
-      activeTaskExpiresAt: NOW + 10 * 60 * 1000,
+      reservationExpiresAt: NOW + 10 * 60 * 1000,
       now: NOW + 1,
     })
 
@@ -683,7 +675,7 @@ describe('account-api ai point ledger', () => {
     await expect(getAiPointAccount(db, 'user_fixture_001')).resolves.toMatchObject({
       availableMicroPoints: 70_000,
       reservedMicroPoints: 30_000,
-      activeTask: { taskId: 'task_fixture_overage_001' },
+      activeReservationCount: 1,
       version: 2,
     })
     expect(db._store[AI_POINT_TRANSACTIONS_COLLECTION]).toHaveLength(2)
@@ -699,7 +691,7 @@ describe('account-api ai point ledger', () => {
       taskId: 'task_fixture_binding_001',
       amountMicroPoints: 30_000,
       idempotencyKey: 'reserve:task_fixture_binding_001',
-      activeTaskExpiresAt: NOW + 10 * 60 * 1000,
+      reservationExpiresAt: NOW + 10 * 60 * 1000,
       now: NOW + 1,
     })
 
@@ -725,12 +717,12 @@ describe('account-api ai point ledger', () => {
     await expect(getAiPointAccount(db, 'user_fixture_001')).resolves.toMatchObject({
       availableMicroPoints: 70_000,
       reservedMicroPoints: 30_000,
-      activeTask: { taskId: 'task_fixture_binding_001' },
+      activeReservationCount: 1,
       version: 2,
     })
   })
 
-  it('enforces twenty accepted tasks per Shanghai calendar day', async () => {
+  it('does not use task count as the daily entitlement', async () => {
     const db = makeFakeDb({})
     await grantAiPoints(db, grantInput())
     for (let index = 0; index < 20; index += 1) {
@@ -742,7 +734,7 @@ describe('account-api ai point ledger', () => {
         taskId,
         amountMicroPoints: 1,
         idempotencyKey: `reserve:${taskId}`,
-        activeTaskExpiresAt: NOW + 10 * 60 * 1000,
+        reservationExpiresAt: NOW + 10 * 60 * 1000,
         now: NOW + index * 2 + 1,
       })
       await settleAiPoints(db, {
@@ -763,22 +755,27 @@ describe('account-api ai point ledger', () => {
       taskId: 'task_fixture_daily_21',
       amountMicroPoints: 1,
       idempotencyKey: 'reserve:task_fixture_daily_21',
-      activeTaskExpiresAt: NOW + 10 * 60 * 1000,
+      reservationExpiresAt: NOW + 10 * 60 * 1000,
       now: NOW + 100,
-    })).rejects.toThrow(/任务数已达上限/)
+    })).resolves.toMatchObject({
+      account: {
+        activeReservationCount: 1,
+        reservedMicroPoints: 1,
+      },
+    })
   })
 
-  it('enforces the daily 500 AI point exposure limit', async () => {
+  it('enforces the daily 5,000 AI point disaster ceiling', async () => {
     const db = makeFakeDb({})
-    await grantAiPoints(db, grantInput({ amountMicroPoints: 600_000 }))
+    await grantAiPoints(db, grantInput({ amountMicroPoints: 6_000_000 }))
     await reserveAiPoints(db, {
       userId: 'user_fixture_001',
       appId: 'advjs-studio',
       scope: 'studio-managed-ai',
       taskId: 'task_fixture_daily_points_001',
-      amountMicroPoints: 500_000,
+      amountMicroPoints: 5_000_000,
       idempotencyKey: 'reserve:task_fixture_daily_points_001',
-      activeTaskExpiresAt: NOW + 10 * 60 * 1000,
+      reservationExpiresAt: NOW + 10 * 60 * 1000,
       now: NOW + 1,
     })
     await settleAiPoints(db, {
@@ -786,7 +783,7 @@ describe('account-api ai point ledger', () => {
       appId: 'advjs-studio',
       scope: 'studio-managed-ai',
       taskId: 'task_fixture_daily_points_001',
-      chargedMicroPoints: 500_000,
+      chargedMicroPoints: 5_000_000,
       idempotencyKey: 'settle:task_fixture_daily_points_001',
       now: NOW + 2,
     })
@@ -798,7 +795,7 @@ describe('account-api ai point ledger', () => {
       taskId: 'task_fixture_daily_points_002',
       amountMicroPoints: 1,
       idempotencyKey: 'reserve:task_fixture_daily_points_002',
-      activeTaskExpiresAt: NOW + 10 * 60 * 1000,
+      reservationExpiresAt: NOW + 10 * 60 * 1000,
       now: NOW + 3,
     })).rejects.toThrow(/当日 AI 点数额度不足/)
   })
@@ -814,7 +811,7 @@ describe('account-api ai point ledger', () => {
       taskId: 'task_fixture_cross_day_001',
       amountMicroPoints: 30_000,
       idempotencyKey: 'reserve:task_fixture_cross_day_001',
-      activeTaskExpiresAt: dayTwo + 10 * 60 * 1000,
+      reservationExpiresAt: dayTwo + 10 * 60 * 1000,
       now: dayTwo - 2_000,
     })
     const settled = await settleAiPoints(db, {
@@ -831,7 +828,6 @@ describe('account-api ai point ledger', () => {
       reservedMicroPoints: 0,
       daily: {
         dateKey: '2026-08-15',
-        acceptedTasks: 0,
         reservedMicroPoints: 0,
         chargedMicroPoints: 12_000,
       },

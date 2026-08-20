@@ -17,6 +17,7 @@ const crypto = require('node:crypto')
 
 const WALLET_COLLECTION = 'user_wallet'
 const COIN_TX_COLLECTION = 'coin_transactions'
+const COIN_RESERVATIONS_COLLECTION = 'coin_reservations'
 
 /** 兼容旧模块导出；实际事务冲突由 CloudBase SDK 自动重试。 */
 const WALLET_MAX_RETRY = 5
@@ -43,6 +44,10 @@ function coinTxDocId({ userId, type, refId }) {
   return refId
     ? stableDocId('coin_transaction', userId, type, refId)
     : randomDocId()
+}
+
+function coinReservationDocId(userId, reservationId) {
+  return stableDocId('coin_reservation', userId, reservationId)
 }
 
 function transactionDoc(result) {
@@ -92,6 +97,14 @@ function walletVersion(wallet) {
   return Number.isInteger(wallet && wallet.version) && wallet.version >= 0 ? wallet.version : 0
 }
 
+function walletReserved(wallet) {
+  if (!wallet || wallet.reserved === undefined)
+    return 0
+  if (!Number.isInteger(wallet.reserved) || wallet.reserved < 0)
+    throw new Error('云币钱包预留余额数据异常')
+  return wallet.reserved
+}
+
 function assertWalletOwner(wallet, userId) {
   if (wallet && wallet.userId !== userId)
     throw new Error('云币钱包文档归属异常')
@@ -107,6 +120,37 @@ function assertCoinTxMatch(transaction, { userId, type, refId }) {
     )
   ) {
     throw new Error('云币流水幂等键冲突')
+  }
+}
+
+function assertCoinReservationMatch(reservation, { userId, appId, reservationId, amount }) {
+  if (!reservation)
+    return
+  if (
+    reservation.userId !== userId
+    || reservation.appId !== appId
+    || reservation.reservationId !== reservationId
+    || (amount !== undefined && reservation.amount !== amount)
+  ) {
+    throw new Error('云币预留幂等键冲突')
+  }
+}
+
+function assertReservationIdentity({ userId, appId, reservationId }) {
+  if (!userId)
+    throw new Error('coinReservation: 缺少 userId')
+  if (typeof appId !== 'string' || !appId.trim())
+    throw new Error('coinReservation: 缺少 appId')
+  if (typeof reservationId !== 'string' || !reservationId.trim())
+    throw new Error('coinReservation: 缺少 reservationId')
+}
+
+function reservationOutcome(wallet, reservation, deduped) {
+  return {
+    balance: walletBalance(wallet),
+    reserved: walletReserved(wallet),
+    reservation,
+    deduped,
   }
 }
 
@@ -231,6 +275,7 @@ async function creditCoin(db, { userId, appId, amount, type = 'recharge', refId,
         await setTransactionDoc(walletRef, {
           userId,
           balance: newBalance,
+          reserved: 0,
           version: 1,
           createdAt: now,
           updatedAt: now,
@@ -346,6 +391,231 @@ async function deductCoin(db, { userId, appId, amount, bizId, meta, now }) {
 }
 
 /**
+ * 预留云币。预留时从可用余额移入 reserved，模型成功后再提交消费流水；
+ * 失败或过期则释放回可用余额。reservationId 是跨重试幂等键。
+ */
+async function reserveCoin(db, { userId, appId, amount, reservationId, expiresAt, meta, now }) {
+  assertReservationIdentity({ userId, appId, reservationId })
+  if (!Number.isInteger(amount) || amount <= 0)
+    throw new Error(`reserveCoin: amount 必须为正整数，收到 ${amount}`)
+  if (!Number.isSafeInteger(now) || !Number.isSafeInteger(expiresAt) || expiresAt <= now)
+    throw new Error('reserveCoin: expiresAt 必须晚于 now')
+
+  const knownWallet = await getWallet(db, userId)
+  const walletId = walletDocId(userId, knownWallet)
+  const reservationDocId = coinReservationDocId(userId, reservationId)
+  let outcome
+
+  await db.runTransaction(async (transaction) => {
+    const reservationRef = transaction.collection(COIN_RESERVATIONS_COLLECTION).doc(reservationDocId)
+    const existing = await readTransactionDoc(reservationRef)
+    assertCoinReservationMatch(existing, { userId, appId, reservationId, amount })
+
+    const walletRef = transaction.collection(WALLET_COLLECTION).doc(walletId)
+    const wallet = await readTransactionDoc(walletRef)
+    assertWalletOwner(wallet, userId)
+    if (existing) {
+      outcome = reservationOutcome(wallet, existing, true)
+      return outcome
+    }
+
+    const currentBalance = walletBalance(wallet)
+    if (!wallet || currentBalance < amount)
+      throw new Error('云币余额不足')
+
+    const reservation = {
+      userId,
+      appId,
+      reservationId,
+      amount,
+      status: 'active',
+      expiresAt,
+      meta: meta || {},
+      createdAt: now,
+      updatedAt: now,
+    }
+    const nextWallet = {
+      ...wallet,
+      balance: currentBalance - amount,
+      reserved: walletReserved(wallet) + amount,
+      version: walletVersion(wallet) + 1,
+      updatedAt: now,
+    }
+    await updateTransactionDoc(walletRef, {
+      balance: nextWallet.balance,
+      reserved: nextWallet.reserved,
+      version: nextWallet.version,
+      updatedAt: now,
+    })
+    await setTransactionDoc(reservationRef, reservation)
+    outcome = reservationOutcome(nextWallet, reservation, false)
+    return outcome
+  })
+
+  return outcome
+}
+
+/** 提交已预留的云币，并写入唯一 consume 流水。 */
+async function commitCoinReservation(db, { userId, appId, reservationId, now }) {
+  assertReservationIdentity({ userId, appId, reservationId })
+  const knownWallet = await getWallet(db, userId)
+  const walletId = walletDocId(userId, knownWallet)
+  const reservationDocId = coinReservationDocId(userId, reservationId)
+  const transactionId = coinTxDocId({ userId, type: 'consume', refId: reservationId })
+  let outcome
+
+  await db.runTransaction(async (transaction) => {
+    const reservationRef = transaction.collection(COIN_RESERVATIONS_COLLECTION).doc(reservationDocId)
+    const reservation = await readTransactionDoc(reservationRef)
+    assertCoinReservationMatch(reservation, { userId, appId, reservationId })
+    if (!reservation)
+      throw new Error('云币预留不存在')
+
+    const walletRef = transaction.collection(WALLET_COLLECTION).doc(walletId)
+    const wallet = await readTransactionDoc(walletRef)
+    assertWalletOwner(wallet, userId)
+    if (reservation.status === 'committed') {
+      outcome = reservationOutcome(wallet, reservation, true)
+      return outcome
+    }
+    if (reservation.status !== 'active')
+      throw new Error('云币预留已释放，无法提交')
+
+    const reserved = walletReserved(wallet)
+    if (!wallet || reserved < reservation.amount)
+      throw new Error('云币钱包预留余额不足')
+
+    const txRef = transaction.collection(COIN_TX_COLLECTION).doc(transactionId)
+    const existingTransaction = await readTransactionDoc(txRef)
+    assertCoinTxMatch(existingTransaction, { userId, type: 'consume', refId: reservationId })
+    if (existingTransaction)
+      throw new Error('云币消费流水与活动预留冲突')
+
+    const committed = {
+      ...reservation,
+      status: 'committed',
+      committedAt: now,
+      updatedAt: now,
+    }
+    const nextWallet = {
+      ...wallet,
+      reserved: reserved - reservation.amount,
+      version: walletVersion(wallet) + 1,
+      updatedAt: now,
+    }
+    await updateTransactionDoc(walletRef, {
+      reserved: nextWallet.reserved,
+      version: nextWallet.version,
+      updatedAt: now,
+    })
+    await setTransactionDoc(txRef, coinTxData({
+      userId,
+      appId,
+      type: 'consume',
+      amount: -reservation.amount,
+      balanceAfter: walletBalance(wallet),
+      refId: reservationId,
+      meta: reservation.meta,
+      now,
+    }))
+    await setTransactionDoc(reservationRef, committed)
+    outcome = reservationOutcome(nextWallet, committed, false)
+    return outcome
+  })
+
+  return outcome
+}
+
+/** 释放活动预留，不写消费流水。 */
+async function releaseCoinReservation(db, { userId, appId, reservationId, reason, now }) {
+  assertReservationIdentity({ userId, appId, reservationId })
+  const knownWallet = await getWallet(db, userId)
+  const walletId = walletDocId(userId, knownWallet)
+  const reservationDocId = coinReservationDocId(userId, reservationId)
+  let outcome
+
+  await db.runTransaction(async (transaction) => {
+    const reservationRef = transaction.collection(COIN_RESERVATIONS_COLLECTION).doc(reservationDocId)
+    const reservation = await readTransactionDoc(reservationRef)
+    assertCoinReservationMatch(reservation, { userId, appId, reservationId })
+    if (!reservation)
+      throw new Error('云币预留不存在')
+
+    const walletRef = transaction.collection(WALLET_COLLECTION).doc(walletId)
+    const wallet = await readTransactionDoc(walletRef)
+    assertWalletOwner(wallet, userId)
+    if (reservation.status === 'released') {
+      outcome = reservationOutcome(wallet, reservation, true)
+      return outcome
+    }
+    if (reservation.status !== 'active')
+      throw new Error('云币预留已提交，无法释放')
+
+    const reserved = walletReserved(wallet)
+    if (!wallet || reserved < reservation.amount)
+      throw new Error('云币钱包预留余额不足')
+
+    const released = {
+      ...reservation,
+      status: 'released',
+      releaseReason: typeof reason === 'string' ? reason : '',
+      releasedAt: now,
+      updatedAt: now,
+    }
+    const nextWallet = {
+      ...wallet,
+      balance: walletBalance(wallet) + reservation.amount,
+      reserved: reserved - reservation.amount,
+      version: walletVersion(wallet) + 1,
+      updatedAt: now,
+    }
+    await updateTransactionDoc(walletRef, {
+      balance: nextWallet.balance,
+      reserved: nextWallet.reserved,
+      version: nextWallet.version,
+      updatedAt: now,
+    })
+    await setTransactionDoc(reservationRef, released)
+    outcome = reservationOutcome(nextWallet, released, false)
+    return outcome
+  })
+
+  return outcome
+}
+
+/** 有界扫描并释放过期活动预留，供 Sweeper 调用。 */
+async function releaseExpiredCoinReservations(db, { now, limit = 50 }) {
+  if (!Number.isSafeInteger(now))
+    throw new Error('releaseExpiredCoinReservations: now 无效')
+  const boundedLimit = Number.isInteger(limit) ? Math.min(Math.max(limit, 1), 100) : 50
+  const { data } = await db
+    .collection(COIN_RESERVATIONS_COLLECTION)
+    .where({ status: 'active', expiresAt: db.command.lte(now) })
+    .limit(boundedLimit)
+    .get()
+  const reservations = Array.isArray(data) ? data : []
+  let released = 0
+  let failed = 0
+
+  for (const reservation of reservations) {
+    try {
+      await releaseCoinReservation(db, {
+        userId: reservation.userId,
+        appId: reservation.appId,
+        reservationId: reservation.reservationId,
+        reason: 'reservation_expired',
+        now,
+      })
+      released += 1
+    }
+    catch {
+      failed += 1
+    }
+  }
+  return { scanned: reservations.length, released, failed }
+}
+
+/**
  * 云币追回（支付渠道退款后收回已入账的云币）。
  *
  * 与 deductCoin 的区别：余额不足不抛错，扣到零封顶（差额即平台资损，由调用方记日志）。
@@ -439,11 +709,16 @@ async function clawbackCoin(db, { userId, appId, amount, refId, meta, now }) {
 module.exports = {
   WALLET_COLLECTION,
   COIN_TX_COLLECTION,
+  COIN_RESERVATIONS_COLLECTION,
   WALLET_MAX_RETRY,
   getWallet,
   getBalance,
   findTxByRef,
   creditCoin,
   deductCoin,
+  reserveCoin,
+  commitCoinReservation,
+  releaseCoinReservation,
+  releaseExpiredCoinReservations,
   clawbackCoin,
 }
