@@ -14,10 +14,12 @@ const root = resolve(import.meta.dirname, '../..')
 const script = resolve(root, 'scripts/ensure-ai-runtime-resources.mjs')
 
 describe('ai runtime cloudbase resource manifest', () => {
-  it('declares exactly five ADMINONLY collections and required query indexes', () => {
+  it('declares exactly seven ADMINONLY collections and required query indexes', () => {
     expect(AI_RUNTIME_COLLECTION_MANIFESTS.map(item => item.collection)).toEqual([
       'ai_point_accounts',
       'ai_point_transactions',
+      'ai_point_reservations',
+      'coin_reservations',
       'ai_usage_records',
       'ai_tasks',
       'ai_runtime_control',
@@ -25,6 +27,16 @@ describe('ai runtime cloudbase resource manifest', () => {
     expect(AI_RUNTIME_COLLECTION_MANIFESTS.every(item => item.access === 'ADMINONLY')).toBe(true)
     expect(AI_RUNTIME_COLLECTION_MANIFESTS.find(item => item.collection === 'ai_point_accounts')?.indexes)
       .toContainEqual(expect.objectContaining({ name: 'user_id_unique', unique: true }))
+    expect(AI_RUNTIME_COLLECTION_MANIFESTS.find(item => item.collection === 'ai_point_reservations')?.indexes)
+      .toEqual(expect.arrayContaining([
+        expect.objectContaining({ name: 'user_status_expires', unique: false }),
+        expect.objectContaining({ name: 'status_expires', unique: false }),
+      ]))
+    expect(AI_RUNTIME_COLLECTION_MANIFESTS.find(item => item.collection === 'coin_reservations')?.indexes)
+      .toEqual(expect.arrayContaining([
+        expect.objectContaining({ name: 'user_status_expires', unique: false }),
+        expect.objectContaining({ name: 'status_expires', unique: false }),
+      ]))
     expect(AI_RUNTIME_COLLECTION_MANIFESTS.find(item => item.collection === 'ai_usage_records')?.indexes)
       .toEqual(expect.arrayContaining([
         expect.objectContaining({ name: 'task_attempt_unique', unique: true }),
@@ -47,29 +59,6 @@ describe('ai runtime cloudbase resource manifest', () => {
           ],
         }),
         expect.objectContaining({
-          name: 'app_id_created',
-          fields: [
-            { field: 'appId', order: 'asc' },
-            { field: 'createdAt', order: 'asc' },
-          ],
-        }),
-        expect.objectContaining({
-          name: 'app_id_status_created',
-          fields: [
-            { field: 'appId', order: 'asc' },
-            { field: 'status', order: 'asc' },
-            { field: 'createdAt', order: 'asc' },
-          ],
-        }),
-        expect.objectContaining({
-          name: 'app_id_status_lease_expiry',
-          fields: [
-            { field: 'appId', order: 'asc' },
-            { field: 'status', order: 'asc' },
-            { field: 'leaseExpiresAt', order: 'asc' },
-          ],
-        }),
-        expect.objectContaining({
           name: 'status_created',
           fields: [
             { field: 'status', order: 'asc' },
@@ -84,8 +73,8 @@ describe('ai runtime cloudbase resource manifest', () => {
   it('plans missing resources and reports unsafe index or unknown collection drift', () => {
     const missing = buildAiRuntimeResourcePlan({ remoteCollections: [] })
     expect(missing.safe).toBe(true)
-    expect(missing.actions.filter(action => action.kind === 'create_collection')).toHaveLength(5)
-    expect(missing.actions.filter(action => action.kind === 'set_access')).toHaveLength(5)
+    expect(missing.actions.filter(action => action.kind === 'create_collection')).toHaveLength(7)
+    expect(missing.actions.filter(action => action.kind === 'set_access')).toHaveLength(7)
     expect(missing.risks).toEqual(expect.arrayContaining([
       expect.objectContaining({ kind: 'new_server_only_collection' }),
       expect.objectContaining({ kind: 'access_will_be_restricted' }),
@@ -137,7 +126,7 @@ describe('ai runtime cloudbase resource manifest', () => {
       mode: 'manifest',
       network: false,
       applied: false,
-      collections: 5,
+      collections: 7,
     })
   })
 

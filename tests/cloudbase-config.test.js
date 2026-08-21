@@ -18,16 +18,11 @@ describe('cloudBase test identity deployment manifest', () => {
   it('versions every private test-identity environment variable as a placeholder', () => {
     expect(functions.get('account-api').envVariables).toMatchObject({
       YUNLEFUN_AI_RUNTIME_ACCOUNT_API_TOKEN: '{{env.YUNLEFUN_AI_RUNTIME_ACCOUNT_API_TOKEN}}',
-      AI_GATEWAY_ACCOUNT_API_TOKEN: '{{env.AI_GATEWAY_ACCOUNT_API_TOKEN}}',
+      YUNLEFUN_AI_COIN_ACCOUNT_API_TOKEN: '{{env.YUNLEFUN_AI_COIN_ACCOUNT_API_TOKEN}}',
       PLAY_PACHINKO_ACCOUNT_API_TOKEN: '{{env.PLAY_PACHINKO_ACCOUNT_API_TOKEN}}',
       TEST_BROKER_ACCOUNT_API_TOKEN: '{{env.TEST_BROKER_ACCOUNT_API_TOKEN}}',
     })
     expect(functions.get('account-api').envVariables).not.toHaveProperty('ADVJS_AI_RUNTIME_ACCOUNT_API_TOKEN')
-    expect(functions.get('ai-gateway').envVariables).toMatchObject({
-      AI_GATEWAY_ACCOUNT_API_TOKEN: '{{env.AI_GATEWAY_ACCOUNT_API_TOKEN}}',
-      TEST_BROKER_RECONCILE_TOKEN: '{{env.TEST_BROKER_RECONCILE_TOKEN}}',
-      TEST_LEASE_CAPABILITY_SIGNING_KEY: '{{env.TEST_LEASE_CAPABILITY_SIGNING_KEY}}',
-    })
     expect(functions.get('sso-ticket').envVariables).toMatchObject({
       AUTH_ISSUER_ENVIRONMENT: '{{env.AUTH_ISSUER_ENVIRONMENT}}',
       SSO_IDENTITY_SIGNING_KEY: '{{env.SSO_IDENTITY_SIGNING_KEY}}',
@@ -141,7 +136,6 @@ describe('cloudBase test identity deployment manifest', () => {
   it('requires CloudBase authentication on browser-callable business functions', () => {
     expect(functions.get('sso-ticket').aclRule).toEqual({ invoke: 'auth != null' })
     expect(functions.get('account-api').aclRule).toEqual({ invoke: 'auth != null' })
-    expect(functions.get('ai-gateway').aclRule).toEqual({ invoke: 'auth != null' })
   })
 
   it('keeps SDK issuance authenticated while exposing only policy resolution over HTTP', () => {
@@ -162,7 +156,7 @@ describe('cloudBase test identity deployment manifest', () => {
   })
 
   it('configures the private account access token on every restricted business function', () => {
-    for (const name of ['ai-gateway', 'desktop-auth', 'github-api', 'iap-order', 'sso-ticket', 'user-storage-api', 'wxpay-order']) {
+    for (const name of ['desktop-auth', 'github-api', 'iap-order', 'sso-ticket', 'user-storage-api', 'wxpay-order']) {
       expect(functions.get(name)?.envVariables, `${name} 缺少统一账号状态鉴权配置`).toMatchObject({
         ACCOUNT_API_INTERNAL_TOKEN: '{{env.ACCOUNT_API_INTERNAL_TOKEN}}',
       })
@@ -175,9 +169,5 @@ describe('cloudBase test identity deployment manifest', () => {
   it('does not treat CloudBase anonymous sessions as authenticated users', () => {
     expect(authCoreSource).toContain('isAnonymousSession({ user: rawUser })')
     expect(authCoreSource).toContain('data?.session && !isAnonymousSession(data.session)')
-  })
-
-  it('allows the AI gateway enough time for non-streaming structured output', () => {
-    expect(functions.get('ai-gateway').timeout).toBe(90)
   })
 })

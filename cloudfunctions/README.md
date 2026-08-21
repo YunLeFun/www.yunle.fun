@@ -1,32 +1,31 @@
 # CloudBase 云函数
 
-本目录包含 [www.yunle.fun](https://www.yunle.fun) 的全部 CloudBase 云函数：微信支付、Apple 内购、平台账户中心（云币 + 跨应用会员）、受控 AI 计费网关、桌面应用登录授权、跨站 SSO 登录票据、GitHub App 仓库连接、短链跳转解析与统计。
+本目录包含 [www.yunle.fun](https://www.yunle.fun) 的全部 CloudBase 云函数：微信支付、Apple 内购、平台账户中心（云币 + 跨应用会员 + AI 点数）、桌面应用登录授权、跨站 SSO 登录票据、GitHub App 仓库连接、短链跳转解析与统计。
 
 > 📖 云函数的概念、类型与调用方式见官方文档：[CloudBase 云函数介绍](https://docs.cloudbase.net/cloud-function/introduce)。
 
 ## 云函数列表
 
-| 云函数                            | 用途                                                                                                     | 调用方式               | 超时 |
-| --------------------------------- | -------------------------------------------------------------------------------------------------------- | ---------------------- | ---- |
-| `wxpay-order`                     | 创建支付订单（会员 / 云币充值）+ 查询订单 + 对账自愈                                                     | SDK `callFunction`     | 30s  |
-| `wxpay-notify`                    | 接收微信支付异步回调通知                                                                                 | HTTP 访问服务          | 10s  |
-| `account-api`                     | 平台账户中心：账户 / 云币 / 会员 / 奖励 / 签到 / 投币 / 关注·粉丝 / 注销冷静期                           | SDK `callFunction`     | 10s  |
-| `reward-claim-ops`                | 每 5 分钟结束到期领取活动、恢复未知入账、清理限流窗口并投递运营告警 Outbox                               | 定时触发（私有）       | 30s  |
-| `account-deletion-sweeper`        | 每小时完成已满 30 天冷静期的业务清理并删除 CloudBase Auth 身份                                           | 定时触发（私有）       | 30s  |
-| `account-lifecycle-notifier`      | 每 5 分钟通过腾讯云 SES 处理注销申请、提醒、完成、延迟及运维事务邮件，并轮询实际投递状态                 | 定时触发（私有）       | 30s  |
-| `user-storage-api`                | 通用用户云空间：共享 quota / 上传预留 / 确认 / 文件索引 / 下载 / 删除 / app-kind policy                  | SDK `callFunction`     | 10s  |
-| `ai-gateway`                      | 通用「登录计费 + 受控 AI 生成」网关：验登录 + 按 `appId` 服务端计价 + 管理员身份调 AI + `bizId` 幂等扣费 | 登录态 `/v1/functions` | 30s  |
-| `iap-order`                       | Apple 内购（IAP）凭据校验 + 权益发放                                                                     | SDK `callFunction`     | 30s  |
-| `appstore-notify`                 | 接收 App Store Server Notifications V2（退款 / 撤销自动处理）                                            | HTTP 访问服务          | 30s  |
-| `sso-registry-admin`              | 管理 SSO Client Registry 草稿、审批、签名快照、release intent、回滚与审计                                | 管理面调用（私有）     | 30s  |
-| `sso-registry-release-dispatcher` | 用仓库级 GitHub App 有界重试发布 outbox，触发受检 generated 静态发布 CI                                  | timer，禁止直接调用    | 30s  |
-| `desktop-auth`                    | 桌面 / 本地应用登录授权（设备授权码 + Ed25519 离线 entitlement）                                         | SDK + HTTP 双入口      | 10s  |
-| `shortlink-resolve`               | 短链只读解析：按 `(domain, slug)` 读 `short_links` 返回跳转目标，供 EdgeOne 跳转函数回源                 | HTTP 访问服务          | 10s  |
-| `shortlink-stat`                  | 短链点击统计：接收 EdgeOne 跳转函数上报，分片 CAS 累加到 `shortlink_stats`；admin 经 SDK 读              | HTTP（写）+ SDK（读）  | 10s  |
-| `sso-ticket`                      | 签发/消费绑定 origin+nonce 的一次性 SSO 授权码，并在同源 HTTPS 响应中铸 CloudBase ticket                 | SDK + HTTP 双入口      | 10s  |
-| `sso-security-sweeper`            | 清理过期 SSO 授权码审计记录与持久化限流窗口；不持有签票私钥                                              | timer，禁止直接调用    | 30s  |
-| `session-security-sweeper`        | 将到期的 Drive/CMS opaque session 置为 expired，并清理超过 90 天的终态记录                               | timer，禁止直接调用    | 30s  |
-| `github-api`                      | 多用户 GitHub App 仓库连接 / 列举 / 校验（含私有仓库），短期 installation token 不落库                   | SDK + HTTP 双入口      | 10s  |
+| 云函数                            | 用途                                                                                        | 调用方式              | 超时 |
+| --------------------------------- | ------------------------------------------------------------------------------------------- | --------------------- | ---- |
+| `wxpay-order`                     | 创建支付订单（会员 / 云币充值）+ 查询订单 + 对账自愈                                        | SDK `callFunction`    | 30s  |
+| `wxpay-notify`                    | 接收微信支付异步回调通知                                                                    | HTTP 访问服务         | 10s  |
+| `account-api`                     | 平台账户中心：账户 / 云币 / AI 点数 / 会员 / 奖励 / 签到 / 投币 / 关注·粉丝 / 注销冷静期    | SDK `callFunction`    | 10s  |
+| `reward-claim-ops`                | 每 5 分钟结束到期领取活动、恢复未知入账、清理限流窗口并投递运营告警 Outbox                  | 定时触发（私有）      | 30s  |
+| `account-deletion-sweeper`        | 每小时完成已满 30 天冷静期的业务清理并删除 CloudBase Auth 身份                              | 定时触发（私有）      | 30s  |
+| `account-lifecycle-notifier`      | 每 5 分钟通过腾讯云 SES 处理注销申请、提醒、完成、延迟及运维事务邮件，并轮询实际投递状态    | 定时触发（私有）      | 30s  |
+| `user-storage-api`                | 通用用户云空间：共享 quota / 上传预留 / 确认 / 文件索引 / 下载 / 删除 / app-kind policy     | SDK `callFunction`    | 10s  |
+| `iap-order`                       | Apple 内购（IAP）凭据校验 + 权益发放                                                        | SDK `callFunction`    | 30s  |
+| `appstore-notify`                 | 接收 App Store Server Notifications V2（退款 / 撤销自动处理）                               | HTTP 访问服务         | 30s  |
+| `sso-registry-admin`              | 管理 SSO Client Registry 草稿、审批、签名快照、release intent、回滚与审计                   | 管理面调用（私有）    | 30s  |
+| `sso-registry-release-dispatcher` | 用仓库级 GitHub App 有界重试发布 outbox，触发受检 generated 静态发布 CI                     | timer，禁止直接调用   | 30s  |
+| `desktop-auth`                    | 桌面 / 本地应用登录授权（设备授权码 + Ed25519 离线 entitlement）                            | SDK + HTTP 双入口     | 10s  |
+| `shortlink-resolve`               | 短链只读解析：按 `(domain, slug)` 读 `short_links` 返回跳转目标，供 EdgeOne 跳转函数回源    | HTTP 访问服务         | 10s  |
+| `shortlink-stat`                  | 短链点击统计：接收 EdgeOne 跳转函数上报，分片 CAS 累加到 `shortlink_stats`；admin 经 SDK 读 | HTTP（写）+ SDK（读） | 10s  |
+| `sso-ticket`                      | 签发/消费绑定 origin+nonce 的一次性 SSO 授权码，并在同源 HTTPS 响应中铸 CloudBase ticket    | SDK + HTTP 双入口     | 10s  |
+| `sso-security-sweeper`            | 清理过期 SSO 授权码审计记录与持久化限流窗口；不持有签票私钥                                 | timer，禁止直接调用   | 30s  |
+| `session-security-sweeper`        | 将到期的 Drive/CMS opaque session 置为 expired，并清理超过 90 天的终态记录                  | timer，禁止直接调用   | 30s  |
+| `github-api`                      | 多用户 GitHub App 仓库连接 / 列举 / 校验（含私有仓库），短期 installation token 不落库      | SDK + HTTP 双入口     | 10s  |
 
 > 云币 + 跨应用会员的整体设计见 [`docs/coin-and-membership.md`](../docs/coin-and-membership.md)。
 > 其中 5 个支付 / 账户函数共享同一份 `lib/`：权威源在 `cloudfunctions/wxpay-order/lib`，`pnpm sync:wxpay-lib` 同步到
@@ -75,7 +74,8 @@
 | 变量名                                        | 说明                                                                                                                                                                                                                            | 获取方式                                     |
 | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
 | `ACCOUNT_API_INTERNAL_TOKEN`                  | 内部服务调用 `deductCoinForUser` / `adminAdjustCoin` / `adminGrantReward` / `adminCorrectReward` / `admin*RewardClaimCampaign` / `finalizeAccountDeletion` 时校验用的共享密钥；调用方（其它云函数、admin 后台）需配置同一个值。 | 使用随机长字符串，勿暴露给前端。             |
-| `YUNLEFUN_AI_RUNTIME_ACCOUNT_API_TOKEN`       | YunLeFun AI Runtime 调用 AI 点数私有 action 的平台凭据；不得复用通用 account-api、旧 ai-gateway、Runtime 管理或测试身份 token。旧变量 `ADVJS_AI_RUNTIME_ACCOUNT_API_TOKEN` 仅在回滚窗口内作为同值别名读取，不再写入部署清单。   | 使用独立的 32～512 字节高熵随机值。          |
+| `YUNLEFUN_AI_RUNTIME_ACCOUNT_API_TOKEN`       | YunLeFun AI Runtime 调用 AI 点数私有 action 的平台凭据；不得复用通用 account-api、云币、Runtime 管理或测试身份 token。旧变量 `ADVJS_AI_RUNTIME_ACCOUNT_API_TOKEN` 仅在迁移脚本中识别，不再写入部署清单。                        | 使用独立的 32～512 字节高熵随机值。          |
+| `YUNLEFUN_AI_COIN_ACCOUNT_API_TOKEN`          | YunLeFun AI Runtime 调用云币 reserve / commit / release / 过期回收 action 的最小权限凭据。                                                                                                                                      | 另行生成 32～512 字节高熵随机值。            |
 | `YUNLEFUN_TEST_ACCOUNT_ENVIRONMENT`           | 固定测试账号的部署环境边界；只有账号 `environment` 与此值相同才能扣币。                                                                                                                                                         | 测试部署设 `test`，生产部署设 `production`。 |
 | `REWARD_CLAIM_LINK_HASH_KEY`                  | 领取链接服务端 HMAC 摘要密钥；数据库只保存摘要。                                                                                                                                                                                | 独立生成至少 32 字节随机值。                 |
 | `REWARD_CLAIM_RATE_TICKET_SECRET`             | 两分钟 IP 匿名速率凭证签名密钥；必须与链接摘要密钥不同。                                                                                                                                                                        | 独立生成至少 32 字节随机值。                 |
@@ -135,34 +135,14 @@ CloudBase/SCF 运行时临时凭证；运行身份只授予 `ses:SendEmail` 与 
 定时函数使用 SCF 运行身份的临时密钥调用 CloudBase Manager User API。运行身份必须具备当前环境的
 `DescribeUserList`、`ModifyUser`、`DeleteUsers` 权限；函数本身 `aclRule.invoke=false`，只能由每小时定时器触发。
 
-### ai-gateway 环境变量
+### AI Runtime 资产边界
 
-| 变量名                              | 说明                                                                                                                           | 获取方式                                                        |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------- |
-| `ACCOUNT_API_INTERNAL_TOKEN`        | 内部转调 `account-api`（查余额 `getAccountForUser` / 扣云币 `deductCoinForUser`）的共享密钥，**须与 `account-api` 配同一值**。 | 与 `account-api` / `desktop-auth` 中的值相同。                  |
-| `YUNLEFUN_TEST_ACCOUNT_ENVIRONMENT` | 固定测试账号的部署环境边界；缺失或不匹配时拒绝调用模型。                                                                       | 测试部署设 `test`，生产部署设 `production`。                    |
-| `ZERO_ECHO_APP_SIGNING_SECRET`      | 《零点回声》EdgeOne 调用的 HMAC 应用签名密钥，只在服务端使用。                                                                 | 与 EdgeOne 的 `YUNLE_ZERO_ECHO_SIGNING_SECRET` 配置同一随机值。 |
-| `CANGSHENG_APP_SIGNING_SECRET`      | 《仓生》EdgeOne 调用的 HMAC 应用签名密钥，只在服务端使用。                                                                     | 与 EdgeOne 的 `YUNLE_CANGSHENG_SIGNING_SECRET` 配置同一随机值。 |
+模型接口、Product Catalog、认证、限流和模型调用统一由 `YunLeFun/api` 的 `ai-runtime` 持有；本仓不再部署第二个 AI 网关。`account-api` 只暴露两组最小权限资产 action：
 
-`ai-gateway` 是**通用**「登录计费 + 受控 AI 生成」网关：只收发通用 `messages` / `content`，**不含任何业务语义**（不认识「春联」之类业务概念）——prompt 构造与结果解析留在各接入应用自己手里。计价 / 模型 / AI 凭证全锁在服务端，端用户改不了。
+- AI 点数：自动零余额开户、首次权益、按 `taskId` 预留/结算/释放和过期回收；每用户最多 4 个活动预留。
+- 云币：固定价格应用使用 reserve / commit / release；失败或超时释放预留，只有交付可用结果后才写唯一消费流水。
 
-日志只记录白名单化的请求 ID、动作、结果码、耗时和消息条数（超过 32 条统一记为 33），不记录 UID、IP、请求/响应正文、提示词、令牌、密钥或底层异常消息。意外错误仅向调用方返回通用错误文案。
-
-**入口**：接入应用（如 `ai-sfc`）的服务端携带**用户登录态**（access_token）经 `/v1/functions/ai-gateway` 调用。
-
-- action：`chat`
-- 入参：`{ action: 'chat', appId, messages, bizId, attestation? }`（`messages` 为 OpenAI 风格 `{ role, content }` 数组，`bizId` 必填；要求应用签名的注册项还需 `attestation`）
-- 返回：按云币计费时为 `{ ok: true, content, balance, deduped }`；按日额度时为 `{ ok: true, content, quota }`；失败统一为 `{ ok: false, code, message, quota? }`
-
-**处理流程**：
-
-1. `app.auth().getUserInfo().uid` 取登录态 uid（匿名 / `anon` 占位身份一律视为未登录，拒绝，避免命中共享占位账户）；
-2. 按 `appId` 查**服务端权威**注册表 `APP_REGISTRY`（端用户无法篡改计价 / 模型 / group）。`ai-sfc` 与 `everything-generator` 按次扣 1 云币；`zero-echo-2026` 与 `cangsheng-2026` 按 Asia/Shanghai 自然日提供普通账号 9 次、有效会员 27 次成功生成；
-3. 需要应用签名的注册项先校验 HMAC 和时间窗，再读取登录账户；云币策略执行余额预检，日额度策略在 `ai_usage_daily` 原子预占；
-4. `app.ai()` 以**管理员身份**调 CloudBase AI 生成；
-5. 云币策略生成成功后按 `bizId` 幂等扣费；日额度策略只保留成功生成的占用，模型失败会回滚本次预占。两种策略均不让失败生成消耗用户权益。
-
-> 🔒 **防白嫖（与 CloudBase 网关权限策略配合）**：AI 由本函数以**管理员身份**（`app.ai()` 走函数内置服务凭证）调用，豁免 deny；而网关侧对 `ai` 资源 **deny 注册 / 匿名用户**，端用户的 access_token 无法直打 `/v1/ai/<group>`，只能经此函数计费生成。编排与计费纯逻辑在 `lib/relay.js`、入参校验在 `lib/validation.js`；`account-api` 负责服务端强制写入固定测试账号的 synthetic 流水标记。相关逻辑均有单测覆盖。云币 + 跨应用会员整体设计见 [`docs/coin-and-membership.md`](../docs/coin-and-membership.md)。
+调用方只访问 `ai-runtime` 的 `/ai/v1/chat` 或 `/ai/v1/tasks`，不得直接调用这些内部 action。两种资产凭据必须分开轮换，`account-api` 仍是余额、会员和不可变流水的唯一真相源。Runtime 的部署和应用签名变量由 `YunLeFun/api` 维护，不放在本仓。
 
 ### iap-order 环境变量
 
@@ -533,7 +513,6 @@ node scripts/build-cloud-function.mjs sso-registry-admin desktop-auth sso-ticket
 node scripts/deploy-function.mjs account-api
 node scripts/deploy-function.mjs reward-claim-ops
 node scripts/deploy-function.mjs user-storage-api
-node scripts/deploy-function.mjs ai-gateway
 node scripts/deploy-function.mjs wxpay-order
 node scripts/deploy-function.mjs wxpay-notify
 node scripts/deploy-function.mjs iap-order
@@ -554,7 +533,7 @@ node scripts/deploy-function.mjs shortlink-stat
 > `wxpay-order` / `wxpay-notify` / `account-api` / `iap-order` / `appstore-notify`——
 > 只部署其中一个会导致各函数 `lib/` 版本不一致。先 `pnpm sync:wxpay-lib && pnpm test`，再逐个部署。
 >
-> `sso-registry-admin`、`desktop-auth` 和 `sso-ticket` 共同依赖 `packages/authorization-core`；修改 Registry Schema、签名或 generated 产物时必须从 `.cloudbase/artifacts` 同步更新三者。`ai-gateway`、`github-api`、`user-storage-api` 各有独立 `lib/`，改自身代码只需部署对应函数；签到 / 投币 / 关注·粉丝功能是 `account-api` 本地代码、未改支付 `lib/` 时只需部署 `account-api`。
+> `sso-registry-admin`、`desktop-auth` 和 `sso-ticket` 共同依赖 `packages/authorization-core`；修改 Registry Schema、签名或 generated 产物时必须从 `.cloudbase/artifacts` 同步更新三者。`github-api`、`user-storage-api` 各有独立 `lib/`，改自身代码只需部署对应函数；AI 资产、签到 / 投币 / 关注·粉丝功能是 `account-api` 本地代码、未改支付 `lib/` 时只需部署 `account-api`。
 
 ## 数据库
 

@@ -1,8 +1,0 @@
-{
-  "name": "ai-gateway",
-  "version": "1.0.0",
-  "main": "index.js",
-  "dependencies": {
-    "@cloudbase/node-sdk": "^3.18.3"
-  }
-}

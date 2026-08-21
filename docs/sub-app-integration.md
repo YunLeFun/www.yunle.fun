@@ -268,12 +268,10 @@ https://support.yunle.fun/feedback/new?app={appId}
 - [ ] （反馈系统上线后）用本应用 `appId` 接入统一支持中心，不自建反馈消息系统
 - [ ] 自测：充值到账、扣费幂等、余额不足提示、会员免扣费
 
-## 8. 受控 AI 日额度应用
+## 8. 接入托管 AI Runtime
 
-`zero-echo-2026` 采用独立于云币的日额度策略：普通用户每天 9 次成功生成，活跃会员每天
-27 次。额度按 Asia/Shanghai 自然日归档在 `ai_usage_daily`，模型失败会回滚本次预占。
+托管模型统一接入 `YunLeFun/api` 的 `ai-runtime`，公开路径为 `/ai/v1/chat` 和 `/ai/v1/tasks`。应用只负责 prompt、输入输出和 UI；模型、Product Catalog、计费策略、限流与审计由 Runtime 服务端注册，客户端不能提交模型、价格或账务 `appId`。
 
-该应用不能由浏览器直接免费调用 `ai-gateway`。EdgeOne 服务端必须用
-`ZERO_ECHO_APP_SIGNING_SECRET` 对 `appId + bizId + timestamp + messages digest` 进行 HMAC
-签名；CloudBase 端在读取账户、预占额度和调用模型前校验签名。签名密钥只配置在两端服务端，
-不得写入仓库、浏览器环境变量或日志。
+当前策略只有三种且互斥：`coin_fixed`、`ai_points_metered`、`sponsored`。固定价格的一次性应用继续使用云币；实时游戏与 Studio 使用按实际用量结算的 AI 点数。用户登录后自动建立 AI 点数账户，普通用户首次获得 100 点，有效会员累计获得 300 点；每个任务独立预留，失败释放，不再使用每日调用次数。
+
+浏览器只携带短期用户身份；需要 HMAC 的游戏由 EdgeOne 服务端签名后调用 Runtime。共享签名密钥不得进入浏览器、仓库或日志。资产写入只能由 Runtime 使用两枚分离的最小权限 token 调用 `account-api`，应用不得直接访问账本 action。

@@ -11,11 +11,14 @@ const crypto = require('node:crypto')
 
 const {
   AI_POINT_ACCOUNTS_COLLECTION,
+  AI_POINT_RESERVATIONS_COLLECTION,
   AI_POINT_TRANSACTIONS_COLLECTION,
 } = require('./ai-point-resources')
 
-const AI_POINT_DAILY_TASK_LIMIT = 20
-const AI_POINT_DAILY_CHARGE_LIMIT_MICROPOINTS = 500_000
+const AI_POINT_ACCOUNT_SCHEMA_VERSION = 2
+const AI_POINT_DAILY_CHARGE_LIMIT_MICROPOINTS = 5_000_000
+const AI_POINT_MAX_ACTIVE_RESERVATIONS = 4
+const AI_POINT_MAX_RESERVATION_TTL_MS = 24 * 60 * 60 * 1000
 const AI_POINT_TASK_TRANSACTION_LIMIT = 1_000
 
 function stableId(namespace, ...parts) {
@@ -121,6 +124,10 @@ function transactionId(userId, type, idempotencyKey) {
   return stableId('ai_point_transaction', userId, type, idempotencyKey)
 }
 
+function reservationId(userId, taskId) {
+  return stableId('ai_point_reservation', userId, taskId)
+}
+
 function normalizeCommonInput(input) {
   if (!input || typeof input !== 'object')
     throw new Error('AI 点数参数必须为对象')
@@ -150,14 +157,16 @@ function normalizeGrantInput(input) {
 
 function normalizeReserveInput(input) {
   const common = normalizeCommonInput(input)
-  const activeTaskExpiresAt = assertTimestamp(input.activeTaskExpiresAt, 'activeTaskExpiresAt')
-  if (activeTaskExpiresAt <= common.now)
-    throw new Error('activeTaskExpiresAt 必须晚于 now')
+  const reservationExpiresAt = assertTimestamp(input.reservationExpiresAt, 'reservationExpiresAt')
+  if (reservationExpiresAt <= common.now)
+    throw new Error('reservationExpiresAt 必须晚于 now')
+  if (reservationExpiresAt - common.now > AI_POINT_MAX_RESERVATION_TTL_MS)
+    throw new Error('reservationExpiresAt 不能超过 24 小时')
   return {
     ...common,
     taskId: assertIdentifier(input.taskId, 'taskId'),
     amountMicroPoints: assertMicroPoints(input.amountMicroPoints, 'amountMicroPoints'),
-    activeTaskExpiresAt,
+    reservationExpiresAt,
   }
 }
 
@@ -212,7 +221,6 @@ function normalizeAdjustInput(input) {
 function emptyDaily(now) {
   return {
     dateKey: chinaDateKey(now),
-    acceptedTasks: 0,
     reservedMicroPoints: 0,
     chargedMicroPoints: 0,
   }
@@ -224,7 +232,6 @@ function currentDaily(value, now) {
     return emptyDaily(now)
   return {
     dateKey,
-    acceptedTasks: assertMicroPoints(value.acceptedTasks, 'daily.acceptedTasks', { allowZero: true }),
     reservedMicroPoints: assertMicroPoints(value.reservedMicroPoints, 'daily.reservedMicroPoints', { allowZero: true }),
     chargedMicroPoints: assertMicroPoints(value.chargedMicroPoints, 'daily.chargedMicroPoints', { allowZero: true }),
   }
@@ -232,10 +239,11 @@ function currentDaily(value, now) {
 
 function newAccount(input) {
   return {
+    schemaVersion: AI_POINT_ACCOUNT_SCHEMA_VERSION,
     userId: input.userId,
-    access: 'beta',
     availableMicroPoints: 0,
     reservedMicroPoints: 0,
+    activeReservationCount: 0,
     lifetimeGrantedMicroPoints: 0,
     lifetimeChargedMicroPoints: 0,
     daily: emptyDaily(input.now),
@@ -248,9 +256,12 @@ function newAccount(input) {
 function assertAccount(account, userId) {
   if (!account || account.userId !== userId)
     throw new Error('AI 点数账户归属异常')
+  if (account.schemaVersion !== AI_POINT_ACCOUNT_SCHEMA_VERSION)
+    throw new Error('AI 点数账户需要迁移到 schema v2')
   for (const field of [
     'availableMicroPoints',
     'reservedMicroPoints',
+    'activeReservationCount',
     'lifetimeGrantedMicroPoints',
     'lifetimeChargedMicroPoints',
     'version',
@@ -263,18 +274,44 @@ function assertAccount(account, userId) {
 
 function publicAccount(account) {
   return {
+    schemaVersion: account.schemaVersion,
     userId: account.userId,
-    access: account.access,
     availableMicroPoints: account.availableMicroPoints,
     reservedMicroPoints: account.reservedMicroPoints,
+    activeReservationCount: account.activeReservationCount,
     lifetimeGrantedMicroPoints: account.lifetimeGrantedMicroPoints,
     lifetimeChargedMicroPoints: account.lifetimeChargedMicroPoints,
-    ...(account.activeTask ? { activeTask: { ...account.activeTask } } : {}),
     daily: { ...account.daily },
     version: account.version,
     createdAt: account.createdAt,
     updatedAt: account.updatedAt,
   }
+}
+
+async function ensureAiPointAccount(db, rawInput) {
+  const input = {
+    userId: assertIdentifier(rawInput?.userId, 'userId'),
+    now: assertTimestamp(rawInput?.now),
+  }
+  const accountDocumentId = accountId(input.userId)
+  return db.runTransaction(async (transaction) => {
+    const accountRef = transaction.collection(AI_POINT_ACCOUNTS_COLLECTION).doc(accountDocumentId)
+    const current = docData(await accountRef.get())
+    if (current) {
+      return {
+        initialized: true,
+        created: false,
+        account: publicAccount(assertAccount(current, input.userId)),
+      }
+    }
+    const account = newAccount(input)
+    await accountRef.set(account)
+    return {
+      initialized: true,
+      created: true,
+      account: publicAccount(account),
+    }
+  })
 }
 
 function replayAccount(existingTransaction, currentAccount, userId) {
@@ -316,7 +353,7 @@ function assertTransactionMatches(existing, expected) {
 async function grantAiPoints(db, rawInput) {
   const input = normalizeGrantInput(rawInput)
   const accountDocumentId = accountId(input.userId)
-  const txDocumentId = transactionId(input.userId, 'beta_grant', input.idempotencyKey)
+  const txDocumentId = transactionId(input.userId, 'grant', input.idempotencyKey)
 
   return db.runTransaction(async (transaction) => {
     const accountRef = transaction.collection(AI_POINT_ACCOUNTS_COLLECTION).doc(accountDocumentId)
@@ -326,13 +363,13 @@ async function grantAiPoints(db, rawInput) {
       userId: input.userId,
       appId: input.appId,
       scope: input.scope,
-      type: 'beta_grant',
+      type: 'grant',
       idempotencyKey: input.idempotencyKey,
       availableDelta: input.amountMicroPoints,
       reservedDelta: 0,
       actor: input.actor,
       operator: input.operator,
-      operationHash: stableId('ai_point_operation', 'beta_grant', {
+      operationHash: stableId('ai_point_operation', 'grant', {
         userId: input.userId,
         appId: input.appId,
         scope: input.scope,
@@ -357,7 +394,6 @@ async function grantAiPoints(db, rawInput) {
     const account = current ? assertAccount(current, input.userId) : newAccount(input)
     const next = {
       ...account,
-      access: 'beta',
       availableMicroPoints: safeAdd(account.availableMicroPoints, input.amountMicroPoints, 'availableMicroPoints'),
       lifetimeGrantedMicroPoints: safeAdd(account.lifetimeGrantedMicroPoints, input.amountMicroPoints, 'lifetimeGrantedMicroPoints'),
       version: safeAdd(account.version, 1, 'version'),
@@ -386,10 +422,12 @@ async function grantAiPoints(db, rawInput) {
 async function reserveAiPoints(db, rawInput) {
   const input = normalizeReserveInput(rawInput)
   const accountDocumentId = accountId(input.userId)
+  const reservationDocumentId = reservationId(input.userId, input.taskId)
   const txDocumentId = transactionId(input.userId, 'reserve', input.idempotencyKey)
 
   return db.runTransaction(async (transaction) => {
     const accountRef = transaction.collection(AI_POINT_ACCOUNTS_COLLECTION).doc(accountDocumentId)
+    const reservationRef = transaction.collection(AI_POINT_RESERVATIONS_COLLECTION).doc(reservationDocumentId)
     const txRef = transaction.collection(AI_POINT_TRANSACTIONS_COLLECTION).doc(txDocumentId)
     const existingTx = docData(await txRef.get())
     const expectedTx = {
@@ -421,14 +459,12 @@ async function reserveAiPoints(db, rawInput) {
     }
 
     const account = assertAccount(docData(await accountRef.get()), input.userId)
-    if (account.access !== 'beta')
-      throw new Error('AI 点数账户未获得 Beta 访问权限')
-    if (account.activeTask)
-      throw new Error('用户已有进行中的 AI 任务')
+    if (docData(await reservationRef.get()))
+      throw new Error('AI 任务已有点数预留')
+    if (account.activeReservationCount >= AI_POINT_MAX_ACTIVE_RESERVATIONS)
+      throw new Error('用户 AI 并发预留已达上限')
 
     const daily = currentDaily(account.daily, input.now)
-    if (daily.acceptedTasks >= AI_POINT_DAILY_TASK_LIMIT)
-      throw new Error('用户当日 AI 任务数已达上限')
     const dailyExposure = safeAdd(
       daily.chargedMicroPoints,
       daily.reservedMicroPoints,
@@ -443,22 +479,26 @@ async function reserveAiPoints(db, rawInput) {
       ...account,
       availableMicroPoints: safeSubtract(account.availableMicroPoints, input.amountMicroPoints, 'availableMicroPoints'),
       reservedMicroPoints: safeAdd(account.reservedMicroPoints, input.amountMicroPoints, 'reservedMicroPoints'),
-      activeTask: {
-        taskId: input.taskId,
-        appId: input.appId,
-        scope: input.scope,
-        reservedMicroPoints: input.amountMicroPoints,
-        expiresAt: input.activeTaskExpiresAt,
-      },
+      activeReservationCount: safeAdd(account.activeReservationCount, 1, 'activeReservationCount'),
       daily: {
         ...daily,
-        acceptedTasks: safeAdd(daily.acceptedTasks, 1, 'daily.acceptedTasks'),
         reservedMicroPoints: safeAdd(daily.reservedMicroPoints, input.amountMicroPoints, 'daily.reservedMicroPoints'),
       },
       version: safeAdd(account.version, 1, 'version'),
       updatedAt: input.now,
     }
     await accountRef.set(next)
+    await reservationRef.set({
+      userId: input.userId,
+      taskId: input.taskId,
+      appId: input.appId,
+      scope: input.scope,
+      reservedMicroPoints: input.amountMicroPoints,
+      status: 'active',
+      expiresAt: input.reservationExpiresAt,
+      createdAt: input.now,
+      updatedAt: input.now,
+    })
     await txRef.set({
       ...expectedTx,
       availableAfter: next.availableMicroPoints,
@@ -480,10 +520,12 @@ async function reserveAiPoints(db, rawInput) {
 async function settleAiPoints(db, rawInput) {
   const input = normalizeSettleInput(rawInput)
   const accountDocumentId = accountId(input.userId)
+  const reservationDocumentId = reservationId(input.userId, input.taskId)
   const txDocumentId = transactionId(input.userId, 'settle', input.idempotencyKey)
 
   return db.runTransaction(async (transaction) => {
     const accountRef = transaction.collection(AI_POINT_ACCOUNTS_COLLECTION).doc(accountDocumentId)
+    const reservationRef = transaction.collection(AI_POINT_RESERVATIONS_COLLECTION).doc(reservationDocumentId)
     const txRef = transaction.collection(AI_POINT_TRANSACTIONS_COLLECTION).doc(txDocumentId)
     const existingTx = docData(await txRef.get())
     const expectedTx = {
@@ -513,13 +555,14 @@ async function settleAiPoints(db, rawInput) {
     }
 
     const account = assertAccount(docData(await accountRef.get()), input.userId)
-    if (!account.activeTask || account.activeTask.taskId !== input.taskId)
+    const reservation = docData(await reservationRef.get())
+    if (!reservation || reservation.status !== 'active')
       throw new Error('AI 任务没有可结算的点数预占')
-    if (account.activeTask.appId !== input.appId || account.activeTask.scope !== input.scope)
+    if (reservation.appId !== input.appId || reservation.scope !== input.scope)
       throw new Error('AI 结算应用或 scope 与原预占不一致')
     const reservedForTask = assertMicroPoints(
-      account.activeTask.reservedMicroPoints,
-      'activeTask.reservedMicroPoints',
+      reservation.reservedMicroPoints,
+      'reservation.reservedMicroPoints',
     )
     if (input.chargedMicroPoints > reservedForTask)
       throw new Error('实际 AI 点数消耗超过任务预占')
@@ -536,6 +579,7 @@ async function settleAiPoints(db, rawInput) {
       ...account,
       availableMicroPoints: safeAdd(account.availableMicroPoints, releasedMicroPoints, 'availableMicroPoints'),
       reservedMicroPoints: safeSubtract(account.reservedMicroPoints, reservedForTask, 'reservedMicroPoints'),
+      activeReservationCount: safeSubtract(account.activeReservationCount, 1, 'activeReservationCount'),
       lifetimeChargedMicroPoints: safeAdd(account.lifetimeChargedMicroPoints, input.chargedMicroPoints, 'lifetimeChargedMicroPoints'),
       daily: {
         ...daily,
@@ -545,8 +589,15 @@ async function settleAiPoints(db, rawInput) {
       version: safeAdd(account.version, 1, 'version'),
       updatedAt: input.now,
     }
-    delete next.activeTask
     await accountRef.set(next)
+    await reservationRef.set({
+      ...reservation,
+      status: 'settled',
+      chargedMicroPoints: input.chargedMicroPoints,
+      releasedMicroPoints,
+      settledAt: input.now,
+      updatedAt: input.now,
+    })
     await txRef.set({
       ...expectedTx,
       availableDelta: releasedMicroPoints,
@@ -570,10 +621,12 @@ async function settleAiPoints(db, rawInput) {
 async function releaseAiPoints(db, rawInput) {
   const input = normalizeReleaseInput(rawInput)
   const accountDocumentId = accountId(input.userId)
+  const reservationDocumentId = reservationId(input.userId, input.taskId)
   const txDocumentId = transactionId(input.userId, 'release', input.idempotencyKey)
 
   return db.runTransaction(async (transaction) => {
     const accountRef = transaction.collection(AI_POINT_ACCOUNTS_COLLECTION).doc(accountDocumentId)
+    const reservationRef = transaction.collection(AI_POINT_RESERVATIONS_COLLECTION).doc(reservationDocumentId)
     const txRef = transaction.collection(AI_POINT_TRANSACTIONS_COLLECTION).doc(txDocumentId)
     const existingTx = docData(await txRef.get())
     const expectedTx = {
@@ -604,13 +657,14 @@ async function releaseAiPoints(db, rawInput) {
     }
 
     const account = assertAccount(docData(await accountRef.get()), input.userId)
-    if (!account.activeTask || account.activeTask.taskId !== input.taskId)
+    const reservation = docData(await reservationRef.get())
+    if (!reservation || reservation.status !== 'active')
       throw new Error('AI 任务没有可释放的点数预占')
-    if (account.activeTask.appId !== input.appId || account.activeTask.scope !== input.scope)
+    if (reservation.appId !== input.appId || reservation.scope !== input.scope)
       throw new Error('AI 释放应用或 scope 与原预占不一致')
     const reservedForTask = assertMicroPoints(
-      account.activeTask.reservedMicroPoints,
-      'activeTask.reservedMicroPoints',
+      reservation.reservedMicroPoints,
+      'reservation.reservedMicroPoints',
     )
     if (account.reservedMicroPoints < reservedForTask)
       throw new Error('AI 点数总预占余额异常')
@@ -621,6 +675,7 @@ async function releaseAiPoints(db, rawInput) {
       ...account,
       availableMicroPoints: safeAdd(account.availableMicroPoints, reservedForTask, 'availableMicroPoints'),
       reservedMicroPoints: safeSubtract(account.reservedMicroPoints, reservedForTask, 'reservedMicroPoints'),
+      activeReservationCount: safeSubtract(account.activeReservationCount, 1, 'activeReservationCount'),
       daily: {
         ...daily,
         reservedMicroPoints: sameDate
@@ -630,8 +685,15 @@ async function releaseAiPoints(db, rawInput) {
       version: safeAdd(account.version, 1, 'version'),
       updatedAt: input.now,
     }
-    delete next.activeTask
     await accountRef.set(next)
+    await reservationRef.set({
+      ...reservation,
+      status: 'released',
+      releasedMicroPoints: reservedForTask,
+      releaseReason: input.reason,
+      releasedAt: input.now,
+      updatedAt: input.now,
+    })
     await txRef.set({
       ...expectedTx,
       availableDelta: reservedForTask,
@@ -649,6 +711,47 @@ async function releaseAiPoints(db, rawInput) {
       deduped: false,
     }
   })
+}
+
+/**
+ * 有界释放已过期的 AI 点数预留。恢复流程只筛选候选记录，实际写入复用
+ * releaseAiPoints，确保账户、预留与不可变流水仍由唯一事务路径维护。
+ */
+async function releaseExpiredAiPointReservations(db, input) {
+  const now = input?.now
+  const limit = input?.limit ?? 50
+  if (!Number.isSafeInteger(now))
+    throw new Error('releaseExpiredAiPointReservations.now 无效')
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100)
+    throw new Error('releaseExpiredAiPointReservations.limit 必须在 1 到 100 之间')
+
+  const { data } = await db
+    .collection(AI_POINT_RESERVATIONS_COLLECTION)
+    .where({ status: 'active', expiresAt: db.command.lte(now) })
+    .orderBy('expiresAt', 'asc')
+    .limit(limit)
+    .get()
+  const reservations = Array.isArray(data) ? data : []
+  let released = 0
+  let failed = 0
+  for (const reservation of reservations) {
+    try {
+      await releaseAiPoints(db, {
+        userId: reservation.userId,
+        appId: reservation.appId,
+        scope: reservation.scope,
+        taskId: reservation.taskId,
+        idempotencyKey: `reservation-expired:${reservation.taskId}:${reservation.expiresAt}`,
+        reason: 'reservation_expired',
+        now,
+      })
+      released++
+    }
+    catch {
+      failed++
+    }
+  }
+  return { scanned: reservations.length, released, failed }
 }
 
 async function refundAiPoints(db, rawInput) {
@@ -861,14 +964,19 @@ async function listAiPointTransactions(db, input = {}) {
 }
 
 module.exports = {
+  AI_POINT_ACCOUNT_SCHEMA_VERSION,
   AI_POINT_ACCOUNTS_COLLECTION,
   AI_POINT_DAILY_CHARGE_LIMIT_MICROPOINTS,
-  AI_POINT_DAILY_TASK_LIMIT,
+  AI_POINT_MAX_ACTIVE_RESERVATIONS,
+  AI_POINT_RESERVATIONS_COLLECTION,
   AI_POINT_TRANSACTIONS_COLLECTION,
   adjustAiPoints,
+  aiPointReservationId: reservationId,
+  ensureAiPointAccount,
   getAiPointAccount,
   grantAiPoints,
   listAiPointTransactions,
+  releaseExpiredAiPointReservations,
   releaseAiPoints,
   reserveAiPoints,
   refundAiPoints,

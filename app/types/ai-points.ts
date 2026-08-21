@@ -1,21 +1,10 @@
-export type AiPointAccess = 'none' | 'beta' | (string & {})
-
-export interface AiPointActiveTask {
-  taskId: string
-  appId: string
-  scope: string
-  reservedMicroPoints: number
-  expiresAt: number
-}
-
 export interface AiPointAccount {
   initialized: boolean
-  access: AiPointAccess
   availableMicroPoints: number
   reservedMicroPoints: number
+  activeReservationCount: number
   lifetimeGrantedMicroPoints: number
   lifetimeChargedMicroPoints: number
-  activeTask: AiPointActiveTask | null
   updatedAt: number | null
 }
 
@@ -34,12 +23,12 @@ export interface AiPointTransaction {
 }
 
 export interface AiPointAccountResponse {
-  schemaVersion: 1
+  schemaVersion: 2
   account: AiPointAccount
 }
 
 export interface AiPointTransactionPage {
-  schemaVersion: 1
+  schemaVersion: 2
   items: AiPointTransaction[]
   nextCursor: string | null
 }

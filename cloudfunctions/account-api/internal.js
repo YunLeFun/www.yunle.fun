@@ -9,16 +9,25 @@ const { assertAccountActionAllowed, getAccountAccess } = require('./account-acce
 const { banAccount, expireAccountRestrictions, unbanAccount } = require('./account-restrictions')
 const {
   adjustAiPoints,
+  ensureAiPointAccount,
   getAiPointAccount,
   grantAiPoints,
   listAiPointTransactions,
   refundAiPoints,
+  releaseExpiredAiPointReservations,
   releaseAiPoints,
   reserveAiPoints,
   settleAiPoints,
 } = require('./ai-points')
 const { assertAppId, assertDeductCoinInput } = require('./lib/validation')
-const { creditCoin, deductCoin } = require('./lib/wallet')
+const {
+  commitCoinReservation,
+  creditCoin,
+  deductCoin,
+  releaseCoinReservation,
+  releaseExpiredCoinReservations,
+  reserveCoin,
+} = require('./lib/wallet')
 const { assertRewardControlToken } = require('./reward-control-token')
 const { correctReward, grantReward } = require('./rewards')
 const {
@@ -31,6 +40,8 @@ const {
 
 /** 单笔管理员调账的云币绝对值上限（防误操作 / 防滥用的资损护栏） */
 const ADMIN_ADJUST_MAX_COIN = 100_000
+const HOSTED_AI_STARTER_STANDARD_MICROPOINTS = 100_000
+const HOSTED_AI_STARTER_MEMBER_DELTA_MICROPOINTS = 200_000
 
 function getExpectedInternalToken(env = process.env) {
   return env.ACCOUNT_API_INTERNAL_TOKEN || ''
@@ -64,6 +75,13 @@ function assertAiPointServiceToken(event, options = {}) {
   assertInternalServiceToken(event?.serviceToken, expectedToken)
 }
 
+function assertAiCoinServiceToken(event, options = {}) {
+  const expectedToken = Object.hasOwn(options, 'expectedToken')
+    ? options.expectedToken
+    : process.env.YUNLEFUN_AI_COIN_ACCOUNT_API_TOKEN || ''
+  assertInternalServiceToken(event?.serviceToken, expectedToken)
+}
+
 function getExpectedAiPointServiceToken(env = process.env) {
   const current = env.YUNLEFUN_AI_RUNTIME_ACCOUNT_API_TOKEN
     || env.YUNLEFUN_AI_ACCOUNT_API_TOKEN
@@ -78,6 +96,17 @@ function assertUserId(userId) {
   if (typeof userId !== 'string' || !userId.trim())
     throw new Error('userId 必须为非空字符串')
   return userId.trim()
+}
+
+async function assertHostedAiIdentityAllowed(targetDb, userId) {
+  const classification = await classifyAccountIdentity(targetDb, userId)
+  if (classification.synthetic && !isReadyFixedSyntheticIdentity(classification.identity)) {
+    throw new SyntheticAccountError(
+      'synthetic_action_forbidden',
+      '受管测试身份不能直接使用托管 AI 资产；请改用固定测试账号。',
+    )
+  }
+  return classification
 }
 
 async function handleDeductCoinForUser(targetDb, event, options = {}) {
@@ -111,6 +140,58 @@ async function handleDeductCoinForUser(targetDb, event, options = {}) {
   return { balance, deduped: !!deduped }
 }
 
+async function handleReserveCoinForAiTask(targetDb, event, options = {}) {
+  assertAiCoinServiceToken(event, options)
+  const userId = assertUserId(event?.userId)
+  const now = options.now ?? Date.now()
+  await assertAccountActionAllowed(targetDb, {
+    userId,
+    action: 'reserveCoinForAiTask',
+    now,
+  })
+  const classification = await assertHostedAiIdentityAllowed(targetDb, userId)
+  return reserveCoin(targetDb, {
+    userId,
+    appId: event?.appId,
+    amount: event?.amount,
+    reservationId: event?.reservationId,
+    expiresAt: event?.expiresAt,
+    meta: classification.synthetic
+      ? fixedSyntheticTransactionMeta(classification.identity, event?.meta)
+      : event?.meta,
+    now,
+  })
+}
+
+async function handleCommitCoinForAiTask(targetDb, event, options = {}) {
+  assertAiCoinServiceToken(event, options)
+  return commitCoinReservation(targetDb, {
+    userId: assertUserId(event?.userId),
+    appId: event?.appId,
+    reservationId: event?.reservationId,
+    now: options.now ?? Date.now(),
+  })
+}
+
+async function handleReleaseCoinForAiTask(targetDb, event, options = {}) {
+  assertAiCoinServiceToken(event, options)
+  return releaseCoinReservation(targetDb, {
+    userId: assertUserId(event?.userId),
+    appId: event?.appId,
+    reservationId: event?.reservationId,
+    reason: event?.reason,
+    now: options.now ?? Date.now(),
+  })
+}
+
+async function handleReleaseExpiredCoinReservations(targetDb, event, options = {}) {
+  assertAiCoinServiceToken(event, options)
+  return releaseExpiredCoinReservations(targetDb, {
+    limit: event?.limit,
+    now: options.now ?? Date.now(),
+  })
+}
+
 /** 内部服务读取账号访问状态；响应只含允许向账号本人公开的字段。 */
 async function handleGetAccountAccessForUser(targetDb, event, options = {}) {
   assertInternalServiceToken(event?.serviceToken, options.expectedToken)
@@ -140,6 +221,60 @@ async function handleGrantAiPointsForUser(targetDb, event, options = {}) {
   return grantAiPoints(targetDb, { ...event, now: options.now ?? Date.now() })
 }
 
+async function handleEnsureAiPointAccountForUser(targetDb, event, options = {}) {
+  assertAiPointServiceToken(event, options)
+  return ensureAiPointAccount(targetDb, {
+    userId: assertUserId(event?.userId),
+    now: options.now ?? Date.now(),
+  })
+}
+
+async function handleEnsureHostedAiStarterEntitlementForUser(targetDb, event, options = {}) {
+  assertAiPointServiceToken(event, options)
+  const userId = assertUserId(event?.userId)
+  const now = options.now ?? Date.now()
+  await assertHostedAiIdentityAllowed(targetDb, userId)
+  const snapshot = await getAccountSnapshot(targetDb, userId, now)
+  await ensureAiPointAccount(targetDb, { userId, now })
+  await grantAiPoints(targetDb, {
+    userId,
+    appId: 'yunlefun-ai',
+    scope: 'hosted-ai-starter',
+    amountMicroPoints: HOSTED_AI_STARTER_STANDARD_MICROPOINTS,
+    idempotencyKey: 'hosted-ai-starter-standard-v1',
+    actor: 'system',
+    reason: 'YunLeFun hosted AI starter entitlement',
+    meta: {
+      rule: 'hosted-ai-starter-standard-v1',
+      source: 'account-api',
+    },
+    now,
+  })
+  if (snapshot.membership.isActive) {
+    await grantAiPoints(targetDb, {
+      userId,
+      appId: 'yunlefun-ai',
+      scope: 'hosted-ai-starter',
+      amountMicroPoints: HOSTED_AI_STARTER_MEMBER_DELTA_MICROPOINTS,
+      idempotencyKey: 'hosted-ai-starter-member-v1',
+      actor: 'system',
+      reason: 'YunLeFun member hosted AI starter entitlement',
+      meta: {
+        rule: 'hosted-ai-starter-member-v1',
+        source: 'account-api',
+      },
+      now,
+    })
+  }
+  return {
+    membershipActive: snapshot.membership.isActive,
+    targetMicroPoints: snapshot.membership.isActive
+      ? HOSTED_AI_STARTER_STANDARD_MICROPOINTS + HOSTED_AI_STARTER_MEMBER_DELTA_MICROPOINTS
+      : HOSTED_AI_STARTER_STANDARD_MICROPOINTS,
+    account: await getAiPointAccount(targetDb, userId),
+  }
+}
+
 async function handleReserveAiPointsForTask(targetDb, event, options = {}) {
   assertAiPointServiceToken(event, options)
   const now = options.now ?? Date.now()
@@ -149,7 +284,15 @@ async function handleReserveAiPointsForTask(targetDb, event, options = {}) {
     action: 'reserveAiPointsForTask',
     now,
   })
-  return reserveAiPoints(targetDb, { ...event, userId, now })
+  const classification = await assertHostedAiIdentityAllowed(targetDb, userId)
+  return reserveAiPoints(targetDb, {
+    ...event,
+    userId,
+    meta: classification.synthetic
+      ? fixedSyntheticTransactionMeta(classification.identity, event?.meta)
+      : event?.meta,
+    now,
+  })
 }
 
 async function handleSettleAiPointsForTask(targetDb, event, options = {}) {
@@ -160,6 +303,14 @@ async function handleSettleAiPointsForTask(targetDb, event, options = {}) {
 async function handleReleaseAiPointsForTask(targetDb, event, options = {}) {
   assertAiPointServiceToken(event, options)
   return releaseAiPoints(targetDb, { ...event, now: options.now ?? Date.now() })
+}
+
+async function handleReleaseExpiredAiPointReservations(targetDb, event, options = {}) {
+  assertAiPointServiceToken(event, options)
+  return releaseExpiredAiPointReservations(targetDb, {
+    limit: event?.limit,
+    now: options.now ?? Date.now(),
+  })
 }
 
 async function handleRefundAiPointsForTask(targetDb, event, options = {}) {
@@ -371,6 +522,8 @@ module.exports = {
   assertAdminAdjustInput,
   handleAdjustAiPointsForUser,
   handleDeductCoinForUser,
+  handleEnsureAiPointAccountForUser,
+  handleEnsureHostedAiStarterEntitlementForUser,
   handleGetAiPointAccountForUser,
   handleGetAccountAccessForUser,
   handleGetAccountForUser,
@@ -383,8 +536,13 @@ module.exports = {
   handleAdminUnbanAccount,
   handleExpireAccountRestrictions,
   handleRefundAiPointsForTask,
+  handleReleaseCoinForAiTask,
+  handleReleaseExpiredCoinReservations,
+  handleReleaseExpiredAiPointReservations,
   handleReleaseAiPointsForTask,
   handleReserveAiPointsForTask,
+  handleReserveCoinForAiTask,
   handleSettleAiPointsForTask,
+  handleCommitCoinForAiTask,
   assertSyntheticReset,
 }

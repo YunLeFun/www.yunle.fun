@@ -13,7 +13,6 @@ describe('development fixed test account deployment', () => {
     expect(config.envId).toBe('yunlefun-dev-0ge03bdod37093d1')
     expect(config.functions.map(item => item.name)).toEqual([
       'account-api',
-      'ai-gateway',
       'wxpay-order',
     ])
   })

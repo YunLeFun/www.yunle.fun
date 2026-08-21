@@ -61,6 +61,7 @@ const {
   requestAccountDeletion,
 } = require('./account-deletion')
 const { dispatchAuthenticatedAction } = require('./account-routing')
+const { dispatchAiCoinInternalAction, isAiCoinInternalAction } = require('./ai-coin-routing')
 const { dispatchAiPointInternalAction, isAiPointInternalAction } = require('./ai-point-routing')
 const { handleGetMyAiPointAccount, handleListMyAiPointTransactions } = require('./ai-point-self')
 const { uploadAvatar } = require('./avatars')
@@ -102,7 +103,6 @@ const {
   fixedSyntheticTransactionMeta,
   guardSyntheticSessionAction,
   handlePrepareSyntheticBaseline,
-  handleSyntheticDeductCoinForUser,
 } = require('./synthetic')
 const { getAppSupport, getTipLeaderboard, tip } = require('./tips')
 
@@ -191,6 +191,8 @@ const CORS_HEADERS = {
 /** 路由分发（payload 同 SDK event 形态 { action, ... }）。纯逻辑，HTTP 包装见 main。 */
 async function dispatch(event) {
   const { action } = event || {}
+  if (isAiCoinInternalAction(action))
+    return await dispatchAiCoinInternalAction(db, event)
   if (isAiPointInternalAction(action))
     return await dispatchAiPointInternalAction(db, event)
   if (isRewardClaimAction(action)) {
@@ -202,8 +204,6 @@ async function dispatch(event) {
   switch (action) {
     case 'prepareSyntheticBaseline':
       return await handlePrepareSyntheticBaseline(db, event)
-    case 'deductSyntheticCoinForUser':
-      return await handleSyntheticDeductCoinForUser(db, event)
     case 'deductCoinForUser':
       return await handleDeductCoinForUser(db, event)
     case 'fundPachinkoRoundForUser':
@@ -373,6 +373,7 @@ exports._private = {
   assertInternalServiceToken,
   assertUserId,
   dispatchAiPointInternalAction,
+  dispatchAiCoinInternalAction,
   handleAdminAdjustCoin,
   handleAdminBanAccount,
   handleAdminCorrectReward,
@@ -382,7 +383,6 @@ exports._private = {
   handleFundPachinkoRoundForUser,
   handleGetPachinkoBalanceForUser,
   handleSettlePachinkoRoundForUser,
-  handleSyntheticDeductCoinForUser,
   handleGetAccountForUser,
   handleGetAccountAccessForUser,
   handleExpireAccountRestrictions,

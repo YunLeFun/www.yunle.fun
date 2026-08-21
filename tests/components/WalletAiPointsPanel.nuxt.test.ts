@@ -14,12 +14,11 @@ describe('wallet AI points panel', () => {
     h.state.composable = {
       account: readonly(ref({
         initialized: true,
-        access: 'beta',
         availableMicroPoints: 88_000,
         reservedMicroPoints: 12_000,
+        activeReservationCount: 2,
         lifetimeGrantedMicroPoints: 100_000,
         lifetimeChargedMicroPoints: 12_000,
-        activeTask: null,
         updatedAt: Date.parse('2026-08-18T10:00:00+08:00'),
       })),
       transactions: readonly(ref([{
@@ -69,12 +68,11 @@ describe('wallet AI points panel', () => {
     }
     composable.account = readonly(ref({
       initialized: false,
-      access: 'none',
       availableMicroPoints: 0,
       reservedMicroPoints: 0,
+      activeReservationCount: 0,
       lifetimeGrantedMicroPoints: 0,
       lifetimeChargedMicroPoints: 0,
-      activeTask: null,
       updatedAt: null,
     }))
     composable.transactions = readonly(ref([]))

@@ -7,10 +7,9 @@ import { TEST_IDENTITY_FUNCTIONS } from '../scripts/deploy-test-identity-functio
 const execFileAsync = promisify(execFile)
 
 describe('测试身份云函数部署计划', () => {
-  it('固定按依赖顺序发布四个函数', () => {
+  it('固定按依赖顺序发布三个函数', () => {
     expect(TEST_IDENTITY_FUNCTIONS).toEqual([
       'account-api',
-      'ai-gateway',
       'sso-ticket',
       'test-identity-sweeper',
     ])
