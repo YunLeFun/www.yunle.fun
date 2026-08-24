@@ -107,6 +107,19 @@ describe('security email binding feedback', () => {
     expect(authMocks.state.bindEmail).toHaveBeenCalledExactlyOnceWith('other@example.com')
   })
 
+  it('发送成功后在弹窗内展示并播报目标邮箱', async () => {
+    const wrapper = await mountSuspended(SecurityBindEmail, { global: { stubs } })
+
+    await wrapper.get('[data-testid="email-bind-action"]').trigger('click')
+    await wrapper.get('#email-bind-address').setValue('other@example.com')
+    await wrapper.get('#email-bind-form').trigger('submit')
+    await flushPromises()
+
+    const description = wrapper.get('[aria-live="polite"]')
+    expect(description.text()).toBe('验证码已发送至 other@example.com')
+    expect(authMocks.state.bindEmail).toHaveBeenCalledExactlyOnceWith('other@example.com')
+  })
+
   it('把服务端验证码错误回填到验证码字段，并在重新输入时清除', async () => {
     const bindData = { verifyOtp: vi.fn() }
     authMocks.state.bindEmail = vi.fn().mockResolvedValue(bindData)

@@ -148,7 +148,7 @@ async function handleVerify() {
         <DialogTitle>
           {{ user?.email ? '换绑邮箱' : '绑定邮箱' }}
         </DialogTitle>
-        <DialogDescription>
+        <DialogDescription aria-live="polite">
           {{ step === 'input' ? '输入常用邮箱，我们会发送一封验证码邮件。' : `验证码已发送至 ${emailAddress}` }}
         </DialogDescription>
       </DialogHeader>
