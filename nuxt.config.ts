@@ -212,7 +212,7 @@ export default defineNuxtConfig({
     prerender: {
       // 显式列出内容页 + 关 crawlLinks（不爬 /apps、/wallet 等重的账号页），配合 build 脚本调高的 Node 堆避免预渲染 OOM。
       crawlLinks: false,
-      routes: ['/', '/pricing', '/blog', '/blog/yunle-fun', '/changelog', '/developer', '/explore', '/download', '/docs/getting-started', '/docs/getting-started/usage', '/docs/privacy-policy', '/docs/terms-of-service', '/docs/contact', '/docs/sitemap', '/login', '/signup', '/link', '/claim', '/auth/sso', '/auth/github', '/auth/callback', ...EDGEONE_ACCOUNT_CLIENT_SHELL_ROUTES],
+      routes: ['/', '/pricing', '/blog', '/blog/yunle-fun', '/changelog', '/developer', '/explore', '/download', '/docs/getting-started', '/docs/getting-started/account', '/docs/getting-started/usage', '/docs/privacy-policy', '/docs/terms-of-service', '/docs/contact', '/docs/sitemap', '/login', '/signup', '/link', '/claim', '/auth/sso', '/auth/github', '/auth/callback', ...EDGEONE_ACCOUNT_CLIENT_SHELL_ROUTES],
       failOnError: false,
     },
   },
