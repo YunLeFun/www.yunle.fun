@@ -488,7 +488,10 @@ onUnmounted(() => clearTimeout(morphTimer))
             />
 
             <p class="text-xs text-muted text-center">
-              邮箱登录需先在账号设置中完成绑定
+              邮箱仅用于已绑定账号登录。
+              <NuxtLink to="/docs/getting-started/account" class="text-primary font-medium">
+                了解注册方式
+              </NuxtLink>
             </p>
           </div>
 

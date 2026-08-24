@@ -42,14 +42,18 @@ describe('app toaster', () => {
     await wrapper.get('button').trigger('click')
     await flushPromises()
 
-    expect(wrapper.text()).toContain('保存成功')
-    expect(wrapper.text()).toContain('资料已经更新')
-    expect(wrapper.get('a[href="https://support.yunle.fun/contact"]').text()).toContain('联系客服')
-    expect(wrapper.get('a[href="https://support.yunle.fun/contact"]').attributes()).toMatchObject({
-      target: '_blank',
-      rel: 'noopener noreferrer',
-    })
-    expect(wrapper.get('[aria-label="关闭通知"]').exists()).toBe(true)
+    const viewport = document.body.querySelector<HTMLElement>('[data-slot="toast-viewport"]')
+    expect(viewport).not.toBeNull()
+    expect(viewport?.closest('[role="region"]')?.parentElement).toBe(document.body)
+    expect(viewport?.classList.contains('z-[100]')).toBe(true)
+    expect(viewport?.textContent).toContain('保存成功')
+    expect(viewport?.textContent).toContain('资料已经更新')
+
+    const action = viewport?.querySelector<HTMLAnchorElement>('a[href="https://support.yunle.fun/contact"]')
+    expect(action?.textContent).toContain('联系客服')
+    expect(action?.target).toBe('_blank')
+    expect(action?.rel).toBe('noopener noreferrer')
+    expect(viewport?.querySelector('[aria-label="关闭通知"]')).not.toBeNull()
 
     wrapper.unmount()
   })

@@ -16,7 +16,8 @@ describe('page SEO titles', () => {
     const source = readFileSync(new URL('../../app/pages/login.vue', import.meta.url), 'utf8')
 
     expect(source).toContain('仅支持中国大陆手机号，首次验证自动创建账号')
-    expect(source).toContain('邮箱登录需先在账号设置中完成绑定')
+    expect(source).toContain('邮箱仅用于已绑定账号登录')
+    expect(source).toContain('to="/docs/getting-started/account"')
     expect(source).toContain('手机号或 GitHub 首次验证后自动创建账号')
   })
 })
