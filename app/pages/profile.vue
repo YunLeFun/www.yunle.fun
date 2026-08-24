@@ -227,33 +227,41 @@ function workshopHref(surface: WorkshopSurface) {
       </NuxtLink>
 
       <!-- 快捷入口 -->
-      <section class="ylf-card rounded-3xl p-6">
-        <h2 class="ylf-dreamy-display mb-4 text-xl text-highlighted">
-          快捷入口
-        </h2>
-        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <section class="ylf-card rounded-3xl p-4 sm:p-5">
+        <div class="mb-3 flex items-center justify-between gap-3 px-1">
+          <h2 class="font-heading text-lg font-bold tracking-tight text-highlighted">
+            快捷入口
+          </h2>
+          <span class="text-xs text-dimmed">{{ entries.length }} 个服务</span>
+        </div>
+        <nav class="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="个人中心快捷入口">
           <NuxtLink
             v-for="e in entries"
             :key="e.to"
             :to="e.to"
-            class="ylf-entry-tile group flex flex-col items-center gap-2.5 rounded-2xl p-4 text-center"
+            class="ylf-entry-tile group flex min-w-0 items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-start"
+            :style="{ '--tile': e.color }"
           >
             <span
-              class="ylf-dopa-tile inline-flex size-11 items-center justify-center rounded-xl"
-              :style="{ '--tile': e.color }"
+              class="ylf-dopa-tile inline-flex size-9 shrink-0 items-center justify-center rounded-[0.65rem]"
             >
-              <Icon :name="e.icon" class="size-5" />
+              <Icon :name="e.icon" class="size-[1.125rem]" aria-hidden="true" />
             </span>
-            <span class="text-sm font-medium text-highlighted">{{ e.label }}</span>
+            <span class="min-w-0 flex-1 truncate text-sm font-medium text-highlighted">{{ e.label }}</span>
+            <Icon
+              name="i-lucide-chevron-right"
+              class="entry-arrow size-3.5 shrink-0 text-dimmed"
+              aria-hidden="true"
+            />
           </NuxtLink>
-        </div>
+        </nav>
       </section>
 
       <!-- 主页应用 -->
       <section class="ylf-card rounded-3xl p-6">
         <div class="mb-4 flex items-center justify-between">
           <div>
-            <h2 class="ylf-dreamy-display text-xl text-highlighted">
+            <h2 class="font-heading text-xl font-bold tracking-tight text-highlighted">
               主页应用
             </h2>
             <p class="mt-1 text-xs text-muted">
@@ -298,7 +306,7 @@ function workshopHref(surface: WorkshopSurface) {
       <section class="ylf-card rounded-3xl p-6">
         <div class="mb-4 flex items-start justify-between gap-3">
           <div>
-            <h2 class="ylf-dreamy-display flex items-center gap-2 text-xl text-highlighted">
+            <h2 class="font-heading flex items-center gap-2 text-xl font-bold tracking-tight text-highlighted">
               私人工坊
               <Icon name="i-lucide-key-round" class="size-4 text-primary" aria-hidden="true" />
             </h2>
@@ -446,13 +454,43 @@ function workshopHref(surface: WorkshopSurface) {
 }
 
 .ylf-entry-tile {
+  border: 1px solid transparent;
+  background: color-mix(in srgb, var(--ylf-surface-muted) 66%, transparent);
   transition:
     background-color 160ms ease,
+    border-color 160ms ease,
     transform 160ms ease;
 }
 
 .ylf-entry-tile:hover {
-  background: var(--ylf-surface-hover);
-  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--tile, var(--ui-primary)) 22%, var(--ui-border-muted));
+  background: color-mix(in srgb, var(--tile, var(--ui-primary)) 6%, var(--ylf-surface));
+  transform: translateY(-1px);
+}
+
+.entry-arrow {
+  opacity: 0.45;
+  transition:
+    color 160ms ease,
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+.ylf-entry-tile:hover .entry-arrow {
+  color: var(--tile, var(--ui-primary));
+  opacity: 1;
+  transform: translateX(2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ylf-entry-tile,
+  .entry-arrow {
+    transition: none;
+  }
+
+  .ylf-entry-tile:hover,
+  .ylf-entry-tile:hover .entry-arrow {
+    transform: none;
+  }
 }
 </style>
