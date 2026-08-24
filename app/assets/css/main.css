@@ -171,6 +171,18 @@
 
 html {
   background: var(--ui-bg);
+  scrollbar-gutter: stable;
+}
+
+/* 模态对话框打开时，背景已不可交互：锁定根滚动并隐藏仍悬浮在遮罩上的 scrollbar thumb。
+   Reka UI 会同步补偿滚动条宽度，这里保留 gutter，避免开关弹窗时页面横向跳动。 */
+html:has([data-slot='dialog-overlay'][data-state='open']) {
+  overflow: hidden;
+  scrollbar-color: transparent transparent;
+}
+
+html:has([data-slot='dialog-overlay'][data-state='open'])::-webkit-scrollbar-thumb {
+  background: transparent;
 }
 
 body {

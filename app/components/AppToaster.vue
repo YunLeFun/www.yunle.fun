@@ -12,6 +12,7 @@ import {
 import {
   ToastClose,
   ToastDescription,
+  ToastPortal,
   ToastProvider,
   ToastRoot,
   ToastTitle,
@@ -101,9 +102,12 @@ function handleOpenChange(id: string, open: boolean) {
       </ToastClose>
     </ToastRoot>
 
-    <ToastViewport
-      label="通知（{hotkey}）"
-      class="fixed top-0 right-0 z-[100] flex max-h-screen w-full flex-col gap-2 p-4 outline-none sm:top-auto sm:bottom-0 sm:max-w-[26rem]"
-    />
+    <ToastPortal>
+      <ToastViewport
+        data-slot="toast-viewport"
+        label="通知（{hotkey}）"
+        class="fixed top-0 right-0 z-[100] flex max-h-screen w-full flex-col gap-2 p-4 outline-none sm:top-auto sm:bottom-0 sm:max-w-[26rem]"
+      />
+    </ToastPortal>
   </ToastProvider>
 </template>
