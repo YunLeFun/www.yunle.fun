@@ -2,6 +2,14 @@
 @import '@nuxt/ui';
 @import 'tw-animate-css';
 
+@font-face {
+  font-family: 'ZCOOL XiaoWei';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/zcool-xiaowei-display.woff2') format('woff2');
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @source "../../../content/**/*";
@@ -114,8 +122,8 @@
   /* 会员身份渐变 —— 「晴空落日 → 珊瑚」暖橙融珊瑚红，足够深以承载白字 */
   --ylf-gradient-member: linear-gradient(135deg, #fb8a2e 0%, #f4516a 52%, #e6315f 100%);
 
-  /* 系统字体优先：避免首屏为装饰字体下载多个中文分片，并消除字体切换造成的闪动。 */
-  --ylf-font-dreamy: 'STKaiti', 'KaiTi', 'Kaiti SC', 'Songti SC', ui-serif, serif;
+  /* 品牌展示字体仅用于大标题；本地子集避免第三方字体服务与完整中文字体体积。 */
+  --ylf-font-dreamy: 'ZCOOL XiaoWei', 'PingFang SC', 'Songti SC', ui-serif, serif;
   --ylf-font-round: ui-rounded, 'PingFang SC', 'Hiragino Sans GB', ui-sans-serif, system-ui, sans-serif;
 }
 

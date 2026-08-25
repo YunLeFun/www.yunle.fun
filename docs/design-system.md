@@ -48,14 +48,15 @@
 
 ## 3. 字体
 
-| 变量                | 字体栈                                                                | 用途          |
-| ------------------- | --------------------------------------------------------------------- | ------------- |
-| `--ylf-font-dreamy` | `'STKaiti','KaiTi','Kaiti SC','Songti SC',ui-serif,serif`             | 标志性大标题  |
-| `--ylf-font-round`  | `ui-rounded,'PingFang SC','Hiragino Sans GB',ui-sans-serif,system-ui` | 圆润拉丁/数字 |
+| 变量                | 字体栈                                                                | 用途                 |
+| ------------------- | --------------------------------------------------------------------- | -------------------- |
+| `--ylf-font-dreamy` | `'ZCOOL XiaoWei','PingFang SC','Songti SC',ui-serif,serif`            | 站酷小薇品牌展示标题 |
+| `--ylf-font-round`  | `ui-rounded,'PingFang SC','Hiragino Sans GB',ui-sans-serif,system-ui` | 圆润拉丁/数字        |
 
-- 全站使用系统字体栈，不依赖第三方字体服务；避免中文字体分片占用首屏带宽，也不会发生 Web Font 切换闪动。
+- 站酷小薇以本地 WOFF2 字符子集加载，只用于展示标题；正文和 UI 继续使用系统字体栈。
+- 使用 `font-display: swap`，字体下载期间由苹方/宋体回退，不阻塞文字渲染。
 - 大标题用工具类 `.ylf-dreamy-display`（= `--ylf-font-dreamy` + 字重 400 + 微字距）。
-- 若未来恢复品牌 Web Font，应采用自托管、按实际字形子集化，并重新通过 Lighthouse 性能预算。
+- 新增展示标题字符时，需要同步更新 `public/fonts/zcool-xiaowei-display.woff2` 子集。
 
 ---
 
@@ -115,7 +116,7 @@ CSS 绘制的晴空，填充到 `position:relative;overflow:hidden` 的父容器
 
 | 类名                                           | 用途                                                              |
 | ---------------------------------------------- | ----------------------------------------------------------------- |
-| `.ylf-dreamy-display`                          | 站酷小薇大标题字体                                                |
+| `.ylf-dreamy-display`                          | 站酷小薇品牌展示标题                                              |
 | `.ylf-gradient-text` / `…--rainbow` / `…--sun` | 晴空蓝 / 彩虹 / 暖阳渐变文字                                      |
 | `.ylf-gradient-tile`                           | 品牌渐变实心贴片（白色前景，放 logo/重点图标）                    |
 | `.ylf-dopa-tile`                               | 彩色图标贴片，通过 `style="--tile: var(--ylf-dopa-xxx)"` 注入颜色 |
