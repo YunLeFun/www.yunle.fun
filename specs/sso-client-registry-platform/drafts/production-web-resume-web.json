@@ -9,6 +9,30 @@
           "consent": "trusted",
           "kind": "web-sso",
           "origins": [
+            "https://advjs.yunle.fun",
+            "https://studio.advjs.org"
+          ],
+          "redirectUris": [
+            "https://advjs.yunle.fun/",
+            "https://studio.advjs.org/"
+          ]
+        }
+      ],
+      "appId": "advjs-studio",
+      "clientId": "advjs-studio-web",
+      "displayName": "ADV.JS Studio",
+      "iconUrl": "https://studio.advjs.org/favicon.ico",
+      "status": "active"
+    },
+    {
+      "adapters": [
+        {
+          "allowedScopes": [
+            "identity:bootstrap"
+          ],
+          "consent": "trusted",
+          "kind": "web-sso",
+          "origins": [
             "https://admin.yunle.fun"
           ],
           "redirectUris": [
@@ -75,17 +99,19 @@
           "consent": "explicit",
           "kind": "web-sso",
           "origins": [
+            "https://cook.yunle.fun",
             "https://cook.yunyoujun.cn"
           ],
           "redirectUris": [
+            "https://cook.yunle.fun/auth/callback?platform=native",
             "https://cook.yunyoujun.cn/auth/callback?platform=native"
           ]
         }
       ],
       "appId": "cook",
       "clientId": "cook-mobile",
-      "displayName": "Cook 食用手册",
-      "iconUrl": "https://cook.yunyoujun.cn/favicon.svg",
+      "displayName": "食用手册",
+      "iconUrl": "https://cook.yunle.fun/pwa-512x512.png",
       "status": "active"
     },
     {
@@ -108,8 +134,8 @@
       ],
       "appId": "cook",
       "clientId": "cook-web",
-      "displayName": "Cook 食用手册",
-      "iconUrl": "https://cook.yunyoujun.cn/favicon.svg",
+      "displayName": "食用手册",
+      "iconUrl": "https://cook.yunle.fun/pwa-512x512.png",
       "status": "active"
     },
     {
