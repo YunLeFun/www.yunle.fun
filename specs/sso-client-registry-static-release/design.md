@@ -91,9 +91,10 @@ SES_TEMPLATE_REGISTRY_APPROVAL=<approved template id>
 部署准备阶段通过管理面把 `YunYouJun` 唯一映射为 CloudBase Auth uid，并人工核对当前邮箱。运行时每次按 uid 查询 Auth：
 
 - 返回用户数必须恰好为 1，返回 uid 必须匹配请求 uid。
-- 用户必须为 ACTIVE；显式 `EmailVerified === false` 时失败关闭。
-- `DescribeUserList` 缺少 `EmailVerified` 时，使用 Node SDK `queryUserInfo({ platform: 'EMAIL', platformId: email })`
-  反查已绑定身份源，并要求返回邮箱与 uid 均精确匹配；身份源缺失或查询异常时失败关闭。
+- 用户必须为 ACTIVE，邮箱格式必须合法。
+- CloudBase 当前用户契约不提供 `EmailVerified`；使用 Node SDK `getEndUserInfo(uid)` 按不可变 uid
+  读取当前登录邮箱，并要求返回邮箱与 uid 均精确匹配；身份视图缺失或查询异常时失败关闭。
+- 不自建或信任用户可写的“已验证”布尔字段；审批邮件中的一次性验证码确认本次操作的邮箱控制权。
 - 完整邮箱只进入 SES Destination 的瞬时内存。
 - 持久化 `recipientHash` 与脱敏值，不持久化完整邮箱。
 

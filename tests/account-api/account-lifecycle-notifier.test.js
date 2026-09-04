@@ -237,17 +237,17 @@ describe('account lifecycle notifier sweep', () => {
     expect(db._store[ACCOUNT_LIFECYCLE_CONTACTS_COLLECTION].map(row => row._id)).toEqual(['new-contact'])
   })
 
-  it('auth 收件地址解析兼容 Manager SDK 结构并拒绝未验证邮箱', async () => {
+  it('auth 收件地址解析兼容 Manager SDK 结构并拒绝非法邮箱', async () => {
     const manager = {
       user: {
         describeUserList: vi.fn()
-          .mockResolvedValueOnce({ Data: { UserList: [{ Email: 'verified@example.com', EmailVerified: true }] } })
-          .mockResolvedValueOnce({ Data: { UserList: [{ Email: 'unverified@example.com', EmailVerified: false }] } }),
+          .mockResolvedValueOnce({ Data: { UserList: [{ Email: 'recipient@example.com' }] } })
+          .mockResolvedValueOnce({ Data: { UserList: [{ Email: 'invalid address' }] } }),
       },
     }
     const resolve = createRecipientResolver(manager)
 
-    await expect(resolve('u1')).resolves.toBe('verified@example.com')
+    await expect(resolve('u1')).resolves.toBe('recipient@example.com')
     await expect(resolve('u2')).resolves.toBeNull()
   })
 })

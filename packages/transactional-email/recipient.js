@@ -31,14 +31,13 @@ function createRecipientResolver(manager, options = {}) {
     if (options.requireActive && status !== 'ACTIVE')
       return null
     const email = user?.Email || user?.email || ''
-    const verified = user?.EmailVerified ?? user?.emailVerified ?? user?.email_verified
-    if (!looksLikeEmail(email) || verified === false)
+    if (!looksLikeEmail(email))
       return null
-    if (options.requireVerified && verified !== true) {
-      if (typeof options.verifyEmailIdentity !== 'function')
+    if (options.requireIdentityMatch) {
+      if (typeof options.matchEmailIdentity !== 'function')
         return null
       try {
-        if (await options.verifyEmailIdentity({ email, userId }) !== true)
+        if (await options.matchEmailIdentity({ email, userId }) !== true)
           return null
       }
       catch {

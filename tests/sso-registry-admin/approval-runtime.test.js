@@ -7,38 +7,48 @@ import {
 } from '../../cloudfunctions/sso-registry-admin/approval-runtime.js'
 
 describe('sso-registry approval runtime', () => {
-  it('resolves only the configured uid with an explicitly verified current email', async () => {
+  it('accepts the production CloudBase user shape when the uid auth view matches', async () => {
     const manager = {
       user: {
-        describeUserList: vi.fn(async ({ uidList }) => ({
+        describeUserList: vi.fn(async () => ({
           Data: {
-            UserList: [{ Uid: uidList[0], Email: 'admin@example.com', EmailVerified: true, UserStatus: 'ACTIVE' }],
+            UserList: [{ Uid: 'admin-uid', Email: 'admin@example.com', UserStatus: 'ACTIVE' }],
           },
         })),
       },
     }
-    const auth = { queryUserInfo: vi.fn() }
+    const auth = {
+      getEndUserInfo: vi.fn(async uid => ({
+        userInfo: { uid, email: 'admin@example.com' },
+      })),
+      queryUserInfo: vi.fn(),
+    }
     const resolve = createStrictApproverResolver(manager, auth)
 
     await expect(resolve('admin-uid')).resolves.toBe('admin@example.com')
+    expect(auth.getEndUserInfo).toHaveBeenCalledWith('admin-uid')
     expect(auth.queryUserInfo).not.toHaveBeenCalled()
+  })
 
-    manager.user.describeUserList.mockResolvedValueOnce({
-      Data: { UserList: [{ Uid: 'admin-uid', Email: 'admin@example.com', UserStatus: 'ACTIVE' }] },
-    })
-    auth.queryUserInfo.mockResolvedValueOnce({
-      userInfo: { uid: 'admin-uid', email: 'admin@example.com' },
-    })
+  it('resolves only the configured uid with matching active user and auth views', async () => {
+    const manager = {
+      user: {
+        describeUserList: vi.fn(async ({ uidList }) => ({
+          Data: {
+            UserList: [{ Uid: uidList[0], Email: 'admin@example.com', UserStatus: 'ACTIVE' }],
+          },
+        })),
+      },
+    }
+    const auth = {
+      getEndUserInfo: vi.fn(async uid => ({
+        userInfo: { uid, email: 'ADMIN@example.com' },
+      })),
+    }
+    const resolve = createStrictApproverResolver(manager, auth)
+
     await expect(resolve('admin-uid')).resolves.toBe('admin@example.com')
-    expect(auth.queryUserInfo).toHaveBeenCalledWith({
-      platform: 'EMAIL',
-      platformId: 'admin@example.com',
-    })
-
-    manager.user.describeUserList.mockResolvedValueOnce({
-      Data: { UserList: [{ Uid: 'admin-uid', Email: 'admin@example.com', EmailVerified: false, UserStatus: 'ACTIVE' }] },
-    })
-    await expect(resolve('admin-uid')).resolves.toBeNull()
+    expect(auth.getEndUserInfo).toHaveBeenCalledWith('admin-uid')
   })
 
   it('fails closed when the email identity cannot confirm the same active uid', async () => {
@@ -52,12 +62,14 @@ describe('sso-registry approval runtime', () => {
       },
     }
     const auth = {
-      queryUserInfo: vi.fn()
+      getEndUserInfo: vi.fn()
         .mockResolvedValueOnce({ userInfo: { uid: 'other-uid', email: 'admin@example.com' } })
+        .mockResolvedValueOnce({ userInfo: { uid: 'admin-uid', email: 'other@example.com' } })
         .mockRejectedValueOnce(new Error('identity lookup unavailable')),
     }
     const resolve = createStrictApproverResolver(manager, auth)
 
+    await expect(resolve('admin-uid')).resolves.toBeNull()
     await expect(resolve('admin-uid')).resolves.toBeNull()
     await expect(resolve('admin-uid')).resolves.toBeNull()
 
@@ -66,7 +78,6 @@ describe('sso-registry approval runtime', () => {
         UserList: [{
           Uid: 'admin-uid',
           Email: 'admin@example.com',
-          EmailVerified: true,
           UserStatus: 'BLOCKED',
         }],
       },

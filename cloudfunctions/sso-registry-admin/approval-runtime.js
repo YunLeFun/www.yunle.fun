@@ -47,17 +47,14 @@ function createStrictApproverResolver(manager, auth) {
   return createRecipientResolver(manager, {
     requireActive: true,
     requireUidMatch: true,
-    requireVerified: true,
-    verifyEmailIdentity: async ({ email, userId }) => {
-      if (!auth || typeof auth.queryUserInfo !== 'function')
+    requireIdentityMatch: true,
+    matchEmailIdentity: async ({ email, userId }) => {
+      if (!auth || typeof auth.getEndUserInfo !== 'function')
         return false
-      const response = await auth.queryUserInfo({
-        platform: 'EMAIL',
-        platformId: email,
-      })
+      const response = await auth.getEndUserInfo(userId)
       const data = response?.data || response?.Data || response
       const user = data?.userInfo || data?.UserInfo
-      const resolvedUid = user?.uid || user?.Uid || user?.userId || user?.UserId
+      const resolvedUid = user?.uid || user?.Uid || user?.uuid || user?.UUId || user?.userId || user?.UserId
       const resolvedEmail = user?.email || user?.Email
       return resolvedUid === userId
         && typeof resolvedEmail === 'string'
