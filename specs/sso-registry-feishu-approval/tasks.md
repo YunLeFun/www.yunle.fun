@@ -1,6 +1,6 @@
 # SSO Client Registry 飞书审批实施计划
 
-状态：本地实现完成（2026-09-04）；production 资源与 canary 待单独确认
+状态：代码与 production 关闭态部署完成（2026-09-04）；飞书应用配置、密钥、真实回调与 owner canary 待完成
 
 本地门禁证据：Admin 475 tests、Provider 1178 tests 全部通过；两仓 lint、typecheck、build、`git diff --check` 通过；两仓依赖审计无已知漏洞；Admin 资源脚本 dry-run 为 0 network / 0 writes。未登录浏览器访问连接页会回到管理后台登录页，登录后的桌面/移动端人工验收归入 production owner canary。
 
@@ -117,10 +117,12 @@
   - _Requirements: R1–R9_
 
 - [ ] 13. 配置 production 资源并保持功能关闭
-  - 创建独立“云乐坊发布审批”飞书自建应用，启用机器人、网页 OAuth、卡片回调和最小消息权限。
-  - 生成独立 Admin approval Ed25519 key 与 Provider→Admin HMAC key；先发布公钥 trust anchor，再配置私钥。
-  - 创建 Admin 身份集合/索引，部署两仓和 Provider timer；验证 callback challenge 与私聊可用性。
-  - 此阶段 feature flag 保持关闭，线上继续全部走邮件。
+  - [ ] 创建独立“云乐坊发布审批”飞书自建应用，启用机器人、网页 OAuth、卡片回调和最小消息权限。
+  - [ ] 生成独立 Admin approval Ed25519 key 与 Provider→Admin HMAC key；先发布公钥 trust anchor，再配置私钥。
+  - [x] 创建 `admin_identity_bindings` / `admin_identity_audit_logs` ADMINONLY 集合及必要索引。
+  - [x] 部署两仓与 Provider timer，并确认 Provider 函数为私有调用。
+  - [x] 保持两端 feature flag 关闭；线上回调明确失败关闭，既有审批继续走邮件。
+  - [ ] 配置应用和密钥后验证 callback challenge 与机器人私聊可用性。
   - _Requirements: R1, R3, R6, R8, R9_
 
 - [ ] 14. 执行 production owner canary 与启用
