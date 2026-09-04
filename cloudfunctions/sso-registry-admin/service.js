@@ -3,7 +3,7 @@
 'use strict'
 
 const { Buffer } = require('node:buffer')
-const { createHmac, randomBytes, timingSafeEqual } = require('node:crypto')
+const { createHmac, randomInt, timingSafeEqual } = require('node:crypto')
 
 const {
   hashRegistry,
@@ -52,8 +52,11 @@ function auditId(now, randomId) {
 const APPROVAL_CODE_ALPHABET = '23456789ABCDEFGHJKMNPQRSTVWXYZ'
 const APPROVAL_TTL_MS = 30 * 60 * 1000
 
-function defaultApprovalCode() {
-  return [...randomBytes(12)].map(byte => APPROVAL_CODE_ALPHABET[byte & 31]).join('')
+function defaultApprovalCode(randomIndex = randomInt) {
+  return Array.from(
+    { length: 12 },
+    () => APPROVAL_CODE_ALPHABET[randomIndex(APPROVAL_CODE_ALPHABET.length)],
+  ).join('')
 }
 
 function isApprovalCode(value) {
@@ -1573,4 +1576,6 @@ function createRegistryAdminService(options) {
 module.exports = {
   RegistryAdminError,
   createRegistryAdminService,
+  defaultApprovalCode,
+  isApprovalCode,
 }

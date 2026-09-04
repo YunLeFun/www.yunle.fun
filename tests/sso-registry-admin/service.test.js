@@ -2,7 +2,12 @@ import { generateKeyPairSync } from 'node:crypto'
 
 import { describe, expect, it } from 'vitest'
 
-import { createRegistryAdminService, RegistryAdminError } from '../../cloudfunctions/sso-registry-admin/service.js'
+import {
+  createRegistryAdminService,
+  defaultApprovalCode,
+  isApprovalCode,
+  RegistryAdminError,
+} from '../../cloudfunctions/sso-registry-admin/service.js'
 import { verifyRegistryReleaseIntent } from '../../packages/authorization-core/src/index'
 
 function cloneMaps(source) {
@@ -150,6 +155,24 @@ function request(input = {}) {
     ...input,
   }
 }
+
+describe('approval code generation', () => {
+  it('samples all 30 allowed characters without addressing nonexistent indexes', () => {
+    const indexes = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 29]
+    const code = defaultApprovalCode((upperBound) => {
+      expect(upperBound).toBe(30)
+      return indexes.shift()
+    })
+
+    expect(code).toBe('23456789ABCZ')
+    expect(isApprovalCode(code)).toBe(true)
+  })
+
+  it('always returns a valid code with the production random source', () => {
+    for (let index = 0; index < 100; index++)
+      expect(isApprovalCode(defaultApprovalCode())).toBe(true)
+  })
+})
 
 describe('sso-registry-admin service', () => {
   it('saves a draft without changing active state, then publishes atomically', async () => {

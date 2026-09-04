@@ -102,7 +102,8 @@ SES_TEMPLATE_REGISTRY_APPROVAL=<approved template id>
 
 ### 4.3 审批码
 
-使用 12 位 Crockford Base32 随机码：
+使用 12 位去歧义大写字母数字随机码：字符表为 `23456789ABCDEFGHJKMNPQRSTVWXYZ`，排除容易混淆的
+`0/1/I/L/O/U`，共 30 个候选字符，约 59-bit 熵。每一位必须通过密码学安全的无偏差整数采样产生：
 
 ```text
 codeMac = HMAC-SHA256(approvalPepper, approvalId + "\0" + normalizedCode)
