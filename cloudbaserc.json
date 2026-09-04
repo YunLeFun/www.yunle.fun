@@ -140,6 +140,8 @@
       "installDependency": true,
       "envVariables": {
         "ACCOUNT_API_INTERNAL_TOKEN": "{{env.ACCOUNT_API_INTERNAL_TOKEN}}",
+        "PRIVATE_COS_BUCKET": "7975-yunlefun-8g7ybcxc7345c490-1325586649",
+        "PRIVATE_COS_REGION": "ap-shanghai",
         "WEB_RESUME_STORAGE_INTERNAL_TOKEN": "{{env.WEB_RESUME_STORAGE_INTERNAL_TOKEN}}",
         "WEB_RESUME_SWEEPER_INTERNAL_TOKEN": "{{env.WEB_RESUME_SWEEPER_INTERNAL_TOKEN}}"
       }

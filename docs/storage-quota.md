@@ -265,7 +265,8 @@ Web Resume 浏览器不直接调用通用存储 action。Drive BFF 验证 `@yunl
 
 ## 5. 私有 COS 运行配置
 
-- Bucket：默认 `yunlefun-private-1325586649`，可由 `PRIVATE_COS_BUCKET` 覆盖。
+- Bucket：代码默认 `yunlefun-private-1325586649`；生产环境通过 `PRIVATE_COS_BUCKET` 固定到当前
+  CloudBase 环境的私有存储桶，复用其精确 Origin CORS 与函数运行角色，不使用浏览器长期凭证。
 - Region：默认 `ap-shanghai`，可由 `PRIVATE_COS_REGION` 覆盖。
 - URL TTL：上传默认 600 秒、下载默认 300 秒，可由
   `PRIVATE_COS_UPLOAD_URL_TTL_SECONDS` / `PRIVATE_COS_DOWNLOAD_URL_TTL_SECONDS` 调整（60~3600 秒）。
