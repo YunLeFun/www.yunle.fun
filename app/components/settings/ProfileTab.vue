@@ -76,6 +76,7 @@ const form = reactive({
   gender: '' as '' | 'MALE' | 'FEMALE',
 })
 
+const NICKNAME_MIN_LENGTH = 2
 const NICKNAME_MAX_LENGTH = 32
 const DESCRIPTION_MAX_LENGTH = 200
 
@@ -96,7 +97,10 @@ const nicknameError = computed(() => {
   const nickname = form.nickname.trim()
   if (!nickname)
     return '请输入昵称'
-  if (Array.from(nickname).length > NICKNAME_MAX_LENGTH)
+  const length = Array.from(nickname).length
+  if (length < NICKNAME_MIN_LENGTH)
+    return `昵称至少 ${NICKNAME_MIN_LENGTH} 个字符`
+  if (length > NICKNAME_MAX_LENGTH)
     return `昵称不能超过 ${NICKNAME_MAX_LENGTH} 个字符`
   return ''
 })
@@ -416,6 +420,7 @@ async function save() {
                   name="nickname"
                   placeholder="输入您的昵称"
                   autocomplete="nickname"
+                  :minlength="NICKNAME_MIN_LENGTH"
                   :maxlength="NICKNAME_MAX_LENGTH"
                   :aria-invalid="!!nicknameError"
                 />

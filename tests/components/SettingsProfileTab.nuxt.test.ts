@@ -260,6 +260,43 @@ describe('settings profile editing entry', () => {
     }))
   })
 
+  it('persists the avatar file ID and description before refreshing the profile', async () => {
+    const uploadAvatar = h.s.uploadAvatar as ReturnType<typeof vi.fn>
+    const updateUser = h.s.updateUser as ReturnType<typeof vi.fn>
+    const fetchUser = h.s.fetchUser as ReturnType<typeof vi.fn>
+    const toastAdd = h.s.toastAdd as ReturnType<typeof vi.fn>
+
+    uploadAvatar.mockResolvedValue({
+      fileID: 'cloud://env.bucket/avatars/u1.jpg',
+      cloudPath: 'avatars/u1.jpg',
+    })
+
+    const wrapper = await mountSuspended(ProfileTab, {
+      props: { startEditing: true },
+      global: { stubs },
+    })
+
+    wrapper.findComponent({ name: 'AvatarCropper' }).vm.$emit(
+      'confirm',
+      new File(['avatar'], 'avatar.jpg', { type: 'image/jpeg' }),
+    )
+    await flushPromises()
+    await wrapper.get('textarea').setValue('Updated profile')
+    await wrapper.get('form[aria-label="编辑个人资料"]').trigger('submit')
+    await flushPromises()
+
+    expect(updateUser).toHaveBeenCalledWith({
+      avatar_url: 'cloud://env.bucket/avatars/u1.jpg',
+      description: 'Updated profile',
+    })
+    expect(fetchUser).toHaveBeenCalledOnce()
+    expect(wrapper.emitted('editFinished')).toHaveLength(1)
+    expect(toastAdd).toHaveBeenLastCalledWith(expect.objectContaining({
+      title: '保存成功',
+      color: 'success',
+    }))
+  })
+
   it('rejects avatar formats outside the advertised allowlist', async () => {
     const toastAdd = h.s.toastAdd as ReturnType<typeof vi.fn>
     const wrapper = await mountSuspended(ProfileTab, {
@@ -296,5 +333,20 @@ describe('settings profile editing entry', () => {
     expect(updateUser).toHaveBeenCalledWith({
       nickname: 'Alice Chen',
     })
+  })
+
+  it('rejects a one-character nickname before calling CloudBase', async () => {
+    const updateUser = h.s.updateUser as ReturnType<typeof vi.fn>
+    const wrapper = await mountSuspended(ProfileTab, {
+      props: { startEditing: true },
+      global: { stubs },
+    })
+
+    await wrapper.get('input[placeholder="输入您的昵称"]').setValue('云')
+    await wrapper.get('form[aria-label="编辑个人资料"]').trigger('submit')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('昵称至少 2 个字符')
+    expect(updateUser).not.toHaveBeenCalled()
   })
 })
