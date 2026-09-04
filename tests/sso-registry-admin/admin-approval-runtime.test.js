@@ -8,9 +8,13 @@ import {
   ADMIN_APPROVAL_AUDIENCE,
   ADMIN_APPROVAL_ISSUER,
   ADMIN_APPROVAL_TRUST_ANCHORS,
+  ADMIN_DECISION_ACTION,
+  ADMIN_DECISION_PERMISSION,
+  loadAdminDecisionTrustAnchors,
   MANAGED_APPROVAL_ACTION,
   MANAGED_APPROVAL_TRUST_ANCHORS,
   verifyAdminApprovalProof,
+  verifyAdminDecisionProof,
   verifyManagedApprovalProof,
 } from '../../cloudfunctions/sso-registry-admin/admin-approval-runtime.js'
 
@@ -101,6 +105,92 @@ describe('admin Registry approval proof', () => {
       .toEqual(Buffer.from(validSignature, 'base64url'))
     expect(() => verifyAdminApprovalProof(nonCanonical, valid.options))
       .toThrow(expect.objectContaining({ code: 'admin_approval_signature_invalid' }))
+  })
+})
+
+describe('admin Registry decision proof v2', () => {
+  function decisionFixture(overrides = {}) {
+    return fixture({
+      action: ADMIN_DECISION_ACTION,
+      approvalId: 'approval:test',
+      decision: 'approve',
+      externalIdentityHash: 'd'.repeat(64),
+      messageId: 'om_message_test',
+      permission: ADMIN_DECISION_PERMISSION,
+      role: undefined,
+      ...overrides,
+    })
+  }
+
+  it('verifies exact short-lived decision evidence without accepting the legacy schema', () => {
+    const { claims, proof, options } = decisionFixture()
+    expect(verifyAdminDecisionProof(proof, options)).toEqual(claims)
+    expect(() => verifyAdminApprovalProof(proof, options))
+      .toThrow(expect.objectContaining({ code: 'admin_approval_claims_invalid' }))
+  })
+
+  it.each(['approve', 'reject', 'email_fallback'])('accepts the %s decision', (decision) => {
+    const { proof, options } = decisionFixture({ decision })
+    expect(verifyAdminDecisionProof(proof, options).decision).toBe(decision)
+  })
+
+  it('fails closed for unexpected fields, permission, identity hash and message id', () => {
+    const unexpected = decisionFixture({ unexpected: true })
+    expect(() => verifyAdminDecisionProof(unexpected.proof, unexpected.options))
+      .toThrow(expect.objectContaining({ code: 'admin_decision_claims_invalid' }))
+
+    const permission = decisionFixture({ permission: 'admin:write' })
+    expect(() => verifyAdminDecisionProof(permission.proof, permission.options))
+      .toThrow(expect.objectContaining({ code: 'admin_decision_claims_invalid' }))
+
+    const identity = decisionFixture({ externalIdentityHash: 'not-a-hash' })
+    expect(() => verifyAdminDecisionProof(identity.proof, identity.options))
+      .toThrow(expect.objectContaining({ code: 'admin_decision_identity_invalid' }))
+
+    const message = decisionFixture({ messageId: '' })
+    expect(() => verifyAdminDecisionProof(message.proof, message.options))
+      .toThrow(expect.objectContaining({ code: 'admin_decision_message_invalid' }))
+  })
+
+  it('rejects tampering, an untrusted key and expired evidence', () => {
+    const valid = decisionFixture()
+    const tampered = `${valid.proof.slice(0, -1)}${valid.proof.endsWith('a') ? 'b' : 'a'}`
+    expect(() => verifyAdminDecisionProof(tampered, valid.options))
+      .toThrow(expect.objectContaining({ code: 'admin_decision_signature_invalid' }))
+
+    expect(() => verifyAdminDecisionProof(valid.proof, {
+      ...valid.options,
+      trustAnchors: { production: {} },
+    })).toThrow(expect.objectContaining({ code: 'admin_decision_key_untrusted' }))
+
+    const expired = decisionFixture({
+      iat: Math.floor(NOW / 1_000) - 600,
+      exp: Math.floor(NOW / 1_000) - 300,
+    })
+    expect(() => verifyAdminDecisionProof(expired.proof, expired.options))
+      .toThrow(expect.objectContaining({ code: 'admin_decision_expired' }))
+  })
+
+  it('loads only an explicit Ed25519 production key ring', () => {
+    const keys = generateKeyPairSync('ed25519')
+    const publicJwk = keys.publicKey.export({ format: 'jwk' })
+    expect(loadAdminDecisionTrustAnchors({
+      SSO_REGISTRY_ADMIN_DECISION_PUBLIC_KEYS: JSON.stringify({
+        'decision-key': publicJwk,
+      }),
+    })).toEqual({
+      production: {
+        'decision-key': publicJwk,
+      },
+    })
+    expect(() => loadAdminDecisionTrustAnchors({
+      SSO_REGISTRY_ADMIN_DECISION_PUBLIC_KEYS: '{}',
+    })).toThrow(/at least one key/)
+    expect(() => loadAdminDecisionTrustAnchors({
+      SSO_REGISTRY_ADMIN_DECISION_PUBLIC_KEYS: JSON.stringify({
+        'decision-key': keys.privateKey.export({ format: 'jwk' }),
+      }),
+    })).toThrow(/invalid Ed25519 key/)
   })
 })
 

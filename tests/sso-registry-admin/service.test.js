@@ -54,7 +54,30 @@ function memoryStore() {
       }),
       findPendingApprovalByDraft: async (environment, id) => [...target().approvals.entries()]
         .map(([approvalId, value]) => ({ approvalId, ...structuredClone(value) }))
-        .find(value => value.environment === environment && value.draftId === id && ['delivery_pending', 'pending'].includes(value.status)) || null,
+        .find(value => value.environment === environment
+          && value.draftId === id
+          && ['delivery_pending', 'pending', 'decision_pending', 'processing'].includes(value.status)) || null,
+      listExpiredApprovals: async (environment, timestamp, limit = 10) => [...target().approvals.entries()]
+        .map(([approvalId, value]) => ({ approvalId, ...structuredClone(value) }))
+        .filter(value => value.environment === environment
+          && ['delivery_pending', 'pending', 'decision_pending'].includes(value.status)
+          && value.expiresAt <= timestamp)
+        .sort((left, right) => left.expiresAt - right.expiresAt)
+        .slice(0, limit),
+      listPendingAdminDecisions: async (environment, timestamp, limit = 10) => [...target().approvals.entries()]
+        .map(([approvalId, value]) => ({ approvalId, ...structuredClone(value) }))
+        .filter(value => value.environment === environment
+          && (value.status === 'decision_pending'
+            || (value.status === 'processing' && Number(value.decision?.leaseExpiresAt || 0) <= timestamp)))
+        .sort((left, right) => left.updatedAt - right.updatedAt)
+        .slice(0, limit),
+      listReadyApprovalCardSync: async (environment, timestamp, limit = 10) => [...target().approvals.entries()]
+        .map(([approvalId, value]) => ({ approvalId, ...structuredClone(value) }))
+        .filter(value => value.environment === environment
+          && ['pending', 'retry'].includes(value.cardSync?.status)
+          && Number(value.cardSync?.nextAttemptAt || 0) <= timestamp)
+        .sort((left, right) => left.cardSync.nextAttemptAt - right.cardSync.nextAttemptAt)
+        .slice(0, limit),
       getReleaseIntent: async id => structuredClone(target().intents.get(id) || null),
       putReleaseIntent: async (id, value) => target().intents.set(id, structuredClone(value)),
       updateReleaseIntent: async (id, value) => target().intents.set(id, {
@@ -442,6 +465,391 @@ describe('sso-registry-admin service', () => {
     expect(persisted).not.toHaveProperty('email')
     expect(persisted.codeMac).toMatch(/^[a-f0-9]{64}$/)
     expect(persisted.recipientHash).toMatch(/^[a-f0-9]{64}$/)
+  })
+
+  it('prefers a Feishu card without resolving email or generating a code', async () => {
+    const cards = []
+    let emailResolved = false
+    let codeGenerated = false
+    const { memory, service } = setup({
+      approvalPepper: 'registry-approval-pepper-with-32-bytes',
+      approverUids: ['admin-uid'],
+      feishuApprovalEnabled: true,
+      generateApprovalCode: () => {
+        codeGenerated = true
+        return '23456789ABCD'
+      },
+      resolveApproverEmail: async () => {
+        emailResolved = true
+        return 'admin@example.com'
+      },
+      sendApprovalEmail: async () => ({ id: 'unexpected-email' }),
+      sendApprovalCard: async (message) => {
+        cards.push(message)
+        return {
+          id: 'om_feishu_approval',
+          externalIdentityHash: 'e'.repeat(64),
+          requestId: 'feishu-request-1',
+        }
+      },
+    })
+    const draft = await service.saveDraft(request({ registry: registry() }))
+
+    const approval = await service.requestPublishApproval(request({
+      draftId: draft.draftId,
+      baseCommitSha: '1'.repeat(40),
+    }))
+
+    expect(approval).toMatchObject({ channel: 'feishu', status: 'pending' })
+    expect(emailResolved).toBe(false)
+    expect(codeGenerated).toBe(false)
+    expect(cards).toEqual([expect.objectContaining({
+      approvalId: approval.approvalId,
+      approverUid: 'admin-uid',
+      baseCommitSha: '1'.repeat(40),
+    })])
+    expect(memory.snapshot().approvals.get(approval.approvalId)).toMatchObject({
+      channel: 'feishu',
+      channelStatus: 'pending',
+      status: 'pending',
+      feishuMessageId: 'om_feishu_approval',
+      externalIdentityHash: 'e'.repeat(64),
+    })
+    expect(memory.snapshot().approvals.get(approval.approvalId)).not.toHaveProperty('codeMac')
+  })
+
+  it('activates email only after Feishu delivery definitively fails', async () => {
+    const emails = []
+    const { memory, service } = setup({
+      approvalPepper: 'registry-approval-pepper-with-32-bytes',
+      approverUids: ['admin-uid'],
+      feishuApprovalEnabled: true,
+      generateApprovalCode: () => '23456789ABCD',
+      resolveApproverEmail: async () => 'admin@example.com',
+      sendApprovalEmail: async (message) => {
+        emails.push(message)
+        return { id: 'ses-fallback' }
+      },
+      sendApprovalCard: async () => { throw new Error('card retries exhausted') },
+    })
+    const draft = await service.saveDraft(request({ registry: registry() }))
+
+    const approval = await service.requestPublishApproval(request({
+      draftId: draft.draftId,
+      baseCommitSha: '2'.repeat(40),
+    }))
+
+    expect(approval).toMatchObject({ channel: 'email', status: 'pending' })
+    expect(emails).toEqual([expect.objectContaining({ code: '23456789ABCD' })])
+    expect(memory.snapshot().approvals.get(approval.approvalId)).toMatchObject({
+      channel: 'email',
+      channelStatus: 'pending',
+      deliveryMessageId: 'ses-fallback',
+    })
+  })
+
+  it('registers a verified Feishu decision once and exposes only a trimmed Admin view', async () => {
+    let decisionClaims
+    let channelVerified = false
+    const { memory, service } = setup({
+      approvalPepper: 'registry-approval-pepper-with-32-bytes',
+      approverUids: ['admin-uid'],
+      feishuApprovalEnabled: true,
+      resolveApproverEmail: async () => 'admin@example.com',
+      sendApprovalEmail: async () => ({ id: 'unused-email' }),
+      sendApprovalCard: async () => ({
+        id: 'om_decision_message',
+        externalIdentityHash: 'e'.repeat(64),
+      }),
+      verifyAdminDecisionProof: () => decisionClaims,
+      verifyAdminChannelRequest: () => { channelVerified = true },
+    })
+    const draft = await service.saveDraft(request({ registry: registry() }))
+    const approval = await service.requestPublishApproval(request({
+      draftId: draft.draftId,
+      baseCommitSha: '3'.repeat(40),
+    }))
+    const persisted = memory.snapshot().approvals.get(approval.approvalId)
+    decisionClaims = {
+      sub: 'admin-uid',
+      login: 'owner',
+      approvalId: approval.approvalId,
+      decision: 'approve',
+      draftId: persisted.draftId,
+      baseCommitSha: persisted.baseCommitSha,
+      policyVersion: persisted.policyVersion,
+      clientCount: persisted.clientCount,
+      contentHash: persisted.contentHash,
+      securityHash: persisted.securityHash,
+      messageId: persisted.feishuMessageId,
+      externalIdentityHash: persisted.externalIdentityHash,
+      jti: 'decision-jti-1',
+    }
+
+    const submitted = await service.submitAdminApprovalDecision({
+      approvalProof: 'signed-decision-proof',
+      requestId: 'decision-request',
+    })
+    const repeated = await service.submitAdminApprovalDecision({
+      approvalProof: 'signed-decision-proof',
+      requestId: 'decision-retry',
+    })
+
+    expect(submitted).toMatchObject({ status: 'decision_pending', idempotent: false })
+    expect(repeated).toMatchObject({ status: 'decision_pending', idempotent: true })
+    expect(memory.snapshot().approvals.get(approval.approvalId)).toMatchObject({
+      channelStatus: 'decision_pending',
+      status: 'decision_pending',
+      decision: {
+        action: 'approve',
+        jti: 'decision-jti-1',
+        proofHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+      },
+      cardSync: { status: 'pending', attempts: 0 },
+    })
+
+    const adminView = await service.getApprovalForAdmin({ approvalId: approval.approvalId })
+    expect(channelVerified).toBe(true)
+    expect(adminView).toMatchObject({
+      approvalId: approval.approvalId,
+      channel: 'feishu',
+      status: 'decision_pending',
+    })
+    expect(adminView).not.toHaveProperty('decision')
+    expect(adminView).not.toHaveProperty('externalIdentityHash')
+    expect(adminView).not.toHaveProperty('codeMac')
+
+    decisionClaims = { ...decisionClaims, jti: 'decision-jti-2', decision: 'reject' }
+    await expect(
+      service.submitAdminApprovalDecision({ approvalProof: 'different-proof' }),
+    ).rejects.toEqual(expect.objectContaining({ code: 'admin_decision_conflict' }))
+  })
+
+  it.each([
+    ['approve', 'consumed'],
+    ['reject', 'rejected'],
+    ['email_fallback', 'pending'],
+  ])('processes the %s decision asynchronously into %s', async (decision, expectedStatus) => {
+    let decisionClaims
+    const emails = []
+    const cardUpdates = []
+    const { memory, service } = setup({
+      approvalPepper: 'registry-approval-pepper-with-32-bytes',
+      approverUids: ['admin-uid'],
+      feishuApprovalEnabled: true,
+      generateApprovalCode: () => '23456789ABCD',
+      resolveApproverEmail: async () => 'admin@example.com',
+      sendApprovalEmail: async (message) => {
+        emails.push(message)
+        return { id: 'ses-decision-fallback' }
+      },
+      sendApprovalCard: async () => ({
+        id: `om_${decision}`,
+        externalIdentityHash: 'f'.repeat(64),
+      }),
+      notifyApprovalCard: async (message) => { cardUpdates.push(message) },
+      verifyAdminDecisionProof: () => decisionClaims,
+    })
+    const draft = await service.saveDraft(request({ registry: registry() }))
+    const approval = await service.requestPublishApproval(request({
+      draftId: draft.draftId,
+      baseCommitSha: '8'.repeat(40),
+    }))
+    const persisted = memory.snapshot().approvals.get(approval.approvalId)
+    decisionClaims = {
+      sub: 'admin-uid',
+      login: 'owner',
+      approvalId: approval.approvalId,
+      decision,
+      draftId: persisted.draftId,
+      baseCommitSha: persisted.baseCommitSha,
+      policyVersion: persisted.policyVersion,
+      clientCount: persisted.clientCount,
+      contentHash: persisted.contentHash,
+      securityHash: persisted.securityHash,
+      messageId: persisted.feishuMessageId,
+      externalIdentityHash: persisted.externalIdentityHash,
+      jti: `decision-${decision}`,
+    }
+    await service.submitAdminApprovalDecision({ approvalProof: `proof-${decision}` })
+
+    const processed = await service.processPendingAdminApprovalDecisions()
+
+    expect(processed).toMatchObject({
+      processed: 1,
+      results: [expect.objectContaining({
+        approvalId: approval.approvalId,
+        status: expectedStatus,
+      })],
+    })
+    expect(memory.snapshot().approvals.get(approval.approvalId).status).toBe(expectedStatus)
+    expect(cardUpdates).toEqual([expect.objectContaining({ approvalId: approval.approvalId })])
+    if (decision === 'approve') {
+      expect(memory.snapshot().intents.size).toBe(1)
+      expect(memory.snapshot().outbox.size).toBe(1)
+    }
+    else {
+      expect(memory.snapshot().intents.size).toBe(0)
+    }
+    if (decision === 'email_fallback') {
+      expect(emails).toEqual([expect.objectContaining({ code: '23456789ABCD' })])
+      expect(memory.snapshot().approvals.get(approval.approvalId)).toMatchObject({
+        channel: 'email',
+        codeMac: expect.stringMatching(/^[a-f0-9]{64}$/),
+      })
+    }
+    else {
+      expect(emails).toEqual([])
+    }
+  })
+
+  it('retries terminal card sync without rolling back the authoritative release', async () => {
+    let clock = 1_785_700_000_000
+    let decisionClaims
+    let notifyAttempts = 0
+    const { memory, service } = setup({
+      now: () => clock,
+      approvalPepper: 'registry-approval-pepper-with-32-bytes',
+      approverUids: ['admin-uid'],
+      feishuApprovalEnabled: true,
+      resolveApproverEmail: async () => 'admin@example.com',
+      sendApprovalEmail: async () => ({ id: 'unused-email' }),
+      sendApprovalCard: async () => ({ id: 'om_retry', externalIdentityHash: 'a'.repeat(64) }),
+      notifyApprovalCard: async () => {
+        notifyAttempts++
+        if (notifyAttempts === 1)
+          throw new Error('temporary card patch failure')
+      },
+      verifyAdminDecisionProof: () => decisionClaims,
+    })
+    const draft = await service.saveDraft(request({ registry: registry() }))
+    const approval = await service.requestPublishApproval(request({
+      draftId: draft.draftId,
+      baseCommitSha: '9'.repeat(40),
+    }))
+    const persisted = memory.snapshot().approvals.get(approval.approvalId)
+    decisionClaims = {
+      sub: 'admin-uid',
+      login: 'owner',
+      approvalId: approval.approvalId,
+      decision: 'approve',
+      draftId: persisted.draftId,
+      baseCommitSha: persisted.baseCommitSha,
+      policyVersion: persisted.policyVersion,
+      clientCount: persisted.clientCount,
+      contentHash: persisted.contentHash,
+      securityHash: persisted.securityHash,
+      messageId: persisted.feishuMessageId,
+      externalIdentityHash: persisted.externalIdentityHash,
+      jti: 'decision-retry-card',
+    }
+    await service.submitAdminApprovalDecision({ approvalProof: 'proof-retry-card' })
+    await service.processPendingAdminApprovalDecisions()
+    expect(memory.snapshot().approvals.get(approval.approvalId)).toMatchObject({
+      status: 'consumed',
+      cardSync: { status: 'retry', attempts: 1 },
+    })
+    expect(memory.snapshot().intents.size).toBe(1)
+
+    clock += 3 * 60 * 1000
+    const retried = await service.processPendingAdminApprovalDecisions()
+    expect(retried).toMatchObject({ processed: 0, cardSyncRetried: 1 })
+    expect(memory.snapshot().approvals.get(approval.approvalId)).toMatchObject({
+      status: 'consumed',
+      cardSync: { status: 'sent', attempts: 2 },
+    })
+    expect(memory.snapshot().intents.size).toBe(1)
+  })
+
+  it('expires untouched approvals and closes their Feishu card', async () => {
+    let clock = 1_785_700_000_000
+    const cardUpdates = []
+    const { memory, service } = setup({
+      now: () => clock,
+      approvalPepper: 'registry-approval-pepper-with-32-bytes',
+      approverUids: ['admin-uid'],
+      feishuApprovalEnabled: true,
+      resolveApproverEmail: async () => 'admin@example.com',
+      sendApprovalEmail: async () => ({ id: 'unused-email' }),
+      sendApprovalCard: async () => ({ id: 'om_expiring', externalIdentityHash: 'c'.repeat(64) }),
+      notifyApprovalCard: async (message) => { cardUpdates.push(message) },
+    })
+    const draft = await service.saveDraft(request({ registry: registry() }))
+    const approval = await service.requestPublishApproval(request({
+      draftId: draft.draftId,
+      baseCommitSha: 'e'.repeat(40),
+    }))
+
+    clock = approval.expiresAt + 1
+    const swept = await service.processPendingAdminApprovalDecisions()
+
+    expect(swept).toMatchObject({ approvalsExpired: 1, processed: 0 })
+    expect(memory.snapshot().approvals.get(approval.approvalId)).toMatchObject({
+      channelStatus: 'terminal',
+      status: 'expired',
+      cardSync: { status: 'sent', attempts: 1 },
+    })
+    expect(cardUpdates).toEqual([{
+      approvalId: approval.approvalId,
+      status: 'expired',
+    }])
+  })
+
+  it('bounds email fallback retries and dead-letters without publishing', async () => {
+    let decisionClaims
+    let emailAttempts = 0
+    let generatedCodes = 0
+    const { memory, service } = setup({
+      approvalPepper: 'registry-approval-pepper-with-32-bytes',
+      approverUids: ['admin-uid'],
+      feishuApprovalEnabled: true,
+      generateApprovalCode: () => {
+        generatedCodes++
+        return '23456789ABCD'
+      },
+      resolveApproverEmail: async () => 'admin@example.com',
+      sendApprovalEmail: async () => {
+        emailAttempts++
+        throw new Error('SES unavailable')
+      },
+      sendApprovalCard: async () => ({ id: 'om_email_dead', externalIdentityHash: 'b'.repeat(64) }),
+      verifyAdminDecisionProof: () => decisionClaims,
+    })
+    const draft = await service.saveDraft(request({ registry: registry() }))
+    const approval = await service.requestPublishApproval(request({
+      draftId: draft.draftId,
+      baseCommitSha: 'd'.repeat(40),
+    }))
+    const persisted = memory.snapshot().approvals.get(approval.approvalId)
+    decisionClaims = {
+      sub: 'admin-uid',
+      login: 'owner',
+      approvalId: approval.approvalId,
+      decision: 'email_fallback',
+      draftId: persisted.draftId,
+      baseCommitSha: persisted.baseCommitSha,
+      policyVersion: persisted.policyVersion,
+      clientCount: persisted.clientCount,
+      contentHash: persisted.contentHash,
+      securityHash: persisted.securityHash,
+      messageId: persisted.feishuMessageId,
+      externalIdentityHash: persisted.externalIdentityHash,
+      jti: 'decision-email-dead-letter',
+    }
+    await service.submitAdminApprovalDecision({ approvalProof: 'proof-email-dead-letter' })
+
+    expect(await service.processPendingAdminApprovalDecisions()).toMatchObject({
+      results: [expect.objectContaining({ status: 'delivery_failed' })],
+    })
+
+    expect(emailAttempts).toBe(3)
+    expect(generatedCodes).toBe(1)
+    expect(memory.snapshot().approvals.get(approval.approvalId)).toMatchObject({
+      status: 'delivery_failed',
+      decision: { deliveryAttempts: 3 },
+    })
+    expect(memory.snapshot().intents.size).toBe(0)
+    expect(memory.snapshot().outbox.size).toBe(0)
   })
 
   it('consumes a valid production approval and atomically queues a signed release intent', async () => {

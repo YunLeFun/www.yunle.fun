@@ -26,4 +26,16 @@ describe('sso-registry-admin action policy', () => {
       })).not.toThrow()
     }
   })
+
+  it('allows decision consumption only for the exact timer envelope', () => {
+    expect(() => assertRegistryAdminActionAllowed(
+      'processPendingAdminApprovalDecisions',
+      'production',
+    )).toThrow(expect.objectContaining({ code: 'timer_identity_required' }))
+    expect(() => assertRegistryAdminActionAllowed(
+      'processPendingAdminApprovalDecisions',
+      'production',
+      { timerTrigger: true },
+    )).not.toThrow()
+  })
 })

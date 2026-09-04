@@ -10,7 +10,17 @@ const {
   registryTrustAnchors,
 } = require('@yunlefun/authorization-core')
 const { assertRegistryAdminActionAllowed } = require('./action-policy')
-const { verifyAdminApprovalProof, verifyManagedApprovalProof } = require('./admin-approval-runtime')
+const {
+  loadAdminDecisionTrustAnchors,
+  verifyAdminApprovalProof,
+  verifyAdminDecisionProof,
+  verifyManagedApprovalProof,
+} = require('./admin-approval-runtime')
+const {
+  createAdminChannelClient,
+  createAdminChannelRequestVerifier,
+  loadAdminChannelConfig,
+} = require('./admin-channel-runtime')
 const {
   createApprovalEmailSender,
   createManager,
@@ -73,7 +83,22 @@ function loadService(environment = currentEnvironment(), context = {}, action = 
   }
   if (environment === 'production') {
     options.approverUids = parseApproverUids(process.env.SSO_REGISTRY_APPROVER_UIDS)
-    if (['requestPublishApproval', 'approveAndQueueRelease', 'requestRollbackApproval'].includes(action)) {
+    const channelConfig = loadAdminChannelConfig()
+    if (channelConfig.enabled) {
+      const channel = createAdminChannelClient(channelConfig)
+      options.feishuApprovalEnabled = true
+      if (['requestPublishApproval', 'requestRollbackApproval'].includes(action))
+        options.sendApprovalCard = channel.sendApprovalCard
+      if (action === 'processPendingAdminApprovalDecisions')
+        options.notifyApprovalCard = channel.notifyApprovalCard
+      if (action === 'getApprovalForAdmin')
+        options.verifyAdminChannelRequest = createAdminChannelRequestVerifier(channelConfig.secret)
+      if (action === 'submitAdminApprovalDecision') {
+        const trustAnchors = loadAdminDecisionTrustAnchors()
+        options.verifyAdminDecisionProof = proof => verifyAdminDecisionProof(proof, { trustAnchors })
+      }
+    }
+    if (['requestPublishApproval', 'approveAndQueueRelease', 'requestRollbackApproval', 'processPendingAdminApprovalDecisions'].includes(action)) {
       const runtime = cloudbase.getCloudbaseContext()
       const envId = runtime.TCB_ENV || runtime.SCF_NAMESPACE
       if (!envId)
@@ -92,8 +117,11 @@ function loadService(environment = currentEnvironment(), context = {}, action = 
 }
 
 exports.main = async (event, context) => {
+  const isDecisionTimer = event?.Type === 'Timer'
+    && event?.TriggerName === 'ssoRegistryApprovalDecision'
   const request = {
     ...(event && typeof event === 'object' ? event : {}),
+    ...(isDecisionTimer ? { action: 'processPendingAdminApprovalDecisions' } : {}),
     requestId: String(context?.requestId || context?.request_id || 'management-invoke'),
   }
   try {
@@ -101,6 +129,7 @@ exports.main = async (event, context) => {
     assertRegistryAdminActionAllowed(request.action, environment, {
       ciToken: request.ciToken,
       expectedCiToken: process.env.SSO_REGISTRY_CI_TOKEN,
+      timerTrigger: isDecisionTimer,
     })
     const runtime = loadService(environment, context, request.action)
     let data
@@ -128,6 +157,15 @@ exports.main = async (event, context) => {
         break
       case 'approveAndQueueReleaseByAdmin':
         data = await runtime.approveAndQueueReleaseByAdmin(request)
+        break
+      case 'getApprovalForAdmin':
+        data = await runtime.getApprovalForAdmin(request)
+        break
+      case 'submitAdminApprovalDecision':
+        data = await runtime.submitAdminApprovalDecision(request)
+        break
+      case 'processPendingAdminApprovalDecisions':
+        data = await runtime.processPendingAdminApprovalDecisions(request)
         break
       case 'evaluateAndAutoApproveDraft':
         data = await runtime.evaluateAndAutoApproveDraft(request)

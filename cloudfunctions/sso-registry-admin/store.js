@@ -103,6 +103,22 @@ const SSO_REGISTRY_COLLECTION_MANIFESTS = Object.freeze([
         { field: 'approverUid', order: 'asc' },
         { field: 'createdAt', order: 'desc' },
       ],
+    }, {
+      name: 'environment_status_updated',
+      unique: false,
+      fields: [
+        { field: 'environment', order: 'asc' },
+        { field: 'status', order: 'asc' },
+        { field: 'updatedAt', order: 'asc' },
+      ],
+    }, {
+      name: 'environment_card_sync_next',
+      unique: false,
+      fields: [
+        { field: 'environment', order: 'asc' },
+        { field: 'cardSync.status', order: 'asc' },
+        { field: 'cardSync.nextAttemptAt', order: 'asc' },
+      ],
     }],
   },
   {
@@ -231,13 +247,54 @@ function createRegistryStore(database, source = database) {
         .where({
           environment,
           draftId,
-          status: database.command.in(['delivery_pending', 'pending']),
+          status: database.command.in(['delivery_pending', 'pending', 'decision_pending', 'processing']),
         })
         .orderBy('createdAt', 'desc')
         .limit(1)
         .get()
       const found = rows(result)[0]
       return found ? { approvalId: found._id, ...withoutId(found) } : null
+    },
+    async listExpiredApprovals(environment, timestamp, limit = 10) {
+      const result = await source.collection(COLLECTIONS.approvals)
+        .where({
+          environment,
+          status: database.command.in(['delivery_pending', 'pending', 'decision_pending']),
+          expiresAt: database.command.lte(timestamp),
+        })
+        .orderBy('expiresAt', 'asc')
+        .limit(limit)
+        .get()
+      return rows(result)
+        .map(document => ({ approvalId: document._id, ...withoutId(document) }))
+    },
+    async listPendingAdminDecisions(environment, timestamp, limit = 10) {
+      const result = await source.collection(COLLECTIONS.approvals)
+        .where({
+          environment,
+          status: database.command.in(['decision_pending', 'processing']),
+        })
+        .orderBy('updatedAt', 'asc')
+        .limit(limit * 2)
+        .get()
+      return rows(result)
+        .map(document => ({ approvalId: document._id, ...withoutId(document) }))
+        .filter(document => document.status === 'decision_pending'
+          || Number(document.decision?.leaseExpiresAt || 0) <= timestamp)
+        .slice(0, limit)
+    },
+    async listReadyApprovalCardSync(environment, timestamp, limit = 10) {
+      const result = await source.collection(COLLECTIONS.approvals)
+        .where({
+          environment,
+          'cardSync.status': database.command.in(['pending', 'retry']),
+          'cardSync.nextAttemptAt': database.command.lte(timestamp),
+        })
+        .orderBy('cardSync.nextAttemptAt', 'asc')
+        .limit(limit)
+        .get()
+      return rows(result)
+        .map(document => ({ approvalId: document._id, ...withoutId(document) }))
     },
     async getReleaseIntent(id) {
       return withoutId(row(await ref(COLLECTIONS.intents, id).get()))

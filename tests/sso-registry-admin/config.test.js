@@ -28,7 +28,15 @@ describe('sso-registry-admin deployment contract', () => {
         SSO_REGISTRY_SIGNING_KID: '{{env.SSO_REGISTRY_SIGNING_KID}}',
       },
     })
-    expect(fn.triggers).toBeUndefined()
+    if (expectedEnvironment === 'production') {
+      expect(fn.triggers).toEqual([expect.objectContaining({
+        name: 'ssoRegistryApprovalDecision',
+        type: 'timer',
+      })])
+    }
+    else {
+      expect(fn.triggers).toBeUndefined()
+    }
     expect(fn.envVariables.AUTH_ISSUER_ENVIRONMENT).toBe(
       expectedEnvironment === 'development'
         ? 'development'
@@ -39,7 +47,11 @@ describe('sso-registry-admin deployment contract', () => {
       expect(fn.envVariables).toMatchObject({
         SES_TEMPLATE_REGISTRY_APPROVAL: '{{env.SES_TEMPLATE_REGISTRY_APPROVAL}}',
         SSO_REGISTRY_APPROVAL_PEPPER: '{{env.SSO_REGISTRY_APPROVAL_PEPPER}}',
+        SSO_REGISTRY_ADMIN_BASE_URL: 'https://admin.yunle.fun',
+        SSO_REGISTRY_ADMIN_CHANNEL_SECRET: '{{env.SSO_REGISTRY_ADMIN_CHANNEL_SECRET}}',
+        SSO_REGISTRY_ADMIN_DECISION_PUBLIC_KEYS: '{{env.SSO_REGISTRY_ADMIN_DECISION_PUBLIC_KEYS}}',
         SSO_REGISTRY_APPROVER_UIDS: '{{env.SSO_REGISTRY_APPROVER_UIDS}}',
+        SSO_REGISTRY_FEISHU_APPROVAL_ENABLED: 'false',
       })
     }
   })
@@ -94,6 +106,10 @@ describe('sso-registry-admin deployment contract', () => {
     }))
     expect(SSO_REGISTRY_COLLECTION_MANIFESTS.find(item => item.collection === 'sso_registry_publish_approvals')?.indexes)
       .toContainEqual(expect.objectContaining({ name: 'environment_status_expires' }))
+    expect(SSO_REGISTRY_COLLECTION_MANIFESTS.find(item => item.collection === 'sso_registry_publish_approvals')?.indexes)
+      .toContainEqual(expect.objectContaining({ name: 'environment_status_updated' }))
+    expect(SSO_REGISTRY_COLLECTION_MANIFESTS.find(item => item.collection === 'sso_registry_publish_approvals')?.indexes)
+      .toContainEqual(expect.objectContaining({ name: 'environment_card_sync_next' }))
     expect(SSO_REGISTRY_COLLECTION_MANIFESTS.find(item => item.collection === 'sso_registry_release_outbox')?.indexes)
       .toContainEqual(expect.objectContaining({ name: 'status_next_attempt' }))
     expect(SSO_REGISTRY_COLLECTION_MANIFESTS.find(item => item.collection === 'sso_registry_release_outbox')?.indexes)

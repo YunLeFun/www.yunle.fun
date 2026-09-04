@@ -4,12 +4,15 @@
 
 const { Buffer } = require('node:buffer')
 const { createPublicKey, verify } = require('node:crypto')
+const process = require('node:process')
 
 const { RegistryAdminError } = require('./service')
 
 const ADMIN_APPROVAL_ISSUER = 'https://admin.yunle.fun'
 const ADMIN_APPROVAL_AUDIENCE = 'sso-registry-admin'
 const ADMIN_APPROVAL_ACTION = 'approveAndQueueReleaseByAdmin'
+const ADMIN_DECISION_ACTION = 'submitAdminApprovalDecision'
+const ADMIN_DECISION_PERMISSION = 'sso-registry:approve'
 const MANAGED_APPROVAL_ACTION = 'evaluateAndAutoApproveDraft'
 const MAX_PROOF_TTL_SECONDS = 5 * 60
 const CLOCK_SKEW_SECONDS = 30
@@ -32,6 +35,12 @@ const MANAGED_APPROVAL_TRUST_ANCHORS = Object.freeze({
       x: 'YzIXDKuBWHxtgIT0Isg5LDsVKmAb8TuzDDA-NAkVE2w',
     }),
   }),
+})
+
+// Decision proofs deliberately use a separate key ring. Production keys are
+// injected by the function runtime so an unconfigured rollout fails closed.
+const ADMIN_DECISION_TRUST_ANCHORS = Object.freeze({
+  production: Object.freeze({}),
 })
 
 const EXPECTED_CLAIM_KEYS = Object.freeze([
@@ -68,6 +77,30 @@ const EXPECTED_MANAGED_CLAIM_KEYS = Object.freeze([
   'iss',
   'jti',
   'managedClients',
+  'policyVersion',
+  'securityHash',
+  'sub',
+])
+
+const EXPECTED_DECISION_CLAIM_KEYS = Object.freeze([
+  'action',
+  'approvalId',
+  'aud',
+  'baseCommitSha',
+  'changeReason',
+  'clientCount',
+  'contentHash',
+  'decision',
+  'draftId',
+  'environment',
+  'exp',
+  'externalIdentityHash',
+  'iat',
+  'iss',
+  'jti',
+  'login',
+  'messageId',
+  'permission',
   'policyVersion',
   'securityHash',
   'sub',
@@ -113,6 +146,33 @@ function decodeJsonSegment(segment, code, maximumBytes) {
 function exactKeys(value, expected) {
   const actual = Object.keys(value).sort()
   return actual.length === expected.length && actual.every((key, index) => key === expected[index])
+}
+
+function loadAdminDecisionTrustAnchors(env = process.env) {
+  let parsed
+  try {
+    parsed = JSON.parse(String(env.SSO_REGISTRY_ADMIN_DECISION_PUBLIC_KEYS || ''))
+  }
+  catch {
+    throw new Error('SSO_REGISTRY_ADMIN_DECISION_PUBLIC_KEYS must be a JSON object')
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || Object.keys(parsed).length < 1)
+    throw new Error('SSO_REGISTRY_ADMIN_DECISION_PUBLIC_KEYS must contain at least one key')
+  for (const [keyId, jwk] of Object.entries(parsed)) {
+    const publicKeyBytes = typeof jwk?.x === 'string'
+      ? Buffer.from(jwk.x, 'base64url')
+      : Buffer.alloc(0)
+    if (!keyId || keyId.length > 128
+      || !jwk || typeof jwk !== 'object' || Array.isArray(jwk)
+      || jwk.kty !== 'OKP' || jwk.crv !== 'Ed25519'
+      || Object.hasOwn(jwk, 'd')
+      || typeof jwk.x !== 'string' || !/^[\w-]+$/.test(jwk.x)
+      || publicKeyBytes.length !== 32
+      || publicKeyBytes.toString('base64url') !== jwk.x) {
+      throw new Error('SSO_REGISTRY_ADMIN_DECISION_PUBLIC_KEYS contains an invalid Ed25519 key')
+    }
+  }
+  return { production: parsed }
 }
 
 function verifyAdminApprovalProof(proof, options = {}) {
@@ -184,6 +244,83 @@ function verifyAdminApprovalProof(proof, options = {}) {
     || claims.iat < nowSeconds - MAX_PROOF_TTL_SECONDS
     || claims.exp <= nowSeconds - CLOCK_SKEW_SECONDS) {
     throw new RegistryAdminError('admin_approval_expired')
+  }
+  return claims
+}
+
+function verifyAdminDecisionProof(proof, options = {}) {
+  if (typeof proof !== 'string' || proof.length > 16_384)
+    throw new RegistryAdminError('admin_decision_proof_invalid')
+  const segments = proof.split('.')
+  if (segments.length !== 3)
+    throw new RegistryAdminError('admin_decision_proof_invalid')
+
+  const [encodedHeader, encodedClaims, encodedSignature] = segments
+  const header = decodeJsonSegment(encodedHeader, 'admin_decision_header_invalid', 1_024)
+  if (!exactKeys(header, ['alg', 'kid', 'typ'])
+    || header.alg !== 'EdDSA'
+    || header.typ !== 'JWT') {
+    throw new RegistryAdminError('admin_decision_header_invalid')
+  }
+  const keyId = text(header.kid, 'admin_decision_key_invalid', 128)
+  const trustAnchors = options.trustAnchors || ADMIN_DECISION_TRUST_ANCHORS
+  const publicJwk = trustAnchors.production?.[keyId]
+  if (!publicJwk)
+    throw new RegistryAdminError('admin_decision_key_untrusted')
+
+  const signature = decodeBase64UrlSegment(
+    encodedSignature,
+    'admin_decision_signature_invalid',
+    64,
+  )
+  if (signature.length !== 64 || !verify(
+    null,
+    Buffer.from(`${encodedHeader}.${encodedClaims}`),
+    createPublicKey({ key: publicJwk, format: 'jwk' }),
+    signature,
+  )) {
+    throw new RegistryAdminError('admin_decision_signature_invalid')
+  }
+
+  const claims = decodeJsonSegment(encodedClaims, 'admin_decision_claims_invalid', 8_192)
+  if (!exactKeys(claims, EXPECTED_DECISION_CLAIM_KEYS)
+    || claims.iss !== ADMIN_APPROVAL_ISSUER
+    || claims.aud !== ADMIN_APPROVAL_AUDIENCE
+    || claims.action !== ADMIN_DECISION_ACTION
+    || claims.permission !== ADMIN_DECISION_PERMISSION
+    || claims.environment !== 'production'
+    || !['approve', 'reject', 'email_fallback'].includes(claims.decision)) {
+    throw new RegistryAdminError('admin_decision_claims_invalid')
+  }
+
+  text(claims.sub, 'admin_decision_subject_invalid', 128)
+  text(claims.login, 'admin_decision_login_invalid', 128)
+  text(claims.approvalId, 'admin_decision_approval_invalid', 192)
+  text(claims.changeReason, 'admin_decision_reason_invalid', 512)
+  text(claims.draftId, 'admin_decision_draft_invalid', 192)
+  text(claims.policyVersion, 'admin_decision_policy_invalid', 128)
+  text(claims.messageId, 'admin_decision_message_invalid', 256)
+  text(claims.jti, 'admin_decision_jti_invalid', 128)
+  if (!/^[a-f0-9]{40}$/.test(claims.baseCommitSha))
+    throw new RegistryAdminError('admin_decision_base_commit_invalid')
+  if (!/^[a-f0-9]{64}$/.test(claims.contentHash)
+    || !/^[a-f0-9]{64}$/.test(claims.securityHash)) {
+    throw new RegistryAdminError('admin_decision_hash_invalid')
+  }
+  if (!/^[a-f0-9]{64}$/.test(claims.externalIdentityHash))
+    throw new RegistryAdminError('admin_decision_identity_invalid')
+  if (!Number.isSafeInteger(claims.clientCount) || claims.clientCount < 0)
+    throw new RegistryAdminError('admin_decision_client_count_invalid')
+  if (!Number.isSafeInteger(claims.iat) || !Number.isSafeInteger(claims.exp)
+    || claims.exp <= claims.iat
+    || claims.exp - claims.iat > MAX_PROOF_TTL_SECONDS) {
+    throw new RegistryAdminError('admin_decision_time_invalid')
+  }
+  const nowSeconds = Math.floor((options.now || Date.now)() / 1_000)
+  if (claims.iat > nowSeconds + CLOCK_SKEW_SECONDS
+    || claims.iat < nowSeconds - MAX_PROOF_TTL_SECONDS
+    || claims.exp <= nowSeconds - CLOCK_SKEW_SECONDS) {
+    throw new RegistryAdminError('admin_decision_expired')
   }
   return claims
 }
@@ -298,8 +435,13 @@ module.exports = {
   ADMIN_APPROVAL_AUDIENCE,
   ADMIN_APPROVAL_ISSUER,
   ADMIN_APPROVAL_TRUST_ANCHORS,
+  ADMIN_DECISION_ACTION,
+  ADMIN_DECISION_PERMISSION,
+  ADMIN_DECISION_TRUST_ANCHORS,
+  loadAdminDecisionTrustAnchors,
   MANAGED_APPROVAL_ACTION,
   MANAGED_APPROVAL_TRUST_ANCHORS,
   verifyManagedApprovalProof,
   verifyAdminApprovalProof,
+  verifyAdminDecisionProof,
 }

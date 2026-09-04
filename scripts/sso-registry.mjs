@@ -44,7 +44,8 @@ function usage() {
   node scripts/sso-registry.mjs export --environment <env> --operator <id> --reason <text> [--output <file>]
   node scripts/sso-registry.mjs compare --environment <env> --operator <id> --reason <text>
 
-seed is dry-run unless --apply is present. export prints to stdout unless --output is present.`
+seed is dry-run unless --apply is present. export prints to stdout unless --output is present.
+production request-approval prefers a Feishu card when enabled; approve remains available for email fallback.`
 }
 
 function parseArgs(argv) {

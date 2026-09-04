@@ -3,7 +3,7 @@
 'use strict'
 
 const { Buffer } = require('node:buffer')
-const { createHmac, randomInt, timingSafeEqual } = require('node:crypto')
+const { createHash, createHmac, randomInt, timingSafeEqual } = require('node:crypto')
 
 const {
   hashRegistry,
@@ -344,8 +344,13 @@ function createRegistryAdminService(options) {
   const generateApprovalCode = options.generateApprovalCode || defaultApprovalCode
   const resolveApproverEmail = options.resolveApproverEmail
   const sendApprovalEmail = options.sendApprovalEmail
+  const feishuApprovalEnabled = options.feishuApprovalEnabled === true
+  const sendApprovalCard = options.sendApprovalCard
+  const notifyApprovalCard = options.notifyApprovalCard
   const verifyAdminApprovalProof = options.verifyAdminApprovalProof
+  const verifyAdminDecisionProof = options.verifyAdminDecisionProof
   const verifyManagedApprovalProof = options.verifyManagedApprovalProof
+  const verifyAdminChannelRequest = options.verifyAdminChannelRequest
   if (!['production', 'development'].includes(environment))
     throw new TypeError('Registry environment is invalid')
   if (!keyId || !signingKey || !store || typeof randomId !== 'function')
@@ -599,6 +604,264 @@ function createRegistryAdminService(options) {
     }
   }
 
+  async function activateEmailApproval({
+    approvalId,
+    approval,
+    meta,
+    auditAction = 'approval_requested',
+    retryOnFailure = false,
+  }) {
+    if (typeof approvalPepper !== 'string' || Buffer.byteLength(approvalPepper, 'utf8') < 32)
+      throw new RegistryAdminError('approval_pepper_unavailable')
+    if (typeof resolveApproverEmail !== 'function' || typeof sendApprovalEmail !== 'function')
+      throw new RegistryAdminError('approval_delivery_unavailable')
+
+    const email = await resolveApproverEmail(approval.approverUid)
+    if (typeof email !== 'string' || !email.includes('@'))
+      throw new RegistryAdminError('approver_email_unverified')
+    const code = generateApprovalCode()
+    if (!isApprovalCode(code))
+      throw new RegistryAdminError('approval_code_generation_failed')
+    const recipientMasked = maskedEmail(email)
+    const recipientHash = hmacHex(approvalPepper, `recipient\0${email.toLowerCase()}`)
+    const codeMac = hmacHex(approvalPepper, `${approvalId}\0${code}`)
+
+    await store.transaction(async (transaction) => {
+      const current = await transaction.getApproval(approvalId)
+      if (!current || !['delivery_pending', 'decision_pending', 'processing'].includes(current.status))
+        throw new RegistryAdminError('approval_state_conflict')
+      await transaction.updateApproval(approvalId, {
+        channel: 'email',
+        channelStatus: 'delivery_pending',
+        status: 'delivery_pending',
+        recipientHash,
+        recipientMasked,
+        codeMac,
+        attempts: 0,
+        maxAttempts: 5,
+        updatedAt: now(),
+      })
+    })
+
+    let delivery
+    const maximumDeliveryAttempts = retryOnFailure ? 3 : 1
+    for (let attempt = 1; attempt <= maximumDeliveryAttempts; attempt++) {
+      try {
+        const candidate = await sendApprovalEmail({
+          approvalId,
+          to: email,
+          code,
+          environment,
+          policyVersion: approval.policyVersion,
+          clientCount: approval.clientCount,
+          diffSummary: approval.diffSummary,
+          contentHash: approval.contentHash,
+          securityHash: approval.securityHash,
+          requester: meta.operator,
+          changeReason: meta.changeReason,
+          expiresAt: approval.expiresAt,
+        })
+        delivery = {
+          ...candidate,
+          id: text(candidate?.id, 'approval_delivery_invalid', 256),
+        }
+        break
+      }
+      catch {}
+    }
+    if (!delivery) {
+      await store.transaction(async (transaction) => {
+        const current = await transaction.getApproval(approvalId)
+        const deliveryAttempts = Number(current?.decision?.deliveryAttempts || 0) + maximumDeliveryAttempts
+        await transaction.updateApproval(approvalId, {
+          channelStatus: 'terminal',
+          status: 'delivery_failed',
+          ...(current?.decision
+            ? {
+                decision: {
+                  ...current.decision,
+                  deliveryAttempts,
+                  leaseOwner: null,
+                  leaseExpiresAt: null,
+                },
+              }
+            : {}),
+          updatedAt: now(),
+        })
+      })
+      if (retryOnFailure) {
+        return {
+          approvalId,
+          channel: 'email',
+          deliveryFailed: true,
+          status: 'delivery_failed',
+          expiresAt: approval.expiresAt,
+        }
+      }
+      throw new RegistryAdminError('approval_delivery_failed')
+    }
+
+    await store.transaction(async (transaction) => {
+      const current = await transaction.getApproval(approvalId)
+      if (!current || current.status !== 'delivery_pending' || current.channel !== 'email')
+        throw new RegistryAdminError('approval_state_conflict')
+      const updatedAt = now()
+      await transaction.updateApproval(approvalId, {
+        channelStatus: 'pending',
+        status: 'pending',
+        deliveryMessageId: delivery.id,
+        deliveryRequestId: typeof delivery?.requestId === 'string' ? delivery.requestId : null,
+        updatedAt,
+      })
+      await transaction.putAudit(auditId(updatedAt, randomId), {
+        environment,
+        action: auditAction,
+        operator: meta.operator,
+        reason: meta.changeReason,
+        draftId: approval.draftId,
+        approvalId,
+        requestId: meta.requestId,
+        createdAt: updatedAt,
+        details: {
+          approverUid: approval.approverUid,
+          channel: 'email',
+          recipientHash,
+          expiresAt: approval.expiresAt,
+        },
+      })
+    })
+    return { approvalId, status: 'pending', channel: 'email', recipientMasked, expiresAt: approval.expiresAt }
+  }
+
+  async function consumeAdminDecisionTransaction(transaction, approvalId, approval, checkedAt) {
+    const draft = await transaction.getDraft(approval.draftId)
+    if (!draft)
+      return { error: 'draft_unavailable' }
+    const current = await activeEnvelope(transaction)
+    const currentSnapshotId = current?.state.activeSnapshotId || null
+    const currentGeneration = current?.state.generation || 0
+    const registry = parseRegistry(draft.registry)
+    const hashes = hashRegistry(registry)
+    const supersededReleaseIntentId = typeof approval.supersededReleaseIntentId === 'string'
+      ? approval.supersededReleaseIntentId
+      : null
+    let supersededIntent = null
+    if (draft.status === 'published' && supersededReleaseIntentId) {
+      if (draft.releaseIntentId !== supersededReleaseIntentId)
+        return { error: 'draft_unavailable' }
+      supersededIntent = await transaction.getReleaseIntent(supersededReleaseIntentId)
+      if (!supersededIntent || supersededIntent.status !== 'superseded')
+        return { error: 'draft_unavailable' }
+    }
+    else if (draft.status !== 'draft' || supersededReleaseIntentId) {
+      return { error: 'draft_unavailable' }
+    }
+    const draftSnapshotId = supersededIntent ? draft.publishedSnapshotId : draft.baseSnapshotId
+    if (draftSnapshotId !== approval.baseSnapshotId
+      || currentSnapshotId !== approval.baseSnapshotId
+      || currentGeneration !== approval.baseGeneration
+      || registry.policyVersion !== approval.policyVersion
+      || registry.clients.length !== approval.clientCount
+      || hashes.contentHash !== approval.contentHash
+      || hashes.securityHash !== approval.securityHash
+      || (supersededIntent && (
+        supersededIntent.environment !== environment
+        || supersededIntent.snapshotId !== currentSnapshotId
+        || supersededIntent.generation !== currentGeneration
+        || supersededIntent.policyVersion !== approval.policyVersion
+        || supersededIntent.contentHash !== approval.contentHash
+        || supersededIntent.securityHash !== approval.securityHash
+      ))) {
+      await transaction.updateApproval(approvalId, {
+        channelStatus: 'terminal',
+        status: 'canceled',
+        updatedAt: checkedAt,
+      })
+      return { error: 'approval_stale' }
+    }
+
+    const meta = requestMetadata({
+      operator: `admin:${approval.approverUid}`,
+      changeReason: approval.changeReason,
+      requestId: approval.requestId,
+    })
+    let published
+    if (supersededIntent) {
+      published = {
+        generation: current.state.generation,
+        hashes: {
+          contentHash: current.snapshot.contentHash,
+          securityHash: current.snapshot.securityHash,
+        },
+        publishedAt: checkedAt,
+        snapshot: current.snapshot,
+        snapshotId: current.snapshot.snapshotId,
+      }
+    }
+    else if (approval.targetSnapshotId) {
+      published = await rollbackSnapshotTransaction(transaction, {
+        draft,
+        id: approval.draftId,
+        meta,
+        targetSnapshotId: approval.targetSnapshotId,
+      })
+    }
+    else {
+      published = await publishDraftTransaction(transaction, {
+        draft,
+        id: approval.draftId,
+        meta,
+        auditAction: null,
+      })
+    }
+    const queued = await queuePublishedRelease(transaction, {
+      approvalId,
+      baseCommitSha: approval.baseCommitSha,
+      draftId: approval.draftId,
+      meta,
+      published,
+    })
+    await transaction.updateApproval(approvalId, {
+      channelStatus: 'terminal',
+      status: 'consumed',
+      consumedAt: checkedAt,
+      releaseIntentId: queued.releaseIntentId,
+      decision: {
+        ...approval.decision,
+        leaseOwner: null,
+        leaseExpiresAt: null,
+        processedAt: checkedAt,
+      },
+      updatedAt: checkedAt,
+    })
+    return queued
+  }
+
+  async function syncApprovalCard(approvalId, terminal) {
+    if (typeof notifyApprovalCard !== 'function')
+      return
+    const approval = await store.getApproval(approvalId)
+    const previousAttempts = Number(approval?.cardSync?.attempts || 0)
+    try {
+      await notifyApprovalCard({ approvalId, ...terminal })
+      await store.updateApproval(approvalId, {
+        cardSync: { status: 'sent', attempts: previousAttempts + 1 },
+        updatedAt: now(),
+      })
+    }
+    catch {
+      const attempts = previousAttempts + 1
+      await store.updateApproval(approvalId, {
+        cardSync: {
+          status: attempts >= 5 ? 'dead_letter' : 'retry',
+          attempts,
+          nextAttemptAt: now() + Math.min(60_000 * (2 ** attempts), 15 * 60_000),
+        },
+        updatedAt: now(),
+      })
+    }
+  }
+
   const api = {
     async saveDraft(input) {
       const meta = requestMetadata(input)
@@ -695,7 +958,17 @@ function createRegistryAdminService(options) {
         const pendingApproval = await transaction.findPendingApprovalByDraft(environment, id)
         if (pendingApproval) {
           await transaction.updateApproval(pendingApproval.approvalId, {
+            channelStatus: 'terminal',
             status: 'canceled',
+            ...(pendingApproval.feishuMessageId
+              ? {
+                  cardSync: {
+                    status: 'pending',
+                    attempts: 0,
+                    nextAttemptAt: rebasedAt,
+                  },
+                }
+              : {}),
             updatedAt: rebasedAt,
           })
         }
@@ -851,17 +1124,11 @@ function createRegistryAdminService(options) {
       const approverUid = requestedUid || (approverUids.length === 1 ? approverUids[0] : null)
       if (!approverUid || !approverUids.includes(approverUid))
         throw new RegistryAdminError('approver_not_allowed')
-      const email = await resolveApproverEmail(approverUid)
-      if (typeof email !== 'string' || !email.includes('@'))
-        throw new RegistryAdminError('approver_email_unverified')
 
       const approvalId = `approval:${randomId()}`
-      const code = generateApprovalCode()
-      if (!isApprovalCode(code))
-        throw new RegistryAdminError('approval_code_generation_failed')
       const createdAt = now()
       const expiresAt = createdAt + APPROVAL_TTL_MS
-      const recipientMasked = maskedEmail(email)
+      const preferFeishu = feishuApprovalEnabled && typeof sendApprovalCard === 'function'
       const approval = await store.transaction(async (transaction) => {
         const draft = await transaction.getDraft(id)
         if (!draft)
@@ -902,7 +1169,17 @@ function createRegistryAdminService(options) {
         const existing = await transaction.findPendingApprovalByDraft(environment, id)
         if (existing) {
           await transaction.updateApproval(existing.approvalId, {
+            channelStatus: 'terminal',
             status: 'canceled',
+            ...(existing.feishuMessageId
+              ? {
+                  cardSync: {
+                    status: 'pending',
+                    attempts: 0,
+                    nextAttemptAt: createdAt,
+                  },
+                }
+              : {}),
             updatedAt: createdAt,
           })
         }
@@ -925,11 +1202,9 @@ function createRegistryAdminService(options) {
           requestId: meta.requestId,
           changeReason: meta.changeReason,
           approverUid,
-          recipientHash: hmacHex(approvalPepper, `recipient\0${email.toLowerCase()}`),
-          recipientMasked,
-          codeMac: hmacHex(approvalPepper, `${approvalId}\0${code}`),
-          attempts: 0,
-          maxAttempts: 5,
+          operation: draft.rollbackTargetSnapshotId ? 'rollback' : 'publish',
+          channel: preferFeishu ? 'feishu' : 'email',
+          channelStatus: 'delivery_pending',
           status: 'delivery_pending',
           expiresAt,
           createdAt,
@@ -939,13 +1214,20 @@ function createRegistryAdminService(options) {
         return document
       })
 
+      if (!preferFeishu)
+        return activateEmailApproval({ approvalId, approval, meta })
+
       let delivery
+      let deliveryMessageId
+      let externalIdentityHash
       try {
-        delivery = await sendApprovalEmail({
+        delivery = await sendApprovalCard({
           approvalId,
-          to: email,
-          code,
+          approverUid,
+          operation: approval.operation,
           environment,
+          draftId: approval.draftId,
+          baseCommitSha: approval.baseCommitSha,
           policyVersion: approval.policyVersion,
           clientCount: approval.clientCount,
           diffSummary: approval.diffSummary,
@@ -955,24 +1237,32 @@ function createRegistryAdminService(options) {
           changeReason: meta.changeReason,
           expiresAt,
         })
+        deliveryMessageId = text(delivery?.id, 'approval_delivery_invalid', 256)
+        externalIdentityHash = text(
+          delivery?.externalIdentityHash,
+          'approval_delivery_invalid',
+          64,
+        )
+        if (!/^[a-f0-9]{64}$/.test(externalIdentityHash))
+          throw new RegistryAdminError('approval_delivery_invalid')
       }
       catch {
-        await store.transaction(async (transaction) => {
-          await transaction.updateApproval(approvalId, {
-            status: 'delivery_failed',
-            updatedAt: now(),
-          })
-        })
-        throw new RegistryAdminError('approval_delivery_failed')
+        return activateEmailApproval({ approvalId, approval, meta })
       }
       await store.transaction(async (transaction) => {
         const currentApproval = await transaction.getApproval(approvalId)
-        if (!currentApproval || currentApproval.status !== 'delivery_pending')
+        if (!currentApproval
+          || currentApproval.status !== 'delivery_pending'
+          || currentApproval.channel !== 'feishu') {
           throw new RegistryAdminError('approval_state_conflict')
+        }
         const updatedAt = now()
         await transaction.updateApproval(approvalId, {
+          channelStatus: 'pending',
           status: 'pending',
-          deliveryMessageId: text(delivery?.id, 'approval_delivery_invalid', 256),
+          feishuMessageId: deliveryMessageId,
+          externalIdentityHash,
+          deliveryMessageId,
           deliveryRequestId: typeof delivery?.requestId === 'string' ? delivery.requestId : null,
           updatedAt,
         })
@@ -987,12 +1277,425 @@ function createRegistryAdminService(options) {
           createdAt: updatedAt,
           details: {
             approverUid,
-            recipientHash: approval.recipientHash,
+            channel: 'feishu',
             expiresAt,
           },
         })
       })
-      return { approvalId, status: 'pending', recipientMasked, expiresAt }
+      return { approvalId, status: 'pending', channel: 'feishu', expiresAt }
+    },
+
+    async getApprovalForAdmin(input) {
+      if (environment !== 'production')
+        throw new RegistryAdminError('admin_approval_production_only')
+      if (typeof verifyAdminChannelRequest !== 'function')
+        throw new RegistryAdminError('admin_channel_verifier_unavailable')
+      verifyAdminChannelRequest(input)
+      const approvalId = text(input?.approvalId, 'approval_id_required', 192)
+      const approval = await store.getApproval(approvalId)
+      if (!approval || approval.environment !== environment)
+        throw new RegistryAdminError('approval_not_found')
+      return {
+        approvalId,
+        environment: approval.environment,
+        draftId: approval.draftId,
+        baseCommitSha: approval.baseCommitSha,
+        policyVersion: approval.policyVersion,
+        clientCount: approval.clientCount,
+        contentHash: approval.contentHash,
+        securityHash: approval.securityHash,
+        diffSummary: approval.diffSummary,
+        changeReason: approval.changeReason,
+        requester: approval.requester,
+        approverUid: approval.approverUid,
+        operation: approval.operation || (approval.targetSnapshotId ? 'rollback' : 'publish'),
+        channel: approval.channel || 'email',
+        channelStatus: approval.channelStatus || approval.status,
+        status: approval.status,
+        feishuMessageId: approval.feishuMessageId || null,
+        expiresAt: approval.expiresAt,
+        createdAt: approval.createdAt,
+        updatedAt: approval.updatedAt,
+      }
+    },
+
+    async submitAdminApprovalDecision(input) {
+      if (environment !== 'production')
+        throw new RegistryAdminError('admin_approval_production_only')
+      if (typeof verifyAdminDecisionProof !== 'function')
+        throw new RegistryAdminError('admin_decision_verifier_unavailable')
+      const proof = text(input?.approvalProof, 'admin_decision_proof_invalid', 16_384)
+      const claims = verifyAdminDecisionProof(proof)
+      if (!approverUids.includes(claims.sub))
+        throw new RegistryAdminError('approver_not_allowed')
+      const proofHash = createHash('sha256').update(proof).digest('hex')
+      const submittedAt = now()
+
+      const result = await store.transaction(async (transaction) => {
+        const approval = await transaction.getApproval(claims.approvalId)
+        if (!approval)
+          return { error: 'approval_not_found' }
+        if (approval.decision) {
+          if (approval.decision.jti === claims.jti
+            && approval.decision.action === claims.decision) {
+            return {
+              approvalId: claims.approvalId,
+              decision: claims.decision,
+              idempotent: true,
+              status: approval.status,
+            }
+          }
+          return { error: 'admin_decision_conflict' }
+        }
+        if (approval.status !== 'pending'
+          || approval.channel !== 'feishu'
+          || approval.channelStatus !== 'pending') {
+          return { error: `approval_${approval.status}` }
+        }
+        if (approval.expiresAt <= submittedAt) {
+          await transaction.updateApproval(claims.approvalId, {
+            channelStatus: 'terminal',
+            status: 'expired',
+            updatedAt: submittedAt,
+          })
+          return { error: 'approval_expired' }
+        }
+        if (approval.environment !== environment
+          || approval.approverUid !== claims.sub
+          || approval.draftId !== claims.draftId
+          || approval.baseCommitSha !== claims.baseCommitSha
+          || approval.policyVersion !== claims.policyVersion
+          || approval.clientCount !== claims.clientCount
+          || approval.contentHash !== claims.contentHash
+          || approval.securityHash !== claims.securityHash
+          || approval.feishuMessageId !== claims.messageId
+          || approval.externalIdentityHash !== claims.externalIdentityHash) {
+          return { error: 'admin_decision_evidence_mismatch' }
+        }
+
+        const draft = await transaction.getDraft(approval.draftId)
+        if (!draft)
+          return { error: 'draft_unavailable' }
+        const registry = parseRegistry(draft.registry)
+        const hashes = hashRegistry(registry)
+        const current = await activeEnvelope(transaction)
+        const currentSnapshotId = current?.state.activeSnapshotId || null
+        const currentGeneration = current?.state.generation || 0
+        const supersededIntent = approval.supersededReleaseIntentId
+          ? await transaction.getReleaseIntent(approval.supersededReleaseIntentId)
+          : null
+        const draftBaseSnapshotId = supersededIntent ? draft.publishedSnapshotId : draft.baseSnapshotId
+        if (draftBaseSnapshotId !== approval.baseSnapshotId
+          || currentSnapshotId !== approval.baseSnapshotId
+          || currentGeneration !== approval.baseGeneration
+          || registry.policyVersion !== approval.policyVersion
+          || registry.clients.length !== approval.clientCount
+          || hashes.contentHash !== approval.contentHash
+          || hashes.securityHash !== approval.securityHash) {
+          await transaction.updateApproval(claims.approvalId, {
+            channelStatus: 'terminal',
+            status: 'canceled',
+            updatedAt: submittedAt,
+          })
+          return { error: 'approval_stale' }
+        }
+
+        await transaction.updateApproval(claims.approvalId, {
+          channelStatus: 'decision_pending',
+          status: 'decision_pending',
+          decision: {
+            action: claims.decision,
+            jti: claims.jti,
+            proofHash,
+            submittedAt,
+          },
+          cardSync: {
+            status: 'pending',
+            attempts: 0,
+            nextAttemptAt: submittedAt,
+          },
+          updatedAt: submittedAt,
+        })
+        await transaction.putAudit(auditId(submittedAt, randomId), {
+          environment,
+          action: 'admin_decision_submitted',
+          operator: `admin:${claims.login} (${claims.sub})`,
+          reason: approval.changeReason,
+          draftId: approval.draftId,
+          approvalId: claims.approvalId,
+          requestId: input?.requestId || claims.jti,
+          createdAt: submittedAt,
+          details: {
+            decision: claims.decision,
+            messageId: claims.messageId,
+            proofHash,
+          },
+        })
+        return {
+          approvalId: claims.approvalId,
+          decision: claims.decision,
+          idempotent: false,
+          status: 'decision_pending',
+        }
+      })
+      if (result.error)
+        throw new RegistryAdminError(result.error)
+      return result
+    },
+
+    async processPendingAdminApprovalDecisions(input = {}) {
+      if (environment !== 'production')
+        throw new RegistryAdminError('admin_approval_production_only')
+      if (typeof store.listPendingAdminDecisions !== 'function')
+        throw new RegistryAdminError('admin_decision_store_unavailable')
+      const limit = input.limit === undefined ? 10 : listLimit(input.limit)
+      const scanAt = now()
+      const workerId = `decision-worker:${randomId()}`
+      const expiredApprovals = typeof store.listExpiredApprovals === 'function'
+        ? await store.listExpiredApprovals(environment, scanAt, limit)
+        : []
+      let approvalsExpired = 0
+      for (const candidate of expiredApprovals) {
+        const expired = await store.transaction(async (transaction) => {
+          const approval = await transaction.getApproval(candidate.approvalId)
+          if (!approval
+            || !['delivery_pending', 'pending', 'decision_pending'].includes(approval.status)
+            || approval.expiresAt > scanAt) {
+            return false
+          }
+          await transaction.updateApproval(candidate.approvalId, {
+            channelStatus: 'terminal',
+            status: 'expired',
+            ...(approval.feishuMessageId
+              ? {
+                  cardSync: {
+                    status: 'pending',
+                    attempts: 0,
+                    nextAttemptAt: scanAt,
+                  },
+                }
+              : {}),
+            updatedAt: scanAt,
+          })
+          await transaction.putAudit(auditId(scanAt, randomId), {
+            environment,
+            action: 'approval_expired',
+            operator: 'system:approval-timer',
+            reason: approval.changeReason,
+            draftId: approval.draftId,
+            approvalId: candidate.approvalId,
+            requestId: approval.requestId,
+            createdAt: scanAt,
+            details: { channel: approval.channel || 'email' },
+          })
+          return Boolean(approval.feishuMessageId)
+        })
+        approvalsExpired++
+        if (expired)
+          await syncApprovalCard(candidate.approvalId, { status: 'expired' })
+      }
+      const candidates = await store.listPendingAdminDecisions(environment, scanAt, limit)
+      const results = []
+
+      for (const candidate of candidates) {
+        const claimed = await store.transaction(async (transaction) => {
+          const approval = await transaction.getApproval(candidate.approvalId)
+          if (!approval?.decision)
+            return null
+          const claimable = approval.status === 'decision_pending'
+            || (approval.status === 'processing'
+              && Number(approval.decision.leaseExpiresAt || 0) <= scanAt)
+          if (!claimable)
+            return null
+          if (approval.expiresAt <= scanAt) {
+            await transaction.updateApproval(candidate.approvalId, {
+              channelStatus: 'terminal',
+              status: 'expired',
+              updatedAt: scanAt,
+            })
+            return { expired: true, approval }
+          }
+          const decision = {
+            ...approval.decision,
+            leaseOwner: workerId,
+            leaseExpiresAt: scanAt + 2 * 60 * 1000,
+          }
+          await transaction.updateApproval(candidate.approvalId, {
+            channelStatus: 'processing',
+            status: 'processing',
+            decision,
+            updatedAt: scanAt,
+          })
+          return { approval: { ...approval, decision }, expired: false }
+        })
+        if (!claimed)
+          continue
+        if (claimed.expired) {
+          results.push({ approvalId: candidate.approvalId, status: 'expired' })
+          await syncApprovalCard(candidate.approvalId, { status: 'expired' })
+          continue
+        }
+
+        const approval = claimed.approval
+        const decision = approval.decision.action
+        if (decision === 'approve') {
+          const processedAt = now()
+          const processed = await store.transaction(async (transaction) => {
+            const current = await transaction.getApproval(candidate.approvalId)
+            if (!current
+              || current.status !== 'processing'
+              || current.decision?.leaseOwner !== workerId
+              || current.decision?.jti !== approval.decision.jti) {
+              return { error: 'admin_decision_lease_lost' }
+            }
+            const outcome = await consumeAdminDecisionTransaction(
+              transaction,
+              candidate.approvalId,
+              current,
+              processedAt,
+            )
+            if (outcome.error && outcome.error !== 'approval_stale') {
+              await transaction.updateApproval(candidate.approvalId, {
+                channelStatus: 'terminal',
+                status: 'canceled',
+                decision: {
+                  ...current.decision,
+                  leaseOwner: null,
+                  leaseExpiresAt: null,
+                  processedAt,
+                },
+                updatedAt: processedAt,
+              })
+            }
+            return outcome
+          })
+          const status = processed.error ? 'canceled' : 'consumed'
+          results.push({ ...processed, approvalId: candidate.approvalId, status })
+          await syncApprovalCard(candidate.approvalId, {
+            status,
+            releaseIntentId: processed.releaseIntentId || null,
+          })
+          continue
+        }
+
+        if (decision === 'reject') {
+          const processedAt = now()
+          await store.transaction(async (transaction) => {
+            const current = await transaction.getApproval(candidate.approvalId)
+            if (!current
+              || current.status !== 'processing'
+              || current.decision?.leaseOwner !== workerId) {
+              throw new RegistryAdminError('admin_decision_lease_lost')
+            }
+            await transaction.updateApproval(candidate.approvalId, {
+              channelStatus: 'terminal',
+              status: 'rejected',
+              decision: {
+                ...current.decision,
+                leaseOwner: null,
+                leaseExpiresAt: null,
+                processedAt,
+              },
+              updatedAt: processedAt,
+            })
+            await transaction.putAudit(auditId(processedAt, randomId), {
+              environment,
+              action: 'approval_rejected',
+              operator: `admin:${current.approverUid}`,
+              reason: current.changeReason,
+              draftId: current.draftId,
+              approvalId: candidate.approvalId,
+              requestId: current.requestId,
+              createdAt: processedAt,
+              details: { decisionJti: current.decision.jti },
+            })
+          })
+          results.push({ approvalId: candidate.approvalId, status: 'rejected' })
+          await syncApprovalCard(candidate.approvalId, { status: 'rejected' })
+          continue
+        }
+
+        if (decision === 'email_fallback') {
+          const processedAt = now()
+          await store.transaction(async (transaction) => {
+            const current = await transaction.getApproval(candidate.approvalId)
+            if (!current
+              || current.status !== 'processing'
+              || current.decision?.leaseOwner !== workerId) {
+              throw new RegistryAdminError('admin_decision_lease_lost')
+            }
+            await transaction.updateApproval(candidate.approvalId, {
+              decision: {
+                ...current.decision,
+                leaseOwner: null,
+                leaseExpiresAt: null,
+                processedAt,
+              },
+              updatedAt: processedAt,
+            })
+          })
+          const meta = requestMetadata({
+            operator: `admin:${approval.approverUid}`,
+            changeReason: approval.changeReason,
+            requestId: approval.requestId,
+          })
+          let delivered
+          try {
+            delivered = await activateEmailApproval({
+              approvalId: candidate.approvalId,
+              approval,
+              meta,
+              auditAction: 'approval_email_fallback',
+              retryOnFailure: true,
+            })
+          }
+          catch {
+            await store.transaction(async (transaction) => {
+              const current = await transaction.getApproval(candidate.approvalId)
+              if (!current || !['processing', 'decision_pending', 'delivery_pending'].includes(current.status))
+                return
+              await transaction.updateApproval(candidate.approvalId, {
+                channelStatus: 'terminal',
+                status: 'delivery_failed',
+                updatedAt: now(),
+              })
+            })
+            delivered = { deliveryFailed: true, status: 'delivery_failed' }
+          }
+          if (delivered.deliveryFailed) {
+            const status = delivered.status === 'retry' ? 'decision_pending' : 'delivery_failed'
+            results.push({ approvalId: candidate.approvalId, status })
+            if (status === 'delivery_failed')
+              await syncApprovalCard(candidate.approvalId, { status: 'canceled' })
+            continue
+          }
+          results.push({ approvalId: candidate.approvalId, status: 'pending', channel: 'email' })
+          await syncApprovalCard(candidate.approvalId, {
+            status: 'email_fallback',
+            recipientMasked: delivered.recipientMasked,
+          })
+        }
+      }
+      let cardSyncRetried = 0
+      if (typeof store.listReadyApprovalCardSync === 'function') {
+        const readyCardSync = await store.listReadyApprovalCardSync(environment, now(), limit)
+        for (const approval of readyCardSync) {
+          const emailFallback = approval.channel === 'email'
+            && approval.status === 'pending'
+            && approval.decision?.action === 'email_fallback'
+          if (!emailFallback
+            && !['consumed', 'rejected', 'expired', 'canceled'].includes(approval.status)) {
+            continue
+          }
+          await syncApprovalCard(approval.approvalId, {
+            status: emailFallback ? 'email_fallback' : approval.status,
+            releaseIntentId: approval.releaseIntentId || null,
+            ...(emailFallback ? { recipientMasked: approval.recipientMasked } : {}),
+          })
+          cardSyncRetried++
+        }
+      }
+      return { processed: results.length, approvalsExpired, cardSyncRetried, results }
     },
 
     async approveAndQueueRelease(input) {
@@ -1065,14 +1768,23 @@ function createRegistryAdminService(options) {
           return { error: `approval_${approval.status}` }
         const checkedAt = now()
         if (approval.expiresAt <= checkedAt) {
-          await transaction.updateApproval(approvalId, { status: 'expired', updatedAt: checkedAt })
+          await transaction.updateApproval(approvalId, {
+            channelStatus: 'terminal',
+            status: 'expired',
+            updatedAt: checkedAt,
+          })
           return { error: 'approval_expired' }
         }
         const codeMac = hmacHex(approvalPepper, `${approvalId}\0${code}`)
         if (!secureHexEqual(codeMac, approval.codeMac)) {
           const attempts = Number(approval.attempts || 0) + 1
           const status = attempts >= Number(approval.maxAttempts || 5) ? 'locked' : 'pending'
-          await transaction.updateApproval(approvalId, { attempts, status, updatedAt: checkedAt })
+          await transaction.updateApproval(approvalId, {
+            attempts,
+            ...(status === 'locked' ? { channelStatus: 'terminal' } : {}),
+            status,
+            updatedAt: checkedAt,
+          })
           return { error: status === 'locked' ? 'approval_locked' : 'approval_code_invalid' }
         }
         const draft = await transaction.getDraft(approval.draftId)
@@ -1113,7 +1825,11 @@ function createRegistryAdminService(options) {
             || current?.snapshot.policyVersion !== approval.policyVersion
             || current.snapshot.registry.clients.length !== approval.clientCount
           ))) {
-          await transaction.updateApproval(approvalId, { status: 'canceled', updatedAt: checkedAt })
+          await transaction.updateApproval(approvalId, {
+            channelStatus: 'terminal',
+            status: 'canceled',
+            updatedAt: checkedAt,
+          })
           return { error: 'approval_stale' }
         }
 
@@ -1154,6 +1870,7 @@ function createRegistryAdminService(options) {
           published,
         })
         await transaction.updateApproval(approvalId, {
+          channelStatus: 'terminal',
           status: 'consumed',
           consumedAt: checkedAt,
           releaseIntentId: queued.releaseIntentId,

@@ -23,8 +23,7 @@ CloudBase NoSQL 是 Registry 的受控管理源，保存草稿、不可变签名
 - 它属于安全策略而不是用户内容；变更需要代码评审、自动测试、版本记录和原子回滚。
 - 主站构建直接导入 `productionRegistry`，因此首页和 `/explore` 的账号云图在部署时已经获得快照，刷新页面不依赖 CloudBase 查询，也不需要再维护一份运行时缓存。
 - `sso-ticket` 与 `desktop-auth` 的部署产物会 vendoring 同一版本的 `@yunlefun/authorization-core`，避免前端展示、Web SSO 和桌面授权读取不同白名单。
-- production 变更必须向 allowlist uid 对应的唯一 ACTIVE 账号当前邮箱发送 12 位一次性审批码，并以该验证码确认本次操作的邮箱控制权；development
-  可跳过邮件，但仍生成签名发布意图并记录审计。
+- production 变更在飞书审批开关开启时，优先向 allowlist uid 已关联的飞书账号发送私聊卡片；每次点击都由 Admin 重查管理员状态、显式权限、绑定、租户和消息证据，再由 Provider 异步原子裁决。卡片明确投递失败或审批者主动降级时，才向唯一 ACTIVE 账号当前邮箱发送 12 位一次性审批码。开关关闭时继续直接使用邮件；development 可跳过邮件，但仍生成签名发布意图并记录审计。
 - 审批只创建活动管理快照和签名 release intent；私有 dispatcher 只把 releaseIntentId 交给 GitHub
   Actions。CI 重新验签、导出 generated-only PR、等待 PR checks，再按准确提交部署静态消费者。
 - “审批通过”“管理快照活动”“消费者部署完成”是三个不同状态；compare 和 smoke 全部通过后才能记录
@@ -241,8 +240,7 @@ pnpm dev:sso
 
 1. 通过 `pnpm sso:registry seed --environment <env> ... --apply` 创建草稿，并用 `diff` 审核 security/display
    差异；Web 客户端保持图标与 Origin 同源。
-2. production 使用 `request-approval`，再从独立邮件取得审批码并通过环境变量执行 `approve`；development
-   使用 `queue`。两条路径都必须绑定当前 `main` 的完整 40 位 commit SHA。
+2. production 使用 `request-approval`：飞书开关开启且审批者已关联时，通过 Admin 私聊卡片批准、拒绝或主动切换邮件；投递失败会自动降级邮件。只有邮件通道激活后，才从独立邮件取得审批码并通过环境变量执行兼容的 `approve` 命令。development 使用 `queue`。两条路径都必须绑定当前 `main` 的完整 40 位 commit SHA。
 3. dispatcher 仅传 releaseIntentId；`registry-release.yml` 重新验签、确认 main 未移动、运行
    lint/typecheck/test/build/compare，并生成只含两个 generated 文件的发布 PR。
 4. 发布任务等待 PR checks 全部通过，再验证 PR head 与审批基线后自动 squash merge；main 上的
@@ -260,8 +258,8 @@ pnpm dev:sso
 8. `REGISTRY_RELEASE_APP_PRIVATE_KEY` 可保存完整 RSA PEM、转义换行 PEM 或 base64 编码的 PEM；工作流在传给
    `actions/create-github-app-token` 前统一解码、校验并转换为单行转义的 PKCS#8 PEM。不得把 Registry Ed25519
    签名密钥或其他 GitHub App 的私钥复用到该 Secret。
-9. 如发布因 CI 修复导致 `main` 前移而进入 `superseded`，需对新的完整 commit SHA 重新请求邮件审批。
-   管理函数只会在原 intent 已 `superseded`、原草稿仍是当前活动快照，generation、内容哈希和安全哈希全部相同时复用该快照并创建新 intent；旧审批码不可复用，任何 Registry 内容变化都仍需新草稿。
+9. 如发布因 CI 修复导致 `main` 前移而进入 `superseded`，需对新的完整 commit SHA 重新请求审批，并重新走当前首选通道。
+   管理函数只会在原 intent 已 `superseded`、原草稿仍是当前活动快照，generation、内容哈希和安全哈希全部相同时复用该快照并创建新 intent；旧卡片决定或邮件审批码不可复用，任何 Registry 内容变化都仍需新草稿。
 
 ## 运维资源
 

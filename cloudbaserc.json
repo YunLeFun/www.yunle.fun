@@ -196,6 +196,13 @@
       "aclRule": {
         "invoke": false
       },
+      "triggers": [
+        {
+          "name": "ssoRegistryApprovalDecision",
+          "type": "timer",
+          "config": "0 */1 * * * * *"
+        }
+      ],
       "envVariables": {
         "SES_FROM_EMAIL": "account@notify.yunle.fun",
         "SES_FROM_NAME": "云乐坊账号安全",
@@ -204,7 +211,11 @@
         "SES_TEMPLATE_REGISTRY_APPROVAL": "{{env.SES_TEMPLATE_REGISTRY_APPROVAL}}",
         "SSO_REGISTRY_APPROVAL_PEPPER": "{{env.SSO_REGISTRY_APPROVAL_PEPPER}}",
         "SSO_REGISTRY_APPROVER_UIDS": "{{env.SSO_REGISTRY_APPROVER_UIDS}}",
+        "SSO_REGISTRY_ADMIN_BASE_URL": "https://admin.yunle.fun",
+        "SSO_REGISTRY_ADMIN_CHANNEL_SECRET": "{{env.SSO_REGISTRY_ADMIN_CHANNEL_SECRET}}",
+        "SSO_REGISTRY_ADMIN_DECISION_PUBLIC_KEYS": "{{env.SSO_REGISTRY_ADMIN_DECISION_PUBLIC_KEYS}}",
         "SSO_REGISTRY_CI_TOKEN": "{{env.SSO_REGISTRY_CI_TOKEN}}",
+        "SSO_REGISTRY_FEISHU_APPROVAL_ENABLED": "false",
         "SSO_REGISTRY_SIGNING_KEY": "{{env.SSO_REGISTRY_SIGNING_KEY}}",
         "SSO_REGISTRY_SIGNING_KID": "{{env.SSO_REGISTRY_SIGNING_KID}}",
         "AUTH_ISSUER_ENVIRONMENT": "{{env.AUTH_ISSUER_ENVIRONMENT}}"
