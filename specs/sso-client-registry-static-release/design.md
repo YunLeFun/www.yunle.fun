@@ -21,7 +21,7 @@ P1.1 采用“CloudBase 控制面 + 邮件第二通道审批 + 签名发布意�
 ```mermaid
 flowchart LR
   MAINTAINER["维护者 / 私有 CLI"] -->|"保存草稿、查看差异"| ADMIN["sso-registry-admin\n私有 Event Function"]
-  ADMIN -->|"按 uid 查询严格已验证邮箱"| AUTH["CloudBase Auth"]
+  ADMIN -->|"按 uid 查询并验证 EMAIL 身份源"| AUTH["CloudBase Auth"]
   ADMIN -->|"一次性审批码"| SES["腾讯云 SES"]
   APPROVER["生产审批者"] -->|"审批码 + 管理凭据"| ADMIN
   ADMIN -->|"快照、发布意图、outbox、审计"| DB["CloudBase NoSQL"]
@@ -91,7 +91,9 @@ SES_TEMPLATE_REGISTRY_APPROVAL=<approved template id>
 部署准备阶段通过管理面把 `YunYouJun` 唯一映射为 CloudBase Auth uid，并人工核对当前邮箱。运行时每次按 uid 查询 Auth：
 
 - 返回用户数必须恰好为 1，返回 uid 必须匹配请求 uid。
-- `EmailVerified` 必须严格等于 `true`；缺字段也失败关闭。
+- 用户必须为 ACTIVE；显式 `EmailVerified === false` 时失败关闭。
+- `DescribeUserList` 缺少 `EmailVerified` 时，使用 Node SDK `queryUserInfo({ platform: 'EMAIL', platformId: email })`
+  反查已绑定身份源，并要求返回邮箱与 uid 均精确匹配；身份源缺失或查询异常时失败关闭。
 - 完整邮箱只进入 SES Destination 的瞬时内存。
 - 持久化 `recipientHash` 与脱敏值，不持久化完整邮箱。
 
@@ -207,7 +209,7 @@ yunlefun:sso-registry:release-intent:v1\n
 1. 重读草稿和当前活动快照。
 2. 严格校验并计算完整 security/display diff。
 3. 接收维护者 CLI 当前 checkout 的 baseCommitSha，校验格式并绑定到审批；CI 后续必须对受保护默认分支做权威一致性校验。
-4. 按 allowlisted uid 查询严格已验证邮箱。
+4. 按 allowlisted uid 查询用户，并通过显式验证标记或 EMAIL 身份源反查确认邮箱。
 5. 创建不可消费的 delivery_pending approval 后发送 SES。
 6. SES 成功后转为 pending；失败则标记 delivery_failed，不能进入批准事务。
 

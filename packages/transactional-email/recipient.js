@@ -27,10 +27,24 @@ function createRecipientResolver(manager, options = {}) {
     const resolvedUid = user?.Uid || user?.uid || user?.UserId || user?.userId
     if (options.requireUidMatch && resolvedUid !== userId)
       return null
+    const status = user?.UserStatus ?? user?.userStatus ?? user?.Status ?? user?.status
+    if (options.requireActive && status !== 'ACTIVE')
+      return null
     const email = user?.Email || user?.email || ''
     const verified = user?.EmailVerified ?? user?.emailVerified ?? user?.email_verified
-    if ((options.requireVerified ? verified !== true : verified === false) || !looksLikeEmail(email))
+    if (!looksLikeEmail(email) || verified === false)
       return null
+    if (options.requireVerified && verified !== true) {
+      if (typeof options.verifyEmailIdentity !== 'function')
+        return null
+      try {
+        if (await options.verifyEmailIdentity({ email, userId }) !== true)
+          return null
+      }
+      catch {
+        return null
+      }
+    }
     return email
   }
 }

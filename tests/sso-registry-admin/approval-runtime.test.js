@@ -12,16 +12,64 @@ describe('sso-registry approval runtime', () => {
       user: {
         describeUserList: vi.fn(async ({ uidList }) => ({
           Data: {
-            UserList: [{ Uid: uidList[0], Email: 'admin@example.com', EmailVerified: true }],
+            UserList: [{ Uid: uidList[0], Email: 'admin@example.com', EmailVerified: true, UserStatus: 'ACTIVE' }],
           },
         })),
       },
     }
-    const resolve = createStrictApproverResolver(manager)
+    const auth = { queryUserInfo: vi.fn() }
+    const resolve = createStrictApproverResolver(manager, auth)
 
     await expect(resolve('admin-uid')).resolves.toBe('admin@example.com')
+    expect(auth.queryUserInfo).not.toHaveBeenCalled()
+
     manager.user.describeUserList.mockResolvedValueOnce({
-      Data: { UserList: [{ Uid: 'admin-uid', Email: 'admin@example.com' }] },
+      Data: { UserList: [{ Uid: 'admin-uid', Email: 'admin@example.com', UserStatus: 'ACTIVE' }] },
+    })
+    auth.queryUserInfo.mockResolvedValueOnce({
+      userInfo: { uid: 'admin-uid', email: 'admin@example.com' },
+    })
+    await expect(resolve('admin-uid')).resolves.toBe('admin@example.com')
+    expect(auth.queryUserInfo).toHaveBeenCalledWith({
+      platform: 'EMAIL',
+      platformId: 'admin@example.com',
+    })
+
+    manager.user.describeUserList.mockResolvedValueOnce({
+      Data: { UserList: [{ Uid: 'admin-uid', Email: 'admin@example.com', EmailVerified: false, UserStatus: 'ACTIVE' }] },
+    })
+    await expect(resolve('admin-uid')).resolves.toBeNull()
+  })
+
+  it('fails closed when the email identity cannot confirm the same active uid', async () => {
+    const manager = {
+      user: {
+        describeUserList: vi.fn(async () => ({
+          Data: {
+            UserList: [{ Uid: 'admin-uid', Email: 'admin@example.com', UserStatus: 'ACTIVE' }],
+          },
+        })),
+      },
+    }
+    const auth = {
+      queryUserInfo: vi.fn()
+        .mockResolvedValueOnce({ userInfo: { uid: 'other-uid', email: 'admin@example.com' } })
+        .mockRejectedValueOnce(new Error('identity lookup unavailable')),
+    }
+    const resolve = createStrictApproverResolver(manager, auth)
+
+    await expect(resolve('admin-uid')).resolves.toBeNull()
+    await expect(resolve('admin-uid')).resolves.toBeNull()
+
+    manager.user.describeUserList.mockResolvedValueOnce({
+      Data: {
+        UserList: [{
+          Uid: 'admin-uid',
+          Email: 'admin@example.com',
+          EmailVerified: true,
+          UserStatus: 'BLOCKED',
+        }],
+      },
     })
     await expect(resolve('admin-uid')).resolves.toBeNull()
   })

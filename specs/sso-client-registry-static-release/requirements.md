@@ -87,8 +87,9 @@ production 发布必须分为 `requestPublishApproval` 和 `approveAndQueueRelea
 审批权限必须使用配置的 CloudBase Auth 不可变 uid allowlist。每次请求审批时，管理函数必须通过管理 API 读取该 uid，并且：
 
 - 精确返回唯一且 uid 匹配的用户
-- 只接受 `EmailVerified === true` 的合法邮箱
-- 对缺失、未验证、重复或查询异常失败关闭
+- 只接受 ACTIVE 用户的合法邮箱；显式 `EmailVerified === false` 必须失败关闭
+- 管理 API 缺少 `EmailVerified` 时，必须通过 Node SDK 按 `EMAIL` 身份源反查，并确认邮箱与 uid 均精确匹配
+- 对未验证、身份源不匹配、重复或查询异常失败关闭
 - 数据库只保存 approverUid、recipientHash 与脱敏邮箱
 
 管理员换绑并验证新邮箱后，下一次审批必须自动发送到新邮箱，无需改代码或重新部署。
