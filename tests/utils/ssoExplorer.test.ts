@@ -126,6 +126,38 @@ describe('sso explorer configuration', () => {
       })
   })
 
+  it('prepares Web Resume presentation before activating its Web SSO client', () => {
+    const nextRegistry = {
+      ...productionRegistry,
+      clients: [
+        ...productionRegistry.clients,
+        {
+          clientId: 'web-resume-web',
+          appId: 'web-resume',
+          displayName: 'Web Resume',
+          iconUrl: 'https://resume.yunle.fun/img/icons/web-resume-mark.svg',
+          status: 'active' as const,
+          adapters: [{
+            kind: 'web-sso' as const,
+            consent: 'trusted' as const,
+            allowedScopes: ['identity:bootstrap'],
+            origins: ['https://resume.yunle.fun'],
+            redirectUris: ['https://resume.yunle.fun/user'],
+          }],
+        },
+      ],
+    }
+
+    expect(buildSsoExplorerApps(nextRegistry).find(app => app.appId === 'web-resume'))
+      .toMatchObject({
+        clientId: 'web-resume-web',
+        name: 'Web Resume',
+        description: '编辑、预览与导出结构化简历',
+        origin: 'https://resume.yunle.fun',
+        logoUrl: 'https://resume.yunle.fun/img/icons/web-resume-mark.svg',
+      })
+  })
+
   it('shows one Web app when a native companion client shares the same app ID', () => {
     const cookClients = [
       {

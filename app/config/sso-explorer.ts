@@ -99,6 +99,12 @@ const presentationByAppId: Record<string, SsoPresentation> = {
     accent: 'var(--ylf-dopa-violet)',
     position: { x: 76, y: 50 },
   },
+  'web-resume': {
+    description: '编辑、预览与导出结构化简历',
+    fallbackMark: 'CV',
+    accent: 'var(--ylf-dopa-blue)',
+    position: { x: 14, y: 8 },
+  },
 }
 
 /** 安全控制面与原生伴生客户端可参与 SSO，但不单独展示为公开 Web 应用。 */
