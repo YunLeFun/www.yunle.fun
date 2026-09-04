@@ -88,9 +88,9 @@ production 发布必须分为 `requestPublishApproval` 和 `approveAndQueueRelea
 
 - 精确返回唯一且 uid 匹配的用户
 - 只接受 ACTIVE 用户的合法邮箱
-- 必须通过 Node SDK `getEndUserInfo(uid)` 再次读取当前登录邮箱，并确认邮箱与 uid 均精确匹配
-- CloudBase 当前用户契约不提供 `EmailVerified`；不得伪造或信任用户可写扩展字段作为验证状态
-- 对身份视图不匹配、重复或查询异常失败关闭；审批邮件中的一次性验证码用于确认本次操作的邮箱控制权
+- CloudBase 当前管理端用户契约不提供 `EmailVerified`；不得伪造或信任用户可写扩展字段作为验证状态
+- 管理 API 查询缺失、重复、uid 不匹配、非 ACTIVE、邮箱非法或查询异常时失败关闭
+- 管理 API 返回的邮箱只用于选择收件地址；审批邮件中的一次性验证码独立确认本次操作的邮箱控制权
 - 数据库只保存 approverUid、recipientHash 与脱敏邮箱
 
 管理员换绑并验证新邮箱后，下一次审批必须自动发送到新邮箱，无需改代码或重新部署。

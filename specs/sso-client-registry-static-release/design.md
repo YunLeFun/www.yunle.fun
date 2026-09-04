@@ -92,13 +92,13 @@ SES_TEMPLATE_REGISTRY_APPROVAL=<approved template id>
 
 - 返回用户数必须恰好为 1，返回 uid 必须匹配请求 uid。
 - 用户必须为 ACTIVE，邮箱格式必须合法。
-- CloudBase 当前用户契约不提供 `EmailVerified`；使用 Node SDK `getEndUserInfo(uid)` 按不可变 uid
-  读取当前登录邮箱，并要求返回邮箱与 uid 均精确匹配；身份视图缺失或查询异常时失败关闭。
-- 不自建或信任用户可写的“已验证”布尔字段；审批邮件中的一次性验证码确认本次操作的邮箱控制权。
+- CloudBase 当前管理端用户契约不提供 `EmailVerified`；不自建或信任用户可写的“已验证”布尔字段。
+- 管理 API 查询缺失、重复、uid 不匹配、非 ACTIVE、邮箱非法或查询异常时失败关闭。
+- 管理 API 返回的邮箱只用于选择收件地址；审批邮件中的一次性验证码独立确认本次操作的邮箱控制权。
 - 完整邮箱只进入 SES Destination 的瞬时内存。
 - 持久化 `recipientHash` 与脱敏值，不持久化完整邮箱。
 
-现有 `account-lifecycle-notifier` 的 SES 发送和状态解析逻辑应抽取为可测试共享模块；Registry 审批使用更严格的 recipient policy，不能复用当前“验证字段缺失也接受”的行为。
+现有 `account-lifecycle-notifier` 的 SES 发送和状态解析逻辑应抽取为可测试共享模块；Registry 审批在共享解析器上额外启用 uid 精确匹配与 ACTIVE 状态检查。
 
 ### 4.3 审批码
 

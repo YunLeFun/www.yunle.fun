@@ -23,7 +23,7 @@ CloudBase NoSQL 是 Registry 的受控管理源，保存草稿、不可变签名
 - 它属于安全策略而不是用户内容；变更需要代码评审、自动测试、版本记录和原子回滚。
 - 主站构建直接导入 `productionRegistry`，因此首页和 `/explore` 的账号云图在部署时已经获得快照，刷新页面不依赖 CloudBase 查询，也不需要再维护一份运行时缓存。
 - `sso-ticket` 与 `desktop-auth` 的部署产物会 vendoring 同一版本的 `@yunlefun/authorization-core`，避免前端展示、Web SSO 和桌面授权读取不同白名单。
-- production 变更必须向 allowlist uid 当前绑定的严格已验证邮箱发送 12 位一次性审批码；development
+- production 变更必须向 allowlist uid 对应的唯一 ACTIVE 账号当前邮箱发送 12 位一次性审批码，并以该验证码确认本次操作的邮箱控制权；development
   可跳过邮件，但仍生成签名发布意图并记录审计。
 - 审批只创建活动管理快照和签名 release intent；私有 dispatcher 只把 releaseIntentId 交给 GitHub
   Actions。CI 重新验签、导出 generated-only PR、等待 PR checks，再按准确提交部署静态消费者。

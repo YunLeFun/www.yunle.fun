@@ -7,7 +7,7 @@ import {
 } from '../../cloudfunctions/sso-registry-admin/approval-runtime.js'
 
 describe('sso-registry approval runtime', () => {
-  it('accepts the production CloudBase user shape when the uid auth view matches', async () => {
+  it('accepts one active CloudBase management user with the exact configured uid', async () => {
     const manager = {
       user: {
         describeUserList: vi.fn(async () => ({
@@ -17,72 +17,63 @@ describe('sso-registry approval runtime', () => {
         })),
       },
     }
-    const auth = {
-      getEndUserInfo: vi.fn(async uid => ({
-        userInfo: { uid, email: 'admin@example.com' },
-      })),
-      queryUserInfo: vi.fn(),
-    }
-    const resolve = createStrictApproverResolver(manager, auth)
+    const resolve = createStrictApproverResolver(manager)
 
     await expect(resolve('admin-uid')).resolves.toBe('admin@example.com')
-    expect(auth.getEndUserInfo).toHaveBeenCalledWith('admin-uid')
-    expect(auth.queryUserInfo).not.toHaveBeenCalled()
-  })
-
-  it('resolves only the configured uid with matching active user and auth views', async () => {
-    const manager = {
-      user: {
-        describeUserList: vi.fn(async ({ uidList }) => ({
-          Data: {
-            UserList: [{ Uid: uidList[0], Email: 'admin@example.com', UserStatus: 'ACTIVE' }],
-          },
-        })),
-      },
-    }
-    const auth = {
-      getEndUserInfo: vi.fn(async uid => ({
-        userInfo: { uid, email: 'ADMIN@example.com' },
-      })),
-    }
-    const resolve = createStrictApproverResolver(manager, auth)
-
-    await expect(resolve('admin-uid')).resolves.toBe('admin@example.com')
-    expect(auth.getEndUserInfo).toHaveBeenCalledWith('admin-uid')
-  })
-
-  it('fails closed when the email identity cannot confirm the same active uid', async () => {
-    const manager = {
-      user: {
-        describeUserList: vi.fn(async () => ({
-          Data: {
-            UserList: [{ Uid: 'admin-uid', Email: 'admin@example.com', UserStatus: 'ACTIVE' }],
-          },
-        })),
-      },
-    }
-    const auth = {
-      getEndUserInfo: vi.fn()
-        .mockResolvedValueOnce({ userInfo: { uid: 'other-uid', email: 'admin@example.com' } })
-        .mockResolvedValueOnce({ userInfo: { uid: 'admin-uid', email: 'other@example.com' } })
-        .mockRejectedValueOnce(new Error('identity lookup unavailable')),
-    }
-    const resolve = createStrictApproverResolver(manager, auth)
-
-    await expect(resolve('admin-uid')).resolves.toBeNull()
-    await expect(resolve('admin-uid')).resolves.toBeNull()
-    await expect(resolve('admin-uid')).resolves.toBeNull()
-
-    manager.user.describeUserList.mockResolvedValueOnce({
-      Data: {
-        UserList: [{
-          Uid: 'admin-uid',
-          Email: 'admin@example.com',
-          UserStatus: 'BLOCKED',
-        }],
-      },
+    expect(manager.user.describeUserList).toHaveBeenCalledWith({
+      uidList: ['admin-uid'],
+      pageNo: 1,
+      pageSize: 2,
     })
+  })
+
+  it.each([
+    ['no matching user', []],
+    ['duplicate users', [
+      { Uid: 'admin-uid', Email: 'admin@example.com', UserStatus: 'ACTIVE' },
+      { Uid: 'admin-uid', Email: 'admin@example.com', UserStatus: 'ACTIVE' },
+    ]],
+    ['a mismatched uid', [
+      { Uid: 'other-uid', Email: 'admin@example.com', UserStatus: 'ACTIVE' },
+    ]],
+  ])('fails closed for %s', async (_label, users) => {
+    const manager = {
+      user: {
+        describeUserList: vi.fn(async () => ({ Data: { UserList: users } })),
+      },
+    }
+    const resolve = createStrictApproverResolver(manager)
+
     await expect(resolve('admin-uid')).resolves.toBeNull()
+  })
+
+  it.each([
+    ['an inactive account', { Uid: 'admin-uid', Email: 'admin@example.com', UserStatus: 'BLOCKED' }],
+    ['a malformed email', { Uid: 'admin-uid', Email: 'not-an-email', UserStatus: 'ACTIVE' }],
+  ])('fails closed for %s', async (_label, user) => {
+    const manager = {
+      user: {
+        describeUserList: vi.fn(async () => ({
+          Data: { UserList: [user] },
+        })),
+      },
+    }
+    const resolve = createStrictApproverResolver(manager)
+
+    await expect(resolve('admin-uid')).resolves.toBeNull()
+  })
+
+  it('fails closed when the CloudBase management lookup is unavailable', async () => {
+    const manager = {
+      user: {
+        describeUserList: vi.fn(async () => {
+          throw new Error('identity lookup unavailable')
+        }),
+      },
+    }
+    const resolve = createStrictApproverResolver(manager)
+
+    await expect(resolve('admin-uid')).rejects.toThrow('identity lookup unavailable')
   })
 
   it('loads production approval configuration and sends the code through SES templates', async () => {

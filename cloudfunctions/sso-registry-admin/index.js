@@ -83,7 +83,7 @@ function loadService(environment = currentEnvironment(), context = {}, action = 
       const sesClient = createSesClient(approvalConfig, context)
       Object.assign(options, {
         approvalPepper: approvalConfig.approvalPepper,
-        resolveApproverEmail: createStrictApproverResolver(manager, app.auth()),
+        resolveApproverEmail: createStrictApproverResolver(manager),
         sendApprovalEmail: createApprovalEmailSender(sesClient, approvalConfig),
       })
     }

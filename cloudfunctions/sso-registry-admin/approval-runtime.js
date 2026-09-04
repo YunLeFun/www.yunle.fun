@@ -1,4 +1,4 @@
-/** Strict CloudBase Auth lookup and Tencent Cloud SES approval delivery. */
+/** Strict CloudBase management lookup and Tencent Cloud SES approval delivery. */
 
 'use strict'
 
@@ -43,23 +43,10 @@ function loadApprovalRuntimeConfig(env = process.env) {
   }
 }
 
-function createStrictApproverResolver(manager, auth) {
+function createStrictApproverResolver(manager) {
   return createRecipientResolver(manager, {
     requireActive: true,
     requireUidMatch: true,
-    requireIdentityMatch: true,
-    matchEmailIdentity: async ({ email, userId }) => {
-      if (!auth || typeof auth.getEndUserInfo !== 'function')
-        return false
-      const response = await auth.getEndUserInfo(userId)
-      const data = response?.data || response?.Data || response
-      const user = data?.userInfo || data?.UserInfo
-      const resolvedUid = user?.uid || user?.Uid || user?.uuid || user?.UUId || user?.userId || user?.UserId
-      const resolvedEmail = user?.email || user?.Email
-      return resolvedUid === userId
-        && typeof resolvedEmail === 'string'
-        && resolvedEmail.toLowerCase() === email.toLowerCase()
-    },
   })
 }
 

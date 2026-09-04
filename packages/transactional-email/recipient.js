@@ -33,17 +33,6 @@ function createRecipientResolver(manager, options = {}) {
     const email = user?.Email || user?.email || ''
     if (!looksLikeEmail(email))
       return null
-    if (options.requireIdentityMatch) {
-      if (typeof options.matchEmailIdentity !== 'function')
-        return null
-      try {
-        if (await options.matchEmailIdentity({ email, userId }) !== true)
-          return null
-      }
-      catch {
-        return null
-      }
-    }
     return email
   }
 }
