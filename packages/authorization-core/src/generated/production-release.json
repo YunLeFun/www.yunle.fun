@@ -2,14 +2,14 @@
   "envelope": {
     "formatVersion": 1,
     "snapshot": {
-      "canonicalJson": "{\"clients\":[{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://admin.yunle.fun\"],\"redirectUris\":[\"https://admin.yunle.fun/\"]}],\"appId\":\"admin\",\"clientId\":\"admin-web\",\"displayName\":\"YunLeFun Admin\",\"iconUrl\":\"https://admin.yunle.fun/logo.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://advjs.yunle.fun\",\"https://studio.advjs.org\"],\"redirectUris\":[\"https://advjs.yunle.fun/\",\"https://studio.advjs.org/\"]}],\"appId\":\"advjs-studio\",\"clientId\":\"advjs-studio-web\",\"displayName\":\"ADV.JS Studio\",\"iconUrl\":\"https://studio.advjs.org/favicon.ico\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://ai-sfc.yunle.fun\"],\"redirectUris\":[\"https://ai-sfc.yunle.fun/\"]}],\"appId\":\"ai-sfc\",\"clientId\":\"ai-sfc-web\",\"displayName\":\"AI 春联\",\"iconUrl\":\"https://ai-sfc.yunle.fun/brand/ai-sfc-logo.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://cms.yunle.fun\"],\"redirectUris\":[\"https://cms.yunle.fun/\"]}],\"appId\":\"cms\",\"clientId\":\"cms-web\",\"displayName\":\"Yunle CMS\",\"iconUrl\":\"https://cms.yunle.fun/icon.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"explicit\",\"kind\":\"web-sso\",\"origins\":[\"https://cook.yunle.fun\",\"https://cook.yunyoujun.cn\"],\"redirectUris\":[\"https://cook.yunle.fun/auth/callback?platform=native\",\"https://cook.yunyoujun.cn/auth/callback?platform=native\"]}],\"appId\":\"cook\",\"clientId\":\"cook-mobile\",\"displayName\":\"食用手册\",\"iconUrl\":\"https://cook.yunle.fun/pwa-512x512.png\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://cook.yunle.fun\",\"https://cook.yunyoujun.cn\"],\"redirectUris\":[\"https://cook.yunle.fun/auth/callback\",\"https://cook.yunyoujun.cn/auth/callback\"]}],\"appId\":\"cook\",\"clientId\":\"cook-web\",\"displayName\":\"食用手册\",\"iconUrl\":\"https://cook.yunle.fun/pwa-512x512.png\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://dayun-kicker.yunle.fun\"],\"redirectUris\":[\"https://dayun-kicker.yunle.fun/\"]}],\"appId\":\"dayun-kicker\",\"clientId\":\"dayun-kicker-web\",\"displayName\":\"暴力电驴\",\"iconUrl\":\"https://dayun-kicker.yunle.fun/favicon.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://drive.yunle.fun\"],\"redirectUris\":[\"https://drive.yunle.fun/\"]}],\"appId\":\"drive\",\"clientId\":\"drive-web\",\"displayName\":\"云乐盘\",\"iconUrl\":\"https://drive.yunle.fun/drive-mark.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://dao.yunle.fun\"],\"redirectUris\":[\"https://dao.yunle.fun/\"]}],\"appId\":\"everything-generator\",\"clientId\":\"everything-generator-web\",\"displayName\":\"万物生成器\",\"iconUrl\":\"https://dao.yunle.fun/favicon.ico\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://fc.elpsy.cn\",\"https://fc.yunle.fun\"],\"redirectUris\":[\"https://fc.elpsy.cn/\",\"https://fc.yunle.fun/\"]}],\"appId\":\"fc\",\"clientId\":\"fc-web\",\"displayName\":\"怀旧游戏机\",\"iconUrl\":\"https://fc.yunle.fun/favicon.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://home.yunle.fun\"],\"redirectUris\":[\"https://home.yunle.fun/\"]}],\"appId\":\"home\",\"clientId\":\"home-web\",\"displayName\":\"云之彼端\",\"iconUrl\":\"https://home.yunle.fun/brand-mark.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://play.yunle.fun\"],\"redirectUris\":[\"https://play.yunle.fun/\"]}],\"appId\":\"play\",\"clientId\":\"play-web\",\"displayName\":\"云乐坊间\",\"iconUrl\":\"https://play.yunle.fun/favicon.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://saier.yunle.fun\"],\"redirectUris\":[\"https://saier.yunle.fun/\"]}],\"appId\":\"saier\",\"clientId\":\"saier-web\",\"displayName\":\"云绘 Saier\",\"iconUrl\":\"https://saier.yunle.fun/favicon.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"membership:read\"],\"consent\":\"explicit\",\"kind\":\"device\"}],\"appId\":\"skykeeper\",\"clientId\":\"skykeeper-desktop\",\"displayName\":\"Skykeeper\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://smap.yunle.fun\"],\"redirectUris\":[\"https://smap.yunle.fun/tabs/profile\"]}],\"appId\":\"smap\",\"clientId\":\"smap-web\",\"displayName\":\"SMAP 星际导航\",\"iconUrl\":\"https://smap.yunle.fun/smap-logo.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://studio.yunyoujun.cn\"],\"redirectUris\":[\"https://studio.yunyoujun.cn/\"]}],\"appId\":\"studio\",\"clientId\":\"studio-web\",\"displayName\":\"YunYouJun Studio\",\"iconUrl\":\"https://studio.yunyoujun.cn/icon.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://support.yunle.fun\"],\"redirectUris\":[\"https://support.yunle.fun/\"]}],\"appId\":\"support\",\"clientId\":\"support-web\",\"displayName\":\"云乐坊支持中心\",\"iconUrl\":\"https://support.yunle.fun/favicon.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://wenta.yunle.fun\"],\"redirectUris\":[\"https://wenta.yunle.fun/\"]}],\"appId\":\"wenta\",\"clientId\":\"wenta-web\",\"displayName\":\"问 TA\",\"iconUrl\":\"https://wenta.yunle.fun/favicon.svg\",\"status\":\"active\"}],\"issuer\":\"https://www.yunle.fun\",\"policyVersion\":\"2026-08-17.1\",\"schemaVersion\":1}",
-      "changeReason": "Admin owner approved production Registry policy 2026-08-17.1",
-      "contentHash": "1c7b5b40c81f70f2f76ba7719d7dc5bbd331f415891fabdcc31b9e6c72744433",
+      "canonicalJson": "{\"clients\":[{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://admin.yunle.fun\"],\"redirectUris\":[\"https://admin.yunle.fun/\"]}],\"appId\":\"admin\",\"clientId\":\"admin-web\",\"displayName\":\"YunLeFun Admin\",\"iconUrl\":\"https://admin.yunle.fun/logo.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://advjs.yunle.fun\",\"https://studio.advjs.org\"],\"redirectUris\":[\"https://advjs.yunle.fun/\",\"https://studio.advjs.org/\"]}],\"appId\":\"advjs-studio\",\"clientId\":\"advjs-studio-web\",\"displayName\":\"ADV.JS Studio\",\"iconUrl\":\"https://studio.advjs.org/favicon.ico\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://ai-sfc.yunle.fun\"],\"redirectUris\":[\"https://ai-sfc.yunle.fun/\"]}],\"appId\":\"ai-sfc\",\"clientId\":\"ai-sfc-web\",\"displayName\":\"AI 春联\",\"iconUrl\":\"https://ai-sfc.yunle.fun/brand/ai-sfc-logo.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://cms.yunle.fun\"],\"redirectUris\":[\"https://cms.yunle.fun/\"]}],\"appId\":\"cms\",\"clientId\":\"cms-web\",\"displayName\":\"Yunle CMS\",\"iconUrl\":\"https://cms.yunle.fun/icon.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"explicit\",\"kind\":\"web-sso\",\"origins\":[\"https://cook.yunle.fun\",\"https://cook.yunyoujun.cn\"],\"redirectUris\":[\"https://cook.yunle.fun/auth/callback?platform=native\",\"https://cook.yunyoujun.cn/auth/callback?platform=native\"]}],\"appId\":\"cook\",\"clientId\":\"cook-mobile\",\"displayName\":\"食用手册\",\"iconUrl\":\"https://cook.yunle.fun/pwa-512x512.png\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://cook.yunle.fun\",\"https://cook.yunyoujun.cn\"],\"redirectUris\":[\"https://cook.yunle.fun/auth/callback\",\"https://cook.yunyoujun.cn/auth/callback\"]}],\"appId\":\"cook\",\"clientId\":\"cook-web\",\"displayName\":\"食用手册\",\"iconUrl\":\"https://cook.yunle.fun/pwa-512x512.png\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://dayun-kicker.yunle.fun\"],\"redirectUris\":[\"https://dayun-kicker.yunle.fun/\"]}],\"appId\":\"dayun-kicker\",\"clientId\":\"dayun-kicker-web\",\"displayName\":\"暴力电驴\",\"iconUrl\":\"https://dayun-kicker.yunle.fun/favicon.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://drive.yunle.fun\"],\"redirectUris\":[\"https://drive.yunle.fun/\"]}],\"appId\":\"drive\",\"clientId\":\"drive-web\",\"displayName\":\"云乐盘\",\"iconUrl\":\"https://drive.yunle.fun/drive-mark.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://dao.yunle.fun\"],\"redirectUris\":[\"https://dao.yunle.fun/\"]}],\"appId\":\"everything-generator\",\"clientId\":\"everything-generator-web\",\"displayName\":\"万物生成器\",\"iconUrl\":\"https://dao.yunle.fun/favicon.ico\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://fc.elpsy.cn\",\"https://fc.yunle.fun\"],\"redirectUris\":[\"https://fc.elpsy.cn/\",\"https://fc.yunle.fun/\"]}],\"appId\":\"fc\",\"clientId\":\"fc-web\",\"displayName\":\"怀旧游戏机\",\"iconUrl\":\"https://fc.yunle.fun/favicon.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://home.yunle.fun\"],\"redirectUris\":[\"https://home.yunle.fun/\"]}],\"appId\":\"home\",\"clientId\":\"home-web\",\"displayName\":\"云之彼端\",\"iconUrl\":\"https://home.yunle.fun/brand-mark.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://play.yunle.fun\"],\"redirectUris\":[\"https://play.yunle.fun/\"]}],\"appId\":\"play\",\"clientId\":\"play-web\",\"displayName\":\"云乐坊间\",\"iconUrl\":\"https://play.yunle.fun/favicon.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://saier.yunle.fun\"],\"redirectUris\":[\"https://saier.yunle.fun/\"]}],\"appId\":\"saier\",\"clientId\":\"saier-web\",\"displayName\":\"云绘 Saier\",\"iconUrl\":\"https://saier.yunle.fun/favicon.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"membership:read\"],\"consent\":\"explicit\",\"kind\":\"device\"}],\"appId\":\"skykeeper\",\"clientId\":\"skykeeper-desktop\",\"displayName\":\"Skykeeper\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://smap.yunle.fun\"],\"redirectUris\":[\"https://smap.yunle.fun/tabs/profile\"]}],\"appId\":\"smap\",\"clientId\":\"smap-web\",\"displayName\":\"SMAP 星际导航\",\"iconUrl\":\"https://smap.yunle.fun/smap-logo.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://studio.yunyoujun.cn\"],\"redirectUris\":[\"https://studio.yunyoujun.cn/\"]}],\"appId\":\"studio\",\"clientId\":\"studio-web\",\"displayName\":\"YunYouJun Studio\",\"iconUrl\":\"https://studio.yunyoujun.cn/icon.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://support.yunle.fun\"],\"redirectUris\":[\"https://support.yunle.fun/\"]}],\"appId\":\"support\",\"clientId\":\"support-web\",\"displayName\":\"云乐坊支持中心\",\"iconUrl\":\"https://support.yunle.fun/favicon.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://resume.yunle.fun\"],\"redirectUris\":[\"https://resume.yunle.fun/user\"]}],\"appId\":\"web-resume\",\"clientId\":\"web-resume-web\",\"displayName\":\"Web Resume\",\"iconUrl\":\"https://resume.yunle.fun/img/icons/web-resume-mark.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://wenta.yunle.fun\"],\"redirectUris\":[\"https://wenta.yunle.fun/\"]}],\"appId\":\"wenta\",\"clientId\":\"wenta-web\",\"displayName\":\"问 TA\",\"iconUrl\":\"https://wenta.yunle.fun/favicon.svg\",\"status\":\"active\"}],\"issuer\":\"https://www.yunle.fun\",\"policyVersion\":\"2026-09-03.1\",\"schemaVersion\":1}",
+      "changeReason": "approve Web Resume trusted SSO client registration",
+      "contentHash": "1e0d176e14db7490de7e81ab61abb945b1318d7c02dc9923ff168c05d6092352",
       "environment": "production",
       "keyId": "production-registry-20260809",
-      "policyVersion": "2026-08-17.1",
-      "publishedAt": 1787046430791,
-      "publishedBy": "admin:yunyoujun (1978032370372050944)",
+      "policyVersion": "2026-09-03.1",
+      "publishedAt": 1788504088530,
+      "publishedBy": "codex-production-release",
       "registry": {
         "clients": [
           {
@@ -396,6 +396,28 @@
                 "consent": "trusted",
                 "kind": "web-sso",
                 "origins": [
+                  "https://resume.yunle.fun"
+                ],
+                "redirectUris": [
+                  "https://resume.yunle.fun/user"
+                ]
+              }
+            ],
+            "appId": "web-resume",
+            "clientId": "web-resume-web",
+            "displayName": "Web Resume",
+            "iconUrl": "https://resume.yunle.fun/img/icons/web-resume-mark.svg",
+            "status": "active"
+          },
+          {
+            "adapters": [
+              {
+                "allowedScopes": [
+                  "identity:bootstrap"
+                ],
+                "consent": "trusted",
+                "kind": "web-sso",
+                "origins": [
                   "https://wenta.yunle.fun"
                 ],
                 "redirectUris": [
@@ -411,41 +433,41 @@
           }
         ],
         "issuer": "https://www.yunle.fun",
-        "policyVersion": "2026-08-17.1",
+        "policyVersion": "2026-09-03.1",
         "schemaVersion": 1
       },
       "schemaVersion": 1,
-      "securityHash": "c7d713de998aa534e71011dba5300cb2f6504c462e4337ad41149cb80bd0e2e1",
-      "sequence": 10,
-      "signature": "3jdrI_c8RIBjxCED1VETae9VjmPpVEeZSdLmze7k30UXZ9fPbxCPZZJarUbM9rDs37kGWEXYvbDs9Ko_Oms_Cw",
-      "snapshotId": "production:10:1c7b5b40c81f70f2f76b",
-      "sourceDraftId": "draft:CXpHuPkCbD1ZGEZN"
+      "securityHash": "091d644958d676a9843fafa3f98f04ea1a698ca84ca910f3c269878d42fa0fee",
+      "sequence": 11,
+      "signature": "qIsuibI7qiJ7zGNYggC8hvzN6vDTDLN1F5X-Bc-1bzKewylMqQWqzK6-EQ6pCief_4SVMTOR1T5WRsDHqH7gBg",
+      "snapshotId": "production:11:1e0d176e14db7490de7e",
+      "sourceDraftId": "draft:NxtquibsMG-gZK5Y"
     },
     "state": {
       "action": "publish",
-      "activatedAt": 1787046430791,
-      "activatedBy": "admin:yunyoujun (1978032370372050944)",
+      "activatedAt": 1788504088530,
+      "activatedBy": "codex-production-release",
       "activationKeyId": "production-registry-20260809",
-      "activationSignature": "oElL5vcE4jDBj897HJV1m1P6TWR7hY4x-eKFY39Y0IBKKBIZuPLSmO4kqkbD4D9FbkfiGD783_EdT-8RGfClAg",
-      "activeSnapshotId": "production:10:1c7b5b40c81f70f2f76b",
+      "activationSignature": "HBtIPGmUQA3d7sxxp8flDkr4gAHsEbZtdYkgekxwudyLMAeRvCLneEGqAyXGXG7pVYnf8TlahB2skdXQSBtHBA",
+      "activeSnapshotId": "production:11:1e0d176e14db7490de7e",
       "environment": "production",
-      "generation": 10,
-      "previousSnapshotId": "production:9:1c78ebc59a6a84d6999c"
+      "generation": 11,
+      "previousSnapshotId": "production:10:1c7b5b40c81f70f2f76b"
     }
   },
   "environment": "production",
   "formatVersion": 1,
   "intent": {
-    "approvalId": "admin:f9e91121-b3fd-4ba1-b165-85c6767aef9b",
-    "baseCommitSha": "0e29c62937f8cc6ecd27342866c1bd185630cc30",
-    "contentHash": "1c7b5b40c81f70f2f76ba7719d7dc5bbd331f415891fabdcc31b9e6c72744433",
+    "approvalId": "approval:L1XttFU3uQNWe46N",
+    "baseCommitSha": "6ccdf245496e41f807872b17a0e021e274751789",
+    "contentHash": "1e0d176e14db7490de7e81ab61abb945b1318d7c02dc9923ff168c05d6092352",
     "environment": "production",
-    "generation": 10,
+    "generation": 11,
     "manifestKeyId": "production-registry-20260809",
-    "manifestSignature": "nZz1kU1ke0ozqlkjuYNjNAMajrTZc8wGxC8dLnqwadXnjiMoXHBT2oA__hf9W86zhchPuT1vAnJpFwrGhJoSDw",
-    "policyVersion": "2026-08-17.1",
-    "securityHash": "c7d713de998aa534e71011dba5300cb2f6504c462e4337ad41149cb80bd0e2e1",
-    "snapshotId": "production:10:1c7b5b40c81f70f2f76b"
+    "manifestSignature": "RwMNQKd4HWyVWrycvpI35ixEsk8VPSXp0Jso3xNhHgUXSmTPco7WN5iwm5rSMAIaQdjDreelF6zdZ9XXxEhwBg",
+    "policyVersion": "2026-09-03.1",
+    "securityHash": "091d644958d676a9843fafa3f98f04ea1a698ca84ca910f3c269878d42fa0fee",
+    "snapshotId": "production:11:1e0d176e14db7490de7e"
   },
-  "releaseIntentId": "release:production:10:x_AJQY7RjQ2rP_qh"
+  "releaseIntentId": "release:production:11:BdzG0n0yOgqf98mq"
 }
