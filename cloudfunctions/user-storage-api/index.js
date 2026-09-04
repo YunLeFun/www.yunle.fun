@@ -7,6 +7,7 @@
 
 'use strict'
 
+const process = require('node:process')
 const cloudbase = require('@cloudbase/node-sdk')
 const router = require('./router')
 
@@ -20,6 +21,8 @@ exports.main = async (event) => {
       callAccountApi,
       cloudbaseApp: app,
       db,
+      webResumeStorageToken: process.env.WEB_RESUME_STORAGE_INTERNAL_TOKEN || '',
+      webResumeSweeperToken: process.env.WEB_RESUME_SWEEPER_INTERNAL_TOKEN || '',
     })
   }
   catch (err) {

@@ -205,7 +205,12 @@
 - Saier 项目文件：`kind: "project"`，不使用 `slotKey`。
 - Saier 笔刷库：`kind: "brush-library"`、`slotKey: "default"`、固定文件名 `brush-library.saier.brushes.json`、`contentType: "application/json"`，单文件额外限制 256KiB。
 - 素材原图：`kind: "asset"`，不使用 `slotKey`，非 singleton；仅接受扩展名与 `contentType` 一致的 JPEG、PNG、WebP、SVG，沿用 200MiB 单文件上限和用户共享存储额度。可选 `sha256` 只作为客户端候选值保存，文件头、尺寸、权威哈希和 SVG 栅格预览由 Drive 素材层校验与生成。
+- Web Resume：`appId: "web-resume"`、`kind: "resume"`，`slotKey` 固定为 `doc_<documentId>`，只接受 `.resume.yml` / `.resume.yaml` 与 YAML Content-Type，单文件限制 2MiB。服务端在 finalize 时读取私有对象并核对 SHA-256；同一 `slotKey` 为 singleton。
 - `brush-library` 是 singleton：`finalizeStorageUpload` 成功后，同一 `userId + appId + kind + slotKey` 只保留最新 active 文件，并释放旧文件 quota。
+
+Web Resume 浏览器不直接调用通用存储 action。Drive BFF 验证 `@yunlefun/sso` 双证明并建立独立 HttpOnly 会话后，使用专用 `WEB_RESUME_STORAGE_INTERNAL_TOKEN` 委托到严格限定的 `invokeForWebResume`；委托层强制覆盖 app、kind 和 Content-Type，并再次校验文件归属。业务元数据位于 `ADMINONLY` 的 `web_resume_documents` 集合，本地姓名、电话、邮箱和设备偏好不进入该集合。
+
+删除 Web Resume 文档先把元数据标记为回收站状态。私有 `web-resume-storage-sweeper` 每小时处理保留满 30 天的记录，通过带租约的 `purging` 状态阻止恢复竞态，删除 COS 对象并释放配额后才移除元数据。清理使用独立的 `WEB_RESUME_SWEEPER_INTERNAL_TOKEN`，不能与 BFF 委托令牌复用。
 
 ### `downloadStorageFile`
 

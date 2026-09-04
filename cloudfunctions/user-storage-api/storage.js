@@ -24,6 +24,7 @@ const NORMAL_STORAGE_QUOTA_BYTES = 100 * MB
 const MEMBER_STORAGE_QUOTA_BYTES = 1024 * MB
 const SINGLE_FILE_LIMIT_BYTES = 200 * MB
 const BRUSH_LIBRARY_MAX_BYTES = 256 * 1024
+const WEB_RESUME_MAX_BYTES = 2 * MB
 const INLINE_DOWNLOAD_MAX_BYTES = 4 * MB
 const STORAGE_RESERVATION_TTL_MS = 30 * 60 * 1000
 const STORAGE_QUOTA_MAX_RETRY = 5
@@ -32,6 +33,7 @@ const STORAGE_FILE_KIND = Object.freeze({
   ASSET: 'asset',
   BRUSH_LIBRARY: 'brush-library',
   PROJECT: 'project',
+  RESUME: 'resume',
 })
 
 const ASSET_IMAGE_CONTENT_TYPES = new Set([
@@ -50,6 +52,8 @@ const ASSET_IMAGE_EXTENSIONS = Object.freeze({
 const SAIER_APP_ID = 'saier'
 const SAIER_BRUSH_LIBRARY_FILE_NAME = 'brush-library.saier.brushes.json'
 const SAIER_BRUSH_LIBRARY_SLOT_KEY = 'default'
+const WEB_RESUME_APP_ID = 'web-resume'
+const WEB_RESUME_CONTENT_TYPES = new Set(['application/yaml', 'text/yaml', 'text/x-yaml'])
 
 const STORAGE_FILE_STATUS = Object.freeze({
   RESERVED: 'reserved',
@@ -195,6 +199,23 @@ function resolveStoragePolicy({ appId, contentType, fileName, kind, sizeBytes, s
       throw new Error(`brush-library 不能超过 ${BRUSH_LIBRARY_MAX_BYTES} bytes`)
     return {
       maxBytes: BRUSH_LIBRARY_MAX_BYTES,
+      singleton: true,
+    }
+  }
+
+  if (kind === STORAGE_FILE_KIND.RESUME) {
+    if (appId !== WEB_RESUME_APP_ID)
+      throw new Error('resume 仅支持 appId=web-resume')
+    if (!slotKey || !/^doc_[\w-]{16,60}$/.test(slotKey))
+      throw new Error('resume slotKey 格式无效')
+    if (!WEB_RESUME_CONTENT_TYPES.has(normalizeMediaType(contentType)))
+      throw new Error('resume contentType 必须为 YAML')
+    if (!/\.resume\.ya?ml$/i.test(fileName))
+      throw new Error('resume 文件名必须以 .resume.yml 或 .resume.yaml 结尾')
+    if (sizeBytes > WEB_RESUME_MAX_BYTES)
+      throw new Error(`resume 不能超过 ${WEB_RESUME_MAX_BYTES} bytes`)
+    return {
+      maxBytes: WEB_RESUME_MAX_BYTES,
       singleton: true,
     }
   }
@@ -669,9 +690,9 @@ async function reserveStorageUpload(db, input) {
 
   const storageKey = makeStorageKey({ userId, appId, reservationId, fileName })
   const reservationExpiresAt = now + STORAGE_RESERVATION_TTL_MS
-  const sha256Input = assertOptionalString(input.sha256, 'sha256', 128)
-  const sha256Candidate = kind === STORAGE_FILE_KIND.ASSET ? sha256Input.toLowerCase() : ''
-  if (sha256Candidate && !/^[a-f0-9]{64}$/.test(sha256Candidate))
+  const sha256Input = assertOptionalString(input.sha256, 'sha256', 128).toLowerCase()
+  const sha256Candidate = kind === STORAGE_FILE_KIND.ASSET ? sha256Input : ''
+  if ((kind === STORAGE_FILE_KIND.ASSET || kind === STORAGE_FILE_KIND.RESUME) && !/^[a-f0-9]{64}$/.test(sha256Input))
     throw new Error('sha256 必须为 64 位十六进制字符串')
 
   const quota = await tryReserveQuota(db, { userId, sizeBytes, now })
@@ -818,6 +839,35 @@ async function finalizeStorageUpload(db, input, options = {}) {
     if (expectedContentType && expectedContentType !== actualContentType)
       throw new Error('实际文件 Content-Type 与上传预留不匹配')
     throw new Error('实际文件大小超过预留额度')
+  }
+
+  if (file.kind === STORAGE_FILE_KIND.RESUME) {
+    let buffer
+    try {
+      if (typeof options.downloadFile !== 'function')
+        throw new Error('简历文件完整性校验能力不可用')
+      buffer = storageFileContentToBuffer(await options.downloadFile(file.storageKey))
+    }
+    catch (err) {
+      await db
+        .collection(USER_STORAGE_FILES_COLLECTION)
+        .where({ userId, reservationId, status: STORAGE_FILE_STATUS.FINALIZING })
+        .update({
+          status: STORAGE_FILE_STATUS.RESERVED,
+          finalizeErrorAt: now,
+          updatedAt: now,
+        })
+      throw new Error(`读取简历文件进行完整性校验失败: ${err.message || String(err)}`)
+    }
+    const actualSha256 = crypto.createHash('sha256').update(buffer).digest('hex')
+    if (buffer.byteLength !== actualSizeBytes || actualSha256 !== file.sha256) {
+      if (options.deleteFile)
+        assertDeleteFileSucceeded(await options.deleteFile(file.storageKey))
+      await markReservationExpired(db, { userId, reservationId, now })
+      if (buffer.byteLength !== actualSizeBytes)
+        throw new Error('简历文件大小校验失败')
+      throw new Error('简历文件完整性校验失败')
+    }
   }
 
   const quota = await adjustQuotaUsage(db, {
@@ -1041,6 +1091,21 @@ function downloadFileContentToUtf8Text(result) {
   throw new Error('读取云存储对象失败: EMPTY_CONTENT')
 }
 
+function storageFileContentToBuffer(result) {
+  const content = result && typeof result === 'object' && Object.hasOwn(result, 'fileContent')
+    ? result.fileContent
+    : result
+  if (typeof content === 'string')
+    return Buffer.from(content, 'utf8')
+  if (Buffer.isBuffer(content))
+    return content
+  if (content instanceof ArrayBuffer)
+    return Buffer.from(content)
+  if (ArrayBuffer.isView(content))
+    return Buffer.from(content.buffer, content.byteOffset, content.byteLength)
+  throw new Error('读取云存储对象失败: EMPTY_CONTENT')
+}
+
 function isSuccessCode(code) {
   const normalized = String(code).toLowerCase()
   return normalized === 'success' || normalized === 'ok' || normalized === '0'
@@ -1085,6 +1150,7 @@ module.exports = {
   MEMBER_STORAGE_QUOTA_BYTES,
   SINGLE_FILE_LIMIT_BYTES,
   BRUSH_LIBRARY_MAX_BYTES,
+  WEB_RESUME_MAX_BYTES,
   INLINE_DOWNLOAD_MAX_BYTES,
   STORAGE_RESERVATION_TTL_MS,
   STORAGE_FILE_STATUS,

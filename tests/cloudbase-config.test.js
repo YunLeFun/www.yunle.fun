@@ -84,6 +84,23 @@ describe('cloudBase test identity deployment manifest', () => {
     })
   })
 
+  it('runs Web Resume trash cleanup hourly with an isolated service token', () => {
+    expect(functions.get('user-storage-api')).toMatchObject({
+      timeout: 30,
+      envVariables: {
+        WEB_RESUME_STORAGE_INTERNAL_TOKEN: '{{env.WEB_RESUME_STORAGE_INTERNAL_TOKEN}}',
+        WEB_RESUME_SWEEPER_INTERNAL_TOKEN: '{{env.WEB_RESUME_SWEEPER_INTERNAL_TOKEN}}',
+      },
+    })
+    expect(functions.get('web-resume-storage-sweeper')).toMatchObject({
+      aclRule: { invoke: false },
+      timeout: 30,
+      installDependency: true,
+      envVariables: { WEB_RESUME_SWEEPER_INTERNAL_TOKEN: '{{env.WEB_RESUME_SWEEPER_INTERNAL_TOKEN}}' },
+      triggers: [{ name: 'webResumeStorageSweepHourly', type: 'timer', config: '0 45 * * * * *' }],
+    })
+  })
+
   it('runs due account deletion hourly without a public invocation surface', () => {
     expect(functions.get('account-deletion-sweeper')).toMatchObject({
       aclRule: { invoke: false },
@@ -164,6 +181,12 @@ describe('cloudBase test identity deployment manifest', () => {
     // 支付/退款异步回调不依赖用户登录状态，必须继续完成资金对账。
     expect(functions.get('wxpay-notify')?.envVariables).not.toHaveProperty('ACCOUNT_API_INTERNAL_TOKEN')
     expect(functions.get('appstore-notify')?.envVariables).not.toHaveProperty('ACCOUNT_API_INTERNAL_TOKEN')
+  })
+
+  it('uses a dedicated token for Web Resume storage delegation', () => {
+    expect(functions.get('user-storage-api')?.envVariables).toMatchObject({
+      WEB_RESUME_STORAGE_INTERNAL_TOKEN: '{{env.WEB_RESUME_STORAGE_INTERNAL_TOKEN}}',
+    })
   })
 
   it('does not treat CloudBase anonymous sessions as authenticated users', () => {

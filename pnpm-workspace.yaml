@@ -4,12 +4,17 @@ minimumReleaseAgeExclude:
   - '@yunlefun/sso@0.6.2'
   - nanoid@3.3.17
   - baseline-browser-mapping@2.11.15
+  - nanoid@3.3.18
 shamefullyHoist: true
 
 shellEmulator: true
 trustPolicy: no-downgrade
 trustPolicyExclude:
   - chokidar@4.0.3
+  # Optional Oxc platform packages currently omit publish-time metadata in the
+  # registry response. They remain integrity-pinned by pnpm-lock.yaml.
+  - '@oxc-parser/binding-wasm32-wasi@0.140.0'
+  - '@oxc-transform/binding-linux-x64-gnu@0.140.0'
 packages:
   - packages/*
 allowBuilds:
@@ -24,11 +29,29 @@ allowBuilds:
 # 顶传递依赖到已修补版本（仅 fontless 仍引入 esbuild <0.28.1，GHSA-g7r4-m6w7-qqqr）
 overrides:
   '@nuxt/devtools': 3.3.1
+  '@tiptap/core': 3.30.4
+  '@tiptap/extension-bubble-menu': 3.30.4
+  '@tiptap/extension-code': 3.30.4
+  '@tiptap/extension-collaboration': 3.30.4
+  '@tiptap/extension-drag-handle': 3.30.4
+  '@tiptap/extension-drag-handle-vue-3': 3.30.4
+  '@tiptap/extension-floating-menu': 3.30.4
+  '@tiptap/extension-horizontal-rule': 3.30.4
+  '@tiptap/extension-image': 3.30.4
+  '@tiptap/extension-mention': 3.30.4
+  '@tiptap/extension-node-range': 3.30.4
+  '@tiptap/extension-placeholder': 3.30.4
+  '@tiptap/markdown': 3.30.4
+  '@tiptap/pm': 3.30.4
+  '@tiptap/starter-kit': 3.30.4
+  '@tiptap/suggestion': 3.30.4
+  '@tiptap/vue-3': 3.30.4
   fontless>esbuild: ^0.28.1
   js-yaml: 4.3.1
   minimatch>brace-expansion: 5.0.9
-  nanoid: 3.3.17
+  nanoid: 3.3.18
   postcss: 8.5.23
+  qs: 6.16.0
   undici: 8.9.0
 
 catalog:

@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest'
+import { Buffer } from 'node:buffer'
+import { describe, expect, it, vi } from 'vitest'
 
 import {
   BRUSH_LIBRARY_MAX_BYTES,
@@ -8,6 +9,7 @@ import {
   STORAGE_FILE_KIND,
   STORAGE_FILE_STATUS,
   USER_STORAGE_FILES_COLLECTION,
+  WEB_RESUME_MAX_BYTES,
 } from '../../cloudfunctions/user-storage-api/storage.js'
 import { makeFakeDb } from '../_fixtures/wxpay.mjs'
 
@@ -278,5 +280,88 @@ describe('user-storage-api brush library policy', () => {
       replacedByReservationId: 'brush_retry_new',
       status: STORAGE_FILE_STATUS.DELETED,
     })
+  })
+})
+
+describe('user-storage-api Web Resume policy', () => {
+  it('accepts bounded portable YAML in a document singleton slot', async () => {
+    const db = makeFakeDb()
+    const reserved = await reserveStorageUpload(db, {
+      userId: 'u1',
+      appId: 'web-resume',
+      contentType: 'application/yaml',
+      fileName: 'frontend.resume.yml',
+      kind: STORAGE_FILE_KIND.RESUME,
+      reservationId: 'resume_reserve1',
+      sha256: 'a'.repeat(64),
+      sizeBytes: 4096,
+      slotKey: 'doc_1234567890abcdef',
+      now: NOW,
+    })
+
+    expect(reserved.file).toMatchObject({
+      appId: 'web-resume',
+      kind: STORAGE_FILE_KIND.RESUME,
+      slotKey: 'doc_1234567890abcdef',
+      status: STORAGE_FILE_STATUS.RESERVED,
+    })
+  })
+
+  it('expires and deletes a resume whose uploaded bytes do not match its checksum', async () => {
+    const db = makeFakeDb()
+    const content = Buffer.from('name: Yun\n')
+    await reserveStorageUpload(db, {
+      userId: 'u1',
+      appId: 'web-resume',
+      contentType: 'application/yaml',
+      fileName: 'frontend.resume.yml',
+      kind: STORAGE_FILE_KIND.RESUME,
+      reservationId: 'resume_checksum_bad',
+      sha256: 'a'.repeat(64),
+      sizeBytes: content.byteLength,
+      slotKey: 'doc_1234567890abcdef',
+      now: NOW,
+    })
+    const deleteFile = vi.fn(async () => ({}))
+
+    await expect(finalizeStorageUpload(db, {
+      userId: 'u1',
+      reservationId: 'resume_checksum_bad',
+      now: NOW + 1,
+    }, privateStorageOptions({
+      contentType: 'application/yaml',
+      sizeBytes: content.byteLength,
+    }, {
+      deleteFile,
+      downloadFile: async () => content,
+    }))).rejects.toThrow(/完整性/)
+
+    expect(deleteFile).toHaveBeenCalledOnce()
+    expect(db._store[USER_STORAGE_FILES_COLLECTION][0].status).toBe(STORAGE_FILE_STATUS.EXPIRED)
+  })
+
+  it('rejects invalid resume app, type, name, slot and size policies', async () => {
+    const input = {
+      userId: 'u1',
+      appId: 'web-resume',
+      contentType: 'application/yaml',
+      fileName: 'frontend.resume.yml',
+      kind: STORAGE_FILE_KIND.RESUME,
+      reservationId: 'resume_invalid1',
+      sha256: 'a'.repeat(64),
+      sizeBytes: 4096,
+      slotKey: 'doc_1234567890abcdef',
+      now: NOW,
+    }
+    for (const overrides of [
+      { appId: 'other' },
+      { contentType: 'text/html' },
+      { fileName: 'resume.txt' },
+      { sha256: 'invalid' },
+      { slotKey: 'short' },
+      { sizeBytes: WEB_RESUME_MAX_BYTES + 1 },
+    ]) {
+      await expect(reserveStorageUpload(makeFakeDb(), { ...input, ...overrides })).rejects.toThrow()
+    }
   })
 })

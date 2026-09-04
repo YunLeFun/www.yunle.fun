@@ -18,6 +18,8 @@ const INDEPENDENT_SERVICE_TOKEN_NAMES = [
   'PLAY_PACHINKO_ACCOUNT_API_TOKEN',
   'TEST_BROKER_ACCOUNT_API_TOKEN',
   'TEST_BROKER_INTERNAL_TOKEN',
+  'WEB_RESUME_STORAGE_INTERNAL_TOKEN',
+  'WEB_RESUME_SWEEPER_INTERNAL_TOKEN',
 ]
 
 export function requiredEnvironmentNames(config, functionNames) {
@@ -77,7 +79,7 @@ export function assertFunctionEnvironmentReady(config, functionNames, env) {
   ].filter(name => requiredNames.includes(name))
   const independentSecretValues = independentSecretNames.map(name => env[name])
   if (new Set(independentSecretValues).size !== independentSecretValues.length)
-    throw new Error('拒绝部署：测试身份、账号与奖励凭据不能跨用途复用')
+    throw new Error('拒绝部署：测试身份、账号、奖励与应用存储凭据不能跨用途复用')
 
   return requiredNames
 }
