@@ -508,6 +508,92 @@ describe('sso-registry-admin service', () => {
     ])
   })
 
+  it('reapproves a superseded production release by email against a newly reviewed main commit', async () => {
+    const deliveries = []
+    const { memory, service } = setup({
+      approvalPepper: 'registry-approval-pepper-with-32-bytes',
+      approverUids: ['admin-uid'],
+      generateApprovalCode: () => '23456789ABCD',
+      resolveApproverEmail: async () => 'admin@example.com',
+      sendApprovalEmail: async (message) => {
+        deliveries.push(message)
+        return { id: `ses-message-${deliveries.length}` }
+      },
+    })
+    const draft = await service.saveDraft(request({ registry: registry() }))
+    const initialApproval = await service.requestPublishApproval(request({
+      draftId: draft.draftId,
+      baseCommitSha: 'a'.repeat(40),
+    }))
+    const initial = await service.approveAndQueueRelease(request({
+      approvalId: initialApproval.approvalId,
+      code: deliveries[0].code,
+    }))
+    await expect(service.requestPublishApproval(request({
+      draftId: draft.draftId,
+      baseCommitSha: 'b'.repeat(40),
+    }))).rejects.toEqual(expect.objectContaining({ code: 'draft_unavailable' }))
+    expect(deliveries).toHaveLength(1)
+    await service.recordCiProgress(request({
+      releaseIntentId: initial.releaseIntentId,
+      status: 'superseded',
+    }))
+    const initialContentHash = memory.snapshot().intents.get(initial.releaseIntentId).contentHash
+    await memory.store.updateReleaseIntent(initial.releaseIntentId, {
+      contentHash: 'f'.repeat(64),
+    })
+    await expect(service.requestPublishApproval(request({
+      draftId: draft.draftId,
+      baseCommitSha: 'b'.repeat(40),
+    }))).rejects.toEqual(expect.objectContaining({ code: 'draft_unavailable' }))
+    expect(deliveries).toHaveLength(1)
+    await memory.store.updateReleaseIntent(initial.releaseIntentId, {
+      contentHash: initialContentHash,
+    })
+
+    const retryApproval = await service.requestPublishApproval(request({
+      draftId: draft.draftId,
+      baseCommitSha: 'b'.repeat(40),
+    }))
+    const retried = await service.approveAndQueueRelease(request({
+      approvalId: retryApproval.approvalId,
+      code: deliveries[1].code,
+    }))
+
+    const data = memory.snapshot()
+    expect(retried).toMatchObject({
+      generation: initial.generation,
+      snapshotId: initial.snapshotId,
+      status: 'approved',
+    })
+    expect(retried.releaseIntentId).not.toBe(initial.releaseIntentId)
+    expect(data.snapshots.size).toBe(1)
+    expect(data.state.get('production')).toMatchObject({
+      generation: initial.generation,
+      activeSnapshotId: initial.snapshotId,
+    })
+    expect(data.intents.get(retried.releaseIntentId)).toMatchObject({
+      approvalId: retryApproval.approvalId,
+      baseCommitSha: 'b'.repeat(40),
+      generation: initial.generation,
+      snapshotId: initial.snapshotId,
+      status: 'approved',
+    })
+    expect(data.approvals.get(retryApproval.approvalId)).toMatchObject({
+      status: 'consumed',
+      supersededReleaseIntentId: initial.releaseIntentId,
+      releaseIntentId: retried.releaseIntentId,
+    })
+    expect(deliveries[1].diffSummary).toEqual({
+      added: [],
+      displayChanged: [],
+      modified: [],
+      removed: [],
+      securityChanged: [],
+    })
+    expect(data.outbox.size).toBe(2)
+  })
+
   it('locks a production approval after five invalid codes without publishing', async () => {
     const { memory, service } = setup({
       approvalPepper: 'registry-approval-pepper-with-32-bytes',

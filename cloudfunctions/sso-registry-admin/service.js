@@ -864,14 +864,41 @@ function createRegistryAdminService(options) {
       const recipientMasked = maskedEmail(email)
       const approval = await store.transaction(async (transaction) => {
         const draft = await transaction.getDraft(id)
-        if (!draft || draft.status !== 'draft')
+        if (!draft)
           throw new RegistryAdminError('draft_unavailable')
         const registry = parseRegistry(draft.registry)
         const current = await activeEnvelope(transaction)
         const baseSnapshotId = current?.state.activeSnapshotId || null
         const baseGeneration = current?.state.generation || 0
-        if (draft.baseSnapshotId !== baseSnapshotId)
-          throw new RegistryAdminError('draft_base_conflict')
+        const hashes = hashRegistry(registry)
+        let supersededReleaseIntentId = null
+        if (draft.status === 'draft') {
+          if (draft.baseSnapshotId !== baseSnapshotId)
+            throw new RegistryAdminError('draft_base_conflict')
+        }
+        else if (draft.status === 'published' && draft.releaseIntentId) {
+          const existingIntent = await transaction.getReleaseIntent(draft.releaseIntentId)
+          if (!existingIntent
+            || existingIntent.status !== 'superseded'
+            || existingIntent.environment !== environment
+            || !current
+            || draft.publishedSnapshotId !== existingIntent.snapshotId
+            || current.state.activeSnapshotId !== existingIntent.snapshotId
+            || current.state.generation !== existingIntent.generation
+            || existingIntent.policyVersion !== registry.policyVersion
+            || existingIntent.contentHash !== hashes.contentHash
+            || existingIntent.securityHash !== hashes.securityHash
+            || current.snapshot.policyVersion !== registry.policyVersion
+            || current.snapshot.registry.clients.length !== registry.clients.length
+            || current.snapshot.contentHash !== hashes.contentHash
+            || current.snapshot.securityHash !== hashes.securityHash) {
+            throw new RegistryAdminError('draft_unavailable')
+          }
+          supersededReleaseIntentId = draft.releaseIntentId
+        }
+        else {
+          throw new RegistryAdminError('draft_unavailable')
+        }
         const existing = await transaction.findPendingApprovalByDraft(environment, id)
         if (existing) {
           await transaction.updateApproval(existing.approvalId, {
@@ -879,7 +906,6 @@ function createRegistryAdminService(options) {
             updatedAt: createdAt,
           })
         }
-        const hashes = hashRegistry(registry)
         const document = {
           environment,
           draftId: id,
@@ -891,6 +917,7 @@ function createRegistryAdminService(options) {
           contentHash: hashes.contentHash,
           securityHash: hashes.securityHash,
           diffSummary: registryDiff(current?.snapshot.registry, registry),
+          supersededReleaseIntentId,
           targetSnapshotId: typeof draft.rollbackTargetSnapshotId === 'string'
             ? draft.rollbackTargetSnapshotId
             : null,
@@ -1049,34 +1076,76 @@ function createRegistryAdminService(options) {
           return { error: status === 'locked' ? 'approval_locked' : 'approval_code_invalid' }
         }
         const draft = await transaction.getDraft(approval.draftId)
-        if (!draft || draft.status !== 'draft')
+        if (!draft)
           return { error: 'draft_unavailable' }
         const current = await activeEnvelope(transaction)
         const currentSnapshotId = current?.state.activeSnapshotId || null
         const currentGeneration = current?.state.generation || 0
-        const hashes = hashRegistry(parseRegistry(draft.registry))
-        if (draft.baseSnapshotId !== approval.baseSnapshotId
+        const registry = parseRegistry(draft.registry)
+        const hashes = hashRegistry(registry)
+        const supersededReleaseIntentId = typeof approval.supersededReleaseIntentId === 'string'
+          ? approval.supersededReleaseIntentId
+          : null
+        let supersededIntent = null
+        if (draft.status === 'published' && supersededReleaseIntentId) {
+          if (draft.releaseIntentId !== supersededReleaseIntentId)
+            return { error: 'draft_unavailable' }
+          supersededIntent = await transaction.getReleaseIntent(supersededReleaseIntentId)
+          if (!supersededIntent || supersededIntent.status !== 'superseded')
+            return { error: 'draft_unavailable' }
+        }
+        else if (draft.status !== 'draft' || supersededReleaseIntentId) {
+          return { error: 'draft_unavailable' }
+        }
+        const draftSnapshotId = supersededIntent ? draft.publishedSnapshotId : draft.baseSnapshotId
+        if (draftSnapshotId !== approval.baseSnapshotId
           || currentSnapshotId !== approval.baseSnapshotId
           || currentGeneration !== approval.baseGeneration
           || hashes.contentHash !== approval.contentHash
-          || hashes.securityHash !== approval.securityHash) {
+          || hashes.securityHash !== approval.securityHash
+          || (supersededIntent && (
+            supersededIntent.environment !== environment
+            || supersededIntent.snapshotId !== currentSnapshotId
+            || supersededIntent.generation !== currentGeneration
+            || supersededIntent.policyVersion !== approval.policyVersion
+            || supersededIntent.contentHash !== approval.contentHash
+            || supersededIntent.securityHash !== approval.securityHash
+            || current?.snapshot.policyVersion !== approval.policyVersion
+            || current.snapshot.registry.clients.length !== approval.clientCount
+          ))) {
           await transaction.updateApproval(approvalId, { status: 'canceled', updatedAt: checkedAt })
           return { error: 'approval_stale' }
         }
 
-        const published = approval.targetSnapshotId
-          ? await rollbackSnapshotTransaction(transaction, {
-              draft,
-              id: approval.draftId,
-              meta,
-              targetSnapshotId: approval.targetSnapshotId,
-            })
-          : await publishDraftTransaction(transaction, {
-              draft,
-              id: approval.draftId,
-              meta,
-              auditAction: null,
-            })
+        let published
+        if (supersededIntent) {
+          published = {
+            generation: current.state.generation,
+            hashes: {
+              contentHash: current.snapshot.contentHash,
+              securityHash: current.snapshot.securityHash,
+            },
+            publishedAt: checkedAt,
+            snapshot: current.snapshot,
+            snapshotId: current.snapshot.snapshotId,
+          }
+        }
+        else if (approval.targetSnapshotId) {
+          published = await rollbackSnapshotTransaction(transaction, {
+            draft,
+            id: approval.draftId,
+            meta,
+            targetSnapshotId: approval.targetSnapshotId,
+          })
+        }
+        else {
+          published = await publishDraftTransaction(transaction, {
+            draft,
+            id: approval.draftId,
+            meta,
+            auditAction: null,
+          })
+        }
         const queued = await queuePublishedRelease(transaction, {
           approvalId,
           baseCommitSha: approval.baseCommitSha,

@@ -53,7 +53,7 @@ approved
 
 终止/可恢复状态：
 
-- `superseded`：默认分支不再等于审批绑定的 baseCommitSha，必须重新审批。
+- `superseded`：默认分支不再等于审批绑定的 baseCommitSha，必须针对新 baseCommitSha 重新审批；仅当原快照仍是当前活动快照且所有策略证据完全一致时可复用原 generation。
 - `ci_failed`：生成、diff guard 或 required checks 失败；修复后从同一 intent 幂等重试，内容变化则新建审批。
 - `deployment_failed`：部分或全部消费者部署失败；从相同 merge commit 重试或创建 rollback intent。
 - `canceled`：审批者或受信任运维在部署前显式取消。
@@ -215,6 +215,8 @@ yunlefun:sso-registry:release-intent:v1\n
 5. 创建不可消费的 delivery_pending approval 后发送 SES。
 6. SES 成功后转为 pending；失败则标记 delivery_failed，不能进入批准事务。
 
+对已发布但 release intent 进入 `superseded` 的草稿，重新请求审批必须确认 draft 指向原 intent、原 intent 的 snapshot/generation 仍与当前活动状态一致，且 policyVersion、clientCount、contentHash 与 securityHash 均未改变。审批记录额外绑定该 superseded intent，防止并发重试串扰。
+
 邮件发送是事务外副作用；记录先以不可消费的 `delivery_pending` 创建，只有 SES 返回 MessageId 后才转为 `pending`，避免事务回滚后邮件中的码仍可被使用。
 
 ### 6.2 批准并排队
@@ -223,7 +225,7 @@ yunlefun:sso-registry:release-intent:v1\n
 
 1. 重读 approval、draft 与 current state。
 2. 校验 status、expiry、attempt、code MAC、base、hash 与 baseCommitSha。
-3. 创建 P1 不可变快照和递增 generation 的签名 state；rollback 选择历史快照但仍创建新的 generation。
+3. 普通发布创建 P1 不可变快照和递增 generation 的签名 state；rollback 选择历史快照但仍创建新的 generation；对等值的 superseded 重审批则复用当前 snapshot/generation，不重复发布状态。
 4. 消费 approval。
 5. 创建签名 release intent、outbox 和审计。
 

@@ -260,6 +260,8 @@ pnpm dev:sso
 8. `REGISTRY_RELEASE_APP_PRIVATE_KEY` 可保存完整 RSA PEM、转义换行 PEM 或 base64 编码的 PEM；工作流在传给
    `actions/create-github-app-token` 前统一解码、校验并转换为单行转义的 PKCS#8 PEM。不得把 Registry Ed25519
    签名密钥或其他 GitHub App 的私钥复用到该 Secret。
+9. 如发布因 CI 修复导致 `main` 前移而进入 `superseded`，需对新的完整 commit SHA 重新请求邮件审批。
+   管理函数只会在原 intent 已 `superseded`、原草稿仍是当前活动快照，generation、内容哈希和安全哈希全部相同时复用该快照并创建新 intent；旧审批码不可复用，任何 Registry 内容变化都仍需新草稿。
 
 ## 运维资源
 
