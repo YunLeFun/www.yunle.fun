@@ -1,8 +1,10 @@
 # SSO Client Registry 飞书审批实施计划
 
-状态：代码与 production 关闭态部署完成（2026-09-04）；飞书应用配置、密钥、真实回调与 owner canary 待完成
+状态：production owner 核心 canary 已通过（2026-09-05）：关联、送达、批准、拒绝、邮件切换、过期和证据失效；保持唯一 owner 灰度，扩展故障演练见任务 14
 
 本地门禁证据：Admin 475 tests、Provider 1178 tests 全部通过；两仓 lint、typecheck、build、`git diff --check` 通过；两仓依赖审计无已知漏洞；Admin 资源脚本 dry-run 为 0 network / 0 writes。未登录浏览器访问连接页会回到管理后台登录页，登录后的桌面/移动端人工验收归入 production owner canary。
+
+生产接入修复门禁：Admin 622 tests、Provider 1182 tests 通过；Admin typecheck、生产构建和修改文件 lint 通过，Provider 修改文件 lint 与 `git diff --check` 通过。修正原始 body 验签、v2 两种 token 分离、已签名事件时间窗和提前终结审批的卡片同步。
 
 对应需求：`requirements.md` R1–R9
 
@@ -72,7 +74,7 @@
 - [x] 7. 实现 Admin 飞书身份关联与审计
   - 新增 `admin_identity_bindings` 与 `admin_identity_audit_logs` 常量、server-only 资源脚本和权限检查。
   - 用双向确定性映射和事务实现一个 Admin/一个 external identity 的唯一活动绑定。
-  - 实现 state + PKCE 的飞书 OAuth start/callback；严格限制 tenant key。
+  - 实现一次性随机 state、GitHub step-up、服务端 client secret 与精确 HTTPS redirect URI 的飞书 OAuth；严格限制 tenant key。
   - 只保存 tenant/open id、可选 union id、展示名快照和时间戳；立即丢弃 token。
   - 关联、换绑、解绑都消费 GitHub step-up，并记录不含原始身份的安全审计。
   - 覆盖 OAuth CSRF、租户错误、冲突、事务回滚、换绑/解绑和 token 不落库测试。
@@ -88,7 +90,7 @@
 
 - [x] 9. 实现 Admin 内部接口与飞书回调
   - 内部投递/终态接口验证 Provider HMAC、60 秒时间窗、固定 path 和 body schema。
-  - Registry 专用公开回调限制 method/content type/body size，并用 SDK verification token/encrypt key 验签解密。
+  - Registry 专用公开回调限制 method/content type/body size，以原始请求体验签并解密；区分 v2 header verification token 与 event 卡片更新 token。
   - 精确校验 tenant/open id/message id/approvalId/action；每次重新读取 binding、Admin 状态和显式权限。
   - 生成 proof v2 并调用 Provider `submitAdminApprovalDecision`；接受后立即返回 processing 卡片。
   - 覆盖伪造签名、旧时间戳、跨租户、换绑后旧卡片、撤权、重复点击和 Provider 不可用测试。
@@ -112,25 +114,32 @@
 - [x] 12. 完成本地质量与安全门禁
   - 两仓执行 lint、typecheck、全量 test、build、`git diff --check` 和仓库已有 CI 校验。
   - 执行 CloudBase code review：server-only 集合、private function、最小权限、无事务外权威写入。
-  - 执行 XSS、CSRF、OAuth state/PKCE、回调签名、proof 重放、敏感日志和依赖漏洞审查。
+  - 执行 XSS、CSRF、OAuth state/step-up、回调签名、proof 重放、敏感日志和依赖漏洞审查。
   - 核对 diff 不包含真实 app secret、token、private key、open id、邮箱验证码或意外生成文件。
   - _Requirements: R1–R9_
 
-- [ ] 13. 配置 production 资源并保持功能关闭
-  - [ ] 创建独立“云乐坊发布审批”飞书自建应用，启用机器人、网页 OAuth、卡片回调和最小消息权限。
-  - [ ] 生成独立 Admin approval Ed25519 key 与 Provider→Admin HMAC key；先发布公钥 trust anchor，再配置私钥。
+- [x] 13. 配置 production 资源，准备 owner canary
+  - [x] 创建独立“云乐坊发布审批”飞书自建应用，启用机器人、网页 OAuth、卡片回调和最小消息权限。
+  - [x] 生成独立 Admin approval Ed25519 key 与 Provider→Admin HMAC key；先发布公钥 trust anchor，再配置私钥。
   - [x] 创建 `admin_identity_bindings` / `admin_identity_audit_logs` ADMINONLY 集合及必要索引。
   - [x] 部署两仓与 Provider timer，并确认 Provider 函数为私有调用。
-  - [x] 保持两端 feature flag 关闭；线上回调明确失败关闭，既有审批继续走邮件。
-  - [ ] 配置应用和密钥后验证 callback challenge 与机器人私聊可用性。
+  - [x] 先完成两端 feature flag 关闭态部署；后续为唯一 owner 开启 canary，既有邮件审批保持可用。
+  - [x] 配置应用和密钥后验证 callback challenge 与机器人私聊可用性。
   - _Requirements: R1, R3, R6, R8, R9_
 
 - [ ] 14. 执行 production owner canary 与启用
-  - 只允许 owner canary uid，先关联飞书并验证换绑/解绑撤销旧卡片。
-  - 使用零安全差异草稿验证卡片批准、拒绝、重复点击、过期和 CI release intent。
-  - 演练无绑定/投递失败自动邮件，以及已送达后主动切换邮件；确认验证码均只生成一次。
-  - 验证发布和常规回滚、终态卡片、审计串联以及关闭开关立即回到邮件。
-  - canary 证据完整后才默认启用；不删除长期邮件 fallback。
+  - [x] 仅允许既有 owner UID，完成 GitHub 二次验证与飞书账号关联。
+  - [x] 使用与 active snapshot 内容和安全哈希完全一致的草稿，验证私聊卡片送达；过期卡片已自动移除操作按钮。
+  - [x] 验证真实卡片批准、拒绝和 CI release intent：第 12 代无内容/安全变更发布，Release CI 通过，PR #115 已自动合并；拒绝卡片显示“已拒绝”。
+  - [x] 第 12 代部署完成：`desktop-auth`、`sso-registry-admin`、`sso-ticket` 均通过 Registry Deploy，权威 release intent 为 `deployed`。
+  - [x] 实测旧基准审批被权威拒绝；补齐提交阶段提前取消/过期时的终态同步队列，旧演练卡片已通过鉴权状态接口同步为“审批已取消或证据已失效”。
+  - [ ] 实测重复点击竞态（本地已有幂等/冲突覆盖）。
+  - [ ] 验证换绑/解绑后旧卡片失效。
+  - [x] 已送达后从 Admin 详情页主动切换邮件；Provider 定时消费后进入 `email · pending`，飞书卡片显示“已切换到邮件验证码 · 验证码已发送”，不再提供批准/拒绝。
+  - [x] 飞书卡片主动切换邮件：第 12 代演练经定时消费后，卡片显示验证码已发送并移除操作按钮。
+  - [ ] 演练无绑定/投递失败自动邮件及重试恢复；验证码仅生成一次已有本地覆盖。
+  - [ ] 演练常规回滚、审计串联检查以及关闭开关立即回到邮件；发布与核心终态已实测通过。
+  - [ ] canary 证据完整后才默认启用；不删除长期邮件 fallback。
   - _Requirements: R1–R9_
 
 ## 完成判定

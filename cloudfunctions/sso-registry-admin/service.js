@@ -1356,6 +1356,7 @@ function createRegistryAdminService(options) {
           await transaction.updateApproval(claims.approvalId, {
             channelStatus: 'terminal',
             status: 'expired',
+            cardSync: { status: 'pending', attempts: 0, nextAttemptAt: submittedAt },
             updatedAt: submittedAt,
           })
           return { error: 'approval_expired' }
@@ -1395,6 +1396,7 @@ function createRegistryAdminService(options) {
           await transaction.updateApproval(claims.approvalId, {
             channelStatus: 'terminal',
             status: 'canceled',
+            cardSync: { status: 'pending', attempts: 0, nextAttemptAt: submittedAt },
             updatedAt: submittedAt,
           })
           return { error: 'approval_stale' }

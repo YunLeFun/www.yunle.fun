@@ -703,6 +703,57 @@ describe('sso-registry-admin service', () => {
     }
   })
 
+  it.each([
+    ['expired', 'approval_expired'],
+    ['canceled', 'approval_stale'],
+  ])('closes a card when decision submission becomes %s before registration', async (status, errorCode) => {
+    let clock = 1_785_700_000_000
+    let decisionClaims
+    const cardUpdates = []
+    const { memory, service } = setup({
+      now: () => clock,
+      approvalPepper: 'registry-approval-pepper-with-32-bytes',
+      approverUids: ['admin-uid'],
+      feishuApprovalEnabled: true,
+      resolveApproverEmail: async () => 'admin@example.com',
+      sendApprovalEmail: async () => ({ id: 'unused-email' }),
+      sendApprovalCard: async () => ({ id: 'om_terminal', externalIdentityHash: 'a'.repeat(64) }),
+      notifyApprovalCard: async (message) => { cardUpdates.push(message) },
+      verifyAdminDecisionProof: () => decisionClaims,
+    })
+    const draft = await service.saveDraft(request({ registry: registry() }))
+    const approval = await service.requestPublishApproval(request({
+      draftId: draft.draftId,
+      baseCommitSha: '9'.repeat(40),
+    }))
+    const persisted = memory.snapshot().approvals.get(approval.approvalId)
+    decisionClaims = {
+      ...persisted,
+      approvalId: approval.approvalId,
+      sub: 'admin-uid',
+      login: 'owner',
+      decision: 'reject',
+      messageId: persisted.feishuMessageId,
+      jti: `decision-terminal-${status}`,
+    }
+    if (status === 'expired')
+      clock = approval.expiresAt + 1
+    else
+      await service.saveDraft(request({ draftId: draft.draftId, registry: registry('2026-08-03.9') }))
+
+    await expect(service.submitAdminApprovalDecision({ approvalProof: 'proof-terminal' }))
+      .rejects
+      .toEqual(expect.objectContaining({ code: errorCode }))
+    expect(memory.snapshot().approvals.get(approval.approvalId)).toMatchObject({
+      status,
+      cardSync: { status: 'pending', attempts: 0 },
+    })
+    await service.processPendingAdminApprovalDecisions()
+    await service.processPendingAdminApprovalDecisions()
+    expect(cardUpdates).toEqual([expect.objectContaining({ approvalId: approval.approvalId, status })])
+    expect(memory.snapshot().intents.size).toBe(0)
+  })
+
   it('retries terminal card sync without rolling back the authoritative release', async () => {
     let clock = 1_785_700_000_000
     let decisionClaims

@@ -17,7 +17,7 @@
 
 - Admin 已有 `@larksuiteoapi/node-sdk`、飞书私聊发送代码、CloudBase 服务端 SDK、YunLeFun SSO 和 GitHub step-up。
 - Provider 已有 production 审批记录、邮件验证码、不可变快照、release intent/outbox、定时器和 Ed25519 Admin proof verifier。
-- 飞书 Node SDK 提供 authorization-code token 交换、`authen.userInfo`、消息发送 `uuid`、卡片回调验签和消息卡片更新能力。
+- 飞书 Node SDK 提供 authorization-code token 交换、消息发送 `uuid`、AES 解密和消息卡片更新；身份读取使用无请求体 GET，回调签名使用原始请求体校验。
 
 ## 2. UI Design Specification
 
@@ -78,8 +78,8 @@ sequenceDiagram
 
 1. 已登录管理员在 `/settings/connections` 发起关联、换绑或解绑。
 2. 复用现有 GitHub numeric ID step-up；把 reward 专用实现抽成通用 `admin-step-up`，原 reward API 保留兼容 wrapper 和现有集合，不迁移历史 grant。
-3. 关联/换绑生成一次性 OAuth state 与 PKCE verifier，保存到加密 session；callback 严格校验 state、时限和预期 Admin uid。
-4. 使用飞书 authorization code 换取短时 user access token，再调用 `authen.userInfo` 取得 `tenant_key`、`open_id`、可选 `union_id` 和展示名。
+3. 关联/换绑生成 256-bit 随机 state，保存在独立 HttpOnly/Secure/SameSite=Lax 短期 Cookie，消费时清除；callback 校验 state、GitHub step-up 时限和当前 Admin uid。
+4. 使用 server-only client secret 和精确 HTTPS redirect URI 完成 confidential-client authorization code 交换；使用无请求体的 `GET /authen/v1/user_info` 读取身份。此服务端流程不使用 PKCE，避免与飞书当前授权入口不兼容。
 5. 只接受配置的 tenant key；在事务内更新唯一绑定。
 6. user access token、refresh token、手机号、邮箱和头像不写入数据库或日志。
 
@@ -149,12 +149,12 @@ interface AdminIdentityAudit {
 
 公开入口固定为 Registry 专用路由，不复用普通通知 webhook。处理顺序：
 
-1. 限制方法、content type、body 大小和请求时间窗。
-2. 使用独立 verification token 与 encrypt key，通过 SDK 验证签名并解密。
-3. 校验允许 tenant key、open id、message id、approvalId 与 action schema。
+1. 限制方法、content type 和 body 大小。
+2. 对 `timestamp + nonce + encrypt key + 原始请求体` 计算 SHA-256 并做常量时间比较，再解密、解析事件。
+3. v2 使用已签名的 `header.create_time`（微秒）检查 60 秒时间窗，HTTP 签名 timestamp 不假定为 Unix 秒；单独校验 `header.token`、`header.app_id`、应用与操作人 tenant key、open id、message id、approvalId 与 action schema；`event.token` 是另一种卡片更新凭证，不能与 verification token 混用，也不保留。
 4. 通过 external 映射找到唯一 Admin uid，再重新读取 `admin_users` 和 `sso-registry:approve`。
 5. 生成 5 分钟内有效的 Ed25519 proof，并调用 Provider 私有函数快速登记决定。
-6. Provider 接受后返回 processing 卡片；失败时返回可重试错误，不伪造成功状态。
+6. Provider 接受后通过 v2 `{ card: { type: 'raw', data: card } }` 返回 processing 卡片；失败时返回可重试错误，不伪造成功状态。
 
 飞书事件 ID、消息 ID、approvalId 和决定共同构成幂等证据；真正的一次性消费仍由 Provider 保证。
 
@@ -275,8 +275,8 @@ Provider 新增：
 ## 8. 安全与失败策略
 
 - **XSS**：卡片内容转义；详情页只用文本绑定；URL 仅允许固定 Admin origin；CSP 沿用 Admin 配置。
-- **CSRF / OAuth login CSRF**：设置页写操作要求同源 session 与 CSRF 防护；OAuth 使用一次性 state + PKCE。
-- **回调伪造**：SDK signature/encryption 校验、timestamp freshness、tenant/open id/message id 精确匹配。
+- **CSRF / OAuth login CSRF**：设置页写操作要求同源 session 与 CSRF 防护；OAuth 使用一次性随机 state、GitHub step-up、服务端 client secret 和精确 HTTPS redirect URI。
+- **回调伪造**：原始请求体签名、解密、时间窗、应用与操作人 tenant/open id/message id 精确匹配。
 - **重放**：approvalId + jti + messageId 一次性登记；Provider proof exact claims 和短 TTL；重复请求幂等。
 - **撤权竞态**：Admin 在签 proof 前重读管理员和绑定；Provider 再检查 approver uid allowlist与审批证据。
 - **网络歧义**：飞书发送使用稳定 uuid；Provider/ Admin 内部请求和决定登记均按 approvalId 幂等。
@@ -287,7 +287,7 @@ Provider 新增：
 ### Admin
 
 - 权限：explicit-only、owner、撤权和停用管理员。
-- OAuth：state、PKCE、租户、重复身份、换绑/解绑与 token 不落库。
+- OAuth：state、step-up、精确 redirect URI、租户、重复身份、换绑/解绑与 token 不落库。
 - 回调：签名、加密、时间窗、tenant/open id/message id、未知 action、重放。
 - 卡片：安全/展示差异、转义、同源详情 URL、稳定 uuid、3 次重试、终态 patch。
 - UI：桌面 5/7、移动单列、无 `v-html`、按钮禁用态和错误态。
