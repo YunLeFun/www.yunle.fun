@@ -45,7 +45,32 @@ watch(isAuthenticated, (value) => {
 
 // 登录方式切换
 type LoginMode = 'phone' | 'email' | 'password'
-const loginMode = shallowRef<LoginMode>('phone')
+const loginMode = shallowRef<LoginMode>('password')
+const loginModeStorageKey = 'ylf:last-successful-login-mode'
+
+function selectLoginMode(value: unknown) {
+  // 单选项再次点击时会发出空值，保持当前表单和选中状态一致。
+  if (value === 'password' || value === 'phone' || value === 'email')
+    loginMode.value = value
+}
+
+onMounted(() => {
+  try {
+    selectLoginMode(localStorage.getItem(loginModeStorageKey))
+  }
+  catch {
+    // 浏览器禁用存储时，继续使用默认登录方式。
+  }
+})
+
+function rememberLoginMode(mode: LoginMode) {
+  try {
+    localStorage.setItem(loginModeStorageKey, mode)
+  }
+  catch {
+    // 偏好保存失败不影响登录，只记录方式，不保存账号或凭据。
+  }
+}
 
 // 区号选项（当前仅支持中国大陆）
 const phoneAreaCodes = [
@@ -158,6 +183,7 @@ async function handleVerifyPhoneOtp() {
     return
   try {
     await verifyPhoneOtp(phoneOtpData.value, phoneOtpCode.value)
+    rememberLoginMode('phone')
   }
   catch {
     // 错误已在 composable 中处理
@@ -184,6 +210,7 @@ async function handleVerifyEmailOtp() {
     return
   try {
     await verifyEmailOtp(emailOtpData.value, emailOtpCode.value)
+    rememberLoginMode('email')
   }
   catch {
     // 错误已在 composable 中处理
@@ -206,6 +233,7 @@ async function handlePasswordLogin() {
       params = { username: passwordAccount.value, password: password.value }
     }
     await signInWithPassword(params)
+    rememberLoginMode('password')
   }
   catch {
     // 错误已在 composable 中处理
@@ -297,15 +325,15 @@ onUnmounted(() => clearTimeout(morphTimer))
     </div>
 
     <!-- 登录方式切换 -->
-    <ToggleGroup v-model="loginMode" type="single" :spacing="1" class="ylf-auth-tabs grid w-full grid-cols-3 p-1" aria-label="登录方式">
-      <ToggleGroupItem value="phone" class="ylf-auth-tab w-full">
-        手机号
-      </ToggleGroupItem>
-      <ToggleGroupItem value="email" class="ylf-auth-tab w-full">
-        邮箱
-      </ToggleGroupItem>
+    <ToggleGroup :model-value="loginMode" type="single" :spacing="1" :disabled="loading" class="ylf-auth-tabs grid w-full grid-cols-3 p-1" aria-label="登录方式" @update:model-value="selectLoginMode">
       <ToggleGroupItem value="password" class="ylf-auth-tab w-full">
         密码登录
+      </ToggleGroupItem>
+      <ToggleGroupItem value="phone" class="ylf-auth-tab w-full">
+        短信登录
+      </ToggleGroupItem>
+      <ToggleGroupItem value="email" class="ylf-auth-tab w-full">
+        邮箱登录
       </ToggleGroupItem>
     </ToggleGroup>
 
@@ -497,9 +525,12 @@ onUnmounted(() => clearTimeout(morphTimer))
 
           <!-- 密码登录 -->
           <form v-else key="password" class="space-y-4" @submit.prevent="handlePasswordLogin">
-            <AppFormField label="用户名、邮箱或手机号">
+            <AppFormField label="用户名、邮箱或手机号" name="login-username">
               <AppInput
                 v-model.trim="passwordAccount"
+                name="username"
+                autocapitalize="none"
+                :spellcheck="false"
                 placeholder="请输入用户名、邮箱或手机号"
                 size="lg"
                 icon="i-lucide-user"
@@ -509,9 +540,10 @@ onUnmounted(() => clearTimeout(morphTimer))
               />
             </AppFormField>
 
-            <AppFormField label="密码">
+            <AppFormField label="密码" name="login-password">
               <AppInput
                 v-model="password"
+                name="password"
                 :type="showPassword ? 'text' : 'password'"
                 placeholder="请输入密码"
                 size="lg"
@@ -559,7 +591,16 @@ onUnmounted(() => clearTimeout(morphTimer))
             />
 
             <p class="text-xs text-muted text-center">
-              密码登录需先在账号安全设置中设置密码
+              还没有账号或未设置密码？
+              <AppButton
+                label="短信登录 / 注册"
+                color="primary"
+                variant="link"
+                size="xs"
+                type="button"
+                :disabled="loading"
+                @click="loginMode = 'phone'"
+              />
             </p>
           </form>
         </Transition>
