@@ -7,9 +7,10 @@
  */
 import type { AppSupport } from '~/composables/useAppTips'
 import type { AppRecord } from '~/types/app'
+import { getAppDetailPath } from '~/utils/appRoutes'
 
 const props = defineProps<{
-  app: Pick<AppRecord, 'slug' | 'name' | 'ownerId'>
+  app: Pick<AppRecord, '_id' | 'slug' | 'name' | 'ownerId'> & Partial<Pick<AppRecord, 'ownerLogin'>>
 }>()
 
 const { user } = useTcbAuth()
@@ -22,21 +23,21 @@ const submitting = ref(false)
 const isOwner = computed(() => !!user.value && user.value.id === props.app.ownerId)
 
 async function load() {
-  support.value = await getAppSupport(props.app.slug)
+  support.value = await getAppSupport(props.app._id)
 }
 onMounted(load)
-watch(() => props.app.slug, load)
+watch(() => props.app._id, load)
 
 async function handleTip() {
   if (submitting.value || isOwner.value)
     return
   if (!user.value) {
-    navigateTo(`/login?redirect=/apps/${props.app.slug}`)
+    navigateTo({ path: '/login', query: { redirect: getAppDetailPath(props.app) } })
     return
   }
   submitting.value = true
   try {
-    const res = await tip(props.app.slug)
+    const res = await tip(props.app._id)
     toast.add({
       title: '投币成功，热度 +1',
       description: res.isNewSupporter

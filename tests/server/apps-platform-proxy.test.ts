@@ -86,7 +86,7 @@ describe('apps platform read proxies', () => {
     expect(h.setResponseHeader).toHaveBeenCalledWith(
       expect.anything(),
       'cache-control',
-      'public, max-age=60, stale-while-revalidate=300',
+      'no-store',
     )
   })
 

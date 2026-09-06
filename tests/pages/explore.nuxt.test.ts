@@ -86,23 +86,23 @@ describe('explore page', () => {
 
     expect(h.getOfficialApps).toHaveBeenCalledTimes(1)
     expect(wrapper.get('[data-testid="sso-app-ai-sfc"]').exists()).toBe(true)
-    expect(wrapper.find('section[aria-label="应用列表"] a[href="/apps/ai-sfc"]').exists()).toBe(true)
-    expect(wrapper.find('section[aria-label="应用列表"] a[href="/apps/fc"]').exists()).toBe(true)
+    expect(wrapper.find('section[aria-label="应用列表"] a[href="/u/yunyoujun/apps/ai-sfc"]').exists()).toBe(true)
+    expect(wrapper.find('section[aria-label="应用列表"] a[href="/u/yunyoujun/apps/fc"]').exists()).toBe(true)
 
     await wrapper.get('input[type="search"]').setValue('AI')
     await nextTick()
 
     expect(wrapper.get('[data-testid="sso-app-ai-sfc"]').exists()).toBe(true)
-    expect(wrapper.find('section[aria-label="应用列表"] a[href="/apps/ai-sfc"]').exists()).toBe(true)
-    expect(wrapper.find('section[aria-label="应用列表"] a[href="/apps/fc"]').exists()).toBe(false)
+    expect(wrapper.find('section[aria-label="应用列表"] a[href="/u/yunyoujun/apps/ai-sfc"]').exists()).toBe(true)
+    expect(wrapper.find('section[aria-label="应用列表"] a[href="/u/yunyoujun/apps/fc"]').exists()).toBe(false)
 
     await wrapper.get('input[type="search"]').setValue('')
     await wrapper.get('[data-category="play"]').trigger('click')
     await nextTick()
 
     expect(wrapper.get('[data-testid="sso-app-ai-sfc"]').exists()).toBe(true)
-    expect(wrapper.find('section[aria-label="应用列表"] a[href="/apps/ai-sfc"]').exists()).toBe(false)
-    expect(wrapper.find('section[aria-label="应用列表"] a[href="/apps/fc"]').exists()).toBe(true)
+    expect(wrapper.find('section[aria-label="应用列表"] a[href="/u/yunyoujun/apps/ai-sfc"]').exists()).toBe(false)
+    expect(wrapper.find('section[aria-label="应用列表"] a[href="/u/yunyoujun/apps/fc"]').exists()).toBe(true)
   })
 
   it('retries loading after a transient error', async () => {
@@ -119,7 +119,7 @@ describe('explore page', () => {
     await nextTick()
 
     expect(h.getOfficialApps).toHaveBeenCalledTimes(2)
-    expect(wrapper.find('section[aria-label="应用列表"] a[href="/apps/ai-sfc"]').exists()).toBe(true)
+    expect(wrapper.find('section[aria-label="应用列表"] a[href="/u/yunyoujun/apps/ai-sfc"]').exists()).toBe(true)
   })
 
   it('uses the public atlas as the homepage exploration entry', () => {

@@ -1,19 +1,15 @@
-import type { AppRecord, CreateAppForm, MyWorkshopOverview } from '~/types/app'
+import type { AppRecord, MyWorkshopOverview } from '~/types/app'
 import { isOfficialOwner } from '~/config'
-
-const COLLECTION = 'apps'
+import { matchesAppOwner } from '~/utils/appRoutes'
 
 /**
  * 应用数据管理 composable
- * 展示读取统一走 apps.yunle.fun 服务端接口；旧版编辑能力仍暂用 CloudBase。
+ * 读取和下架统一走应用平台服务端；创建编辑由应用平台承载。
  */
 export function useApps() {
-  const { app, auth } = useCloudbase()
+  const { auth } = useCloudbase()
   const { user } = useTcbAuth()
   const requestFetch = useRequestFetch()
-  // SSR 安全：useCloudbase 在服务端返回空 app，此处惰性可空（各方法仅在客户端调用，app 必存在）
-  const db = app?.database()
-
   /**
    * 获取当前用户的所有应用
    */
@@ -56,7 +52,17 @@ export function useApps() {
   /**
    * 根据 slug 获取公开应用详情（公开详情页 / 榜单用）
    */
-  async function getAppBySlug(slug: string): Promise<AppRecord | null> {
+  async function getAppBySlug(slug: string, ownerLogin?: string): Promise<AppRecord | null> {
+    // 所有者可读取自己的私有应用；其他访客只能读该空间的公开投影。
+    if (ownerLogin) {
+      if (user.value && [user.value.login, user.value.id].some(login => login?.toLowerCase() === ownerLogin.toLowerCase())) {
+        const mine = await getMyAppBySlug(slug)
+        if (mine && matchesAppOwner(mine, ownerLogin))
+          return mine
+      }
+      const apps = await getUserApps(ownerLogin)
+      return apps.find(app => app.isPublic && app.slug === slug && matchesAppOwner(app, ownerLogin)) || null
+    }
     try {
       const response = await requestFetch<{ app: AppRecord }>(
         `/api/apps-platform/public/${encodeURIComponent(slug)}`,
@@ -109,63 +115,10 @@ export function useApps() {
     return { Authorization: `Bearer ${accessToken}` }
   }
 
-  /**
-   * 创建应用，返回新文档 ID
-   */
-  async function createApp(form: CreateAppForm): Promise<string> {
-    if (!user.value)
-      throw new Error('请先登录')
-
-    const now = Date.now()
-    const res = await db.collection(COLLECTION).add({
-      ownerId: user.value.id,
-      ownerLogin: user.value.login || user.value.id,
-      name: form.name,
-      slug: form.slug,
-      description: form.description || '',
-      githubRepo: form.githubRepo || '',
-      websiteUrl: form.websiteUrl || '',
-      backupUrl: form.backupUrl || '',
-      icon: form.icon || '',
-      isPublic: form.isPublic,
-      createdAt: now,
-      updatedAt: now,
-    }) as unknown as { id: string }
-    return res.id
-  }
-
-  /**
-   * 更新应用
-   */
-  async function updateApp(id: string, updates: Partial<CreateAppForm>): Promise<void> {
-    await db.collection(COLLECTION).doc(id).update({
-      ...updates,
-      updatedAt: Date.now(),
-    })
-  }
-
-  /**
-   * 删除应用
-   */
+  /** 下架而不删除身份，市场短名仍归原应用所有。 */
   async function deleteApp(id: string): Promise<void> {
-    await db.collection(COLLECTION).doc(id).remove()
-  }
-
-  /**
-   * 检查 slug 是否已被当前用户占用。
-   *
-   * 受行级安全规则限制，客户端只能在归属分支内按 slug 查询（须带 ownerId）；
-   * 跨用户的全局唯一性应由 `apps` 集合上的 slug 唯一索引在服务端兜底（待补）。
-   */
-  async function isSlugTaken(slug: string): Promise<boolean> {
-    if (!user.value)
-      return false
-    const { data } = await db
-      .collection(COLLECTION)
-      .where({ slug, ownerId: user.value.id })
-      .limit(1)
-      .get()
-    return (data as AppRecord[]).length > 0
+    const headers = await authorizationHeaders()
+    await requestFetch(`/api/apps-platform/${encodeURIComponent(id)}`, { method: 'DELETE', headers })
   }
 
   return {
@@ -176,10 +129,7 @@ export function useApps() {
     getAppBySlug,
     getMyAppBySlug,
     getMyWorkshops,
-    createApp,
-    updateApp,
     deleteApp,
-    isSlugTaken,
   }
 }
 

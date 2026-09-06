@@ -1,5 +1,7 @@
 /** 应用数据模型 - 对应 CloudBase NoSQL 集合 `apps` */
 export interface AppRecord {
+  /** 市场上架时取得的全局唯一短名；所属空间 slug 独立。 */
+  marketShortName?: string
   /** 文档 ID（CloudBase 自动生成） */
   _id: string
   /** 创建者 ID（旧记录为 CloudBase openid） */

@@ -11,6 +11,6 @@ export default defineEventHandler(async (event) => {
     event,
     `/api/apps/public/${encodeURIComponent(key)}`,
   )
-  setResponseHeader(event, 'cache-control', 'public, max-age=60, stale-while-revalidate=300')
+  setResponseHeader(event, 'cache-control', 'no-store')
   return response
 })

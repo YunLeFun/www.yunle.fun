@@ -3,6 +3,7 @@
  * 应用支持榜：按累计投币热度倒序展示。
  */
 import type { LeaderboardItem } from '~/composables/useAppTips'
+import { getAppDetailPath } from '~/utils/appRoutes'
 
 const props = withDefaults(defineProps<{ limit?: number }>(), { limit: 10 })
 
@@ -11,6 +12,7 @@ const { getAppBySlug } = useApps()
 
 interface Row extends LeaderboardItem {
   name: string
+  to: string
 }
 
 const rows = ref<Row[]>([])
@@ -21,7 +23,7 @@ onMounted(async () => {
     const board = await getLeaderboard(props.limit)
     rows.value = await Promise.all(board.map(async (it): Promise<Row> => {
       const app = await getAppBySlug(it.appId).catch(() => null)
-      return { ...it, name: app?.name || it.appId }
+      return { ...it, name: app?.name || it.appId, to: getAppDetailPath(app || { slug: it.appId }) }
     }))
   }
   finally {
@@ -48,7 +50,7 @@ onMounted(async () => {
     <ol v-else class="space-y-2">
       <li v-for="(row, i) in rows" :key="row.appId">
         <NuxtLink
-          :to="`/apps/${row.appId}`"
+          :to="row.to"
           class="ylf-interactive-card flex items-center gap-3 rounded-lg p-3"
         >
           <span

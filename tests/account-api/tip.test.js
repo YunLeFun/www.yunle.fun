@@ -17,8 +17,8 @@ const NOW = 1_700_000_000_000
 function seed(overrides = {}) {
   return makeFakeDb({
     apps: [
-      { _id: 'a1', slug: 'wenta', name: '问他', ownerId: 'owner1', isPublic: true },
-      { _id: 'a2', slug: 'other', name: '其它', ownerId: 'owner2', isPublic: true },
+      { _id: 'a1', slug: 'wenta', legacyTipKey: 'wenta', name: '问他', ownerId: 'owner1', isPublic: true },
+      { _id: 'a2', slug: 'other', legacyTipKey: 'other', name: '其它', ownerId: 'owner2', isPublic: true },
     ],
     [WALLET_COLLECTION]: [{ _id: 'w', userId: 'u1', balance: 10, version: 1 }],
     ...overrides,
@@ -149,5 +149,26 @@ describe('getAppSupport / getTipLeaderboard', () => {
     await expect(getTipLeaderboard(db, { limit: 10 })).resolves.toMatchObject({
       items: [{ appId: 'wenta', totalCoins: 2, supporterCount: 1, tipCount: 2 }],
     })
+  })
+})
+
+describe('投币命名空间隔离', () => {
+  it('相同 slug 不会选错应用，ID 投币使用独立账本', async () => {
+    const db = seed({ apps: [
+      { _id: 'app-a', slug: 'same', ownerUid: 'alice', isPublic: true },
+      { _id: 'app_12345678901234567890123456789012', slug: 'same', ownerUid: 'bob', isPublic: true },
+    ] })
+    await expect(tip(db, { userId: 'u1', appId: 'same', now: NOW })).rejects.toThrow('应用不存在')
+    await tip(db, { userId: 'u1', appId: 'app_12345678901234567890123456789012', now: NOW })
+    expect(db._store[COIN_TX_COLLECTION][0].appId).toBe('app_12345678901234567890123456789012')
+    await expect(tip(db, { userId: 'bob', appId: 'app_12345678901234567890123456789012', now: NOW })).rejects.toThrow('自己')
+  })
+
+  it('旧 ID 和旧 slug 共用历史账本和每日限额', async () => {
+    const db = seed()
+    await tip(db, { userId: 'u1', appId: 'a1', now: NOW })
+    await tip(db, { userId: 'u1', appId: 'wenta', now: NOW })
+    await expect(tip(db, { userId: 'u1', appId: 'a1', now: NOW })).rejects.toThrow('上限')
+    expect((await getAppSupport(db, { userId: 'u1', appId: 'a1' })).totalCoins).toBe(2)
   })
 })

@@ -2,6 +2,7 @@
 import type { ExplorerApp } from '~/types/app-explorer'
 import { computed, shallowRef } from 'vue'
 import { isSsoExplorerAppSlug } from '~/config/sso-explorer'
+import { getAppDetailPath } from '~/utils/appRoutes'
 import AppExplorerIcon from './AppExplorerIcon.vue'
 
 const props = defineProps<{
@@ -45,7 +46,7 @@ function updateSpotlight(event: PointerEvent) {
             </span>
           </div>
           <h3 class="app-discovery-card__title">
-            <NuxtLink :to="`/apps/${app.slug}`">
+            <NuxtLink :to="getAppDetailPath(app)">
               {{ app.name }}
             </NuxtLink>
           </h3>
@@ -63,7 +64,7 @@ function updateSpotlight(event: PointerEvent) {
       </ul>
 
       <footer class="app-discovery-card__actions">
-        <NuxtLink :to="`/apps/${app.slug}`" class="app-discovery-card__detail-link">
+        <NuxtLink :to="getAppDetailPath(app)" class="app-discovery-card__detail-link">
           查看详情
           <Icon name="i-lucide-arrow-right" aria-hidden="true" />
         </NuxtLink>

@@ -60,7 +60,7 @@ describe('appDiscoveryGrid', () => {
       props: { apps: [app], loading: false, error: null, hasFilters: false },
     })
 
-    expect(wrapper.get('a[href="/apps/ai-sfc"]').exists()).toBe(true)
+    expect(wrapper.get('a[href="/u/yunyoujun/apps/ai-sfc"]').exists()).toBe(true)
     await wrapper.get('[data-testid="app-icon-image"]').trigger('error')
     await nextTick()
     expect(wrapper.get('[data-testid="app-icon-emoji"]').text()).toBe('🪄')

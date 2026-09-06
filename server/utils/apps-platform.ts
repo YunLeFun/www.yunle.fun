@@ -42,14 +42,16 @@ export async function fetchAppsPlatform<T>(
   event: H3Event,
   path: string,
   accessToken?: string,
+  method: 'GET' | 'DELETE' = 'GET',
 ): Promise<T> {
   try {
     return await $fetch<T>(appsPlatformUrl(event, path), {
+      method,
       headers: accessToken
         ? { Authorization: `Bearer ${accessToken}` }
         : undefined,
       timeout: UPSTREAM_TIMEOUT_MS,
-      retry: 1,
+      retry: method === 'GET' ? 1 : 0,
     }) as T
   }
   catch (error) {

@@ -6,6 +6,7 @@
  * 未登录由全局 auth.global 中间件引导登录。
  */
 import type { FeedItem } from '~/types/social'
+import { getAppDetailPath } from '~/utils/appRoutes'
 import { displayUserName } from '~/utils/mask'
 
 definePageMeta({ layout: 'default' })
@@ -83,7 +84,7 @@ function formatTime(ts: number) {
           </NuxtLink>
 
           <NuxtLink
-            :to="`/apps/${item.slug}`"
+            :to="getAppDetailPath({ slug: item.slug, ownerLogin: item.owner.login || undefined })"
             class="group flex items-center gap-3 rounded-2xl bg-elevated/40 p-3 transition-colors hover:bg-elevated/70"
           >
             <div class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-elevated">

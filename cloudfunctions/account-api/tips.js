@@ -18,12 +18,18 @@
 'use strict'
 
 const { cstDateKey } = require('./datetime')
-const { assertAppId } = require('./lib/validation')
 const { deductCoin, findTxByRef } = require('./lib/wallet')
 
 const APPS_COLLECTION = 'apps'
 const APP_TIP_STATS_COLLECTION = 'app_tip_stats'
 const APP_SUPPORTERS_COLLECTION = 'app_supporters'
+
+/** Catalog IDs include app_ + UUID; payment-order IDs have a separate shorter limit. */
+function assertAppId(value) {
+  if (typeof value !== 'string' || !/^[\w-]{1,128}$/.test(value))
+    throw new Error('无效应用标识')
+  return value
+}
 
 /** 每次投币云币数 */
 const TIP_AMOUNT = 1
@@ -37,10 +43,13 @@ function tipRefId(userId, appId, dateKey, slot) {
   return `tip:${userId}:${appId}:${dateKey}:${slot}`
 }
 
-/** 按 slug 读应用（投币目标必须真实存在） */
-async function findAppBySlug(db, slug) {
-  const { data } = await db.collection(APPS_COLLECTION).where({ slug }).limit(1).get()
-  return Array.isArray(data) && data.length > 0 ? data[0] : null
+/** Resolve immutable ID first; ambiguous legacy slugs must never select another owner's app. */
+async function findAppBySlug(db, key) {
+  const byId = await db.collection(APPS_COLLECTION).where({ _id: key }).limit(1).get()
+  if (byId.data?.[0])
+    return byId.data[0]
+  const { data } = await db.collection(APPS_COLLECTION).where({ slug: key }).limit(2).get()
+  return Array.isArray(data) && data.length === 1 ? data[0] : null
 }
 
 /**
@@ -132,7 +141,7 @@ async function bumpAppTipStats(db, { appId, amount, newSupporter, now }) {
  * @param {object} db
  * @param {object} input
  * @param {string} input.userId 投币人 uid
- * @param {string} input.appId 目标应用 slug
+ * @param {string} input.appId 目标应用不可变 ID（兼容唯一的历史 slug）
  * @param {number} input.now
  * @returns {Promise<{ balance: number, tipped: number, slot: number, remainingToday: number, isNewSupporter: boolean, deduped: boolean }>}
  * @throws 应用不存在 / 给自己投币 / 当日已达上限 / 余额不足
@@ -140,14 +149,15 @@ async function bumpAppTipStats(db, { appId, amount, newSupporter, now }) {
 async function tip(db, { userId, appId, now }) {
   if (!userId)
     throw new Error('tip: 缺少 userId')
-  const cleanAppId = assertAppId(appId)
+  const requestedAppId = assertAppId(appId)
 
-  const app = await findAppBySlug(db, cleanAppId)
+  const app = await findAppBySlug(db, requestedAppId)
   if (!app)
     throw new Error('应用不存在')
-  if (app.isPublic === false)
+  const cleanAppId = app.legacyTipKey || app._id || requestedAppId
+  if (app.isPublic === false || (app.audience && app.audience !== 'public'))
     throw new Error('该应用未公开，暂不支持投币')
-  if (app.ownerId && app.ownerId === userId)
+  if ([app.ownerId, app.ownerUid, app._openid].includes(userId))
     throw new Error('不能给自己的应用投币')
 
   const dateKey = cstDateKey(now)
@@ -204,7 +214,9 @@ async function tip(db, { userId, appId, now }) {
  * @returns {Promise<{ appId: string, totalCoins: number, supporterCount: number, tipCount: number, tippedByMe: boolean, myCoins: number }>}
  */
 async function getAppSupport(db, { userId, appId }) {
-  const cleanAppId = assertAppId(appId)
+  const requestedAppId = assertAppId(appId)
+  const app = await findAppBySlug(db, requestedAppId)
+  const cleanAppId = app?.legacyTipKey || app?._id || requestedAppId
   const [statsRes, mineRes, syntheticAdjustments] = await Promise.all([
     db.collection(APP_TIP_STATS_COLLECTION).where({ appId: cleanAppId }).limit(1).get(),
     userId
