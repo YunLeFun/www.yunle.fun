@@ -44,9 +44,10 @@ API 不读取草稿；COS 文件不包含发布者、审计信息或私密数据
 4. 配置 `NUXT_PUBLIC_CONTENT_BUCKET`、`NUXT_PUBLIC_CONTENT_REGION`、`NUXT_PUBLIC_CONTENT_PUBLIC_ORIGIN`；复用现有公共资源域名。
    写入使用 Admin 的 `tencentCloud` 服务端凭据。为该前缀授予必要的 PutObject/GetObject 权限；不要为此放开整个私有桶。
    核验资源域名可以公开读取该前缀、返回 JSON 且遵守 Cache-Control。临时签名下载链接不能用作长期资源域名或安装包入口。
-5. 部署 Admin，再部署官网。普通管理员需具备 `operations:content:manage`；沿用现有运营权限分配机制。
-6. 在后台保存并发布真实下载链接。公告默认空列表，不预置上线公告。
-7. 验证未登录可读已发布接口但不可访问管理接口，确认不包含草稿/操作人；验证 ETag/304、COS 快照、跨账号并发冲突及回滚。
+5. 写操作的 Origin 校验使用 `NUXT_PUBLIC_CONTENT_ADMIN_ORIGIN`（默认 `https://admin.yunle.fun`），避免 EdgeOne 内部代理地址影响 HTTPS 校验。自定义后台预览域名须显式覆盖；本地开发使用本地请求地址。
+6. 部署 Admin，再部署官网。普通管理员需具备 `operations:content:manage`；沿用现有运营权限分配机制。
+7. 在后台保存并发布真实下载链接。公告默认空列表，不预置上线公告。
+8. 验证未登录可读已发布接口但不可访问管理接口，确认不包含草稿/操作人；验证 ETag/304、COS 快照、跨账号并发冲突及回滚。
 
 ## 生产资源（2026-09-07）
 
@@ -67,3 +68,7 @@ Admin EdgeOne 项目 `pages-aljmqjyv6gdj` 已补充三项公共内容存储变�
 
 `shared/public-content.ts` 在 Admin 与官网各保留一份相同的 v1 只读合约，部署可以独立。
 修改时同步两份并保持旧客户端兼容；`schemaVersion` 用于拒绝不支持的格式，不按发布次数递增。
+
+## 生产验证说明
+
+真实并发保存已验证一成功、一 409，发布内容不变。EdgeOne 公网接口返回 `no-cache` 与版本 ETag，但当前链路对条件请求返回完整 200；304 只是源站支持的优化，不作为获取最新内容的前提。COS 版本文件使用 immutable 缓存。
