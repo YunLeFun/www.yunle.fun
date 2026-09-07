@@ -8,6 +8,7 @@
     </a>
 
     <AppHeader />
+    <SiteAnnouncement />
 
     <main id="main-content" tabindex="-1">
       <slot />

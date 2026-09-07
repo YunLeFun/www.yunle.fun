@@ -1,4 +1,25 @@
 <script setup lang="ts">
+import type { Downloads } from '~~/shared/public-content'
+import { defaultDownloads } from '~~/shared/public-content'
+
+const { data: publishedDownloads, error: downloadError } = usePublicContent('downloads')
+const platformPresentation = {
+  ios: { name: 'iOS', icon: 'i-ri-apple-fill', description: 'iPhone 和 iPad', color: 'neutral' as const },
+  android: { name: 'Android', icon: 'i-ri-android-fill', description: 'Android 设备', color: 'success' as const },
+  web: { name: 'Web', icon: 'i-lucide-globe', description: '网页版', color: 'primary' as const },
+}
+const platforms = computed(() => {
+  const manifest = publishedDownloads.value?.content as Downloads | undefined
+  return (manifest || defaultDownloads).items.map(item => ({
+    ...platformPresentation[item.platform],
+    version: item.enabled ? (item.platform === 'web' ? '无需下载' : item.version) : '正在开发中',
+    link: item.enabled ? item.url : undefined,
+    actionLabel: item.enabled ? (item.platform === 'web' ? '在线访问' : '下载应用') : '暂未开放',
+    requirements: item.requirements,
+    isWeb: item.platform === 'web',
+  }))
+})
+
 const title = '下载应用'
 const description = '在任何设备上下载并使用我们的应用，享受无缝的跨平台体验'
 
@@ -10,51 +31,6 @@ useSeoMeta({
 })
 
 // defineOgImageComponent('Saas') // Disabled: SSR is required for OG images
-
-// 平台下载链接
-const platforms = ref<{
-  name: string
-  icon: string
-  description: string
-  version: string
-  link?: string
-  actionLabel: string
-  color: 'primary' | 'secondary' | 'success' | 'info' | 'warning' | 'error' | 'neutral'
-  requirements: string
-  isWeb: boolean
-}[]>([
-  {
-    name: 'iOS',
-    icon: 'i-ri-apple-fill',
-    description: 'iPhone 和 iPad',
-    version: '正在开发中',
-    actionLabel: '暂未开放',
-    color: 'neutral',
-    requirements: 'iOS 14.0 或更高版本',
-    isWeb: false,
-  },
-  {
-    name: 'Android',
-    icon: 'i-ri-android-fill',
-    description: 'Android 设备',
-    version: '正在开发中',
-    actionLabel: '暂未开放',
-    color: 'success',
-    requirements: 'Android 8.0 或更高版本',
-    isWeb: false,
-  },
-  {
-    name: 'Web',
-    icon: 'i-lucide-globe',
-    description: '网页版',
-    version: '无需下载',
-    link: 'https://apps.yunle.fun/',
-    actionLabel: '在线访问',
-    color: 'primary',
-    requirements: '现代浏览器',
-    isWeb: true,
-  },
-])
 
 // 特性列表
 const features = ref([
@@ -88,7 +64,7 @@ const faqItems = ref([
   },
   {
     label: '如何更新应用？',
-    content: '应用会自动检查更新。您也可以在设置中手动检查更新。',
+    content: '您可以在本页查看已开放平台的最新版本，或通过对应应用商店检查更新。',
   },
   {
     label: '支持哪些语言？',
@@ -114,6 +90,9 @@ const faqItems = ref([
           <YlfEyebrow label="📥 立即下载" />
         </div>
       </template>
+      <p v-if="downloadError" role="status" class="mb-4 text-center text-sm text-muted-foreground">
+        暂时无法获取最新下载信息，您仍可使用网页版。
+      </p>
       <AppPageGrid>
         <AppPageCard
           v-for="(platform, index) in platforms"
@@ -171,66 +150,6 @@ const faqItems = ref([
           variant="subtle"
         />
       </AppPageGrid>
-    </AppPageSection>
-
-    <AppSeparator />
-
-    <!-- System Requirements -->
-    <AppPageSection
-      title="系统要求"
-      description="确保您的设备满足以下最低要求"
-    >
-      <template #headline>
-        <div class="flex justify-center">
-          <YlfEyebrow label="📋 系统要求" />
-        </div>
-      </template>
-      <div class="mx-auto max-w-3xl">
-        <AppPageCard variant="subtle">
-          <div class="space-y-4">
-            <div class="gap-6 grid md:grid-cols-2">
-              <div>
-                <h3 class="text-highlighted font-semibold mb-2">
-                  移动设备
-                </h3>
-                <ul class="text-muted text-sm space-y-2">
-                  <li class="flex gap-2 items-start">
-                    <Icon name="i-lucide-circle-check" class="text-primary mt-0.5 flex-shrink-0 h-5 w-5" />
-                    <span>iOS 14.0+ / Android 8.0+</span>
-                  </li>
-                  <li class="flex gap-2 items-start">
-                    <Icon name="i-lucide-circle-check" class="text-primary mt-0.5 flex-shrink-0 h-5 w-5" />
-                    <span>至少 2GB RAM</span>
-                  </li>
-                  <li class="flex gap-2 items-start">
-                    <Icon name="i-lucide-circle-check" class="text-primary mt-0.5 flex-shrink-0 h-5 w-5" />
-                    <span>500MB 可用存储空间</span>
-                  </li>
-                </ul>
-              </div>
-              <div>
-                <h3 class="text-highlighted font-semibold mb-2">
-                  桌面设备
-                </h3>
-                <ul class="text-muted text-sm space-y-2">
-                  <li class="flex gap-2 items-start">
-                    <Icon name="i-lucide-circle-check" class="text-primary mt-0.5 flex-shrink-0 h-5 w-5" />
-                    <span>Windows 10+ / macOS 11+ / Linux</span>
-                  </li>
-                  <li class="flex gap-2 items-start">
-                    <Icon name="i-lucide-circle-check" class="text-primary mt-0.5 flex-shrink-0 h-5 w-5" />
-                    <span>至少 4GB RAM</span>
-                  </li>
-                  <li class="flex gap-2 items-start">
-                    <Icon name="i-lucide-circle-check" class="text-primary mt-0.5 flex-shrink-0 h-5 w-5" />
-                    <span>1GB 可用存储空间</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </AppPageCard>
-      </div>
     </AppPageSection>
 
     <AppSeparator />

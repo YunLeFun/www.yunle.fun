@@ -74,6 +74,7 @@ export default defineNuxtConfig({
   },
 
   runtimeConfig: {
+    publicContentApiUrl: process.env.NUXT_PUBLIC_CONTENT_API_URL || 'https://admin.yunle.fun/api/public-content',
     // CloudBase account-api 的公开 HTTP 访问地址（server 端 SSR 代理 getProfile 用）。
     // 官方生产域名是安全的只读默认值；本地/预发可用环境变量覆盖到对应环境。
     accountApiHttpUrl: process.env.NUXT_ACCOUNT_API_HTTP_URL || DEFAULT_ACCOUNT_API_HTTP_URL,
