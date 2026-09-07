@@ -78,33 +78,38 @@ const faqItems = ref([
 </script>
 
 <template>
-  <div>
+  <div class="download-page">
     <!-- Downloads Section -->
     <AppPageHero
       title="下载应用"
       description="选择适合您设备的版本，立即开始使用"
-      class="pt-12 md:pt-16"
+      class="download-hero pt-12 md:pt-16"
     >
-      <template #headline>
-        <div class="flex justify-center">
-          <YlfEyebrow label="📥 立即下载" />
-        </div>
+      <template #top>
+        <div class="download-aurora" aria-hidden="true" />
+      </template>
+      <template #title>
+        下载应用<span class="download-title-dot">.</span>
       </template>
       <p v-if="downloadError" role="status" class="mb-4 text-center text-sm text-muted-foreground">
         暂时无法获取最新下载信息，您仍可使用网页版。
       </p>
-      <AppPageGrid>
+      <AppPageGrid class="download-platforms">
         <AppPageCard
           v-for="(platform, index) in platforms"
           :key="index"
+          class="download-platform"
+          :class="{ 'download-platform--available': platform.link }"
           :title="platform.name"
           :description="platform.description"
           :icon="platform.icon"
         >
           <template #footer>
-            <div class="flex flex-col gap-3">
-              <div class="text-muted text-sm">
-                <div>{{ platform.version }}</div>
+            <div class="flex w-full flex-col gap-5">
+              <div class="text-muted-foreground text-sm">
+                <div class="download-status" :class="{ 'download-status--available': platform.link }">
+                  <span aria-hidden="true" />{{ platform.version }}
+                </div>
                 <div class="text-xs mt-1">
                   {{ platform.requirements }}
                 </div>
@@ -114,7 +119,8 @@ const faqItems = ref([
                 :target="platform.isWeb ? '_blank' : undefined"
                 :rel="platform.isWeb ? 'noopener noreferrer' : undefined"
                 :disabled="!platform.link"
-                :color="platform.color"
+                :color="platform.link ? 'primary' : 'neutral'"
+                size="lg"
                 variant="solid"
                 block
                 :icon="platform.isWeb ? 'i-lucide-external-link' : 'i-lucide-download'"
@@ -127,7 +133,7 @@ const faqItems = ref([
       </AppPageGrid>
     </AppPageHero>
 
-    <AppSeparator />
+    <AppContainer><AppSeparator class="download-divider" /></AppContainer>
 
     <!-- Features Section -->
     <AppPageSection
@@ -135,45 +141,232 @@ const faqItems = ref([
       title="为什么选择我们"
       description="强大的功能，卓越的体验"
     >
-      <template #headline>
-        <div class="flex justify-center">
-          <YlfEyebrow label="✨ 核心特性" />
-        </div>
-      </template>
-      <AppPageGrid>
+      <div class="download-features">
         <AppPageCard
           v-for="(feature, index) in features"
           :key="index"
           :title="feature.title"
           :description="feature.description"
           :icon="feature.icon"
+          class="download-feature"
           variant="subtle"
         />
-      </AppPageGrid>
+      </div>
     </AppPageSection>
 
-    <AppSeparator />
+    <AppContainer><AppSeparator class="download-divider" /></AppContainer>
 
     <!-- FAQ Section -->
     <AppPageSection
       title="常见问题"
       description="关于下载和使用应用的常见问题解答"
     >
-      <template #headline>
-        <div class="flex justify-center">
-          <YlfEyebrow label="❓ 常见问题" />
-        </div>
-      </template>
       <AppAccordion
         :items="faqItems"
         :unmount-on-hide="false"
         type="single"
-        class="mx-auto max-w-3xl"
+        class="download-faq mx-auto w-full max-w-3xl"
         :ui="{
-          trigger: 'text-base text-highlighted',
-          body: 'text-base text-muted',
+          trigger: 'text-base text-foreground',
+          body: 'text-base text-muted-foreground',
         }"
       />
     </AppPageSection>
   </div>
 </template>
+
+<style>
+.download-page {
+  --download-edge: var(--ylf-border-subtle);
+  --download-glow: color-mix(in srgb, var(--ui-primary) 14%, transparent);
+}
+
+.download-aurora {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 24% 24%, var(--download-glow), transparent 55%),
+    radial-gradient(ellipse at 80% 38%, color-mix(in srgb, var(--ylf-dopa-cyan) 10%, transparent), transparent 50%);
+  mask-image: linear-gradient(#000 65%, transparent);
+  animation: download-aurora 12s ease-in-out infinite alternate;
+}
+
+.download-title-dot {
+  color: var(--ui-primary);
+}
+
+.download-platforms {
+  max-width: 64rem;
+  margin-inline: auto;
+  gap: 1.25rem;
+}
+
+.download-platform {
+  position: relative;
+  padding-top: 1.75rem;
+  border: 1px solid var(--download-edge);
+  border-radius: 1.5rem;
+  box-shadow: 0 12px 40px -28px var(--download-glow);
+  --tw-ring-color: transparent;
+  transition:
+    transform 240ms ease,
+    box-shadow 240ms ease,
+    border-color 240ms ease;
+}
+
+.download-platform::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 85% 0%, var(--download-glow), transparent 65%);
+  opacity: 0.4;
+  transition: opacity 240ms ease;
+}
+
+.download-platform--available {
+  border-color: color-mix(in srgb, var(--ui-primary) 40%, var(--download-edge));
+  background: linear-gradient(145deg, color-mix(in srgb, var(--ui-primary) 5%, var(--ylf-surface)), var(--ylf-surface));
+}
+
+.download-platform--available::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 15%;
+  width: 70%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--ui-primary), var(--ylf-dopa-cyan), transparent);
+}
+
+.download-platform:focus-within {
+  border-color: var(--ui-primary);
+  box-shadow: 0 16px 44px -20px var(--download-glow);
+}
+
+@media (hover: hover) {
+  .download-platform:hover {
+    transform: translateY(-4px);
+    border-color: color-mix(in srgb, var(--ui-primary) 38%, var(--download-edge));
+    box-shadow: 0 20px 44px -22px var(--download-glow);
+  }
+
+  .download-platform:hover::before {
+    opacity: 1;
+  }
+}
+
+.download-platform [data-slot='card-header'] {
+  padding-inline: 1.75rem;
+}
+
+.download-platform .ylf-icon-tile {
+  width: 3rem;
+  height: 3rem;
+  margin-bottom: 0.5rem;
+  border-radius: 1rem;
+}
+
+.download-platform [data-slot='card-footer'] {
+  margin-top: auto;
+  padding: 1.25rem 1.75rem 1.75rem;
+  background: transparent;
+  border-color: var(--download-edge);
+}
+
+.download-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+}
+
+.download-status > span {
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 50%;
+  background: var(--ui-text-dimmed);
+}
+
+.download-status--available > span {
+  background: var(--ui-primary);
+  box-shadow: 0 0 0 4px var(--download-glow);
+}
+
+.download-divider {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--download-edge) 25%,
+    color-mix(in srgb, var(--ui-primary) 25%, var(--download-edge)) 50%,
+    var(--download-edge) 75%,
+    transparent
+  );
+}
+
+.download-features {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1.5rem;
+}
+
+.download-feature {
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+.download-faq [data-slot='accordion-item'] {
+  border-color: var(--download-edge);
+}
+
+.download-faq [data-slot='accordion-trigger'] {
+  padding-block: 1.4rem;
+  transition: color 180ms ease;
+}
+
+.download-faq [data-slot='accordion-trigger']:hover,
+.download-faq [data-slot='accordion-trigger'][data-state='open'] {
+  color: var(--ui-primary);
+  text-decoration: none;
+}
+
+@media (max-width: 1023px) {
+  .download-platforms {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .download-features {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 639px) {
+  .download-platforms,
+  .download-features {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .download-feature [data-slot='card-header'] {
+    padding-inline: 0.5rem;
+  }
+}
+
+@keyframes download-aurora {
+  to {
+    transform: translateY(1.5rem) scale(1.04);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .download-aurora {
+    animation: none;
+  }
+
+  .download-platform {
+    transition: none;
+    transform: none;
+  }
+}
+</style>
