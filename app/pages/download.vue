@@ -12,9 +12,10 @@ const platforms = computed(() => {
   const manifest = publishedDownloads.value?.content as Downloads | undefined
   return (manifest || defaultDownloads).items.map(item => ({
     ...platformPresentation[item.platform],
+    isApple: item.platform === 'ios',
     version: item.enabled ? (item.platform === 'web' ? '无需下载' : item.version) : '正在开发中',
     link: item.enabled ? item.url : undefined,
-    actionLabel: item.enabled ? (item.platform === 'web' ? '在线访问' : '下载应用') : '暂未开放',
+    actionLabel: item.enabled ? (item.platform === 'web' ? '在线访问' : item.platform === 'ios' ? '前往 App Store' : '下载应用') : '暂未开放',
     requirements: item.requirements,
     isWeb: item.platform === 'web',
   }))
@@ -116,14 +117,14 @@ const faqItems = ref([
               </div>
               <AppButton
                 :to="platform.link"
-                :target="platform.isWeb ? '_blank' : undefined"
-                :rel="platform.isWeb ? 'noopener noreferrer' : undefined"
+                :target="(platform.isWeb || platform.isApple) ? '_blank' : undefined"
+                :rel="(platform.isWeb || platform.isApple) ? 'noopener noreferrer' : undefined"
                 :disabled="!platform.link"
                 :color="platform.link ? 'primary' : 'neutral'"
                 size="lg"
                 variant="solid"
                 block
-                :icon="platform.isWeb ? 'i-lucide-external-link' : 'i-lucide-download'"
+                :icon="platform.isApple ? 'i-ri-apple-fill' : platform.isWeb ? 'i-lucide-external-link' : 'i-lucide-download'"
               >
                 {{ platform.actionLabel }}
               </AppButton>
