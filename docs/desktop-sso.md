@@ -98,3 +98,5 @@ entitlement 是 Ed25519 JWT，header 固定：
 - `desktop_proof_replays`
 
 全部 server-only。设备码、refresh token 与 DPoP replay key 使用确定性 hash / `_id` 形成唯一约束；相关状态变更使用数据库事务。
+
+验证码查询使用 `userCodeHash` 唯一稀疏索引。部署前需通过[索引检查](./desktop-auth-index-migration.md)，旧的 `uniq_userCode` 非稀疏唯一索引与当前协议不兼容。
