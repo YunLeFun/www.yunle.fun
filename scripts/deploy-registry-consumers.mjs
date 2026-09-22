@@ -7,6 +7,7 @@ import process from 'node:process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { buildCloudFunctionArtifacts } from './build-cloud-function.mjs'
+import { assertDesktopAuthIndexes } from './check-desktop-auth-indexes.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 export const REGISTRY_CONSUMER_ENVIRONMENTS = {
@@ -26,6 +27,7 @@ export function deployRegistryConsumers(target, {
   build = buildCloudFunctionArtifacts,
   env = process.env,
   run = spawnSync,
+  checkDesktopIndexes = assertDesktopAuthIndexes,
 } = {}) {
   const selected = REGISTRY_CONSUMER_ENVIRONMENTS[target]
   if (!selected)
@@ -40,6 +42,8 @@ export function deployRegistryConsumers(target, {
       throw new Error(`Registry consumer manifest does not declare ${functionName}`)
   }
 
+  if (selected.functions.includes('desktop-auth'))
+    checkDesktopIndexes(selected.envId, { run, env })
   const artifacts = build(selected.functions)
   for (const [index, functionName] of selected.functions.entries()) {
     const args = [

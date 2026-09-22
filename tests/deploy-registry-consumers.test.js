@@ -42,4 +42,17 @@ describe('registry consumer deployment', () => {
       'sso-ticket',
     ])
   })
+
+  it('blocks production builds and code updates when desktop indexes are incompatible', () => {
+    const build = vi.fn()
+    const run = vi.fn()
+    const checkDesktopIndexes = vi.fn(() => {
+      throw new Error('indexes incompatible')
+    })
+    expect(() => deployRegistryConsumers('production', { build, run, env: {}, checkDesktopIndexes }))
+      .toThrow('indexes incompatible')
+    expect(checkDesktopIndexes).toHaveBeenCalledWith(REGISTRY_CONSUMER_ENVIRONMENTS.production.envId, { run, env: {} })
+    expect(build).not.toHaveBeenCalled()
+    expect(run).not.toHaveBeenCalled()
+  })
 })

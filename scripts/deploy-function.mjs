@@ -20,6 +20,7 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 import { buildCloudFunctionArtifacts } from './build-cloud-function.mjs'
+import { assertDesktopAuthIndexes } from './check-desktop-auth-indexes.mjs'
 import {
   assertFunctionEnvironmentReady,
   createCloudBaseConfigEnvironment,
@@ -81,6 +82,9 @@ catch (error) {
   process.exit(2)
 }
 const tcbEnvironment = createCloudBaseConfigEnvironment(cloudbaseConfig, process.env)
+
+if (functions.includes('desktop-auth'))
+  assertDesktopAuthIndexes(envId, { env: tcbEnvironment })
 
 const artifacts = buildCloudFunctionArtifacts(functions)
 for (const [index, name] of functions.entries()) {
