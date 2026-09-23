@@ -34,7 +34,7 @@ async function start(db, overrides = {}) {
 
 describe('startDeviceAuth', () => {
   it('derives appId/deviceId and persists only code hashes', async () => {
-    const db = makeFakeDb({})
+    const db = makeFakeDb({}, { rejectDocumentIdWrites: true })
     const res = await start(db)
     expect(res.deviceCode).toMatch(/^[\w-]+$/)
     expect(res.userCode).toMatch(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/)
@@ -55,7 +55,7 @@ describe('startDeviceAuth', () => {
   })
 
   it('does not accept caller-controlled appId or a missing/expanded scope', async () => {
-    const db = makeFakeDb({})
+    const db = makeFakeDb({}, { rejectDocumentIdWrites: true })
     await expect(start(db, { appId: 'attacker' })).rejects.toMatchObject({ code: 'invalid_request' })
     await expect(start(db, { scope: undefined })).rejects.toMatchObject({ code: 'invalid_scope' })
     await expect(start(db, { scope: ['coin'] })).rejects.toMatchObject({ code: 'invalid_scope' })
@@ -64,7 +64,7 @@ describe('startDeviceAuth', () => {
 
 describe('describe / approve / deny', () => {
   it('returns registered display data and explicit consent scopes', async () => {
-    const db = makeFakeDb({})
+    const db = makeFakeDb({}, { rejectDocumentIdWrites: true })
     const res = await start(db)
     await expect(describeDevice(db, { userCode: res.userCode }, { now: NOW }))
       .resolves
@@ -79,7 +79,7 @@ describe('describe / approve / deny', () => {
   })
 
   it('binds the subject once and cannot resurrect a denied code', async () => {
-    const db = makeFakeDb({})
+    const db = makeFakeDb({}, { rejectDocumentIdWrites: true })
     const approved = await start(db)
     await approveDevice(db, { userCode: approved.userCode, uid: 'u1' }, { now: NOW })
     expect(db._store[DEVICE_CODES_COLLECTION][0]).toMatchObject({ status: 'approved', subject: 'u1' })
@@ -94,7 +94,7 @@ describe('describe / approve / deny', () => {
 
 describe('pollDeviceToken', () => {
   it('is proof-bound, rate limited and consumed at most once', async () => {
-    const db = makeFakeDb({})
+    const db = makeFakeDb({}, { rejectDocumentIdWrites: true })
     const res = await start(db)
 
     await expect(pollDeviceToken(db, {

@@ -123,10 +123,12 @@ async function refreshDeviceGrant(db, input, options = {}) {
       proofJkt: input.proofJkt,
       now,
     })
+    const previousDocument = { ...next.previous }
+    delete previousDocument._id
     await transaction.collection(REFRESH_TOKENS_COLLECTION).doc(tokenId).set({
       recordType: record.recordType,
       schemaVersion: record.schemaVersion,
-      ...next.previous,
+      ...previousDocument,
     })
     await transaction.collection(REFRESH_TOKENS_COLLECTION).add({
       recordType: record.recordType,

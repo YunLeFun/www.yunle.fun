@@ -46,7 +46,7 @@ async function issue(db) {
 
 describe('device refresh grants', () => {
   it('stores only a token hash with 30-day idle and 180-day absolute limits', async () => {
-    const db = makeFakeDb({})
+    const db = makeFakeDb({}, { rejectDocumentIdWrites: true })
     const { deviceRefreshToken } = await issue(db)
     expect(deviceRefreshToken).toBe('refresh-token-1')
 
@@ -62,7 +62,7 @@ describe('device refresh grants', () => {
   })
 
   it('rotates a proof-bound token and preserves the absolute deadline', async () => {
-    const db = makeFakeDb({})
+    const db = makeFakeDb({}, { rejectDocumentIdWrites: true })
     const { deviceRefreshToken } = await issue(db)
     const result = await refreshDeviceGrant(db, {
       deviceRefreshToken,
@@ -88,7 +88,7 @@ describe('device refresh grants', () => {
   })
 
   it('revokes the whole grant family when any used token is replayed', async () => {
-    const db = makeFakeDb({})
+    const db = makeFakeDb({}, { rejectDocumentIdWrites: true })
     const { deviceRefreshToken } = await issue(db)
     await refreshDeviceGrant(db, {
       deviceRefreshToken,
@@ -114,7 +114,7 @@ describe('device refresh grants', () => {
   })
 
   it('rejects another installation key and changed registry policy', async () => {
-    const db = makeFakeDb({})
+    const db = makeFakeDb({}, { rejectDocumentIdWrites: true })
     const { deviceRefreshToken } = await issue(db)
     await expect(refreshDeviceGrant(db, {
       deviceRefreshToken,
@@ -136,7 +136,7 @@ describe('device refresh grants', () => {
 
 describe('device revocation', () => {
   it('revokes by server-known client and device identifiers', async () => {
-    const db = makeFakeDb({})
+    const db = makeFakeDb({}, { rejectDocumentIdWrites: true })
     await issue(db)
     await expect(revokeDevice(db, {
       uid: 'u1',

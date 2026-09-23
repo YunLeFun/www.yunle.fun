@@ -142,8 +142,10 @@ async function approveDevice(db, input, options = {}) {
     if (!current)
       throw new AuthorizationError('device_code_expired')
     const next = machine.approve(current, { subject: input.uid, now })
+    const nextDocument = { ...next }
+    delete nextDocument._id
     await transaction.collection(DEVICE_CODES_COLLECTION).doc(found._id).set({
-      ...next,
+      ...nextDocument,
       version: Number(current.version || 0) + 1,
     })
   })
@@ -207,8 +209,10 @@ async function pollDeviceToken(db, input, options = {}) {
       options.registry.reauthorize(record)
     const transition = machine.consume(record, { deviceCode, proofJkt, now })
     const issued = await options.issueGrant(transaction, transition.grant, record)
+    const nextDocument = { ...transition.next }
+    delete nextDocument._id
     await transaction.collection(DEVICE_CODES_COLLECTION).doc(id).set({
-      ...transition.next,
+      ...nextDocument,
       consent: record.consent,
       interval: record.interval,
       lastPolledAt: now,
