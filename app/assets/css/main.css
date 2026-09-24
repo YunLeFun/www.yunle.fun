@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 @import '@nuxt/ui';
 @import 'tw-animate-css';
+@import './design-tokens.css';
 
 @font-face {
   font-family: 'ZCOOL XiaoWei';
@@ -274,6 +275,121 @@ body {
 .ylf-preview-shell {
   background: var(--ylf-surface);
   border: 1px solid var(--ui-border);
+}
+
+/* App* wrappers share the Design color contract while retaining Nuxt routing and form behavior. */
+:where([data-slot='button'], [data-slot='badge'])[data-ylf-appearance] {
+  --_ylf-fill: var(--ylf-accent);
+  --_ylf-hover: var(--ylf-accent-hover);
+  --_ylf-soft: var(--ylf-accent-soft);
+  --_ylf-text: var(--ylf-accent-text);
+  --_ylf-on: var(--ylf-accent-on);
+}
+
+[data-ylf-status='success'] {
+  --_ylf-fill: var(--ylf-status-success);
+  --_ylf-hover: var(--ylf-status-success-hover);
+  --_ylf-soft: var(--ylf-status-success-soft);
+  --_ylf-text: var(--ylf-status-success-text);
+  --_ylf-on: var(--ylf-status-success-on);
+}
+
+[data-ylf-status='warning'] {
+  --_ylf-fill: var(--ylf-status-warning);
+  --_ylf-hover: var(--ylf-status-warning-hover);
+  --_ylf-soft: var(--ylf-status-warning-soft);
+  --_ylf-text: var(--ylf-status-warning-text);
+  --_ylf-on: var(--ylf-status-warning-on);
+}
+
+[data-ylf-status='danger'] {
+  --_ylf-fill: var(--ylf-status-danger);
+  --_ylf-hover: var(--ylf-status-danger-hover);
+  --_ylf-soft: var(--ylf-status-danger-soft);
+  --_ylf-text: var(--ylf-status-danger-text);
+  --_ylf-on: var(--ylf-status-danger-on);
+}
+
+[data-ylf-status='info'] {
+  --_ylf-fill: var(--ylf-status-info);
+  --_ylf-hover: var(--ylf-status-info-hover);
+  --_ylf-soft: var(--ylf-status-info-soft);
+  --_ylf-text: var(--ylf-status-info-text);
+  --_ylf-on: var(--ylf-status-info-on);
+}
+
+[data-slot='button'][data-ylf-appearance='solid'],
+[data-slot='badge'][data-ylf-appearance='solid'] {
+  background: var(--_ylf-fill);
+  border-color: transparent;
+  color: var(--_ylf-on);
+}
+
+[data-slot='button'][data-ylf-appearance='solid']:hover:not(:disabled, [aria-disabled='true']) {
+  background: var(--_ylf-hover);
+}
+
+[data-slot='button'][data-ylf-appearance='soft'],
+[data-slot='badge'][data-ylf-appearance='soft'] {
+  background: var(--_ylf-soft);
+  border-color: transparent;
+  color: var(--_ylf-text);
+}
+
+[data-slot='button'][data-ylf-appearance='soft']:hover:not(:disabled, [aria-disabled='true']) {
+  background: color-mix(in srgb, var(--_ylf-fill) 12%, var(--_ylf-soft));
+}
+
+[data-slot='button'][data-ylf-appearance='outline'],
+[data-slot='badge'][data-ylf-appearance='outline'] {
+  background: transparent;
+  border-color: var(--_ylf-fill);
+  color: var(--_ylf-text);
+}
+
+[data-slot='button'][data-ylf-appearance='outline']:hover:not(:disabled, [aria-disabled='true']) {
+  background: var(--_ylf-soft);
+}
+
+[data-slot='card'][data-ylf-variant='accent'] {
+  border-top: 3px solid var(--ylf-accent);
+}
+
+[data-slot='card'][data-ylf-variant='tinted'] {
+  background: var(--ylf-accent-soft);
+}
+
+[data-slot='switch'][data-ylf-tone][data-state='checked'] {
+  background: var(--ylf-accent);
+}
+
+[data-slot='switch'][data-ylf-tone][data-state='checked'] [data-slot='switch-thumb'] {
+  background: var(--ylf-accent-on);
+}
+
+[data-slot='separator'][data-ylf-variant='brand'] {
+  background: var(--ylf-c-brand);
+}
+
+[data-slot='separator'][data-ylf-variant='accent'] {
+  background: var(--ylf-accent);
+}
+
+[data-slot='separator'][data-ylf-variant='accent'][data-orientation='horizontal'] {
+  height: 2px;
+}
+
+[data-slot='separator'][data-ylf-variant='accent'][data-orientation='vertical'] {
+  width: 2px;
+}
+
+.ylf-select-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  flex: none;
+  border: 1px solid color-mix(in srgb, var(--ylf-c-text) 15%, transparent);
+  border-radius: 50%;
 }
 
 /* ------------------------------------------------------------------ *

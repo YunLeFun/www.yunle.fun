@@ -24,6 +24,8 @@
 - EdgeOne Pages：正式网站；Cloudflare Pages：兼容性构建与预览
 - Vitest、ESLint 和 Nuxt TypeScript 检查
 
+主站的 `AppButton`、`AppBadge`、`AppPageCard`、`AppSelect`、`AppSwitch` 和 `AppSeparator` 保留路由、表单与业务接口，并通过 [YunLeFun Design](https://github.com/YunLeFun/design) 的色彩契约统一外观。可选的 `tone` 使用 `blue | sun | cyan | coral | pink | green`；按钮和徽标的 `solid | soft | outline` 与设计系统一致，成功、提醒、错误等状态色不受 `tone` 覆盖。设计包新版 CSS 发布前，主站在 `app/assets/css/design-tokens.css` 维护对应 token；发布后应改为直接引用包入口并移除这层桥接。
+
 ## 本地开发
 
 ### 环境要求

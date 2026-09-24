@@ -41,13 +41,15 @@ const ariaRequired = computed(() => attrs['aria-required'] as string | boolean |
 
 const normalizedItems = computed(() => props.items.map((item) => {
   if (typeof item === 'string' || typeof item === 'number')
-    return { label: String(item), value: item }
+    return { label: String(item), value: item, color: undefined }
 
   return {
     label: String(item[props.labelKey] ?? item[props.valueKey] ?? ''),
     value: item[props.valueKey] as string | number,
+    color: typeof item.color === 'string' ? item.color : undefined,
   }
 }))
+const selectedItem = computed(() => normalizedItems.value.find(item => item.value === model.value))
 </script>
 
 <template>
@@ -61,11 +63,13 @@ const normalizedItems = computed(() => props.items.map((item) => {
       :aria-invalid="ariaInvalid"
       :aria-required="ariaRequired"
     >
+      <span v-if="selectedItem?.color" class="ylf-select-swatch" :style="{ backgroundColor: selectedItem.color }" aria-hidden="true" />
       <SelectValue :placeholder="placeholder" />
     </SelectTrigger>
     <SelectContent position="popper">
       <SelectGroup>
         <SelectItem v-for="item in normalizedItems" :key="item.value" :value="item.value">
+          <span v-if="item.color" class="ylf-select-swatch" :style="{ backgroundColor: item.color }" aria-hidden="true" />
           {{ item.label }}
         </SelectItem>
       </SelectGroup>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { RouteLocationRaw } from 'vue-router'
 import type { ButtonVariants } from '@/components/ui/button'
+import type { YlfAccentTone, YlfColorAppearance } from '@/types/design'
 import { computed } from 'vue'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
@@ -20,6 +21,7 @@ const props = withDefaults(defineProps<{
   rel?: string
   size?: LegacySize
   target?: string
+  tone?: YlfAccentTone
   to?: RouteLocationRaw
   trailing?: boolean
   trailingIcon?: string
@@ -32,8 +34,26 @@ const props = withDefaults(defineProps<{
   variant: 'solid',
 })
 
+const statusByColor: Partial<Record<LegacyColor, 'danger' | 'success' | 'warning' | 'info'>> = {
+  error: 'danger',
+  success: 'success',
+  warning: 'warning',
+  info: 'info',
+}
 const isLink = computed(() => Boolean(props.to || props.href))
 const endingIcon = computed(() => props.trailingIcon || (props.trailing ? props.icon : undefined))
+const status = computed(() => statusByColor[props.color])
+const designAppearance = computed<YlfColorAppearance | undefined>(() => {
+  if (!props.tone && !status.value)
+    return undefined
+  if (props.variant === 'solid')
+    return 'solid'
+  if (props.variant === 'soft' || props.variant === 'subtle')
+    return 'soft'
+  if (props.variant === 'outline')
+    return 'outline'
+  return undefined
+})
 
 const buttonVariant = computed<ButtonVariants['variant']>(() => {
   if (props.color === 'error')
@@ -69,6 +89,9 @@ const buttonSize = computed<ButtonVariants['size']>(() => {
     :size="buttonSize"
     :type="isLink ? undefined : type"
     :disabled="disabled || loading"
+    :data-ylf-tone="!status && designAppearance ? tone : undefined"
+    :data-ylf-status="designAppearance ? status : undefined"
+    :data-ylf-appearance="designAppearance"
     :class="block ? 'w-full' : undefined"
   >
     <NuxtLink

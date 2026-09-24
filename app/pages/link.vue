@@ -158,7 +158,7 @@ onMounted(() => {
         </p>
       </div>
 
-      <div class="flex gap-3">
+      <div class="grid grid-cols-2 gap-3">
         <AppButton color="neutral" variant="subtle" size="lg" block :disabled="status === 'approving'" @click="deny">
           拒绝
         </AppButton>

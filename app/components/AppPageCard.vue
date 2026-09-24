@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
+import type { YlfAccentTone } from '@/types/design'
 import {
   Card,
   CardContent,
@@ -21,12 +22,13 @@ const props = defineProps<{
   orientation?: 'horizontal' | 'vertical'
   spotlight?: boolean
   target?: string
+  tone?: YlfAccentTone
   title?: string
   to?: RouteLocationRaw
   ui?: {
     leadingIcon?: HTMLAttributes['class']
   }
-  variant?: 'solid' | 'outline' | 'soft' | 'subtle' | 'naked'
+  variant?: 'solid' | 'outline' | 'soft' | 'subtle' | 'naked' | 'accent' | 'tinted'
 }>()
 </script>
 
@@ -42,6 +44,8 @@ const props = defineProps<{
     <Card
       v-bind="$attrs"
       :class="props.class"
+      :data-ylf-tone="variant === 'accent' || variant === 'tinted' ? (tone || 'blue') : undefined"
+      :data-ylf-variant="variant === 'accent' || variant === 'tinted' ? variant : undefined"
     >
       <CardHeader v-if="icon || title || description">
         <span v-if="icon" class="ylf-icon-tile flex size-10 items-center justify-center rounded-xl">

@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import type { YlfAccentTone } from '@/types/design'
 import { Switch } from '@/components/ui/switch'
 import { formFieldIdKey } from '@/utils/formField'
 
 defineOptions({ inheritAttrs: false })
 
+defineProps<{ tone?: YlfAccentTone }>()
 const model = defineModel<boolean>()
 const fieldId = inject(formFieldIdKey, undefined)
 const attrs = useAttrs()
@@ -22,6 +24,7 @@ const ariaRequired = computed(() => attrs['aria-required'] as string | boolean |
     v-bind="$attrs"
     :id="controlId"
     v-model="model"
+    :data-ylf-tone="tone"
     :aria-describedby="ariaDescribedby"
     :aria-invalid="ariaInvalid"
     :aria-required="ariaRequired"
