@@ -754,8 +754,10 @@ admin 自身另使用 `reward_campaigns` 和 `reward_grant_items` 保存批次�
 
 安全规则：用户只读自己的配额和文件索引（`auth.uid == doc.userId`），写入由 `user-storage-api` 完成。
 所有接入应用必须调用 `user-storage-api`；`account-api` 只保留账户、钱包、会员、资料、关注和通知职责。
-CloudBase 默认云存储只放公开可读内容；项目、笔刷库等私有对象统一放
-`yunlefun-private-1325586649` 私有 COS。`user-storage-api` 使用 SCF 运行角色临时凭证签发短期 URL，
+CloudBase 默认云存储的公开文件兼容区与旧通用用户存储的实际桶配置需要分别核验；
+当前 `user-storage-api` 的旧 `PRIVATE_COS_BUCKET` 路由保留不变，Drive 新素材通过
+`ASSET_PRIVATE_COS_BUCKET=yunlefun-private-1325586649` 单独进入私有 COS。
+`user-storage-api` 使用 SCF 运行角色临时凭证签发短期 URL，
 数据库和日志不得持久化签名 URL 或长期密钥。
 
 ### 投币 / 支持榜：`app_tip_stats` + `app_supporters`（需新建）

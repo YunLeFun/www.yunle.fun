@@ -1,4 +1,5 @@
 import { Buffer } from 'node:buffer'
+import { createHash } from 'node:crypto'
 import { describe, expect, it, vi } from 'vitest'
 
 import {
@@ -102,6 +103,45 @@ describe('user-storage-api private COS adapter', () => {
       storageRegion: 'ap-shanghai',
     })
     expect(storage.describeObject(STORAGE_KEY).fileId).not.toContain('?')
+  })
+
+  it('copies a signed-upload asset to an unsigned immutable key before streaming its checksum', async () => {
+    const sourceKey = 'user-storage/u1/drive/asset_reserve1/cover.png'
+    const bytes = Buffer.alloc(24)
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]).copy(bytes)
+    bytes.writeUInt32BE(1920, 16)
+    bytes.writeUInt32BE(1080, 20)
+    const cosClient = makeCosClient()
+    cosClient.putObjectCopy = vi.fn((_params, callback) => callback(null, {}))
+    cosClient.headObject.mockImplementation((_params, callback) => callback(null, {
+      ETag: '"accepted-etag"',
+      headers: { 'content-length': String(bytes.length), 'content-type': 'image/png' },
+    }))
+    cosClient.getObject.mockImplementation((params, callback) => {
+      params.Output.write(bytes)
+      params.Output.end()
+      callback(null, {})
+    })
+    const storage = createPrivateCosStorage({ cosClient })
+
+    await expect(storage.acceptAsset(sourceKey, {
+      contentType: 'image/png',
+      etag: '"staging-etag"',
+      sizeBytes: bytes.length,
+    })).resolves.toMatchObject({
+      storageKey: `${sourceKey}.accepted`,
+      sha256: createHash('sha256').update(bytes).digest('hex'),
+      width: 1920,
+      height: 1080,
+    })
+    expect(cosClient.putObjectCopy).toHaveBeenCalledWith(expect.objectContaining({
+      Key: `${sourceKey}.accepted`,
+      CopySourceIfMatch: '"staging-etag"',
+    }), expect.any(Function))
+    expect(cosClient.getObject).toHaveBeenCalledWith(expect.objectContaining({
+      Key: `${sourceKey}.accepted`,
+      IfMatch: '"accepted-etag"',
+    }), expect.any(Function))
   })
 
   it('拒绝越界对象键、控制字符和非 HTTPS 签名 URL', async () => {
