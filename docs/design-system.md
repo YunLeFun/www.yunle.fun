@@ -1,4 +1,10 @@
-# 云乐坊设计体系 —— 梦幻晴空（天气之子）
+# 主站设计实现与迁移
+
+> 共享规范统一维护在 [YunLeFun Design](https://github.com/YunLeFun/design/blob/main/packages/guide/design-system.md)：**晴空蓝为主，极光点缀**。Design 负责设计原则和体验规范，`@yunlefun/ui` 提供样式与变量，`@yunlefun/vue` 提供 Vue 组件；完整职责见[子包说明](https://github.com/YunLeFun/design/blob/main/packages/guide/packages.md)。
+>
+> 下文记录主站当前的本地实现，供迁移时对照，不再作为独立的跨应用设计规范。主站尚未接入共享包；变量映射、控件替换与验证顺序见[应用迁移](https://github.com/YunLeFun/design/blob/main/packages/guide/migration.md)。
+
+## 现有实现：梦幻晴空
 
 > 状态：已落地（登录 / 注册 / SSO 同步页 / 会员权益 / 个人中心 / 首页 / 钱包）。
 > 关联代码：`app/assets/css/main.css`（设计令牌 + 工具类）、`app/components/SkyScene.vue` · `SkyHero.vue` · `MemberPass.vue`、`nuxt.config.ts`（字体加载）。
