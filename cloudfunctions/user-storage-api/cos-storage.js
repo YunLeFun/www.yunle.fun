@@ -7,13 +7,20 @@
 
 'use strict'
 
+const { Buffer } = require('node:buffer')
+const { createHash } = require('node:crypto')
 const process = require('node:process')
+const { Writable } = require('node:stream')
+const { finished } = require('node:stream/promises')
+const { inspectAssetHeader } = require('./asset-image')
 
 const DEFAULT_PRIVATE_COS_BUCKET = 'yunlefun-private-1325586649'
 const DEFAULT_PRIVATE_COS_REGION = 'ap-shanghai'
 const DEFAULT_UPLOAD_URL_TTL_SECONDS = 10 * 60
 const DEFAULT_DOWNLOAD_URL_TTL_SECONDS = 5 * 60
 const PRIVATE_STORAGE_PREFIX = 'user-storage/'
+const ASSET_HEADER_BYTES = 2 * 1024 * 1024
+const MAX_ASSET_BYTES = 200 * 1024 * 1024
 
 function assertPrivateStorageKey(value) {
   if (typeof value !== 'string' || !value.trim())
@@ -136,7 +143,7 @@ function createPrivateCosStorage(options = {}) {
     return cosClient
   }
 
-  async function createSignedUrl({ contentType = '', method, storageKey, ttlSeconds }) {
+  async function createSignedUrl({ contentType = '', disposition = '', method, storageKey, ttlSeconds }) {
     const key = assertPrivateStorageKey(storageKey)
     const normalizedContentType = normalizeContentType(contentType)
     const Headers = normalizedContentType ? { 'Content-Type': normalizedContentType } : undefined
@@ -148,6 +155,7 @@ function createPrivateCosStorage(options = {}) {
       Sign: true,
       Expires: ttlSeconds,
       ...(Headers ? { Headers } : {}),
+      ...(disposition ? { Query: { 'response-content-disposition': disposition === 'attachment' ? 'attachment; filename="asset"' : 'inline' } } : {}),
     })
     return {
       url: assertSignedHttpsUrl(result.Url),
@@ -173,8 +181,9 @@ function createPrivateCosStorage(options = {}) {
       }
     },
 
-    async createDownloadUrl(storageKey) {
+    async createDownloadUrl(storageKey, disposition = '') {
       return await createSignedUrl({
+        disposition,
         method: 'GET',
         storageKey,
         ttlSeconds: downloadUrlTtlSeconds,
@@ -206,6 +215,65 @@ function createPrivateCosStorage(options = {}) {
         Key: key,
       })
       return result.Body
+    },
+
+    async acceptAsset(stagingKey, expected) {
+      const sourceKey = assertPrivateStorageKey(stagingKey)
+      const acceptedKey = assertPrivateStorageKey(`${sourceKey}.accepted`)
+      if (!expected || !expected.etag || !Number.isSafeInteger(expected.sizeBytes) || expected.sizeBytes < 1 || expected.sizeBytes > MAX_ASSET_BYTES)
+        throw new Error('素材原图验收参数无效')
+      await callCos(getCosClient(), 'putObjectCopy', {
+        Bucket: bucket,
+        Region: region,
+        Key: acceptedKey,
+        CopySource: `${bucket}.cos.${region}.myqcloud.com/${encodeURIComponent(sourceKey)}`,
+        CopySourceIfMatch: expected.etag,
+        MetadataDirective: 'Copy',
+      })
+      try {
+        const accepted = await this.headObject(acceptedKey)
+        if (!accepted.etag || accepted.sizeBytes !== expected.sizeBytes || accepted.contentType !== expected.contentType)
+          throw new Error('素材原图副本与上传预留不匹配')
+        const hash = createHash('sha256')
+        let sizeBytes = 0
+        let header = Buffer.alloc(0)
+        const output = new Writable({
+          write(chunk, _encoding, callback) {
+            sizeBytes += chunk.length
+            if (sizeBytes > expected.sizeBytes || sizeBytes > MAX_ASSET_BYTES) {
+              callback(new Error('素材原图超过上传预留大小'))
+              return
+            }
+            hash.update(chunk)
+            if (header.length < ASSET_HEADER_BYTES)
+              header = Buffer.concat([header, chunk.subarray(0, ASSET_HEADER_BYTES - header.length)])
+            callback()
+          },
+        })
+        await callCos(getCosClient(), 'getObject', {
+          Bucket: bucket,
+          Region: region,
+          Key: acceptedKey,
+          IfMatch: accepted.etag,
+          Output: output,
+        })
+        await finished(output)
+        if (sizeBytes !== accepted.sizeBytes)
+          throw new Error('素材原图流大小与私有副本不匹配')
+        const inspection = inspectAssetHeader(header, expected.contentType)
+        return {
+          storageKey: acceptedKey,
+          sizeBytes,
+          contentType: inspection.detectedType,
+          etag: accepted.etag,
+          sha256: hash.digest('hex'),
+          ...(inspection.width ? { width: inspection.width, height: inspection.height } : {}),
+        }
+      }
+      catch (error) {
+        await this.deleteObject(acceptedKey).catch(() => {})
+        throw error
+      }
     },
 
     async deleteObject(storageKey) {

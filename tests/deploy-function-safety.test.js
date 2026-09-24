@@ -150,6 +150,27 @@ describe('云函数部署环境变量门禁', () => {
       { ...env, AUTH_ISSUER_ENVIRONMENT: 'development' },
     )).toThrow('AUTH_ISSUER_ENVIRONMENT=production')
   })
+
+  it('requires an independent Drive asset storage delegation token', () => {
+    const storageConfig = {
+      functions: [{
+        name: 'user-storage-api',
+        envVariables: {
+          ACCOUNT_API_INTERNAL_TOKEN: '{{env.ACCOUNT_API_INTERNAL_TOKEN}}',
+          DRIVE_STORAGE_INTERNAL_TOKEN: '{{env.DRIVE_STORAGE_INTERNAL_TOKEN}}',
+        },
+      }],
+    }
+    const accountToken = 'a'.repeat(64)
+    expect(() => assertFunctionEnvironmentReady(storageConfig, ['user-storage-api'], {
+      ACCOUNT_API_INTERNAL_TOKEN: accountToken,
+      DRIVE_STORAGE_INTERNAL_TOKEN: 'short',
+    })).toThrow('32～512 bytes')
+    expect(() => assertFunctionEnvironmentReady(storageConfig, ['user-storage-api'], {
+      ACCOUNT_API_INTERNAL_TOKEN: accountToken,
+      DRIVE_STORAGE_INTERNAL_TOKEN: accountToken,
+    })).toThrow('跨用途复用')
+  })
 })
 
 function completeTestIdentityEnv() {

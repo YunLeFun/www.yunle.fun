@@ -23,6 +23,7 @@ const MB = 1024 * 1024
 const NORMAL_STORAGE_QUOTA_BYTES = 100 * MB
 const MEMBER_STORAGE_QUOTA_BYTES = 1024 * MB
 const SINGLE_FILE_LIMIT_BYTES = 200 * MB
+const ASSET_SVG_MAX_BYTES = 2 * MB
 const BRUSH_LIBRARY_MAX_BYTES = 256 * 1024
 const WEB_RESUME_MAX_BYTES = 2 * MB
 const INLINE_DOWNLOAD_MAX_BYTES = 4 * MB
@@ -181,7 +182,7 @@ function resolveStoragePolicy({ appId, contentType, fileName, kind, sizeBytes, s
     if (!ASSET_IMAGE_EXTENSIONS[mediaType].has(fileExtension(fileName)))
       throw new Error('asset 文件扩展名与 contentType 不匹配')
     return {
-      maxBytes: SINGLE_FILE_LIMIT_BYTES,
+      maxBytes: mediaType === 'image/svg+xml' ? ASSET_SVG_MAX_BYTES : SINGLE_FILE_LIMIT_BYTES,
       singleton: false,
     }
   }
@@ -479,7 +480,10 @@ function toFileSummary(file) {
     storageRegion: file.storageRegion || '',
     objectKey: file.objectKey || file.storageKey || '',
     objectETag: file.objectETag || '',
+    sha256: file.sha256 || '',
     sha256Candidate: file.sha256Candidate || '',
+    width: safeNonNegativeInteger(file.width),
+    height: safeNonNegativeInteger(file.height),
     sizeBytes: safeNonNegativeInteger(file.sizeBytes),
     reservedSizeBytes: safeNonNegativeInteger(file.reservedSizeBytes),
     reservationExpiresAt: file.reservationExpiresAt || null,
@@ -784,11 +788,6 @@ async function finalizeStorageUpload(db, input, options = {}) {
     throw new Error('私有存储对象校验能力不可用')
   if (typeof options.describeObject !== 'function')
     throw new Error('私有存储对象描述能力不可用')
-  const objectDescriptor = options.describeObject(file.storageKey)
-  const fileId = assertOptionalString(objectDescriptor?.fileId, 'fileId', 1024)
-  if (!fileId)
-    throw new Error('私有存储对象引用无效')
-
   const lockResult = await db
     .collection(USER_STORAGE_FILES_COLLECTION)
     .where({ userId, reservationId, status: STORAGE_FILE_STATUS.RESERVED })
@@ -822,7 +821,7 @@ async function finalizeStorageUpload(db, input, options = {}) {
       })
     throw new Error(`确认私有存储对象失败: ${err.message || String(err)}`)
   }
-  const actualSizeBytes = assertByteSize(fileInfo.sizeBytes, 'actualSizeBytes')
+  let actualSizeBytes = assertByteSize(fileInfo.sizeBytes, 'actualSizeBytes')
   const reservedSizeBytes = safeNonNegativeInteger(file.reservedSizeBytes)
   const policy = resolveStoredFilePolicy(file)
   const expectedContentType = normalizeMediaType(file.contentType)
@@ -839,6 +838,40 @@ async function finalizeStorageUpload(db, input, options = {}) {
     if (expectedContentType && expectedContentType !== actualContentType)
       throw new Error('实际文件 Content-Type 与上传预留不匹配')
     throw new Error('实际文件大小超过预留额度')
+  }
+
+  let acceptedAsset
+  if (file.kind === STORAGE_FILE_KIND.ASSET) {
+    try {
+      if (typeof options.acceptAsset !== 'function')
+        throw new Error('素材原图不可变验收能力不可用')
+      acceptedAsset = await options.acceptAsset(file.storageKey, {
+        contentType: expectedContentType,
+        etag: fileInfo.etag,
+        sizeBytes: actualSizeBytes,
+      })
+      if (!acceptedAsset || acceptedAsset.storageKey !== `${file.storageKey}.accepted`
+        || acceptedAsset.sha256 !== file.sha256Candidate
+        || acceptedAsset.sizeBytes !== actualSizeBytes || acceptedAsset.contentType !== expectedContentType) {
+        if (acceptedAsset?.storageKey && options.deleteFile)
+          assertDeleteFileSucceeded(await options.deleteFile(acceptedAsset.storageKey))
+        if (options.deleteFile)
+          assertDeleteFileSucceeded(await options.deleteFile(file.storageKey))
+        await markReservationExpired(db, { userId, reservationId, now })
+        throw new Error('素材原图完整性校验失败')
+      }
+      actualSizeBytes = acceptedAsset.sizeBytes
+      fileInfo = acceptedAsset
+    }
+    catch (err) {
+      const latest = await findStorageFileByReservationId(db, { userId, reservationId })
+      if (latest?.status === STORAGE_FILE_STATUS.FINALIZING) {
+        await db.collection(USER_STORAGE_FILES_COLLECTION)
+          .where({ userId, reservationId, status: STORAGE_FILE_STATUS.FINALIZING })
+          .update({ status: STORAGE_FILE_STATUS.RESERVED, finalizeErrorAt: now, updatedAt: now })
+      }
+      throw err
+    }
   }
 
   if (file.kind === STORAGE_FILE_KIND.RESUME) {
@@ -870,6 +903,20 @@ async function finalizeStorageUpload(db, input, options = {}) {
     }
   }
 
+  let objectDescriptor
+  let fileId
+  try {
+    objectDescriptor = options.describeObject(acceptedAsset?.storageKey || file.storageKey)
+    fileId = assertOptionalString(objectDescriptor?.fileId, 'fileId', 1024)
+    if (!fileId)
+      throw new Error('私有存储对象引用无效')
+  }
+  catch (error) {
+    await db.collection(USER_STORAGE_FILES_COLLECTION)
+      .where({ userId, reservationId, status: STORAGE_FILE_STATUS.FINALIZING })
+      .update({ status: STORAGE_FILE_STATUS.RESERVED, finalizeErrorAt: now, updatedAt: now })
+    throw error
+  }
   const quota = await adjustQuotaUsage(db, {
     userId,
     usedDelta: actualSizeBytes,
@@ -879,13 +926,14 @@ async function finalizeStorageUpload(db, input, options = {}) {
 
   const activePatch = {
     status: STORAGE_FILE_STATUS.ACTIVE,
+    ...(acceptedAsset ? { storageKey: acceptedAsset.storageKey, stagingKey: file.storageKey, sha256: acceptedAsset.sha256, width: acceptedAsset.width || 0, height: acceptedAsset.height || 0 } : {}),
     fileId,
     sizeBytes: actualSizeBytes,
     contentType: fileInfo.contentType || file.contentType || '',
     storageProvider: objectDescriptor.storageProvider || '',
     storageBucket: objectDescriptor.storageBucket || '',
     storageRegion: objectDescriptor.storageRegion || '',
-    objectKey: objectDescriptor.objectKey || file.storageKey,
+    objectKey: objectDescriptor.objectKey || acceptedAsset?.storageKey || file.storageKey,
     objectETag: assertOptionalString(fileInfo.etag, 'etag', 256),
     finalizedAt: now,
     updatedAt: now,
@@ -894,6 +942,9 @@ async function finalizeStorageUpload(db, input, options = {}) {
     .collection(USER_STORAGE_FILES_COLLECTION)
     .where({ userId, reservationId, status: STORAGE_FILE_STATUS.FINALIZING })
     .update(activePatch)
+
+  if (acceptedAsset && options.deleteFile)
+    await options.deleteFile(file.storageKey).catch(() => {})
 
   const finalQuota = policy.singleton
     ? await replaceActiveSingletonFiles(db, {
@@ -977,6 +1028,8 @@ async function deleteStorageFile(db, input, options = {}) {
     return { quota: toQuotaSnapshot(quota), file: toFileSummary(file), deduped: true }
   }
 
+  if (options.deleteFile && file.stagingKey)
+    assertDeleteFileSucceeded(await options.deleteFile(file.stagingKey))
   if (options.deleteFile && file.storageKey)
     assertDeleteFileSucceeded(await options.deleteFile(file.storageKey))
 
@@ -1035,7 +1088,12 @@ async function downloadStorageFile(db, input, options = {}) {
   let downloadUrl = ''
   let downloadUrlExpiresAt = null
   if (options.createDownloadUrl) {
-    const signed = await options.createDownloadUrl(file.storageKey)
+    const disposition = normalizeMediaType(file.contentType) === 'image/svg+xml'
+      ? 'attachment'
+      : input.disposition === 'attachment' ? 'attachment' : 'inline'
+    const signed = file.kind === STORAGE_FILE_KIND.ASSET
+      ? await options.createDownloadUrl(file.storageKey, disposition)
+      : await options.createDownloadUrl(file.storageKey)
     if (typeof signed === 'string') {
       downloadUrl = signed
     }
@@ -1157,6 +1215,7 @@ module.exports = {
   STORAGE_FILE_KIND,
   syncUserStorageQuota,
   getStorageQuota,
+  findStorageFile,
   reserveStorageUpload,
   finalizeStorageUpload,
   downloadStorageFile,

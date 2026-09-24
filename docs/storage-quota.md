@@ -204,11 +204,19 @@
 
 - Saier 项目文件：`kind: "project"`，不使用 `slotKey`。
 - Saier 笔刷库：`kind: "brush-library"`、`slotKey: "default"`、固定文件名 `brush-library.saier.brushes.json`、`contentType: "application/json"`，单文件额外限制 256KiB。
-- 素材原图：`kind: "asset"`，不使用 `slotKey`，非 singleton；仅接受扩展名与 `contentType` 一致的 JPEG、PNG、WebP、SVG，沿用 200MiB 单文件上限和用户共享存储额度。可选 `sha256` 只作为客户端候选值保存，文件头、尺寸、权威哈希和 SVG 栅格预览由 Drive 素材层校验与生成。
+- 素材原图：`kind: "asset"`，不使用 `slotKey`，非 singleton；仅接受扩展名与 `contentType` 一致的 JPEG、PNG、WebP、SVG，使用用户共享存储额度。栅格图单文件上限 200MiB，SVG 上限 2MiB；必须提交 64 位 SHA-256 候选值。确认上传时，存储服务按源 ETag 条件复制到没有浏览器写权限的私有对象，流式核对实际 SHA-256、文件头和栅格尺寸；Drive 的 SVG worker 另行生成安全 PNG 预览后才将 SVG 标记为可用。
 - Web Resume：`appId: "web-resume"`、`kind: "resume"`，`slotKey` 固定为 `doc_<documentId>`，只接受 `.resume.yml` / `.resume.yaml` 与 YAML Content-Type，单文件限制 2MiB。服务端在 finalize 时读取私有对象并核对 SHA-256；同一 `slotKey` 为 singleton。
 - `brush-library` 是 singleton：`finalizeStorageUpload` 成功后，同一 `userId + appId + kind + slotKey` 只保留最新 active 文件，并释放旧文件 quota。
 
 Web Resume 浏览器不直接调用通用存储 action。Drive BFF 验证 `@yunlefun/sso` 双证明并建立独立 HttpOnly 会话后，使用专用 `WEB_RESUME_STORAGE_INTERNAL_TOKEN` 委托到严格限定的 `invokeForWebResume`；委托层强制覆盖 app、kind 和 Content-Type，并再次校验文件归属。业务元数据位于 `ADMINONLY` 的 `web_resume_documents` 集合，本地姓名、电话、邮箱和设备偏好不进入该集合。
+
+Drive 素材服务端使用独立的 `DRIVE_STORAGE_INTERNAL_TOKEN` 调用 `invokeForDriveAsset`。
+委托层固定 `appId=drive`、`kind=asset` 且不允许 `slotKey`，只返回本应用文件，
+按用户和预留编号再次校验完成、下载、删除操作。跨应用碰撞的 `reservationId` 不能
+返回文件或重新签发 PUT URL。委托现在用于 Drive 素材的预留、确认、鉴权下载和永久删除；
+确认后的权威 SHA-256、尺寸与私有副本由 Drive 绑定到素材投影。SVG 下载强制附件处置，
+预览仅使用 Drive worker 生成的 PNG。浏览器直接调用通用存储 action 不能预留、
+确认、下载或删除 `kind=asset`，避免绕过 Drive 的引用保护。
 
 删除 Web Resume 文档先把元数据标记为回收站状态。私有 `web-resume-storage-sweeper` 每小时处理保留满 30 天的记录，通过带租约的 `purging` 状态阻止恢复竞态，删除 COS 对象并释放配额后才移除元数据。清理使用独立的 `WEB_RESUME_SWEEPER_INTERNAL_TOKEN`，不能与 BFF 委托令牌复用。
 
@@ -265,14 +273,18 @@ Web Resume 浏览器不直接调用通用存储 action。Drive BFF 验证 `@yunl
 
 ## 5. 私有 COS 运行配置
 
-- Bucket：代码默认 `yunlefun-private-1325586649`；生产环境通过 `PRIVATE_COS_BUCKET` 固定到当前
-  CloudBase 环境的私有存储桶，复用其精确 Origin CORS 与函数运行角色，不使用浏览器长期凭证。
+- 旧通用文件的代码默认 Bucket 是 `yunlefun-private-1325586649`，当前生产函数清单的
+  `PRIVATE_COS_BUCKET` 则指向 `7975-yunlefun-8g7ybcxc7345c490-1325586649`。
+  为避免旧文件失联，本次不切换该路由；上线前须独立核验旧路径的访问规则。
+- Drive 素材通过独立的 `ASSET_PRIVATE_COS_BUCKET=yunlefun-private-1325586649` 进入私有桶；
+  不改变旧 `PRIVATE_COS_BUCKET` 路由，以免现有文件指向错误的桶。未配置独立私有桶时素材
+  操作直接失败。运行角色必须对该桶具有条件复制、HEAD、GET、PUT 与 DELETE 权限。
 - Region：默认 `ap-shanghai`，可由 `PRIVATE_COS_REGION` 覆盖。
 - URL TTL：上传默认 600 秒、下载默认 300 秒，可由
   `PRIVATE_COS_UPLOAD_URL_TTL_SECONDS` / `PRIVATE_COS_DOWNLOAD_URL_TTL_SECONDS` 调整（60~3600 秒）。
 - 凭证：只读取 SCF 运行角色注入的 `TENCENTCLOUD_SECRETID`、
   `TENCENTCLOUD_SECRETKEY`、`TENCENTCLOUD_SESSIONTOKEN`，不配置长期密钥。
-- 运行角色按最小权限授予该桶 `PutObject`、`GetObject`、`HeadObject`、`DeleteObject`；
+- 运行角色按最小权限授予该桶 `PutObject`、`GetObject`、`HeadObject`、`DeleteObject` 和素材验收需要的 `PutObjectCopy`；
   Bucket ACL 保持 private。
 - Web 直传只为一方站点配置精确 CORS Origin，允许 `PUT` / `GET`，允许请求头 `Content-Type`；
   不使用带凭证的通配 Origin。

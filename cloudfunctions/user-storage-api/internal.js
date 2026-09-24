@@ -7,6 +7,8 @@ const process = require('node:process')
 
 const WEB_RESUME_APP_ID = 'web-resume'
 const WEB_RESUME_KIND = 'resume'
+const DRIVE_APP_ID = 'drive'
+const DRIVE_ASSET_KIND = 'asset'
 const ALLOWED_OPERATIONS = new Set([
   'deleteStorageFile',
   'downloadStorageFile',
@@ -44,6 +46,26 @@ function assertWebResumeDelegation(event, expectedToken = process.env.WEB_RESUME
   }
 }
 
+function assertDriveAssetDelegation(event, expectedToken = process.env.DRIVE_STORAGE_INTERNAL_TOKEN || '') {
+  if (!expectedToken)
+    throw new Error('Drive 素材存储委托鉴权未配置')
+  if (!tokensMatch(event?.serviceToken, expectedToken))
+    throw new Error('Drive 素材存储委托鉴权失败')
+  if (event?.appId !== DRIVE_APP_ID)
+    throw new Error('Drive 素材存储委托应用无效')
+  if (!ALLOWED_OPERATIONS.has(event?.operation))
+    throw new Error('Drive 素材存储委托操作无效')
+  if (typeof event?.userId !== 'string' || !event.userId.trim() || event.userId.length > 128)
+    throw new Error('Drive 素材存储委托用户无效')
+  return {
+    operation: event.operation,
+    payload: event.payload && typeof event.payload === 'object' && !Array.isArray(event.payload)
+      ? event.payload
+      : {},
+    userId: event.userId.trim(),
+  }
+}
+
 function assertWebResumeSweeper(event, expectedToken = process.env.WEB_RESUME_SWEEPER_INTERNAL_TOKEN || '') {
   if (!expectedToken)
     throw new Error('Web Resume 回收站清理鉴权未配置')
@@ -66,11 +88,30 @@ async function assertWebResumeFileScope(db, userId, reservationId) {
   return file
 }
 
+async function assertDriveAssetFileScope(db, userId, reservationId) {
+  if (typeof reservationId !== 'string' || !reservationId)
+    throw new Error('reservationId 必填')
+  const { data } = await db.collection('user_storage_files').where({
+    userId,
+    reservationId,
+    appId: DRIVE_APP_ID,
+    kind: DRIVE_ASSET_KIND,
+  }).limit(1).get()
+  const file = Array.isArray(data) ? data[0] : null
+  if (!file)
+    throw new Error('Drive 素材文件不存在')
+  return file
+}
+
 module.exports = {
   ALLOWED_OPERATIONS,
+  DRIVE_APP_ID,
+  DRIVE_ASSET_KIND,
   WEB_RESUME_APP_ID,
   WEB_RESUME_KIND,
   assertWebResumeDelegation,
+  assertDriveAssetDelegation,
+  assertDriveAssetFileScope,
   assertWebResumeFileScope,
   assertWebResumeSweeper,
   tokensMatch,

@@ -22,6 +22,7 @@ exports.main = async (event) => {
       cloudbaseApp: app,
       db,
       webResumeStorageToken: process.env.WEB_RESUME_STORAGE_INTERNAL_TOKEN || '',
+      driveStorageToken: process.env.DRIVE_STORAGE_INTERNAL_TOKEN || '',
       webResumeSweeperToken: process.env.WEB_RESUME_SWEEPER_INTERNAL_TOKEN || '',
     })
   }

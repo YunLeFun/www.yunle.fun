@@ -29,6 +29,15 @@ function privateStorageOptions(fileInfo, overrides = {}) {
       storageRegion: 'ap-shanghai',
     }),
     readFileInfo: async () => fileInfo,
+    acceptAsset: async storageKey => ({
+      storageKey: `${storageKey}.accepted`,
+      sizeBytes: fileInfo.sizeBytes,
+      contentType: fileInfo.contentType,
+      etag: 'accepted-etag',
+      sha256: 'a'.repeat(64),
+      width: 1920,
+      height: 1080,
+    }),
     ...overrides,
   }
 }
@@ -121,8 +130,38 @@ describe('user-storage-api asset byte policy', () => {
     expect(listed.items[0]).toMatchObject({
       kind: STORAGE_FILE_KIND.ASSET,
       sha256Candidate: 'a'.repeat(64),
+      sha256: 'a'.repeat(64),
+      width: 1920,
+      height: 1080,
       sizeBytes: 2048,
       status: STORAGE_FILE_STATUS.ACTIVE,
+    })
+  })
+
+  it('expires a mismatched asset and removes both exact staging and accepted objects', async () => {
+    const db = makeFakeDb()
+    const reserved = await reserveAsset(db)
+    const deleted = vi.fn(async () => ({ statusCode: 204 }))
+    await expect(finalizeStorageUpload(db, { userId: 'u1', reservationId: 'asset_reserve1', now: NOW + 1 }, privateStorageOptions(
+      { sizeBytes: 2048, contentType: 'image/webp' },
+      { acceptAsset: async key => ({ storageKey: `${key}.accepted`, sizeBytes: 2048, contentType: 'image/webp', sha256: 'b'.repeat(64), etag: 'etag' }), deleteFile: deleted },
+    ))).rejects.toThrow(/完整性/)
+    expect(deleted.mock.calls.map(call => call[0])).toEqual([`${reserved.file.storageKey}.accepted`, reserved.file.storageKey])
+    const listed = await listStorageFiles(db, { userId: 'u1', appId: 'everything-generator', kind: STORAGE_FILE_KIND.ASSET, includeDeleted: true })
+    expect(listed.items[0]?.status).toBe(STORAGE_FILE_STATUS.EXPIRED)
+  })
+
+  it('releases the finalize lease when object description fails before charging quota', async () => {
+    const db = makeFakeDb()
+    await reserveAsset(db)
+    const input = { userId: 'u1', reservationId: 'asset_reserve1', now: NOW + 1 }
+    await expect(finalizeStorageUpload(db, input, privateStorageOptions(
+      { sizeBytes: 2048, contentType: 'image/webp' },
+      { describeObject: () => { throw new Error('temporary descriptor failure') } },
+    ))).rejects.toThrow(/temporary descriptor failure/)
+    await expect(finalizeStorageUpload(db, { ...input, now: NOW + 2 }, privateStorageOptions({ sizeBytes: 2048, contentType: 'image/webp' }))).resolves.toMatchObject({
+      file: { status: STORAGE_FILE_STATUS.ACTIVE, sha256: 'a'.repeat(64) },
+      deduped: false,
     })
   })
 })

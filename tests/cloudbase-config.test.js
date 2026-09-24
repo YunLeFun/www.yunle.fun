@@ -86,8 +86,10 @@ describe('cloudBase test identity deployment manifest', () => {
 
   it('runs Web Resume trash cleanup hourly with an isolated service token', () => {
     expect(functions.get('user-storage-api')).toMatchObject({
-      timeout: 30,
+      timeout: 120,
       envVariables: {
+        ASSET_PRIVATE_COS_BUCKET: 'yunlefun-private-1325586649',
+        DRIVE_STORAGE_INTERNAL_TOKEN: '{{env.DRIVE_STORAGE_INTERNAL_TOKEN}}',
         WEB_RESUME_STORAGE_INTERNAL_TOKEN: '{{env.WEB_RESUME_STORAGE_INTERNAL_TOKEN}}',
         WEB_RESUME_SWEEPER_INTERNAL_TOKEN: '{{env.WEB_RESUME_SWEEPER_INTERNAL_TOKEN}}',
       },
@@ -183,8 +185,9 @@ describe('cloudBase test identity deployment manifest', () => {
     expect(functions.get('appstore-notify')?.envVariables).not.toHaveProperty('ACCOUNT_API_INTERNAL_TOKEN')
   })
 
-  it('uses a dedicated token for Web Resume storage delegation', () => {
+  it('uses dedicated tokens for Drive asset and Web Resume storage delegation', () => {
     expect(functions.get('user-storage-api')?.envVariables).toMatchObject({
+      DRIVE_STORAGE_INTERNAL_TOKEN: '{{env.DRIVE_STORAGE_INTERNAL_TOKEN}}',
       WEB_RESUME_STORAGE_INTERNAL_TOKEN: '{{env.WEB_RESUME_STORAGE_INTERNAL_TOKEN}}',
     })
   })
