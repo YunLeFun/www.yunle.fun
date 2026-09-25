@@ -44,6 +44,7 @@
     "@yunlefun/authorization-core": "workspace:*",
     "@yunlefun/sso": "catalog:",
     "@yunlefun/types": "catalog:",
+    "@yunlefun/ui": "catalog:",
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",
     "h3": "catalog:",
