@@ -93,7 +93,7 @@ async function issueDeviceGrant(database, grant, options = {}) {
     lastSeenAt: now,
     revokedAt: null,
   })
-  return { deviceRefreshToken: issued.refreshToken }
+  return { deviceRefreshToken: issued.refreshToken, grantId }
 }
 
 async function refreshDeviceGrant(db, input, options = {}) {
@@ -155,6 +155,7 @@ async function refreshDeviceGrant(db, input, options = {}) {
     scopes: rotated.grant.scopes,
     deviceId: rotated.grant.deviceId,
     deviceJkt: rotated.grant.deviceJkt,
+    grantId: rotated.grant.grantId,
     now,
   })
   return {

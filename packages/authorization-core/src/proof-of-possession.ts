@@ -64,6 +64,9 @@ export function createProofOfPossessionVerifier(options: {
       method: string
       url: string
       now: number
+      /** Optional access-token and request bindings for online capabilities. */
+      accessTokenHash?: string
+      requestHash?: string
     }): VerifiedProof {
       const parts = typeof proof === 'string' ? proof.split('.') : []
       if (parts.length !== 3)
@@ -95,6 +98,10 @@ export function createProofOfPossessionVerifier(options: {
       const claims = parseObject(encodedClaims)
       if (claims.htm !== input.method.toUpperCase() || claims.htu !== input.url)
         throw new AuthorizationError('proof_target_invalid')
+      if ((input.accessTokenHash !== undefined && claims.ath !== input.accessTokenHash)
+        || (input.requestHash !== undefined && claims.request_hash !== input.requestHash)) {
+        throw new AuthorizationError('proof_binding_invalid')
+      }
       if (typeof claims.iat !== 'number'
         || !Number.isSafeInteger(claims.iat)
         || Math.abs(Math.floor(input.now / 1000) - claims.iat) > maxAgeSeconds) {

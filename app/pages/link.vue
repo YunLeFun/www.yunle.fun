@@ -20,6 +20,7 @@ const toast = useAppToast()
 /** scope → 人话权限描述 */
 const SCOPE_LABELS: Record<string, string> = {
   'membership:read': '读取你的会员等级与到期时间',
+  'ai:writing': '在你主动使用写作助手时发送文章给模型，并按实际用量扣除你的 AI 点数',
 }
 
 type Status = 'input' | 'loading' | 'ready' | 'approving' | 'approved' | 'denied' | 'error'
@@ -167,7 +168,7 @@ onMounted(() => {
         </AppButton>
       </div>
       <p class="text-xs text-dimmed">
-        基础功能无需登录即可使用；此授权只允许应用读取会员权益，不包含云币或其他账号操作。
+        基础功能无需登录即可使用；应用仅获得上方列出的权限，不包含云币转账。你可以在账号安全设置中撤销设备授权。
       </p>
     </template>
 

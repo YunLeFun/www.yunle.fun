@@ -1,0 +1,13 @@
+{
+  "clientId": "cms-desktop",
+  "appId": "cms",
+  "displayName": "云栈",
+  "status": "active",
+  "adapters": [
+    {
+      "kind": "device",
+      "allowedScopes": ["membership:read", "ai:writing"],
+      "consent": "explicit"
+    }
+  ]
+}
