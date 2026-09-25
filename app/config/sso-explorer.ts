@@ -1,5 +1,10 @@
+import type { ClientRegistrySnapshot } from '../../packages/authorization-core/src/registry-types'
 import type { SsoExplorerApp } from '~/types/app-explorer'
-import { productionRegistry } from '../../packages/authorization-core/src/registry'
+import { registry as productionRegistryJson } from '../../packages/authorization-core/src/generated/production-registry.json'
+
+// The signed release envelope contains operator identifiers and is server-only.
+// Import the registry field directly so Vite excludes that envelope from client assets.
+const productionRegistry = productionRegistryJson as ClientRegistrySnapshot
 
 interface SsoPresentation {
   description: string
