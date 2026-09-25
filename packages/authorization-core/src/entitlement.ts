@@ -29,6 +29,8 @@ export interface EntitlementClaims {
   nbf: number
   exp: number
   jti: string
+  /** Online capabilities bind to one revocable grant family. */
+  grant_id?: string
 }
 
 function privateKey(input: KeyInput): KeyObject {
@@ -82,6 +84,7 @@ export function createEntitlementKeyring(options: {
       appId: string
       scopes: readonly string[]
       deviceJkt: string
+      grantId?: string
       membership?: { level: string, expiresAt: number } | null
       now: number
       ttlSeconds: number
@@ -94,6 +97,7 @@ export function createEntitlementKeyring(options: {
         app_id: input.appId,
         scope: [...input.scopes],
         cnf: { jkt: input.deviceJkt },
+        ...(input.grantId ? { grant_id: input.grantId } : {}),
         ...(input.membership && input.membership.expiresAt > input.now
           ? {
               membership: {

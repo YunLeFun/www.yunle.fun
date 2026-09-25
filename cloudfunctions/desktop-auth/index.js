@@ -20,6 +20,7 @@ const {
 } = require('@yunlefun/authorization-core')
 
 const { assertActiveAccountForUid, getAccountForUid } = require('./lib/account-proxy')
+const { authorizeAiRequest } = require('./lib/ai-authorization')
 const { createDesktopClientRegistry } = require('./lib/client-registry')
 const {
   approveDevice,
@@ -155,6 +156,7 @@ async function buildEntitlement(grant) {
       appId: grant.appId,
       scopes: grant.scopes,
       deviceJkt: grant.deviceJkt,
+      grantId: grant.grantId,
       membership: activeMembership,
       now: grant.now,
       ttlSeconds: runtime.entitlementTtlSec,
@@ -213,7 +215,7 @@ async function handleHttp(payload, event, now) {
       })
       if (polled.status !== 'approved')
         return polled
-      const entitlement = await buildEntitlement({ ...polled.grant, now })
+      const entitlement = await buildEntitlement({ ...polled.grant, grantId: polled.grantId, now })
       return {
         status: polled.status,
         deviceRefreshToken: polled.deviceRefreshToken,
@@ -247,6 +249,20 @@ async function requireActiveCaller(runtime) {
 
 async function handleSdk(payload, now) {
   const runtime = loadRuntime()
+  if (payload.action === 'authorizeAiRequest') {
+    return authorizeAiRequest(db, payload, {
+      now,
+      serviceToken: process.env.DESKTOP_AI_RUNTIME_SERVICE_TOKEN || '',
+      canonicalOrigin: process.env.DESKTOP_AI_RUNTIME_ORIGIN || '',
+      registry: runtime.registry,
+      keyring: runtime.keyring,
+      proofVerifier: runtime.proofVerifier,
+      assertActiveAccount: userId => assertActiveAccountForUid(callAccountApi, {
+        serviceToken: runtime.internalToken,
+        userId,
+      }),
+    })
+  }
   const uid = await requireActiveCaller(runtime)
   switch (payload.action) {
     case 'describeDevice':
