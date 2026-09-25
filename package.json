@@ -32,7 +32,6 @@
     "ci": "npm i -g corepack && pnpm install"
   },
   "dependencies": {
-    "@cloudbase/auth": "catalog:",
     "@cloudbase/js-sdk": "catalog:",
     "@cloudbase/signature-nodejs": "catalog:",
     "@iconify-json/lucide": "catalog:",
