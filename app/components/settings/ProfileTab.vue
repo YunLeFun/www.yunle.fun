@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { UpdateUserReq } from '@cloudbase/auth'
+import type { UpdateUserReq } from '@cloudbase/js-sdk/auth'
 import {
   ArrowRightIcon,
   AtSignIcon,

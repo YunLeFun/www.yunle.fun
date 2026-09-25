@@ -1,7 +1,7 @@
 /**
  * 密码认证（登录、修改、重置）和邮箱/手机号绑定
  */
-import type { SignInWithPasswordCredentials } from '@cloudbase/auth'
+import type { SignInWithPasswordCredentials } from '@cloudbase/js-sdk/auth'
 import type { EmailBindingPhase, TcbBindVerificationData, TcbResetPasswordData } from './types'
 import { getAuthErrorPresentation, getErrorMessage, toEmailBindingError } from './types'
 
@@ -57,11 +57,11 @@ export function useTcbPassword(core: ReturnType<typeof import('./useAuthCore').u
       const target = user.value?.email || user.value?.phone
       if (!target)
         throw new Error('请先绑定邮箱或手机号，再设置密码')
-      const { data, error: resetError } = await auth.resetPasswordForEmail(target)
-      if (resetError)
-        throw new Error(resetError.message || '发送验证码失败')
+      const response = await auth.resetPasswordForEmail(target)
+      if (response.error)
+        throw new Error(response.error.message || '发送验证码失败')
       toast.add({ title: '验证码已发送', description: `请查看${user.value?.email ? '邮箱' : '手机短信'}`, color: 'success' })
-      return data
+      return response.data
     }
     catch (err: unknown) {
       console.error('发送验证码失败:', err)
@@ -122,11 +122,11 @@ export function useTcbPassword(core: ReturnType<typeof import('./useAuthCore').u
     try {
       loading.value = true
       error.value = null
-      const { data, error: resetError } = await auth.resetPasswordForEmail(emailOrPhone)
-      if (resetError)
-        throw new Error(resetError.message || '发送重置链接失败')
+      const response = await auth.resetPasswordForEmail(emailOrPhone)
+      if (response.error)
+        throw new Error(response.error.message || '发送重置链接失败')
       toast.add({ title: '验证码已发送', description: '请查看您的邮箱或手机短信', color: 'success' })
-      return data
+      return response.data
     }
     catch (err: unknown) {
       console.error('发送重置密码失败:', err)
@@ -167,11 +167,11 @@ export function useTcbPassword(core: ReturnType<typeof import('./useAuthCore').u
     try {
       loading.value = true
       error.value = null
-      const { data, error: updateError } = await auth.updateUser({ email })
-      if (updateError)
-        throw updateError
+      const response = await auth.updateUser({ email })
+      if (response.error)
+        throw response.error
       toast.add({ title: '验证码已发送', description: '请查看您的邮箱', color: 'success' })
-      return data
+      return response.data
     }
     catch (err: unknown) {
       throwEmailBindingError(err, 'request')
@@ -206,11 +206,11 @@ export function useTcbPassword(core: ReturnType<typeof import('./useAuthCore').u
     try {
       loading.value = true
       error.value = null
-      const { data, error: updateError } = await auth.updateUser({ phone })
-      if (updateError)
-        throw new Error(updateError.message || '发送验证码失败')
+      const response = await auth.updateUser({ phone })
+      if (response.error)
+        throw new Error(response.error.message || '发送验证码失败')
       toast.add({ title: '验证码已发送', description: '请查看手机短信', color: 'success' })
-      return data
+      return response.data
     }
     catch (err: unknown) {
       console.error('绑定手机号失败:', err)

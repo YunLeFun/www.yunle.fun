@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { SignInWithPasswordCredentials } from '@cloudbase/auth'
+import type { SignInWithPasswordCredentials } from '@cloudbase/js-sdk/auth'
 import type { TcbOtpData, TcbResetPasswordData } from '~/composables/useTcbAuth'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { GITHUB_PROVIDER_ID, isOAuthProviderEnabled, WECHAT_PROVIDER_ID } from '~/utils/authProviders'
@@ -81,14 +81,14 @@ const phoneAreaCode = ref('+86')
 // 手机号登录状态
 const phone = ref('')
 const phoneOtpCode = ref('')
-const phoneOtpData = ref<TcbOtpData | null>(null)
+const phoneOtpData = shallowRef<TcbOtpData | null>(null)
 const phoneCodeSent = ref(false)
 const { remaining: phoneCountdown, isActive: phoneCountdownActive, start: startPhoneCountdown } = useCountdown()
 
 // 邮箱登录状态
 const email = ref('')
 const emailOtpCode = ref('')
-const emailOtpData = ref<TcbOtpData | null>(null)
+const emailOtpData = shallowRef<TcbOtpData | null>(null)
 const emailCodeSent = ref(false)
 const { remaining: emailCountdown, isActive: emailCountdownActive, start: startEmailCountdown } = useCountdown()
 
@@ -104,7 +104,7 @@ const isPasswordUsername = computed(() => isAuthUsernameCompatible(passwordAccou
 const showResetPassword = ref(false)
 const resetAccount = ref('')
 const resetOtpCode = ref('')
-const resetData = ref<TcbResetPasswordData | null>(null)
+const resetData = shallowRef<TcbResetPasswordData | null>(null)
 const resetStep = ref<'input' | 'verify' | 'newpwd'>('input')
 const newPassword = ref('')
 const confirmNewPassword = ref('')

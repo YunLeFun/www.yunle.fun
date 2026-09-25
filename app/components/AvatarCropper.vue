@@ -24,14 +24,14 @@ const emit = defineEmits<{
 
 const open = defineModel<boolean>('open', { default: false })
 
-const canvasRef = ref<HTMLCanvasElement | null>(null)
-const containerRef = ref<HTMLDivElement | null>(null)
+const canvasRef = shallowRef<HTMLCanvasElement | null>(null)
+const containerRef = shallowRef<HTMLDivElement | null>(null)
 
 const maxOutput = computed(() => props.maxSize || 512)
 const outputQuality = computed(() => props.quality || 0.85)
 
 // 图片和裁剪状态
-const img = ref<HTMLImageElement | null>(null)
+const img = shallowRef<HTMLImageElement | null>(null)
 const imgLoaded = ref(false)
 
 // 图片在画布中的渲染参数

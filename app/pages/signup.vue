@@ -36,7 +36,7 @@ const step = ref<Step>('info')
 // 表单状态
 const phone = ref('')
 const otpCode = ref('')
-const signUpData = ref<TcbSignUpData | null>(null)
+const signUpData = shallowRef<TcbSignUpData | null>(null)
 const { remaining: countdown, isActive: countdownActive, start: startCountdown } = useCountdown()
 
 // 区号选项（当前仅支持中国大陆）

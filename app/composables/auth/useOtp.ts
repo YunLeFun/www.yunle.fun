@@ -29,14 +29,14 @@ export function useTcbOtp(core: ReturnType<typeof import('./useAuthCore').useTcb
     try {
       loading.value = true
       error.value = null
-      const { data, error: otpError } = await auth.signInWithOtp({
+      const response = await auth.signInWithOtp({
         phone,
         options: { shouldCreateUser: true },
       })
-      if (otpError)
-        throw otpError
+      if (response.error)
+        throw response.error
       toast.add({ title: '验证码已发送', description: '请查看手机短信', color: 'success' })
-      return data
+      return response.data
     }
     catch (err: unknown) {
       console.error('发送验证码失败:', err)
@@ -81,11 +81,11 @@ export function useTcbOtp(core: ReturnType<typeof import('./useAuthCore').useTcb
     try {
       loading.value = true
       error.value = null
-      const { data, error: signUpError } = await auth.signUp({ phone } as Parameters<typeof auth.signUp>[0])
-      if (signUpError)
-        throw signUpError
+      const response = await auth.signUp({ phone } as Parameters<typeof auth.signUp>[0])
+      if (response.error)
+        throw response.error
       toast.add({ title: '验证码已发送', description: '请查看手机短信', color: 'success' })
-      return data
+      return response.data
     }
     catch (err: unknown) {
       console.error('注册失败:', err)
@@ -130,14 +130,14 @@ export function useTcbOtp(core: ReturnType<typeof import('./useAuthCore').useTcb
     try {
       loading.value = true
       error.value = null
-      const { data, error: otpError } = await auth.signInWithOtp({
+      const response = await auth.signInWithOtp({
         email,
         options: { shouldCreateUser: false },
       })
-      if (otpError)
-        throw otpError
+      if (response.error)
+        throw response.error
       toast.add({ title: '验证码已发送', description: '请查看您的邮箱', color: 'success' })
-      return data
+      return response.data
     }
     catch (err: unknown) {
       console.error('发送邮箱验证码失败:', err)

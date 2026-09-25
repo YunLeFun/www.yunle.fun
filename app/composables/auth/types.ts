@@ -7,7 +7,7 @@ import type {
   SignInWithOtpRes,
   SignUpRes,
   UpdateUserWithVerificationRes,
-} from '@cloudbase/auth'
+} from '@cloudbase/js-sdk/auth'
 import { isOAuthUsernamePlaceholder } from '../../utils/username'
 
 /** CloudBase Auth SDK 返回的原始用户类型 */
@@ -72,10 +72,14 @@ export interface AuthState {
 }
 
 /** OTP data 返回类型 */
-export type TcbOtpData = SignInWithOtpRes['data']
-export type TcbSignUpData = SignUpRes['data']
-export type TcbBindVerificationData = UpdateUserWithVerificationRes['data'] | { user?: unknown }
-export type TcbResetPasswordData = ResetPasswordForEmailRes['data']
+// AuthResult has a separate error branch with null callbacks. Callers store only
+// data returned after checking `error`, so keep these types on the success branch.
+type SuccessData<T> = Extract<T, { error: null }> extends { data: infer D } ? D : never
+
+export type TcbOtpData = SuccessData<SignInWithOtpRes>
+export type TcbSignUpData = SuccessData<SignUpRes>
+export type TcbBindVerificationData = SuccessData<UpdateUserWithVerificationRes> | { user?: unknown }
+export type TcbResetPasswordData = SuccessData<ResetPasswordForEmailRes>
 export type { LinkIdentityReq }
 
 /**
