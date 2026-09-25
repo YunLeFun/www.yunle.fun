@@ -28,7 +28,7 @@ describe('settings security credentials', () => {
   beforeEach(() => {
     h.s.user = ref({
       id: 'email-user',
-      email: 'sanshiliuxiaoye@gmail.com',
+      email: 'tester@example.com',
       phone: null,
       providers: ['email'],
     })

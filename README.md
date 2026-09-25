@@ -1,6 +1,5 @@
 # 云乐坊
 
-[![CI](https://github.com/YunLeFun/www.yunle.fun/actions/workflows/ci.yml/badge.svg)](https://github.com/YunLeFun/www.yunle.fun/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 
 云乐坊是面向独立开发者的工具与资源平台。本仓库包含 [www.yunle.fun](https://www.yunle.fun) 的 Nuxt 应用、CloudBase 云函数，以及跨应用统一登录使用的授权核心。

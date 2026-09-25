@@ -6,7 +6,7 @@
 
 ## 私下报告漏洞
 
-请使用 GitHub 的 [私密安全报告](https://github.com/YunLeFun/www.yunle.fun/security/advisories/new) 提交漏洞。不要在公开 Issue、Discussion、Pull Request 或日志中披露漏洞细节、真实凭据、用户数据或可直接复现的攻击载荷。
+请发送邮件至 <kf@yunle.fun>，标题注明“安全报告”，私下提交漏洞。不要在公开渠道或日志中披露漏洞细节、真实凭据、用户数据或可直接复现的攻击载荷。
 
 报告尽量包含：
 
