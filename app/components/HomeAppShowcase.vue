@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { defineAsyncComponent, ref } from 'vue'
+import { defineAsyncComponent, shallowRef } from 'vue'
 import { useSsoAccountState } from '~/composables/useSsoAccountState'
 import { ssoExplorerApps } from '~/config/sso-explorer'
 
@@ -10,8 +10,8 @@ const AppSsoCloudMap = defineAsyncComponent({
 
 const prefersReducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
 const accountState = useSsoAccountState('/')
-const mapHost = ref<HTMLElement | null>(null)
-const shouldRenderMap = ref(false)
+const mapHost = shallowRef<HTMLElement | null>(null)
+const shouldRenderMap = shallowRef(false)
 
 const { stop: stopObservingMap } = useIntersectionObserver(
   mapHost,
