@@ -82,8 +82,8 @@ catalogs:
       specifier: ^0.2.1
       version: 0.2.1
     '@yunlefun/ui':
-      specifier: ^0.0.3
-      version: 0.0.3
+      specifier: ^0.0.4
+      version: 0.0.4
     baseline-browser-mapping:
       specifier: ^2.11.15
       version: 2.11.15
@@ -217,7 +217,7 @@ importers:
         version: 0.2.1
       '@yunlefun/ui':
         specifier: 'catalog:'
-        version: 0.0.3
+        version: 0.0.4
       class-variance-authority:
         specifier: 'catalog:'
         version: 0.7.1
@@ -3552,8 +3552,8 @@ packages:
   '@yunlefun/types@0.2.1':
     resolution: {integrity: sha512-KwfJo4efOA4yb5652Q6MHwSDd/wr4BsuFm4CPDQCLRQ6xpVmBMamgVmp+y1Ouh4CMhOHOcgGee1etflREG8ECg==}
 
-  '@yunlefun/ui@0.0.3':
-    resolution: {integrity: sha512-d9y7tJ4fYeQlid7Ahdx5f5O1BQKbeIfmRBk56Dn7kl6yMAqXt/yMkLL3zk3eaTZYVJu1HL5KWJdMhSIbX6ws7w==}
+  '@yunlefun/ui@0.0.4':
+    resolution: {integrity: sha512-ygy1nn9ljR059UeYgBHCo1W2mnxnYpJ2VC3DZbVmXbxwr5Qx/Pl/ysL6xRkvR27dvtQlAZV71NDyRiqsQGhtyw==}
     peerDependencies:
       sass: ^1.101.0
     peerDependenciesMeta:
@@ -11438,7 +11438,7 @@ snapshots:
 
   '@yunlefun/types@0.2.1': {}
 
-  '@yunlefun/ui@0.0.3': {}
+  '@yunlefun/ui@0.0.4': {}
 
   abbrev@2.0.0: {}
 
