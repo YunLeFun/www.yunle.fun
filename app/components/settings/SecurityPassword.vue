@@ -60,7 +60,7 @@ const showConfirmPassword = ref(false)
 // 首次设置密码：验证码流程
 const setPasswordStep = ref<'otp' | 'verify'>('otp')
 const setPasswordOtpCode = ref('')
-const setPasswordResetData = ref<TcbResetPasswordData | null>(null)
+const setPasswordResetData = shallowRef<TcbResetPasswordData | null>(null)
 const { remaining: setPasswordCountdown, isActive: setPasswordCountdownActive, start: startSetPasswordCountdown } = useCountdown()
 
 const hasPassword = computed(() => user.value?.hasPassword)

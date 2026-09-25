@@ -43,7 +43,7 @@ const {
 const showModal = ref(false)
 const phoneNumber = ref('')
 const otpCode = ref('')
-const bindData = ref<TcbBindVerificationData | null>(null)
+const bindData = shallowRef<TcbBindVerificationData | null>(null)
 const step = ref<'input' | 'verify'>('input')
 const { remaining: countdown, isActive: countdownActive, start: startCountdown } = useCountdown()
 
