@@ -3,6 +3,7 @@
  */
 import type { SignInWithPasswordCredentials } from '@cloudbase/js-sdk/auth'
 import type { EmailBindingPhase, TcbBindVerificationData, TcbResetPasswordData } from './types'
+import { getSafeLoginRedirect } from '~/utils/authRoutes'
 import { getAuthErrorPresentation, getErrorMessage, toEmailBindingError } from './types'
 
 export function useTcbPassword(core: ReturnType<typeof import('./useAuthCore').useTcbAuthCore>) {
@@ -26,6 +27,8 @@ export function useTcbPassword(core: ReturnType<typeof import('./useAuthCore').u
   }
 
   const signInWithPassword = async (params: SignInWithPasswordCredentials) => {
+    const loginRoute = router.currentRoute.value.fullPath
+    const redirect = getSafeLoginRedirect(router.currentRoute.value.query.redirect)
     try {
       loading.value = true
       error.value = null
@@ -34,8 +37,10 @@ export function useTcbPassword(core: ReturnType<typeof import('./useAuthCore').u
         throw signInError
       await fetchUser()
       toast.add({ title: '登录成功', description: '欢迎回来！', color: 'success' })
-      const redirect = router.currentRoute.value.query.redirect as string
-      await router.push(redirect || '/')
+      // The login page may already resume SSO as soon as fetchUser sets the user.
+      // Never override that navigation after the remaining profile requests finish.
+      if (router.currentRoute.value.fullPath === loginRoute)
+        await router.push(redirect)
       return data
     }
     catch (err: unknown) {
