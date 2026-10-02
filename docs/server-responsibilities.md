@@ -28,7 +28,7 @@
 | 功能                       | 载体                                                         | 原因                                                                         |
 | -------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------- |
 | 登录 / OAuth / 绑定 / 解绑 | Web SDK（纯浏览器）                                          | CloudBase Auth 是身份源，token 由 SDK 管理在 localStorage，不需要自建 server |
-| 账号 / 钱包 / 会员 API     | `cloudfunctions/account-api`                                 | 需校验 CloudBase access token + 同地域低延迟读写 NoSQL                       |
+| 账号 / 钱包 / 会员 API     | `YunLeFun/api/cloudfunctions/account-api`                    | 需校验 CloudBase access token + 同地域低延迟读写 NoSQL                       |
 | 微信支付下单 / 回调        | `cloudfunctions/wxpay-order`、`cloudfunctions/wxpay-notify`  | 商户私钥隔离；回调 URL 已配置在微信商户平台                                  |
 | Apple IAP 下单 / 通知      | `cloudfunctions/iap-order`、`cloudfunctions/appstore-notify` | App Store Server API 密钥隔离；通知 URL 已配置在 App Store Connect           |
 | 定时任务（对账等）         | CloudBase 云函数定时触发器                                   | 离订单数据近，失败可重试                                                     |

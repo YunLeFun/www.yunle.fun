@@ -27,7 +27,6 @@ const ROOT = resolve(__dirname, '..')
 const SOURCE = resolve(ROOT, 'cloudfunctions/wxpay-order/lib')
 const TARGETS = [
   resolve(ROOT, 'cloudfunctions/wxpay-notify/lib'),
-  resolve(ROOT, 'cloudfunctions/account-api/lib'),
   resolve(ROOT, 'cloudfunctions/iap-order/lib'),
   resolve(ROOT, 'cloudfunctions/appstore-notify/lib'),
 ]

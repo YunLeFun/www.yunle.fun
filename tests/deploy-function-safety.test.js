@@ -26,7 +26,6 @@ const productionConfig = JSON.parse(await readFile(new URL('../cloudbaserc.json'
 const ciConfig = JSON.parse(await readFile(new URL('../cloudbaserc.ci.json', import.meta.url), 'utf8'))
 const envExample = await readFile(new URL('../.env.example', import.meta.url), 'utf8')
 const TEST_IDENTITY_FUNCTIONS = [
-  'account-api',
   'sso-ticket',
   'test-identity-sweeper',
 ]
@@ -123,25 +122,13 @@ describe('云函数部署环境变量门禁', () => {
     expect(() => assertFunctionEnvironmentReady(
       productionConfig,
       TEST_IDENTITY_FUNCTIONS,
-      { ...env, PLAY_PACHINKO_ACCOUNT_API_TOKEN: 'short' },
+      { ...env, TEST_BROKER_INTERNAL_TOKEN: 'short' },
     )).toThrow('32～512 bytes')
 
     expect(() => assertFunctionEnvironmentReady(
       productionConfig,
       TEST_IDENTITY_FUNCTIONS,
-      { ...env, PLAY_PACHINKO_ACCOUNT_API_TOKEN: env.YUNLEFUN_AI_COIN_ACCOUNT_API_TOKEN },
-    )).toThrow('跨用途复用')
-
-    expect(() => assertFunctionEnvironmentReady(
-      productionConfig,
-      TEST_IDENTITY_FUNCTIONS,
-      { ...env, YUNLEFUN_AI_RUNTIME_ACCOUNT_API_TOKEN: 'short' },
-    )).toThrow('32～512 bytes')
-
-    expect(() => assertFunctionEnvironmentReady(
-      productionConfig,
-      TEST_IDENTITY_FUNCTIONS,
-      { ...env, YUNLEFUN_AI_RUNTIME_ACCOUNT_API_TOKEN: env.ACCOUNT_API_INTERNAL_TOKEN },
+      { ...env, TEST_BROKER_INTERNAL_TOKEN: env.ACCOUNT_API_INTERNAL_TOKEN },
     )).toThrow('跨用途复用')
 
     expect(() => assertFunctionEnvironmentReady(

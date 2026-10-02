@@ -1,11 +1,11 @@
 # AI Runtime 旧服务退役
 
-`services/advjs-ai-runtime` 已由 `YunLeFun/api` 中的共享平台 Runtime 取代。www 仓库不再拥有 HTTP Runtime、worker、sweeper 或旧 read-projection broker，但仍拥有账号点数账本及其 CloudBase 资源安全边界。
+`services/advjs-ai-runtime` 已由 `YunLeFun/api` 中的共享平台 Runtime 取代。www 仓库不再拥有 HTTP Runtime、worker、sweeper 或旧 read-projection broker，账号点数账本及其 CloudBase 资源安全边界也已迁至 `YunLeFun/api`。
 
 ## 所有权边界
 
-- `YunLeFun/api`：`services/ai-runtime`、`packages/ai-runtime*`、生产 worker/sweeper、运行时策略和 `production-read-only` 回滚单元。
-- 本仓库：`cloudfunctions/account-api/ai-points.js`、`ai-point-resources.js`、资源规划/检查脚本，以及冻结的 v1 contract fixture。
+- `YunLeFun/api`：`services/ai-runtime`、`packages/ai-runtime*`、生产 worker/sweeper、运行时策略和 `production-read-only` 回滚单元，以及 `cloudfunctions/account-api`、AI 资源规划/检查脚本。
+- 本仓库：钱包前端、账户服务调用方，以及冻结的 v1 contract fixture；迁移说明见 [账户服务所有权](./account-api-ownership.md)。
 - ADV.JS Studio：浏览器侧 v1 transport 与 proposal 应用流程。
 
 冻结的 v1 fixture/parser 位于 `tests/fixtures/ai-runtime`。`pnpm verify:ai-runtime:p4` 会跨三个工作树逐字节检查 fixture，逐字节检查 www 与 API Adapter 的 parser，并检查 Studio 的 v1 transport 行为；同时确认平台生产 Runtime 直接读取 CloudBase，不依赖已退役的 www read-projection broker。

@@ -10,7 +10,6 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const CONFIG_PATH = resolve(ROOT, 'cloudbaserc.json')
 
 export const TEST_IDENTITY_FUNCTIONS = Object.freeze([
-  'account-api',
   'sso-ticket',
   'test-identity-sweeper',
 ])
@@ -25,7 +24,7 @@ function deploymentPlan() {
     if (item.runtime !== 'Nodejs18.15' || item.handler !== 'index.main')
       throw new Error(`云函数 ${name} 必须使用 Nodejs18.15 与 index.main`)
   }
-  for (const name of ['account-api', 'sso-ticket']) {
+  for (const name of ['sso-ticket']) {
     if (configuredFunctions.get(name).aclRule?.invoke !== 'auth != null')
       throw new Error(`云函数 ${name} 必须要求 CloudBase authentication`)
   }
@@ -33,7 +32,11 @@ function deploymentPlan() {
     throw new Error('test-identity-sweeper 必须禁止外部调用')
   if (typeof config.envId !== 'string' || !config.envId)
     throw new Error('cloudbaserc.json 缺少 envId')
-  return { envId: config.envId, functions: [...TEST_IDENTITY_FUNCTIONS] }
+  return {
+    envId: config.envId,
+    functions: [...TEST_IDENTITY_FUNCTIONS],
+    prerequisites: ['Deploy account-api from YunLeFun/api first'],
+  }
 }
 
 function main() {

@@ -69,11 +69,14 @@ export function useCoin() {
     }
     loading.value = true
     error.value = null
+    const requestedUserId = user.value.id
     try {
       const res = await app.callFunction({
         name: 'account-api',
         data: { action: 'getAccount' },
       })
+      if (user.value?.id !== requestedUserId)
+        return null
       account.value = res.result as AccountSnapshot
       return account.value
     }

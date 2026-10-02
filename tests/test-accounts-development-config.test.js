@@ -12,7 +12,6 @@ describe('development fixed test account deployment', () => {
   it('targets the development environment with only the required functions', () => {
     expect(config.envId).toBe('yunlefun-dev-0ge03bdod37093d1')
     expect(config.functions.map(item => item.name)).toEqual([
-      'account-api',
       'wxpay-order',
     ])
   })

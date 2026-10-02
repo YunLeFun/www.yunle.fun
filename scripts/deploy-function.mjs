@@ -6,8 +6,8 @@
  *
  * 用法：
  *   node scripts/deploy-function.mjs desktop-auth
- *   node scripts/deploy-function.mjs account-api wxpay-order
- *   CLOUDBASE_CONFIG_FILE=cloudbaserc.test-accounts-development.json node scripts/deploy-function.mjs account-api
+ *   node scripts/deploy-function.mjs wxpay-order
+ *   CLOUDBASE_CONFIG_FILE=cloudbaserc.test-accounts-development.json node scripts/deploy-function.mjs wxpay-order
  *
  * 与 deploy-iap-functions.mjs 的区别：本脚本不针对特定业务、不改写 cloudbaserc，
  * 只做「装载本地 env + tcb 部署」，适合 env 占位已写好在 cloudbaserc 里的函数。
@@ -61,6 +61,9 @@ if (functions.length === 0) {
   console.error('用法: node scripts/deploy-function.mjs <function...>')
   process.exit(1)
 }
+
+if (functions.includes('account-api'))
+  throw new Error('account-api 已迁至 YunLeFun/api；请在该仓库运行 pnpm deploy:account-api')
 
 loadEnvFile(resolve(ROOT, '.env'))
 loadEnvFile(resolve(ROOT, '.env.local'))

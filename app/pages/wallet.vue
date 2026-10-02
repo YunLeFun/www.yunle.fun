@@ -21,6 +21,8 @@ type WalletAsset = 'coin' | 'ai-points'
 const activeAsset = computed<WalletAsset>({
   get: () => route.query.asset === 'ai-points' ? 'ai-points' : 'coin',
   set: (asset) => {
+    if (asset !== 'coin' && asset !== 'ai-points')
+      return
     const query = { ...route.query }
     if (asset === 'ai-points')
       query.asset = asset
@@ -89,6 +91,8 @@ const hasMore = computed(() => nextSkip.value !== null)
 
 function transactionTitle(tx: CoinTransaction): string {
   const source = tx.meta?.source
+  if (source === 'ai_point_exchange')
+    return '兑换 AI 点数'
   const rewardName = typeof tx.meta?.rewardName === 'string' ? tx.meta.rewardName : ''
   if (source === 'admin_reward' && rewardName)
     return rewardName
@@ -267,7 +271,7 @@ onMounted(async () => {
         我的钱包
       </h1>
       <p class="text-sm text-muted">
-        {{ activeAsset === 'coin' ? '管理你的云币余额、充值与消费记录' : '查看你的 AI 点数余额与不可变流水' }}
+        {{ activeAsset === 'coin' ? '管理你的云币余额、充值与消费记录' : '管理 AI 点数，用云币为创作补充能量' }}
       </p>
     </header>
 
@@ -297,9 +301,9 @@ onMounted(async () => {
         <Icon name="i-lucide-wallet" class="size-7" />
       </div>
       <p class="text-muted">
-        登录后查看云币余额与充值记录
+        {{ activeAsset === 'ai-points' ? '登录后查看 AI 点数，并使用云币兑换' : '登录后查看云币余额与充值记录' }}
       </p>
-      <AppButton to="/login?redirect=/wallet" size="lg">
+      <AppButton :to="{ path: '/login', query: { redirect: activeAsset === 'ai-points' ? '/wallet?asset=ai-points' : '/wallet' } }" size="lg">
         去登录
       </AppButton>
     </div>
@@ -653,7 +657,7 @@ onMounted(async () => {
       <AppTipLeaderboard :limit="10" />
     </template>
 
-    <WalletAiPointsPanel v-else />
+    <WalletAiPointsPanel v-else @exchanged="loadTransactions(true)" />
 
     <!-- 充值弹窗 -->
     <CoinRechargeModal

@@ -105,7 +105,7 @@ CloudBase 当前用户态接口实际使用 `^[a-z][0-9a-z_-]{5,24}$`（总长�
 2. `app/composables/auth/useOtp.ts` 的 `shouldCreateUser`；
 3. `app/utils/username.ts` 的新用户名规则与历史兼容规则；
 4. 登录页和用户名设置弹窗的说明与字段错误；
-5. `cloudfunctions/account-api/profiles.js` 的 Auth 资料快照兼容；
+5. `YunLeFun/api/cloudfunctions/account-api/profiles.js` 的 Auth 资料快照兼容；
 6. 本文与对应自动化测试。
 
 ## 发布前门禁

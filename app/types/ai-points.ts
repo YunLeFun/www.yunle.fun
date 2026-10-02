@@ -32,3 +32,19 @@ export interface AiPointTransactionPage {
   items: AiPointTransaction[]
   nextCursor: string | null
 }
+
+export interface AiPointExchangePolicy {
+  enabled: boolean
+  pointsPerCoin: number
+  minCoin: number
+  maxCoin: number
+}
+
+export interface AiPointExchangeResult {
+  exchangeId: string
+  coinAmount: number
+  creditedMicroPoints: number
+  coinBalance: number
+  account: AiPointAccount
+  deduped: boolean
+}

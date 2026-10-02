@@ -1,8 +1,10 @@
 # CloudBase 云函数
 
-本目录包含 [www.yunle.fun](https://www.yunle.fun) 的全部 CloudBase 云函数：微信支付、Apple 内购、平台账户中心（云币 + 跨应用会员 + AI 点数）、桌面应用登录授权、跨站 SSO 登录票据、GitHub App 仓库连接、短链跳转解析与统计。
+本目录包含 [www.yunle.fun](https://www.yunle.fun) 的全部 CloudBase 云函数：微信支付、Apple 内购、桌面应用登录授权、跨站 SSO 登录票据、GitHub App 仓库连接、短链跳转解析与统计。
 
 > 📖 云函数的概念、类型与调用方式见官方文档：[CloudBase 云函数介绍](https://docs.cloudbase.net/cloud-function/introduce)。
+
+账户服务 `account-api` 已迁至 `YunLeFun/api`，源码、测试和部署由 API 仓库维护，详见 [账户服务所有权](../docs/account-api-ownership.md)。
 
 ## 云函数列表
 
@@ -10,7 +12,6 @@
 | --------------------------------- | ------------------------------------------------------------------------------------------- | --------------------- | ---- |
 | `wxpay-order`                     | 创建支付订单（会员 / 云币充值）+ 查询订单 + 对账自愈                                        | SDK `callFunction`    | 30s  |
 | `wxpay-notify`                    | 接收微信支付异步回调通知                                                                    | HTTP 访问服务         | 10s  |
-| `account-api`                     | 平台账户中心：账户 / 云币 / AI 点数 / 会员 / 奖励 / 签到 / 投币 / 关注·粉丝 / 注销冷静期    | SDK `callFunction`    | 10s  |
 | `reward-claim-ops`                | 每 5 分钟结束到期领取活动、恢复未知入账、清理限流窗口并投递运营告警 Outbox                  | 定时触发（私有）      | 30s  |
 | `account-deletion-sweeper`        | 每小时完成已满 30 天冷静期的业务清理并删除 CloudBase Auth 身份                              | 定时触发（私有）      | 30s  |
 | `account-lifecycle-notifier`      | 每 5 分钟通过腾讯云 SES 处理注销申请、提醒、完成、延迟及运维事务邮件，并轮询实际投递状态    | 定时触发（私有）      | 30s  |
@@ -28,8 +29,8 @@
 | `github-api`                      | 多用户 GitHub App 仓库连接 / 列举 / 校验（含私有仓库），短期 installation token 不落库      | SDK + HTTP 双入口     | 10s  |
 
 > 云币 + 跨应用会员的整体设计见 [`docs/coin-and-membership.md`](../docs/coin-and-membership.md)。
-> 其中 5 个支付 / 账户函数共享同一份 `lib/`：权威源在 `cloudfunctions/wxpay-order/lib`，`pnpm sync:wxpay-lib` 同步到
-> `wxpay-notify` / `account-api` / `iap-order` / `appstore-notify`；`account-api` 无需任何 `WX_*` 环境变量。
+> 本仓支付函数共享同一份 `lib/`：权威源在 `cloudfunctions/wxpay-order/lib`，`pnpm sync:wxpay-lib` 同步到
+> `wxpay-notify` / `iap-order` / `appstore-notify`；API 仓库通过显式同步接收支付库快照。
 > `sso-registry-admin`、`sso-ticket` 与 `desktop-auth` 都消费 `packages/authorization-core`；Schema、签名、Client Registry、issuer、授权状态机与 scope/consent 只有一份深层实现。部署脚本会把构建后的 core vendoring 到函数 artifact。
 
 云函数入口有意保持为 Nodejs18.15 Event Function 可直接执行的 CommonJS JavaScript；共享领域逻辑、安全规则和可复用类型优先放入 TypeScript `authorization-core`，再以编译产物 vendoring。只有在统一了逐函数编译、source map、artifact 和线上报错映射后，才考虑迁移入口源码，避免仅为语法改造增加部署层。
@@ -71,19 +72,8 @@
 
 ### account-api 环境变量
 
-| 变量名                                        | 说明                                                                                                                                                                                                                            | 获取方式                                     |
-| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| `ACCOUNT_API_INTERNAL_TOKEN`                  | 内部服务调用 `deductCoinForUser` / `adminAdjustCoin` / `adminGrantReward` / `adminCorrectReward` / `admin*RewardClaimCampaign` / `finalizeAccountDeletion` 时校验用的共享密钥；调用方（其它云函数、admin 后台）需配置同一个值。 | 使用随机长字符串，勿暴露给前端。             |
-| `YUNLEFUN_AI_RUNTIME_ACCOUNT_API_TOKEN`       | YunLeFun AI Runtime 调用 AI 点数私有 action 的平台凭据；不得复用通用 account-api、云币、Runtime 管理或测试身份 token。旧变量 `ADVJS_AI_RUNTIME_ACCOUNT_API_TOKEN` 仅在迁移脚本中识别，不再写入部署清单。                        | 使用独立的 32～512 字节高熵随机值。          |
-| `YUNLEFUN_AI_COIN_ACCOUNT_API_TOKEN`          | YunLeFun AI Runtime 调用云币 reserve / commit / release / 过期回收 action 的最小权限凭据。                                                                                                                                      | 另行生成 32～512 字节高熵随机值。            |
-| `YUNLEFUN_TEST_ACCOUNT_ENVIRONMENT`           | 固定测试账号的部署环境边界；只有账号 `environment` 与此值相同才能扣币。                                                                                                                                                         | 测试部署设 `test`，生产部署设 `production`。 |
-| `REWARD_CLAIM_LINK_HASH_KEY`                  | 领取链接服务端 HMAC 摘要密钥；数据库只保存摘要。                                                                                                                                                                                | 独立生成至少 32 字节随机值。                 |
-| `REWARD_CLAIM_RATE_TICKET_SECRET`             | 两分钟 IP 匿名速率凭证签名密钥；必须与链接摘要密钥不同。                                                                                                                                                                        | 独立生成至少 32 字节随机值。                 |
-| `REWARD_CLAIM_SITE_URL`                       | 领取链接站点根地址，生产固定为 `https://www.yunle.fun`。                                                                                                                                                                        | `cloudbaserc.json` 固定值。                  |
-| `REWARD_CLAIM_MEMBERSHIP_HIGH_THRESHOLD_DAYS` | 会员总责任强确认阈值，生产默认 `3650` 天。                                                                                                                                                                                      | `cloudbaserc.json` 固定值。                  |
-
-www 的 `NUXT_REWARD_CLAIM_RATE_TICKET_SECRET` 必须与 account-api 的
-`REWARD_CLAIM_RATE_TICKET_SECRET` 相同；它只用于把可信来源 IP 转为短时匿名凭证。链接摘要密钥与速率凭证密钥不得复用。
+账户函数部署配置和密钥模板见 `YunLeFun/api` 的 `docs/account-api.md` 和 `.env.account-api.example`。
+官网的 `NUXT_REWARD_CLAIM_RATE_TICKET_SECRET` 必须与账户服务的 `REWARD_CLAIM_RATE_TICKET_SECRET` 一致。
 
 ### reward-claim-ops 环境变量与权限
 
@@ -510,7 +500,7 @@ tcb login
 node scripts/build-cloud-function.mjs sso-registry-admin desktop-auth sso-ticket
 
 # 部署单个云函数（脚本会校验该函数的全部环境变量占位符）
-node scripts/deploy-function.mjs account-api
+# account-api 从 YunLeFun/api 仓库通过 pnpm deploy:account-api 发布
 node scripts/deploy-function.mjs reward-claim-ops
 node scripts/deploy-function.mjs user-storage-api
 node scripts/deploy-function.mjs wxpay-order
@@ -527,13 +517,13 @@ node scripts/deploy-function.mjs shortlink-stat
 > ⚠️ 不要直接执行 `tcb fn deploy` 或 `tcb fn deploy --all`。CLI 会按
 > `cloudbaserc.json` 重写函数环境变量；本地缺少 `{{env.*}}` 对应值时，可能把线上密钥覆盖为空。
 > 需要发布多个函数时，把函数名一次性传给安全脚本，例如
-> `node scripts/deploy-function.mjs account-api reward-claim-ops`。
+> 先从 API 仓库部署 `account-api`，再在本仓执行 `node scripts/deploy-function.mjs reward-claim-ops`。
 >
 > ⚠️ 改动了 `lib/`（同步源 `wxpay-order/lib/`）后，**所有共享 lib 的云函数都要重新部署**：
 > `wxpay-order` / `wxpay-notify` / `account-api` / `iap-order` / `appstore-notify`——
-> 只部署其中一个会导致各函数 `lib/` 版本不一致。先 `pnpm sync:wxpay-lib && pnpm test`，再逐个部署。
+> 只部署其中一个会导致各函数 `lib/` 版本不一致。先 `pnpm sync:wxpay-lib && pnpm test`，再从 API 仓库同步支付快照并测试；账户函数从 API 发布，其余支付函数在本仓逐个部署。
 >
-> `sso-registry-admin`、`desktop-auth` 和 `sso-ticket` 共同依赖 `packages/authorization-core`；修改 Registry Schema、签名或 generated 产物时必须从 `.cloudbase/artifacts` 同步更新三者。`github-api`、`user-storage-api` 各有独立 `lib/`，改自身代码只需部署对应函数；AI 资产、签到 / 投币 / 关注·粉丝功能是 `account-api` 本地代码、未改支付 `lib/` 时只需部署 `account-api`。
+> `sso-registry-admin`、`desktop-auth` 和 `sso-ticket` 共同依赖 `packages/authorization-core`；修改 Registry Schema、签名或 generated 产物时必须从 `.cloudbase/artifacts` 同步更新三者。`github-api`、`user-storage-api` 各有独立 `lib/`，改自身代码只需部署对应函数；AI 资产、签到 / 投币 / 关注·粉丝功能是 API 仓库的 `account-api` 代码、未改支付 `lib/` 时只需部署 `account-api`。
 
 ## 数据库
 

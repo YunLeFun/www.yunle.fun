@@ -43,19 +43,6 @@
       }
     },
     {
-      "name": "account-api",
-      "timeout": 10,
-      "runtime": "Nodejs18.15",
-      "handler": "index.main",
-      "installDependency": true,
-      "aclRule": {
-        "invoke": "auth != null"
-      },
-      "envVariables": {
-        "ACCOUNT_API_INTERNAL_TOKEN": "{{env.ACCOUNT_API_INTERNAL_TOKEN}}"
-      }
-    },
-    {
       "name": "sso-ticket",
       "timeout": 10,
       "runtime": "Nodejs18.15",

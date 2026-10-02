@@ -9,7 +9,7 @@ describe('server import boundaries', () => {
     )
 
     expect(source).toContain(
-      'from \'~~/cloudfunctions/account-api/reward-claim-security.js\'',
+      'from \'~~/server/vendor/account-api/reward-claim-security.js\'',
     )
     expect(source).not.toMatch(
       /from ['"](?:\.\.\/)+cloudfunctions\/account-api\/reward-claim-security\.js['"]/,

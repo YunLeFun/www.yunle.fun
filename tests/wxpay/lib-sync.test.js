@@ -15,7 +15,8 @@ const ROOT = resolve(__filename, '../../../')
 const SOURCE = resolve(ROOT, 'cloudfunctions/wxpay-order/lib')
 const MIRRORS = [
   resolve(ROOT, 'cloudfunctions/wxpay-notify/lib'),
-  resolve(ROOT, 'cloudfunctions/account-api/lib'),
+  resolve(ROOT, 'cloudfunctions/iap-order/lib'),
+  resolve(ROOT, 'cloudfunctions/appstore-notify/lib'),
 ]
 
 async function listFiles(dir) {
