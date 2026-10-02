@@ -1,0 +1,8 @@
+{
+  "repository": "YunLeFun/api",
+  "path": "cloudfunctions/account-api",
+  "files": {
+    "reward-claim-security.js": "30c96337596d560dd74b87bb3149b7d33276990ea548b3d94a7700d5354c6618",
+    "reward-claim-security.d.ts": "d91080a26bc4a666b97113d6245a420cc715f474c49f9d217ef1b437e59a8488"
+  }
+}

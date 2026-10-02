@@ -83,6 +83,8 @@ function buildVendoredFunctionArtifact(functionName) {
 
 export function buildCloudFunctionArtifacts(functionNames) {
   const names = [...functionNames]
+  if (names.includes('account-api'))
+    throw new Error('account-api 已迁至 YunLeFun/api；请在该仓库运行 pnpm build:account-api')
   if (names.some(functionName => CORE_FUNCTIONS.has(functionName)))
     run('pnpm', ['build:authorization-core'])
 

@@ -31,7 +31,6 @@ describe('local SSO Provider entrypoint', () => {
     expect(deployment.functions.map(item => item.name)).toEqual([
       'sso-registry-admin',
       'sso-registry-release-dispatcher',
-      'account-api',
       'sso-ticket',
       'sso-security-sweeper',
     ])

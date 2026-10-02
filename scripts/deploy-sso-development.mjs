@@ -121,7 +121,7 @@ for (const name of [
     throw new Error(`${name} is required in .env.sso-development.local or the process environment`)
 }
 
-runTcb(['fn', 'deploy', 'account-api', '--dir', resolve(ROOT, 'cloudfunctions/account-api'), '--force'])
+console.log('account-api 由 YunLeFun/api 独立部署；请先运行该仓库的 deploy:account-api:sso-development。')
 const ticketArtifact = buildCloudFunctionArtifact('sso-ticket')
 runTcb(['fn', 'deploy', 'sso-ticket', '--dir', ticketArtifact, '--path', '/sso-ticket', '--force'])
 runTcb(['fn', 'deploy', 'sso-security-sweeper', '--dir', resolve(ROOT, 'cloudfunctions/sso-security-sweeper'), '--force'])
@@ -129,7 +129,7 @@ const hasRegistryKey = Boolean(process.env.SSO_REGISTRY_SIGNING_KEY)
 const hasRegistryKid = Boolean(process.env.SSO_REGISTRY_SIGNING_KID)
 if (hasRegistryKey !== hasRegistryKid)
   throw new Error('SSO_REGISTRY_SIGNING_KEY and SSO_REGISTRY_SIGNING_KID must be configured together')
-const configuredFunctions = ['account-api', 'sso-ticket', 'sso-security-sweeper']
+const configuredFunctions = ['sso-ticket', 'sso-security-sweeper']
 if (hasRegistryKey && hasRegistryKid) {
   if (!process.env.SSO_REGISTRY_CI_TOKEN)
     throw new Error('SSO_REGISTRY_CI_TOKEN is required with Registry signing credentials')

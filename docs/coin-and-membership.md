@@ -1,7 +1,7 @@
 # 云币 + 跨应用会员 — 共享支付/账户中心设计
 
 > 状态：核心账户/支付能力已编码落地并有单测覆盖；生产侧仍需确认 CloudBase 集合、索引、安全规则和云函数部署。
-> 关联代码：`cloudfunctions/account-api`、`cloudfunctions/wxpay-order`、`cloudfunctions/wxpay-notify`、`cloudfunctions/iap-order`、`cloudfunctions/appstore-notify`、`app/composables/useCoin.ts`、`app/composables/useCoinRecharge.ts`、`app/pages/wallet.vue`、`app/types/payment.ts`
+> 关联代码：`YunLeFun/api/cloudfunctions/account-api`、`cloudfunctions/wxpay-order`、`cloudfunctions/wxpay-notify`、`cloudfunctions/iap-order`、`cloudfunctions/appstore-notify`、`app/composables/useCoin.ts`、`app/composables/useCoinRecharge.ts`、`app/pages/wallet.vue`、`app/types/payment.ts`
 > 云空间配额中心见 [`docs/storage-quota.md`](./storage-quota.md)。
 
 ## 1. 背景与目标
@@ -365,7 +365,7 @@ async function deductCoin(db, { userId, appId, amount, bizId, meta }) {
 1. 新建集合与索引：`app_tip_stats`（`idx_app` 唯一）、`app_supporters`（`idx_app_user` 唯一）。
 2. 安全规则：两者均 **ADMINONLY**（仅云函数读写；前端经 account-api 间接访问）。
 3. `pnpm test` 全绿。
-4. `node scripts/deploy-function.mjs account-api`（会先校验 `cloudbaserc.json` 中的环境变量占位符，防止部署时清空既有密钥）。
+4. 在 `YunLeFun/api` 运行 `pnpm verify:account-api`，再通过 `pnpm deploy:account-api` 预览并部署；详见 [账户服务所有权](./account-api-ownership.md)。
 5. 前端 push main 自动部署（EdgeOne）。
 
 ---
@@ -374,3 +374,35 @@ async function deductCoin(db, { userId, appId, amount, bizId, meta }) {
 > 会员权益本期以「每日签到差异（免费 1 / 会员 2）」体现（见 §11）。
 > ③ `coin_transactions.type` 的 `gift` 现已用于**每日签到**，`consume` 复用于**投币**。
 > 仍待定（不阻塞）：老会员折算云币；退款策略（已消费云币不退）。
+
+### 云币兑换 AI 点数
+
+钱包的 `/wallet?asset=ai-points` 提供快捷额度、自定义数量、到账预览和二次确认。
+样式复用 `@yunlefun/ui` 的 `--ylf-c-*`、`--ylf-accent-*`、字号、间距与圆角 token；
+云币使用明黄标记，AI 点数使用青色标记，主操作使用品牌蓝，明暗主题由公共 token 切换。
+
+兑换通过 `account-api` 的两个登录态 action 完成，沿用账户封禁、注销和测试身份访问控制：
+
+- `getAiPointExchangePolicy`：返回 `enabled`、`pointsPerCoin`、`minCoin` 和 `maxCoin`。
+- `exchangeCoinForAiPoints`：接收 `coinAmount`、`pointsPerCoin`（用户确认时看到的比例）和 `idempotencyKey`。
+  用户身份来自服务端认证上下文，不接受客户端指定受益人或到账点数。
+
+`account-api` 云函数环境变量由 `YunLeFun/api` 管理。生产部署要求显式配置以下两项：
+
+| 配置                                | 默认值 | 说明                                              |
+| ----------------------------------- | ------ | ------------------------------------------------- |
+| `AI_POINT_EXCHANGE_POINTS_PER_COIN` | `10`   | 1 云币兑换的 AI 点数，支持 1～100,000 的整数      |
+| `AI_POINT_EXCHANGE_ENABLED`         | `true` | 设为 `false` 时停止新兑换；已成交请求仍可幂等查询 |
+
+单次允许兑换 1～10,000 个整数云币，不支持 AI 点数兑回云币。前端从服务端获取比例，不硬编码到账数量；
+比例变更后，旧确认会被拒绝并刷新规则，用户需要再次确认。
+
+一次数据库事务内同时完成云币扣减、点数增加和两条流水写入。云币明细保留 `consume` 类型，
+通过 `meta.source=ai_point_exchange` 显示「兑换 AI 点数」；点数明细保留 `grant` 类型，
+通过 `scope=coin-exchange` 显示「云币兑换」。沿用现有钱包和 AI 点数集合，无需新建集合。
+
+前端在当前浏览器会话中保留未确认请求的幂等键。响应丢失后重试或刷新页面，不会重新扣款；
+服务端明确拒绝后才允许重新编辑兑换。成功后刷新共享云币余额、AI 点数及两边明细。
+
+上线时先发布 `account-api` 再发布官网。默认 1:10 为本次实现的初始业务参数，上线前按实际运营规则核定；
+旧后端不支持兑换 action 时，前端会显示服务暂不可用，余额和明细仍可查看。

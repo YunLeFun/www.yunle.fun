@@ -44,7 +44,7 @@ describe('wallet AI points panel', () => {
   })
 
   it('shows formatted balances and a user-facing immutable ledger', async () => {
-    const wrapper = await mountSuspended(WalletAiPointsPanel)
+    const wrapper = await mountSuspended(WalletAiPointsPanel, { global: { stubs: { WalletAiPointExchange: { template: '<section>云币兑换 AI 点数</section>' } } } })
     await flushPromises()
 
     expect(wrapper.text()).toContain('88')
@@ -61,7 +61,7 @@ describe('wallet AI points panel', () => {
     expect((h.state.composable as { loadMore: ReturnType<typeof vi.fn> }).loadMore).toHaveBeenCalledOnce()
   })
 
-  it('explains an account that has not received AI points without implying a recharge path', async () => {
+  it('shows an exchange path for an account without AI points', async () => {
     const composable = h.state.composable as {
       account: ReturnType<typeof readonly>
       transactions: ReturnType<typeof readonly>
@@ -77,11 +77,11 @@ describe('wallet AI points panel', () => {
     }))
     composable.transactions = readonly(ref([]))
 
-    const wrapper = await mountSuspended(WalletAiPointsPanel)
+    const wrapper = await mountSuspended(WalletAiPointsPanel, { global: { stubs: { WalletAiPointExchange: { template: '<section>云币兑换 AI 点数</section>' } } } })
     await flushPromises()
 
     expect(wrapper.text()).toContain('尚未获得 AI 点数')
-    expect(wrapper.text()).toContain('由接入统一账本的 AI 应用按规则发放和扣除')
+    expect(wrapper.text()).toContain('用云币兑换，开始你的第一次 AI 创作')
     expect(wrapper.text()).not.toContain('充值 AI 点数')
   })
 })

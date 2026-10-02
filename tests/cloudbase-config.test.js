@@ -16,13 +16,7 @@ describe('cloudBase test identity deployment manifest', () => {
   })
 
   it('versions every private test-identity environment variable as a placeholder', () => {
-    expect(functions.get('account-api').envVariables).toMatchObject({
-      YUNLEFUN_AI_RUNTIME_ACCOUNT_API_TOKEN: '{{env.YUNLEFUN_AI_RUNTIME_ACCOUNT_API_TOKEN}}',
-      YUNLEFUN_AI_COIN_ACCOUNT_API_TOKEN: '{{env.YUNLEFUN_AI_COIN_ACCOUNT_API_TOKEN}}',
-      PLAY_PACHINKO_ACCOUNT_API_TOKEN: '{{env.PLAY_PACHINKO_ACCOUNT_API_TOKEN}}',
-      TEST_BROKER_ACCOUNT_API_TOKEN: '{{env.TEST_BROKER_ACCOUNT_API_TOKEN}}',
-    })
-    expect(functions.get('account-api').envVariables).not.toHaveProperty('ADVJS_AI_RUNTIME_ACCOUNT_API_TOKEN')
+    expect(functions.has('account-api')).toBe(false)
     expect(functions.get('sso-ticket').envVariables).toMatchObject({
       AUTH_ISSUER_ENVIRONMENT: '{{env.AUTH_ISSUER_ENVIRONMENT}}',
       SSO_IDENTITY_SIGNING_KEY: '{{env.SSO_IDENTITY_SIGNING_KEY}}',
@@ -154,7 +148,6 @@ describe('cloudBase test identity deployment manifest', () => {
 
   it('requires CloudBase authentication on browser-callable business functions', () => {
     expect(functions.get('sso-ticket').aclRule).toEqual({ invoke: 'auth != null' })
-    expect(functions.get('account-api').aclRule).toEqual({ invoke: 'auth != null' })
   })
 
   it('keeps SDK issuance authenticated while exposing only policy resolution over HTTP', () => {

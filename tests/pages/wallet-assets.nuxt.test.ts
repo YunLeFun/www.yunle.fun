@@ -48,7 +48,7 @@ describe('wallet asset navigation', () => {
     await flushPromises()
 
     expect(wrapper.get('[data-testid="ai-points-panel"]').text()).toContain('AI 资产面板')
-    expect(wrapper.text()).toContain('查看你的 AI 点数余额与不可变流水')
+    expect(wrapper.text()).toContain('管理 AI 点数，用云币为创作补充能量')
     expect(wrapper.text()).not.toContain('云币充值')
 
     await wrapper.get('[data-testid="wallet-asset-coin"]').trigger('click')

@@ -1,6 +1,7 @@
 import type {
   AiPointAccount,
   AiPointAccountResponse,
+  AiPointExchangeResult,
   AiPointTransaction,
   AiPointTransactionPage,
 } from '~/types/ai-points'
@@ -122,5 +123,12 @@ export function useAiPoints() {
     hasMore: readonly(hasMore),
     refresh,
     loadMore,
+    applyExchange(result: AiPointExchangeResult) {
+      account.value = result.account
+      // 让旧查询失效，避免兑换前的快照覆盖刚到账的余额。
+      requestEpoch += 1
+      loading.value = false
+      void refresh()
+    },
   }
 }

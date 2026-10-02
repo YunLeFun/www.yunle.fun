@@ -23,12 +23,13 @@ describe('legacy ai runtime retirement boundary', () => {
     expect(verifier).not.toContain('services/advjs-ai-runtime/src')
   })
 
-  it('keeps shared CloudBase resource drift and rollback guards', async () => {
-    const resourceGuard = await readFile(resolve(root, 'scripts/ensure-ai-runtime-resources.mjs'), 'utf8')
-    const resourcePlan = await readFile(resolve(root, 'scripts/lib/ai-runtime-resource-plan.mjs'), 'utf8')
-    expect(resourceGuard).toContain('CREATE_YUNLEFUN_AI_RUNTIME_RESOURCES')
-    expect(resourceGuard).toContain('PROVISION_YUNLEFUN_AI_RUNTIME_PRODUCTION')
-    expect(resourcePlan).toContain('index_definition_mismatch')
-    expect(resourcePlan).toContain('never_auto_delete_collection')
+  it('moves account ledger and resource administration to YunLeFun/api', async () => {
+    for (const path of [
+      'cloudfunctions/account-api',
+      'scripts/ensure-ai-runtime-resources.mjs',
+      'scripts/lib/ai-runtime-resource-plan.mjs',
+    ]) {
+      await expect(stat(resolve(root, path))).rejects.toMatchObject({ code: 'ENOENT' })
+    }
   })
 })

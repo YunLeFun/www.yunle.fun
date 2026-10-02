@@ -17,15 +17,15 @@
 
 ## 2. 现状基线（源码事实，迁移设计以此为准）
 
-| 事实                                                                         | 证据                                                                                                                                    | 影响                                                           |
-| ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| **repo 与线上均使用 `nuxt build`（Nitro `node-server`、`ssr:true` hybrid）** | `package.json` `build:"nuxt build"` + 本地 `.output/nitro.json` `preset:"node-server"`；生产 `/api/session/*` 已进入 EdgeOne 服务端函数 | Nuxt server route 可用；发布前仍须核对服务端环境变量与功能开关 |
-| 账号页 `ssr:false`（SPA 壳）                                                 | [nuxt.config.ts:87-98](../nuxt.config.ts)                                                                                               | 灭闪需翻回 SSR                                                 |
-| `@cloudbase/js-sdk` 无 httpOnly cookie 会话模式                              | SDK 从 JS 存储读 token 贴到 callFunction                                                                                                | cookie 只能是「我们自己的会话」，不是 SDK 的                   |
-| 31 处 `callFunction` + 2 集合直连 + 1 storage 共用客户端 token               | 影响面盘点（6 云函数：account-api ~22、wxpay-order、desktop-auth、github-api、sso-ticket）                                              | 不能简单删 token，否则全站数据访问失效                         |
-| **所有云函数 uid 来自运行时注入**                                            | [account-api/index.js:71](../cloudfunctions/account-api/index.js) `getCallerUid()` 读 `getUserInfo().uid`                               | 只要 SDK 有内存登录态，函数零改动                              |
-| **服务端铸票原语已在用**                                                     | [sso-ticket/index.js](../cloudfunctions/sso-ticket/index.js) `auth().createTicket(uid)`（RS256 JWT，票据 10 分钟过期）                  | 保留给跨站 SSO；本站自恢复已改为原始会话 `setSession`          |
-| 已有内部服务 token 范式                                                      | `ACCOUNT_API_INTERNAL_TOKEN`（[.env.example:31](../.env.example)）；account-api `deductCoinForUser` 等                                  | sso-ticket 服务端代签路径照搬此鉴权范式                        |
+| 事实                                                                         | 证据                                                                                                                                             | 影响                                                           |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| **repo 与线上均使用 `nuxt build`（Nitro `node-server`、`ssr:true` hybrid）** | `package.json` `build:"nuxt build"` + 本地 `.output/nitro.json` `preset:"node-server"`；生产 `/api/session/*` 已进入 EdgeOne 服务端函数          | Nuxt server route 可用；发布前仍须核对服务端环境变量与功能开关 |
+| 账号页 `ssr:false`（SPA 壳）                                                 | [nuxt.config.ts:87-98](../nuxt.config.ts)                                                                                                        | 灭闪需翻回 SSR                                                 |
+| `@cloudbase/js-sdk` 无 httpOnly cookie 会话模式                              | SDK 从 JS 存储读 token 贴到 callFunction                                                                                                         | cookie 只能是「我们自己的会话」，不是 SDK 的                   |
+| 31 处 `callFunction` + 2 集合直连 + 1 storage 共用客户端 token               | 影响面盘点（6 云函数：account-api ~22、wxpay-order、desktop-auth、github-api、sso-ticket）                                                       | 不能简单删 token，否则全站数据访问失效                         |
+| **所有云函数 uid 来自运行时注入**                                            | [account-api/index.js:71](https://github.com/YunLeFun/api/blob/main/cloudfunctions/account-api/index.js) `getCallerUid()` 读 `getUserInfo().uid` | 只要 SDK 有内存登录态，函数零改动                              |
+| **服务端铸票原语已在用**                                                     | [sso-ticket/index.js](../cloudfunctions/sso-ticket/index.js) `auth().createTicket(uid)`（RS256 JWT，票据 10 分钟过期）                           | 保留给跨站 SSO；本站自恢复已改为原始会话 `setSession`          |
+| 已有内部服务 token 范式                                                      | `ACCOUNT_API_INTERNAL_TOKEN`（[.env.example:31](../.env.example)）；account-api `deductCoinForUser` 等                                           | sso-ticket 服务端代签路径照搬此鉴权范式                        |
 
 ## 3. 目标架构：双层会话
 
