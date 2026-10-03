@@ -3,31 +3,27 @@ import { defineAsyncComponent, shallowRef } from 'vue'
 import { useSsoAccountState } from '~/composables/useSsoAccountState'
 import { ssoExplorerApps } from '~/config/sso-explorer'
 
-const AppSsoCloudMap = defineAsyncComponent({
-  loader: () => import('~/components/apps/AppSsoCloudMap.vue'),
+const HomeAppGallery = defineAsyncComponent({
+  loader: () => import('~/components/home/HomeAppGallery.vue'),
   suspensible: false,
 })
 
 const prefersReducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
 const accountState = useSsoAccountState('/')
-const mapHost = shallowRef<HTMLElement | null>(null)
-const shouldRenderMap = shallowRef(false)
+const galleryHost = shallowRef<HTMLElement | null>(null)
+const shouldRenderGallery = shallowRef(false)
 
-const { stop: stopObservingMap } = useIntersectionObserver(
-  mapHost,
+const { stop: stopObservingGallery } = useIntersectionObserver(
+  galleryHost,
   ([entry]) => {
     if (!entry?.isIntersecting)
       return
 
-    shouldRenderMap.value = true
-    stopObservingMap()
+    shouldRenderGallery.value = true
+    stopObservingGallery()
   },
   { rootMargin: '0px 0px -20% 0px' },
 )
-
-function browseApps() {
-  return navigateTo('/explore')
-}
 </script>
 
 <template>
@@ -43,7 +39,7 @@ function browseApps() {
             一个账号，连接每一朵云
           </h2>
           <p>
-            云图展示已经接入云乐坊统一账号的应用；全部公开应用仍可在应用市场中浏览。
+            创作、探索，或是给日常添一点乐趣。带着同一个账号，去不同的云里逛逛。
           </p>
         </div>
 
@@ -53,18 +49,17 @@ function browseApps() {
           icon="i-lucide-arrow-up-right"
           trailing
           color="neutral"
-          variant="outline"
+          variant="ghost"
           size="lg"
         />
       </header>
 
-      <div ref="mapHost" class="home-app-showcase__map">
-        <AppSsoCloudMap
-          v-if="shouldRenderMap"
+      <div ref="galleryHost" class="home-app-showcase__map">
+        <HomeAppGallery
+          v-if="shouldRenderGallery"
           :apps="ssoExplorerApps"
           :account="accountState"
           :reduced-motion="prefersReducedMotion"
-          @scroll-to-grid="browseApps"
         />
         <div
           v-else
@@ -81,31 +76,27 @@ function browseApps() {
 
 <style scoped>
 .home-app-showcase {
-  padding-block: clamp(4rem, 9vw, 7rem);
-  background:
-    radial-gradient(circle at 12% 12%, color-mix(in srgb, var(--ylf-dopa-cyan) 8%, transparent), transparent 26rem),
-    radial-gradient(circle at 88% 72%, color-mix(in srgb, var(--ylf-dopa-violet) 7%, transparent), transparent 28rem);
+  padding-block: clamp(3.5rem, 7vw, 6rem);
 }
 
 .home-app-showcase__header {
   display: grid;
   gap: 1.5rem;
   align-items: end;
-  margin-bottom: 1.75rem;
+  margin-bottom: 2rem;
 }
 
 .home-app-showcase__header > div {
-  max-width: 44rem;
+  max-width: 40rem;
 }
 
 .home-app-showcase__eyebrow {
   display: inline-flex;
   gap: 0.45rem;
   align-items: center;
-  color: var(--ylf-dopa-cyan);
+  color: var(--ui-primary);
   font-size: 0.75rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
+  font-weight: 650;
 }
 
 .home-app-showcase__eyebrow svg {
@@ -116,34 +107,34 @@ function browseApps() {
 .home-app-showcase__header h2 {
   margin-top: 0.55rem;
   color: var(--ui-text-highlighted);
-  font-size: clamp(2rem, 5vw, 3.5rem);
-  font-weight: 850;
-  letter-spacing: -0.045em;
-  line-height: 1.08;
+  font-size: clamp(1.85rem, 3.5vw, 2.75rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1.3;
   text-wrap: balance;
 }
 
 .home-app-showcase__header p:last-child {
   margin-top: 0.85rem;
   color: var(--ui-text-muted);
-  font-size: 1rem;
+  font-size: 0.9rem;
   line-height: 1.75;
 }
 
 .home-app-showcase__map {
   content-visibility: auto;
-  contain-intrinsic-block-size: 34rem;
+  contain-intrinsic-block-size: 38rem;
 }
 
 .home-app-showcase__map-placeholder {
   display: grid;
-  min-height: 34rem;
+  min-height: 38rem;
   place-items: center;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--ylf-sso-cloud-top) 62%, transparent);
-  border-radius: 1.75rem;
-  background: var(--ylf-sso-sky);
-  color: color-mix(in srgb, var(--ylf-sso-accent) 72%, transparent);
+  border: 1px solid var(--ui-border-muted);
+  border-radius: 2rem;
+  background: color-mix(in srgb, var(--ui-primary) 3%, var(--ui-bg-muted));
+  color: var(--ui-primary);
 }
 
 .home-app-showcase__map-placeholder svg {
@@ -153,12 +144,21 @@ function browseApps() {
 
 @media (max-width: 767px) {
   .home-app-showcase__map {
-    contain-intrinsic-block-size: 30rem;
+    contain-intrinsic-block-size: 29rem;
   }
 
   .home-app-showcase__map-placeholder {
-    min-height: 30rem;
-    border-radius: 1.45rem;
+    min-height: 29rem;
+    border-radius: 1.5rem;
+  }
+
+  .home-app-showcase__header {
+    gap: 0.85rem;
+  }
+
+  .home-app-showcase__header > :deep(a) {
+    justify-self: start;
+    margin-left: -0.75rem;
   }
 }
 

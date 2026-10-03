@@ -24,8 +24,10 @@ describe('sso explorer configuration', () => {
     )).toBe(true)
     expect(ssoExplorerApps.find(app => app.appId === 'cms')?.logoUrl)
       .toBe('https://cms.yunle.fun/icon.svg')
+    expect(ssoExplorerApps.find(app => app.appId === 'cms'))
+      .toMatchObject({ name: '云栈', fallbackMark: '栈' })
     expect(ssoExplorerApps.find(app => app.appId === 'drive')?.logoUrl)
-      .toBe('https://drive.yunle.fun/drive-mark.svg')
+      .toContain('drive-app-icon')
     expect(ssoExplorerApps.find(app => app.appId === 'drive')?.name)
       .toBe('云乐盘')
     expect(ssoExplorerApps.find(app => app.appId === 'saier')).toMatchObject({

@@ -35,6 +35,7 @@ describe('appSsoCloudMap', () => {
       expect(externalLink.text()).toContain('统一账号')
       expect(externalLink.text()).toContain('在新标签页打开')
       expect(node.find('.sso-app-cloud__shape').exists()).toBe(false)
+      expect(node.findAll('a')).toHaveLength(1)
     }
 
     expect(wrapper.find('[data-testid="cloud-preview"]').exists()).toBe(false)
@@ -54,15 +55,33 @@ describe('appSsoCloudMap', () => {
       .get('[data-testid="sso-app-ai-sfc"]')
       .get('.sso-app-node__link')
 
-    await link.trigger('focus')
+    await link.trigger('focusin')
     await nextTick()
 
     expect(wrapper.findAll('.sso-cloud-routes__active')).toHaveLength(1)
     expect(wrapper.findAll('.sso-cloud-routes__beam')).toHaveLength(0)
 
-    await link.trigger('blur')
+    await link.trigger('focusout')
     await nextTick()
     expect(wrapper.findAll('.sso-cloud-routes__active')).toHaveLength(0)
+  })
+
+  it('keeps the inspected application detail entry available after leaving the node', async () => {
+    const wrapper = await mountSuspended(AppSsoCloudMap, {
+      props: { apps: ssoExplorerApps, account },
+    })
+    const node = wrapper.get('[data-testid="sso-app-ai-sfc"]')
+
+    await node.trigger('mouseenter')
+    await node.trigger('mouseleave')
+    expect(wrapper.findAll('.sso-cloud-routes__active')).toHaveLength(0)
+    const detail = wrapper.get('.app-sso-cloud-map__footer a')
+    expect(detail.attributes('href')).toBe('/apps/ai-sfc')
+    expect(detail.attributes('aria-label')).toBe('查看 AI 春联 的站内详情')
+
+    await wrapper.get('[data-testid="sso-app-cms"]').trigger('mouseenter')
+    expect(wrapper.get('.app-sso-cloud-map__hint').text()).toContain('云栈')
+    expect(wrapper.find('.app-sso-cloud-map__detail').exists()).toBe(false)
   })
 
   it('uses stable unique gradient ids for the account clouds and active route', async () => {
@@ -75,7 +94,7 @@ describe('appSsoCloudMap', () => {
       .map(gradient => gradient.attributes('id'))
 
     expect(gradientIds.filter(id => id.startsWith('sso-account-cloud-'))).toHaveLength(1)
-    expect(gradientIds).toContain('sso-cloud-route-gradient')
+    expect(gradientIds.filter(id => id.startsWith('sso-cloud-route-gradient-'))).toHaveLength(1)
     expect(new Set(gradientIds)).toHaveLength(gradientIds.length)
   })
 })

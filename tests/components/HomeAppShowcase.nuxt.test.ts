@@ -37,7 +37,7 @@ describe('home app showcase', () => {
     useState<Record<string, unknown> | null>('auth_user', () => null).value = null
   })
 
-  it('renders the registry-backed SSO cloud without querying the marketplace', async () => {
+  it('renders the registry-backed application gallery without querying the marketplace', async () => {
     const wrapper = await mountSuspended(HomeAppShowcase)
 
     await flushPromises()
@@ -59,12 +59,12 @@ describe('home app showcase', () => {
     expect(wrapper.get('[data-testid="sso-account-cloud"]').attributes('href'))
       .toContain('/login?redirect=%2F')
 
-    const appList = wrapper.get('.app-sso-cloud-map__apps')
+    const appList = wrapper.get('.home-app-gallery__apps')
     for (const app of ssoExplorerApps)
       expect(appList.get(`[data-testid="sso-app-${app.appId}"]`).exists()).toBe(true)
   })
 
-  it('links an authenticated account cloud to the profile', async () => {
+  it('links an authenticated account entry to the profile', async () => {
     useState<Record<string, unknown> | null>('auth_user').value = {
       id: 'user-1',
       nickname: '云游君',

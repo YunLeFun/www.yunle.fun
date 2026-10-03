@@ -1,12 +1,14 @@
 import type { ClientRegistrySnapshot } from '../../packages/authorization-core/src/registry-types'
 import type { SsoExplorerApp } from '~/types/app-explorer'
 import { registry as productionRegistryJson } from '../../packages/authorization-core/src/generated/production-registry.json'
+import { appIcons } from './app-icons'
 
 // The signed release envelope contains operator identifiers and is server-only.
 // Import the registry field directly so Vite excludes that envelope from client assets.
 const productionRegistry = productionRegistryJson as ClientRegistrySnapshot
 
 interface SsoPresentation {
+  name?: string
   description: string
   fallbackMark: string
   accent: string
@@ -23,8 +25,9 @@ const presentationByAppId: Record<string, SsoPresentation> = {
     position: { x: 50, y: 91 },
   },
   'cms': {
-    description: '安全连接 GitHub 与 Valaxy 的内容编辑平台',
-    fallbackMark: 'CMS',
+    name: '云栈',
+    description: '面向 Valaxy、VitePress 与 Git 内容站点的轻量内容工作台',
+    fallbackMark: '栈',
     accent: 'var(--ylf-dopa-blue)',
     position: { x: 24, y: 18 },
   },
@@ -32,6 +35,7 @@ const presentationByAppId: Record<string, SsoPresentation> = {
     description: '集中管理和安全复用云端媒体资源',
     fallbackMark: '盘',
     accent: 'var(--ylf-dopa-cyan)',
+    logoUrl: import.meta.dev ? appIcons.drive : 'https://drive.yunle.fun/drive-app-icon.svg',
     position: { x: 14, y: 39 },
   },
   'dayun-kicker': {
@@ -151,7 +155,8 @@ export function buildSsoExplorerApps(registry: typeof productionRegistry): SsoEx
     return [{
       clientId: client.clientId,
       appId: client.appId,
-      name: client.displayName,
+      // Product branding can advance ahead of a signed SSO client's label.
+      name: presentation.name ?? client.displayName,
       origin,
       description: presentation.description,
       logoUrl: presentation.logoUrl ?? iconUrl,

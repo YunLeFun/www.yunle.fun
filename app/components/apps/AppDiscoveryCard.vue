@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ExplorerApp } from '~/types/app-explorer'
+import { StarIcon } from '@lucide/vue'
 import { computed, shallowRef } from 'vue'
 import { isSsoExplorerAppSlug } from '~/config/sso-explorer'
 import { getAppDetailPath } from '~/utils/appRoutes'
@@ -38,8 +39,10 @@ function updateSpotlight(event: PointerEvent) {
         <AppExplorerIcon :app="app" />
         <div class="app-discovery-card__heading">
           <div class="app-discovery-card__eyebrow">
-            <span>{{ app.categoryLabel }}</span>
-            <span v-if="app.featured" class="app-discovery-card__featured">精选</span>
+            <span class="app-discovery-card__category">{{ app.categoryLabel }}</span>
+            <span v-if="app.featured" class="app-discovery-card__featured" role="img" aria-label="精选应用" title="精选应用">
+              <StarIcon aria-hidden="true" />
+            </span>
             <span v-if="ssoConnected" class="app-discovery-card__sso">
               <Icon name="i-lucide-shield-check" aria-hidden="true" />
               统一账号
@@ -142,6 +145,7 @@ function updateSpotlight(event: PointerEvent) {
 
 .app-discovery-card__eyebrow {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
   color: var(--ui-text-muted);
@@ -150,16 +154,26 @@ function updateSpotlight(event: PointerEvent) {
   text-transform: uppercase;
 }
 
+.app-discovery-card__category {
+  white-space: nowrap;
+}
+
 .app-discovery-card__featured {
-  border-radius: 999px;
-  padding: 0.12rem 0.45rem;
-  background: color-mix(in srgb, var(--app-accent) 16%, transparent);
-  color: var(--app-accent);
-  letter-spacing: normal;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  color: var(--ylf-accent-sun-text);
+}
+
+.app-discovery-card__featured svg {
+  width: 0.875rem;
+  height: 0.875rem;
+  fill: currentColor;
 }
 
 .app-discovery-card__sso {
   display: inline-flex;
+  flex-shrink: 0;
   gap: 0.22rem;
   align-items: center;
   border-radius: 999px;

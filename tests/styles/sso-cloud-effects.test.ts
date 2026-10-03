@@ -13,30 +13,32 @@ describe('sso cloud visual effects', () => {
   it('keeps the account cloud shadow stable while hovering', async () => {
     const source = await readComponent('apps/SsoAccountCloud.vue')
     const rootRule = source.match(/\.sso-account-cloud\s*\{([^}]*)\}/)?.[1]
-    const interactionRule = source.match(
-      /\.sso-account-cloud:hover,\s*\.sso-account-cloud:focus-visible\s*\{([^}]*)\}/,
-    )?.[1]
+    const shapeRule = source.match(/\.sso-account-cloud__shape\s*\{([^}]*)\}/)?.[1]
+    const interactionRules = [...source.matchAll(/[^{}]*(?:hover|focus-visible)[^{}]*\{([^}]*)\}/g)]
 
     expect(rootRule).toBeDefined()
     expect(rootRule).not.toMatch(/transition:[^;]*filter/)
-    expect(interactionRule).toBeDefined()
-    expect(interactionRule).not.toMatch(/\bfilter\s*:/)
+    expect(shapeRule).toBeDefined()
+    expect(shapeRule).not.toMatch(/transition:[^;]*filter/)
+    for (const [, rule] of interactionRules)
+      expect(rule).not.toMatch(/\bfilter\s*:/)
   })
 
-  it('renders applications as stable card nodes instead of cloud silhouettes', async () => {
+  it('keeps application nodes stable while their interaction indicators appear', async () => {
     const source = await readComponent('apps/SsoAppCloud.vue')
     const rootRule = source.match(/\.sso-app-node\s*\{([^}]*)\}/)?.[1]
-    const interactionRule = source.match(
-      /\.sso-app-node:hover,\s*\.sso-app-node:focus-within,\s*\.sso-app-node--active\s*\{([^}]*)\}/,
-    )?.[1]
+    const linkRule = source.match(/\.sso-app-node__link\s*\{([^}]*)\}/)?.[1]
+    const interactionRules = [...source.matchAll(/[^{}]*(?:hover|focus-within|sso-app-node--active)[^{}]*\{([^}]*)\}/g)]
 
     expect(source).not.toContain('sso-app-cloud__shape')
     expect(rootRule).toBeDefined()
-    expect(rootRule).toMatch(/padding:/)
-    expect(rootRule).toMatch(/border-radius:/)
+    expect(linkRule).toBeDefined()
+    expect(linkRule).toMatch(/padding:/)
+    expect(linkRule).toMatch(/border-radius:/)
     expect(rootRule).not.toMatch(/^\s*filter\s*:/m)
-    expect(interactionRule).toBeDefined()
-    expect(interactionRule).not.toMatch(/\bfilter\s*:/)
+    expect(interactionRules.length).toBeGreaterThan(0)
+    for (const [, rule] of interactionRules)
+      expect(rule).not.toMatch(/\b(?:filter|transform|width|height|padding)\s*:/)
   })
 
   it('renders the sky scene once and defers the offscreen cloud map', async () => {
