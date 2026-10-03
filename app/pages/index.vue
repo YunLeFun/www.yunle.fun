@@ -127,7 +127,7 @@ onMounted(() => {
               :icon="page.hero.links[0]?.icon"
               :trailing="page.hero.links[0]?.trailing"
               size="xl"
-              class="ylf-brand-btn"
+              variant="hero"
             />
             <AppButton
               v-if="accountAction"
@@ -137,7 +137,7 @@ onMounted(() => {
               size="xl"
               color="neutral"
               variant="outline"
-              class="ylf-glass-btn"
+              class="ylf-glass-btn rounded-full"
             />
           </div>
         </div>

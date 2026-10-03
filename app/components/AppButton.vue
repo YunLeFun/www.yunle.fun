@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 
 type LegacyColor = 'primary' | 'secondary' | 'neutral' | 'error' | 'success' | 'info' | 'warning'
-type LegacyVariant = 'solid' | 'soft' | 'subtle' | 'outline' | 'ghost' | 'link'
+type LegacyVariant = 'solid' | 'soft' | 'subtle' | 'outline' | 'ghost' | 'link' | 'hero'
 type LegacySize = 'xs' | 'sm' | 'md' | 'lg' | 'xl'
 
 const props = withDefaults(defineProps<{
@@ -44,7 +44,7 @@ const isLink = computed(() => Boolean(props.to || props.href))
 const endingIcon = computed(() => props.trailingIcon || (props.trailing ? props.icon : undefined))
 const status = computed(() => statusByColor[props.color])
 const designAppearance = computed<YlfColorAppearance | undefined>(() => {
-  if (!props.tone && !status.value)
+  if (!props.tone && !status.value && props.color !== 'primary')
     return undefined
   if (props.variant === 'solid')
     return 'solid'
@@ -56,6 +56,9 @@ const designAppearance = computed<YlfColorAppearance | undefined>(() => {
 })
 
 const buttonVariant = computed<ButtonVariants['variant']>(() => {
+  if (props.variant === 'hero')
+    return 'hero'
+
   if (props.color === 'error')
     return 'destructive'
 
@@ -76,7 +79,9 @@ const buttonSize = computed<ButtonVariants['size']>(() => {
     return 'xs'
   if (props.size === 'sm')
     return 'sm'
-  if (props.size === 'lg' || props.size === 'xl')
+  if (props.size === 'xl')
+    return 'xl'
+  if (props.size === 'lg')
     return 'lg'
   return 'default'
 })
@@ -89,14 +94,15 @@ const buttonSize = computed<ButtonVariants['size']>(() => {
     :size="buttonSize"
     :type="isLink ? undefined : type"
     :disabled="disabled || loading"
-    :data-ylf-tone="!status && designAppearance ? tone : undefined"
+    :aria-busy="loading || undefined"
+    :data-ylf-tone="!status && designAppearance ? tone || 'blue' : undefined"
     :data-ylf-status="designAppearance ? status : undefined"
     :data-ylf-appearance="designAppearance"
     :class="block ? 'w-full' : undefined"
   >
     <NuxtLink
       v-if="to"
-      :to="to"
+      :to="disabled || loading ? undefined : to"
       :target="target"
       :rel="rel"
       :aria-disabled="disabled || loading || undefined"
@@ -109,7 +115,7 @@ const buttonSize = computed<ButtonVariants['size']>(() => {
 
     <a
       v-else-if="href"
-      :href="href"
+      :href="disabled || loading ? undefined : href"
       :target="target"
       :rel="rel"
       :aria-disabled="disabled || loading || undefined"

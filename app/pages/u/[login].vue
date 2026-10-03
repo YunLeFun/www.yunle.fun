@@ -53,6 +53,10 @@ async function retryProfile() {
 
 const isSelf = computed(() => !!user.value && !!profile.value && user.value.id === profile.value.userId)
 const displayName = computed(() => displayUserName(profile.value?.nickname, profile.value?.login || '云乐坊用户'))
+const developerProfileUrl = computed(() => {
+  const login = profile.value?.login
+  return login ? `https://apps.yunle.fun/developer/${encodeURIComponent(login)}` : undefined
+})
 
 useSeoMeta({
   title: computed(() => (profile.value ? `${displayName.value} - YunLeFun` : '用户 - YunLeFun')),
@@ -218,8 +222,8 @@ function openList(type: 'following' | 'followers') {
             </p>
           </div>
           <AppButton
-            v-if="profile.login"
-            :to="`https://apps.yunle.fun/developer/${encodeURIComponent(profile.login)}`"
+            v-if="developerProfileUrl"
+            :to="developerProfileUrl"
             label="云乐坊主页"
             icon="i-lucide-external-link"
             color="neutral"
@@ -239,8 +243,8 @@ function openList(type: 'following' | 'followers') {
         <template v-else>
           <AppSurfaceList :apps="userApps.slice(0, 6)" />
           <AppButton
-            v-if="userApps.length > 6 && profile.login"
-            :to="`https://apps.yunle.fun/developer/${encodeURIComponent(profile.login)}`"
+            v-if="userApps.length > 6 && developerProfileUrl"
+            :to="developerProfileUrl"
             :label="`还有 ${userApps.length - 6} 个应用`"
             icon="i-lucide-arrow-right"
             color="neutral"
@@ -252,7 +256,7 @@ function openList(type: 'following' | 'followers') {
         </template>
       </section>
 
-      <FollowListModal v-model:open="showList" :user-id="profile.userId" :type="listType" />
+      <FollowListModal v-if="profile" v-model:open="showList" :user-id="profile.userId" :type="listType" />
     </div>
   </AppContainer>
 </template>

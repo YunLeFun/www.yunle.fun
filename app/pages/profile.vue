@@ -212,7 +212,7 @@ function workshopHref(surface: WorkshopSurface) {
       <NuxtLink
         v-if="!isMember"
         to="/pricing"
-        class="ylf-join-cta group flex items-center justify-between gap-3 rounded-3xl px-5 py-4 text-white sm:px-6"
+        class="ylf-join-cta group flex items-center justify-between gap-3 rounded-3xl px-5 py-4 text-primary-foreground sm:px-6"
       >
         <span class="flex items-center gap-3">
           <span class="ylf-pass-tile inline-flex size-10 shrink-0 items-center justify-center rounded-xl">
@@ -220,7 +220,7 @@ function workshopHref(surface: WorkshopSurface) {
           </span>
           <span class="min-w-0">
             <span class="block font-semibold">开通云乐坊会员 · 点亮晴空</span>
-            <span class="block text-sm text-white/85">跨应用通用 · 数据同步 · 免扣云币</span>
+            <span class="block text-sm">跨应用通用 · 数据同步 · 免扣云币</span>
           </span>
         </span>
         <Icon name="i-lucide-arrow-right" class="size-5 shrink-0 transition-transform group-hover:translate-x-1" />

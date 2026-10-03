@@ -109,7 +109,7 @@ const columns = [{
         <p>© {{ new Date().getFullYear() }} 云乐坊信息技术工作室</p>
       </div>
 
-      <div class="flex items-center gap-1">
+      <div class="flex flex-wrap items-center gap-1">
         <AppButton
           v-for="item in socialList" :key="item.to" :to="item.to" target="_blank" rel="noopener noreferrer" :icon="item.icon"
           :aria-label="item.title" color="neutral" variant="ghost" :title="item.title"

@@ -18,23 +18,17 @@ import {
   ToastTitle,
   ToastViewport,
 } from 'reka-ui'
+import { Button } from '@/components/ui/button'
+import { panelSurface } from '@/components/ui/surface'
 
 const { toasts, close, remove } = useAppToast()
 
-const colorClasses: Record<AppToastColor, string> = {
-  error: 'border-destructive/35 bg-popover text-foreground',
-  info: 'border-info/35 bg-popover text-foreground',
-  neutral: 'border-border bg-popover text-foreground',
-  success: 'border-success/35 bg-popover text-foreground',
-  warning: 'border-warning/35 bg-popover text-foreground',
-}
-
 const iconClasses: Record<AppToastColor, string> = {
-  error: 'bg-destructive/10 text-destructive',
-  info: 'bg-info/10 text-info',
+  error: 'bg-[var(--ylf-status-danger-soft)] text-[var(--ylf-status-danger-text)]',
+  info: 'bg-[var(--ylf-status-info-soft)] text-[var(--ylf-status-info-text)]',
   neutral: 'bg-muted text-muted-foreground',
-  success: 'bg-success/10 text-success',
-  warning: 'bg-warning/10 text-warning',
+  success: 'bg-[var(--ylf-status-success-soft)] text-[var(--ylf-status-success-text)]',
+  warning: 'bg-[var(--ylf-status-warning-soft)] text-[var(--ylf-status-warning-text)]',
 }
 
 const defaultIcons = {
@@ -62,8 +56,9 @@ function handleOpenChange(id: string, open: boolean) {
       :open="toast.open"
       :duration="toast.duration"
       force-mount
-      class="pointer-events-auto relative grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-3 overflow-hidden rounded-2xl border p-4 pr-3 shadow-xl outline-none transition data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:slide-in-from-right-full data-[state=closed]:slide-out-to-right-full data-[swipe=move]:translate-x-[var(--reka-toast-swipe-move-x)] data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--reka-toast-swipe-end-x)]"
-      :class="colorClasses[toast.color]"
+      data-slot="toast"
+      class="pointer-events-auto relative grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-3 overflow-hidden rounded-2xl border p-4 pr-3 outline-none transition data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:slide-in-from-right-full data-[state=closed]:slide-out-to-right-full data-[swipe=move]:translate-x-[var(--reka-toast-swipe-move-x)] data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--reka-toast-swipe-end-x)]"
+      :class="panelSurface"
       @update:open="handleOpenChange(toast.id, $event)"
     >
       <span
@@ -94,11 +89,10 @@ function handleOpenChange(id: string, open: boolean) {
         </a>
       </div>
 
-      <ToastClose
-        aria-label="关闭通知"
-        class="inline-flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <XIcon class="size-4" />
+      <ToastClose as-child>
+        <Button variant="ghost" size="icon-sm" aria-label="关闭通知" class="-my-1 size-11 text-muted-foreground sm:my-0 sm:size-9">
+          <XIcon />
+        </Button>
       </ToastClose>
     </ToastRoot>
 

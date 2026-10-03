@@ -1,0 +1,68 @@
+/* Shared Design tokens are the source of truth for Nuxt UI and local controls.
+   Resolve aliases at every theme boundary, including nested previews and portals. */
+:root,
+.dark,
+.ylf-theme-light,
+.ylf-theme-dark {
+  --ui-primary: var(--ylf-c-brand);
+  --ui-success: var(--ylf-status-success-text);
+  --ui-warning: var(--ylf-status-warning-text);
+  --ui-error: var(--ylf-status-danger-text);
+  --ui-info: var(--ylf-status-info-text);
+  --ui-bg: var(--ylf-c-bg);
+  --ui-bg-muted: var(--ylf-c-bg-soft);
+  --ui-bg-elevated: var(--ylf-c-surface);
+  --ui-bg-accented: var(--ylf-c-bg-mute);
+  --ui-text: var(--ylf-c-text);
+  --ui-text-muted: var(--ylf-c-text-2);
+  --ui-text-dimmed: var(--ylf-c-text-3);
+  --ui-text-toned: var(--ylf-c-text-2);
+  --ui-text-highlighted: var(--ylf-c-text);
+  --ui-border: var(--ylf-c-border-strong);
+  --ui-border-muted: var(--ylf-c-border);
+  --ui-border-accented: var(--ylf-c-border-strong);
+
+  --ylf-surface: var(--ylf-c-surface);
+  --ylf-surface-muted: var(--ylf-c-bg-soft);
+  --ylf-surface-hover: var(--ylf-c-surface-raised);
+  --ylf-glass-highlight: var(--ylf-c-highlight);
+  --ylf-ring: color-mix(in srgb, var(--ylf-c-brand) 45%, transparent);
+  --ylf-border-subtle: var(--ylf-c-border);
+  --ylf-border: var(--ylf-c-border-strong);
+  --ylf-border-strong: var(--ylf-c-border-strong);
+
+  --background: var(--ylf-c-bg);
+  --foreground: var(--ylf-c-text);
+  --card: var(--ylf-c-surface);
+  --card-foreground: var(--ylf-c-text);
+  --popover: var(--ylf-c-panel);
+  --popover-foreground: var(--ylf-c-text);
+  --primary: var(--ylf-c-brand);
+  --primary-foreground: var(--ylf-c-text-on-accent);
+  --secondary: var(--ylf-c-bg-soft);
+  --secondary-foreground: var(--ylf-c-text);
+  --muted: var(--ylf-c-bg-soft);
+  --muted-foreground: var(--ylf-c-text-2);
+  --accent: var(--ylf-c-bg-mute);
+  --accent-foreground: var(--ylf-c-text);
+  --destructive: var(--ylf-status-danger-text);
+  --destructive-foreground: var(--ylf-c-bg);
+  --border: var(--ylf-c-border);
+  --input: var(--ylf-c-border-strong);
+  --ring: var(--ylf-c-brand);
+  --radius: var(--ylf-radius);
+
+  /* Legacy decoration names stay compatible while using the shared six-color palette.
+     These aliases also occur in icon labels, so use the readable text variants. */
+  --ylf-dopa-blue: var(--ylf-accent-blue-text);
+  --ylf-dopa-cyan: var(--ylf-accent-cyan-text);
+  --ylf-dopa-pink: var(--ylf-accent-pink-text);
+  --ylf-dopa-rose: var(--ylf-accent-pink-text);
+  --ylf-dopa-orange: var(--ylf-accent-coral-text);
+  --ylf-dopa-violet: var(--ylf-accent-coral-text);
+  --ylf-dopa-amber: var(--ylf-accent-sun-text);
+  --ylf-dopa-lime: var(--ylf-accent-green-text);
+  --ylf-dopa-green: var(--ylf-accent-green-text);
+  --ylf-gradient-rainbow: linear-gradient(90deg, var(--ylf-spectrum-stops));
+  --ylf-font-round: var(--ylf-font-heading);
+}
