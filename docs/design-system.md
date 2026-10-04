@@ -30,6 +30,12 @@
 
 同一变体、主题 token、示例和使用边界已在本地 `YunLeFun/design` 的 `YlfButton` 中补齐，等待共享包发布。主站适配层通过 `var(--ylf-hero-*, fallback)` 暂时接入相同数值；安装包含该变体的正式版本后可删除 fallback，不需要改页面调用。未切换到本地路径依赖，也未发布 npm 包。
 
+## 菜单圆角与材质（2026-10-04）
+
+`design-tokens.css` 为共享圆角尺度提供用途别名：菜单 `--ylf-radius-menu`（14px）、菜单项 `--ylf-radius-menu-item`（10px）、账户面板 `--ylf-radius-panel`（20px）、底部抽屉 `--ylf-radius-sheet`（28px）。下拉菜单、Select、Popover 与账户菜单读取同一组变量，实际数值仍由 `@yunlefun/ui` 维护。
+
+弹层外框负责背景、边框、阴影、背景模糊和圆角裁切；`UserAccountPanel` 只负责内容与分组，不重复绘制外框。账户菜单使用 `surface.ts` 的共享面板材质，避免透明外层保留模糊、内外圆角不一致时露出背景边角。
+
 ## 依赖兼容范围
 
 Nuxt 维持最新稳定的 4.5.2；Vue 作为显式主依赖升级至 3.5.43，Nuxt UI 升至 4.11.3，Vite 8.3.2、Vitest 5.0.3、Vue 类型工具与图标依赖同步升级。TypeScript 维持 6.0.3，因为 `vue-tsc@3.3.12` 仍读取 `typescript/lib/tsc`，TypeScript 7 不再导出该接口。H3 保持 Nuxt 兼容的 1.x 稳定版，不采用 npm `latest` 指向的 2.x RC。Node 类型沿用 24.x；pnpm 继续使用仓库约定的 11.22.0。

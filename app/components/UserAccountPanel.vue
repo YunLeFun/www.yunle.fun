@@ -150,18 +150,13 @@ const secondaryIdentity = computed(() =>
 
 <style scoped>
 .ylf-account-panel {
-  overflow: hidden;
-  background: var(--ylf-surface);
   color: var(--ui-text);
 }
 
+/* The enclosing Popover/Sheet owns the material, border, radius and clipping. */
 .ylf-account-panel--popover {
   width: 21rem;
-  border: 1px solid color-mix(in srgb, var(--ui-border) 86%, transparent);
-  border-radius: 1.375rem;
-  box-shadow:
-    0 24px 64px -32px color-mix(in srgb, var(--ylf-account-panel-shadow) 58%, transparent),
-    0 8px 24px -16px color-mix(in srgb, var(--ui-primary) 38%, transparent);
+  max-width: 100%;
 }
 
 .ylf-account-panel--drawer {
@@ -201,7 +196,7 @@ const secondaryIdentity = computed(() =>
   right: -1.8rem;
   width: 9rem;
   height: 6rem;
-  border-radius: 999px;
+  border-radius: var(--ylf-radius-pill);
   background: color-mix(in srgb, var(--ylf-sso-cloud-top) 56%, transparent);
   filter: blur(18px);
   opacity: 0.68;
@@ -215,7 +210,7 @@ const secondaryIdentity = computed(() =>
   align-items: center;
   gap: 0.625rem;
   border: 1px solid transparent;
-  border-radius: 1rem;
+  border-radius: var(--ylf-radius-menu);
   padding: 0.75rem;
   background: color-mix(in srgb, var(--ylf-surface-muted) 84%, var(--ylf-surface));
   outline: none;
@@ -243,7 +238,7 @@ const secondaryIdentity = computed(() =>
   flex: none;
   align-items: center;
   justify-content: center;
-  border-radius: 0.75rem;
+  border-radius: var(--ylf-radius-menu-item);
 }
 
 .ylf-account-panel__shortcut-icon--coin {
@@ -263,7 +258,7 @@ const secondaryIdentity = computed(() =>
   align-items: center;
   justify-content: flex-start;
   gap: 0.75rem;
-  border-radius: 0.875rem;
+  border-radius: var(--ylf-radius-menu-item);
   padding: 0.625rem 0.75rem;
   color: var(--ui-text-muted);
   font-size: 0.875rem;
@@ -291,20 +286,20 @@ const secondaryIdentity = computed(() =>
   background: color-mix(in srgb, var(--ui-error) 9%, var(--ylf-surface));
 }
 
-:global(.dark) .ylf-account-panel__identity {
+.dark .ylf-account-panel__identity {
   background:
     radial-gradient(circle at 86% 8%, color-mix(in srgb, var(--ylf-dopa-violet) 24%, transparent), transparent 44%),
     linear-gradient(145deg, color-mix(in srgb, var(--ui-primary) 14%, var(--ylf-surface)), var(--ylf-surface) 74%);
 }
 
-:global(.dark) .ylf-account-panel__identity:hover,
-:global(.dark) .ylf-account-panel__identity:focus-visible {
+.dark .ylf-account-panel__identity:hover,
+.dark .ylf-account-panel__identity:focus-visible {
   background:
     radial-gradient(circle at 86% 8%, color-mix(in srgb, var(--ylf-dopa-violet) 31%, transparent), transparent 46%),
     linear-gradient(145deg, color-mix(in srgb, var(--ui-primary) 18%, var(--ylf-surface)), var(--ylf-surface) 74%);
 }
 
-:global(.dark) .ylf-account-panel__sky-glow {
+.dark .ylf-account-panel__sky-glow {
   background: color-mix(in srgb, var(--ylf-dopa-cyan) 30%, transparent);
   opacity: 0.52;
 }

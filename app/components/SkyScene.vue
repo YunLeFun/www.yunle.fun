@@ -167,7 +167,7 @@ function circ(s: number, l: number, b: number): CSSProperties {
   --ylf-sky-scene-bird: rgba(40, 55, 95, 0.5);
 }
 
-:global(.dark) .ylf-skyscene:not([data-theme]),
+.dark .ylf-skyscene:not([data-theme]),
 .ylf-skyscene[data-theme='dark'] {
   --ylf-sky-scene-background: linear-gradient(175deg, #33386f 0%, #6a5d9c 27%, #c77fa6 52%, #f2a07f 75%, #ffd9a0 100%);
   --ylf-sky-scene-sun-core: #ffdca0;

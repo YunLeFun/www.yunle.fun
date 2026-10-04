@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises'
+import { compileStyle, parse } from '@vue/compiler-sfc'
 import { describe, expect, it } from 'vitest'
 
 async function readComponent(path: string) {
@@ -10,6 +11,24 @@ async function readApp(path: string) {
 }
 
 describe('sso cloud visual effects', () => {
+  it('keeps account panel dark styles scoped so they cannot dim the document', async () => {
+    const source = await readComponent('UserAccountPanel.vue')
+    const { descriptor } = parse(source)
+
+    for (const style of descriptor.styles) {
+      const { code, errors } = compileStyle({
+        source: style.content,
+        filename: 'UserAccountPanel.vue',
+        id: 'data-v-account-panel-test',
+        scoped: style.scoped,
+      })
+
+      expect(errors).toEqual([])
+      // A standalone .dark rule matches <html>, applying the glow's opacity to the entire page.
+      expect(code).not.toMatch(/(?:^|[},])\s*\.dark\s*[{,]/)
+    }
+  })
+
   it('keeps the account cloud shadow stable while hovering', async () => {
     const source = await readComponent('apps/SsoAccountCloud.vue')
     const rootRule = source.match(/\.sso-account-cloud\s*\{([^}]*)\}/)?.[1]
@@ -53,7 +72,7 @@ describe('sso cloud visual effects', () => {
 
     expect(sceneSource).not.toContain('hydrationVersion')
     expect(sceneSource).toContain('var(--ylf-sky-scene-background)')
-    expect(sceneSource).toContain(':global(.dark)')
+    expect(sceneSource).toContain('.dark .ylf-skyscene:not([data-theme])')
     expect(homeShowcaseSource).toContain('useIntersectionObserver')
     expect(homeShowcaseSource).toContain('defineAsyncComponent')
     expect(homeShowcaseSource).toContain('rootMargin: \'0px 0px -20% 0px\'')

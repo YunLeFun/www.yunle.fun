@@ -45,7 +45,6 @@
 :root {
   color-scheme: light;
   --ylf-shadow-color: #020617;
-  --ylf-account-panel-shadow: #082f66;
 
   /* 统一账号云图：固定的晴空与白云绘制色，通过语义令牌供组件复用。 */
   --ylf-sso-sky: #6bb5f1;
@@ -75,7 +74,6 @@
 
 .dark {
   color-scheme: dark;
-  --ylf-account-panel-shadow: #020617;
   --ylf-gradient-sunset: linear-gradient(115deg, #fcd34d, #fda4af);
   --ylf-gradient-member: linear-gradient(135deg, #fb9a3e 0%, #fb5a78 52%, #f4416a 100%);
 }

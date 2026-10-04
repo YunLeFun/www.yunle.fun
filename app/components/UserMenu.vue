@@ -195,7 +195,7 @@ onBeforeUnmount(() => {
         side="bottom"
         :side-offset="8"
         :collision-padding="12"
-        class="w-auto border-0 bg-transparent p-0 shadow-none ring-0"
+        class="w-auto overflow-hidden rounded-[var(--ylf-radius-panel)] p-0"
         @interact-outside="keepTriggerInsidePopover"
       >
         <div
@@ -242,7 +242,7 @@ onBeforeUnmount(() => {
         v-if="mobileOpen"
         side="bottom"
         :show-close-button="false"
-        class="overflow-hidden rounded-t-3xl bg-(--ylf-surface) p-0 ring-0"
+        class="overflow-hidden rounded-t-[var(--ylf-radius-sheet)] p-0"
       >
         <SheetHeader class="sr-only">
           <SheetTitle>账户快捷菜单</SheetTitle>
@@ -272,7 +272,7 @@ onBeforeUnmount(() => {
   min-height: 2rem;
   align-items: center;
   gap: 0.5rem;
-  border-radius: 0.75rem;
+  border-radius: var(--ylf-radius-menu-item);
   padding: 0.125rem 0.5rem;
   color: var(--ui-text-muted);
   outline: none;

@@ -31,6 +31,12 @@
   --ylf-border: var(--ylf-c-border-strong);
   --ylf-border-strong: var(--ylf-c-border-strong);
 
+  /* Geometry roles reuse the shared scale rather than introduce local radii. */
+  --ylf-radius-menu: var(--ylf-radius);
+  --ylf-radius-menu-item: var(--ylf-radius-sm);
+  --ylf-radius-panel: var(--ylf-radius-lg);
+  --ylf-radius-sheet: var(--ylf-radius-xl);
+
   --background: var(--ylf-c-bg);
   --foreground: var(--ylf-c-text);
   --card: var(--ylf-c-surface);
