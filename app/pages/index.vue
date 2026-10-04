@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import HomeHeroSky from '~/components/home/HomeHeroSky.vue'
 import HomeJourney from '~/components/home/HomeJourney.vue'
 import { homePage as page } from '~/config'
 
@@ -106,8 +107,7 @@ onMounted(() => {
 <template>
   <div>
     <section class="ylf-home-hero relative isolate overflow-hidden">
-      <SkyScene :sun="false" class="pointer-events-none" />
-      <div class="ylf-home-hero__scrim pointer-events-none absolute inset-0 z-[1]" aria-hidden="true" />
+      <HomeHeroSky />
       <div class="ylf-home-hero__fade pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-28" aria-hidden="true" />
       <AppContainer class="relative z-[2] py-20 sm:py-28 lg:py-32">
         <div class="max-w-2xl">
@@ -116,29 +116,30 @@ onMounted(() => {
             {{ page.headline }}
           </span>
           <h1 class="ylf-dreamy-display ylf-hero-shadow mt-5 text-4xl leading-[1.15] text-white sm:text-5xl lg:text-6xl">
-            云之彼端，<span class="ylf-gradient-text ylf-gradient-text--sun">乐趣</span>无限
+            云之彼端，<span class="ylf-gradient-text ylf-home-hero__accent">乐趣</span>无限
           </h1>
           <p class="ylf-hero-shadow mt-5 max-w-xl text-base/relaxed text-white/90 sm:text-lg/relaxed">
             {{ page.description }}
           </p>
-          <div class="mt-8 flex flex-wrap items-center gap-3">
+          <div class="mt-7 flex flex-wrap items-center gap-2.5 sm:mt-8">
             <AppButton
               :to="page.hero.links[0]?.to"
               :label="page.hero.links[0]?.label"
               :icon="page.hero.links[0]?.icon"
               :trailing="page.hero.links[0]?.trailing"
-              size="xl"
+              size="lg"
               variant="hero"
+              class="rounded-[var(--ylf-radius)] font-semibold"
             />
             <AppButton
               v-if="accountAction"
               :to="accountAction.to"
               :label="accountAction.label"
               :icon="accountAction.icon"
-              size="xl"
+              size="lg"
               color="neutral"
               variant="outline"
-              class="ylf-glass-btn rounded-full"
+              class="ylf-glass-btn rounded-[var(--ylf-radius)]"
             />
           </div>
         </div>
@@ -160,14 +161,14 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.ylf-home-hero__scrim {
-  background: linear-gradient(
-    100deg,
-    rgba(8, 32, 74, 0.5) 0%,
-    rgba(8, 32, 74, 0.24) 42%,
-    rgba(8, 32, 74, 0.04) 66%,
-    transparent 80%
-  );
+.ylf-home-hero__accent {
+  background-image: linear-gradient(115deg, #fff1b8, #ffd4b0);
+  /* Transparent gradient glyphs also expose an inherited text shadow. */
+  text-shadow: none;
+}
+
+.dark .ylf-home-hero__accent {
+  background-image: linear-gradient(115deg, #fff4c9, #ffe0cc);
 }
 
 .ylf-home-hero__fade {
