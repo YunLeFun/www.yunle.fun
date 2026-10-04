@@ -64,6 +64,14 @@
 
 例如微信条目可显式设置 `hoverColor: '#07c160'`；省略时已默认使用这个色值。覆盖只影响交互颜色，固定 HEX 在明暗模式下保持一致；如需自定义主题策略，可以传入 `var(--custom-brand-color)`。
 
+## 顶部导航节奏（2026-10-04）
+
+共享实现已回流至 `YunLeFun/design` 的 `YlfNavigation`、`YlfNavigationLink`、`YlfNavigationTrigger`，包含中英文示例与行为测试。当前新增能力尚未发布；主站保留本地实现，待固定共享包版本升级后替换并删除相应局部样式，详见 Design 的 `packages/guide/migration.md`。
+
+参考 [Header navigations — Untitled UI / Dribbble](https://dribbble.com/shots/17564385-Header-navigations-Untitled-UI) 的文字导航与分组留白，主站沿用共享晴空蓝和正文字体：导航文字为 14px / 500，点击区域至少 44px 高，链接之间保留 8px，品牌与站点切换入口之间保留 12px。
+
+「官网」采用轻量文字下拉入口；桌面当前页使用蓝色文字和 16×2px 短线，悬停使用中性浅底，键盘焦点使用内收的 2px 轮廓，避免相邻链接的状态挤在一起。移动抽屉沿用浅蓝选中背景，并提供 `aria-current="page"`。颜色、圆角和动效均读取共享主题变量，减少动态效果设置通过共享时长令牌生效。
+
 ## 依赖兼容范围
 
 Nuxt 维持最新稳定的 4.5.2；Vue 作为显式主依赖升级至 3.5.43，Nuxt UI 升至 4.11.3，Vite 8.3.2、Vitest 5.0.3、Vue 类型工具与图标依赖同步升级。TypeScript 维持 6.0.3，因为 `vue-tsc@3.3.12` 仍读取 `typescript/lib/tsc`，TypeScript 7 不再导出该接口。H3 保持 Nuxt 兼容的 1.x 稳定版，不采用 npm `latest` 指向的 2.x RC。Node 类型沿用 24.x；pnpm 继续使用仓库约定的 11.22.0。
