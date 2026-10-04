@@ -2,6 +2,7 @@
 @import '@nuxt/ui';
 @import 'tw-animate-css';
 @import '@yunlefun/ui/css';
+@import './design-tokens.css';
 
 @font-face {
   font-family: 'ZCOOL XiaoWei';
@@ -15,9 +16,19 @@
 
 @source "../../../content/**/*";
 
-@theme static {
-  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+/* Tailwind's bare border utilities otherwise inherit the text color.
+   Keep defaults in base so input, status and caller overrides still win. */
+@layer base {
+  *,
+  ::before,
+  ::after,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--border);
+  }
+}
 
+@theme static {
   --color-blue-50: #eff6ff;
   --color-blue-100: #dbeafe;
   --color-blue-200: #bfdbfe;
@@ -33,28 +44,6 @@
 
 :root {
   color-scheme: light;
-  /* blue-600 guarantees WCAG AA for primary links and white button labels on light surfaces. */
-  --ui-primary: #2563eb;
-  --ui-bg: #f8fafc;
-  --ui-bg-muted: #f1f5f9;
-  --ui-bg-elevated: #ffffff;
-  --ui-bg-accented: #e2e8f0;
-  --ui-text: #0f172a;
-  --ui-text-muted: #475569;
-  --ui-text-dimmed: #64748b;
-  --ui-text-toned: #334155;
-  --ui-text-highlighted: #020617;
-  --ui-border: #cbd5e1;
-  --ui-border-muted: #e2e8f0;
-  --ui-border-accented: #94a3b8;
-  --ylf-surface: #ffffff;
-  --ylf-surface-muted: #f1f5f9;
-  --ylf-surface-hover: #f8fafc;
-  --ylf-glass-highlight: #ffffff;
-  --ylf-ring: color-mix(in srgb, var(--ui-primary) 36%, transparent);
-  --ylf-border-subtle: #e2e8f0;
-  --ylf-border: #cbd5e1;
-  --ylf-border-strong: #94a3b8;
   --ylf-shadow-color: #020617;
   --ylf-account-panel-shadow: #082f66;
 
@@ -76,105 +65,18 @@
   --ylf-sso-route-cyan: #7be7ff;
   --ylf-sso-route-violet: #8c83ff;
 
-  /* YunLe UI 语义令牌：Nuxt UI 与 shadcn-vue 共用同一套明暗模式来源。 */
-  --background: var(--ui-bg);
-  --foreground: var(--ui-text);
-  --card: var(--ylf-surface);
-  --card-foreground: var(--ui-text);
-  --popover: var(--ui-bg-elevated);
-  --popover-foreground: var(--ui-text);
-  --primary: var(--ui-primary);
-  --primary-foreground: #ffffff;
-  --secondary: var(--ui-bg-muted);
-  --secondary-foreground: var(--ui-text);
-  --muted: var(--ui-bg-muted);
-  --muted-foreground: var(--ui-text-muted);
-  --accent: var(--ui-bg-accented);
-  --accent-foreground: var(--ui-text);
-  --destructive: var(--ui-error, #dc2626);
-  --destructive-foreground: #ffffff;
-  --border: var(--ylf-border);
-  --input: var(--ylf-border);
-  --ring: var(--ui-primary);
-  --radius: 0.875rem;
-
-  /* 多巴胺调色板 —— 缤纷、明快的强调色，用于彩色图标贴片、卡片点缀与背景光晕 */
-  --ylf-dopa-pink: #ec4899;
-  --ylf-dopa-rose: #fb7185;
-  --ylf-dopa-orange: #f97316;
-  --ylf-dopa-amber: #f59e0b;
-  --ylf-dopa-lime: #65a30d;
-  --ylf-dopa-green: #10b981;
-  --ylf-dopa-cyan: #0e7490;
-  --ylf-dopa-blue: #2563eb;
-  --ylf-dopa-violet: #7c3aed;
-
-  /* 品牌主渐变 —— 晴空蓝（呼应「云」的身份）+ 更缤纷的彩虹渐变（多彩点缀） */
-  --ylf-gradient-brand: linear-gradient(115deg, #2563eb, #0ea5e9 55%, #0891b2);
-  /* 品牌操作渐变 —— 比展示渐变更深，保证白色小字号按钮文案达到 WCAG AA。 */
-  --ylf-gradient-action: linear-gradient(115deg, #2563eb 0%, #0f74b8 58%, #0369a1 100%);
-  --ylf-action-shadow: rgb(3 105 161 / 0.58);
-  --ylf-gradient-rainbow: linear-gradient(110deg, #06b6d4, #3b82f6 22%, #8b5cf6 46%, #ec4899 70%, #f59e0b);
-  /* 暖阳渐变 —— 渐变作「乐趣」等点睛字色，需在浅底可读，故偏深 */
-  --ylf-gradient-sunset: linear-gradient(115deg, #fbbf24, #fb7185);
-  /* 落日暖色 token（梦幻晴空 / 天气之子方向） */
+  /* 业务品牌模块：云景、会员卡与本地展示字体仍由主站维护。 */
   --ylf-sun-300: #ffd23f;
   --ylf-coral-400: #ff7a52;
-  /* 会员身份渐变 —— 「晴空落日 → 珊瑚」暖橙融珊瑚红，足够深以承载白字 */
+  --ylf-gradient-sunset: linear-gradient(115deg, #fbbf24, #fb7185);
   --ylf-gradient-member: linear-gradient(135deg, #fb8a2e 0%, #f4516a 52%, #e6315f 100%);
-
-  /* 品牌展示字体仅用于大标题；本地子集避免第三方字体服务与完整中文字体体积。 */
   --ylf-font-dreamy: 'ZCOOL XiaoWei', 'PingFang SC', 'Songti SC', ui-serif, serif;
-  --ylf-font-round: ui-rounded, 'PingFang SC', 'Hiragino Sans GB', ui-sans-serif, system-ui, sans-serif;
 }
 
 .dark {
   color-scheme: dark;
-  /* 暮夜 twilight —— 暗色统一为深靛海军蓝，呼应黄昏夜空（hero 渐变不变）。
-     neutral 暗色档一并下移，让 UModal / 下拉 / Badge 等默认深色面板同样是海军蓝，
-     避免「我的卡是海军蓝、弹窗还是冷灰」。主色保持晴空蓝 #60a5fa。 */
-  --ui-color-neutral-950: #0b1022;
-  --ui-color-neutral-900: #0f1630;
-  --ui-color-neutral-800: #1b2440;
-  --ui-primary: #60a5fa;
-  --primary-foreground: #0f172a;
-  --ui-bg: #0b1022;
-  --ui-bg-muted: #0f1630;
-  --ui-bg-elevated: #141c33;
-  --ui-bg-accented: #1f2a47;
-  --ui-text: #e5e7eb;
-  --ui-text-muted: #cbd5e1;
-  --ui-text-dimmed: #94a3b8;
-  --ui-text-toned: #d1d5db;
-  --ui-text-highlighted: #f2f6ff;
-  --ui-border: #2a3658;
-  --ui-border-muted: #1a2440;
-  --ui-border-accented: #3c4c74;
-  --ylf-surface: #121a30;
-  --ylf-surface-muted: #0f1630;
-  --ylf-surface-hover: #1b2543;
-  --ylf-ring: color-mix(in srgb, var(--ui-primary) 45%, transparent);
-  --ylf-border-subtle: #1a2440;
-  --ylf-border: #2a3658;
-  --ylf-border-strong: #3c4c74;
-  --ylf-shadow-color: #020617;
   --ylf-account-panel-shadow: #020617;
-
-  /* 暗色下提亮的多巴胺色，保证在深色面板上依旧鲜活 */
-  --ylf-dopa-pink: #f472b6;
-  --ylf-dopa-rose: #fb7185;
-  --ylf-dopa-orange: #fb923c;
-  --ylf-dopa-amber: #fbbf24;
-  --ylf-dopa-lime: #a3e635;
-  --ylf-dopa-green: #34d399;
-  --ylf-dopa-cyan: #22d3ee;
-  --ylf-dopa-blue: #60a5fa;
-  --ylf-dopa-violet: #a78bfa;
-
-  --ylf-gradient-brand: linear-gradient(115deg, #3b82f6, #22d3ee 55%, #06b6d4);
-  --ylf-gradient-rainbow: linear-gradient(110deg, #22d3ee, #60a5fa 22%, #a78bfa 46%, #f472b6 70%, #fbbf24);
   --ylf-gradient-sunset: linear-gradient(115deg, #fcd34d, #fda4af);
-  /* 暗色下提亮会员渐变，在深色面板上更发光 */
   --ylf-gradient-member: linear-gradient(135deg, #fb9a3e 0%, #fb5a78 52%, #f4416a 100%);
 }
 
@@ -367,22 +269,6 @@ body {
   background: var(--ylf-accent-on);
 }
 
-[data-slot='separator'][data-ylf-variant='brand'] {
-  background: var(--ylf-c-brand);
-}
-
-[data-slot='separator'][data-ylf-variant='accent'] {
-  background: var(--ylf-accent);
-}
-
-[data-slot='separator'][data-ylf-variant='accent'][data-orientation='horizontal'] {
-  height: 2px;
-}
-
-[data-slot='separator'][data-ylf-variant='accent'][data-orientation='vertical'] {
-  width: 2px;
-}
-
 .ylf-select-swatch {
   display: inline-block;
   width: 12px;
@@ -512,10 +398,10 @@ body {
   border: 1px solid color-mix(in srgb, var(--tile, var(--ui-primary)) 30%, transparent);
 }
 
-/* 品牌渐变实心贴片（白色前景，用于 logo / 重点图标） */
+/* 品牌色贴片：前景和背景随主题成组切换。 */
 .ylf-gradient-tile {
   background: var(--ylf-gradient-brand);
-  color: #fff;
+  color: var(--ylf-c-text-on-accent);
   box-shadow: 0 12px 28px -12px color-mix(in srgb, #0b82c4 62%, transparent);
 }
 
@@ -533,49 +419,83 @@ body {
   letter-spacing: 0.01em;
 }
 
-/* 品牌渐变实心按钮（晴空蓝）—— Nuxt UI 与 shadcn-vue 共用的主 CTA */
+/* 主操作使用共享品牌色及配套前景，随明暗主题一起切换。 */
 .ylf-brand-btn:is([data-slot='base'], [data-slot='button']) {
-  background: var(--ylf-gradient-action);
-  color: #fff;
-  border-color: color-mix(in srgb, #fff 16%, transparent);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.24),
-    0 12px 26px -14px var(--ylf-action-shadow);
-  text-shadow: 0 1px 1px rgb(15 23 42 / 0.18);
+  background: var(--ylf-c-brand);
+  color: var(--ylf-c-text-on-accent);
+  border-color: var(--ylf-c-edge);
+  box-shadow: var(--ylf-shadow-control);
   transition:
-    filter 160ms ease,
-    box-shadow 160ms ease,
-    transform 160ms ease;
+    background-color var(--ylf-duration-fast) var(--ylf-ease-standard),
+    transform var(--ylf-duration-fast) var(--ylf-ease-standard);
 }
 
-.ylf-brand-btn:is([data-slot='base'], [data-slot='button']):hover:not(:disabled) {
-  filter: brightness(1.04) saturate(1.08);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.3),
-    0 14px 30px -14px var(--ylf-action-shadow);
-  transform: translateY(-1px);
+.ylf-brand-btn:is([data-slot='base'], [data-slot='button']):hover:not(:disabled, [aria-disabled='true']) {
+  background: var(--ylf-c-brand-hover);
 }
 
-.ylf-brand-btn:is([data-slot='base'], [data-slot='button']):active:not(:disabled) {
-  filter: brightness(0.98) saturate(1.04);
+.ylf-brand-btn:is([data-slot='base'], [data-slot='button']):active:not(:disabled, [aria-disabled='true']) {
+  background: var(--ylf-c-brand-active);
   transform: translateY(1px);
 }
 
-/* 玻璃按钮（白字）—— 叠在晴空 hero 上的次级 CTA */
-.ylf-glass-btn[data-slot='base'] {
-  background: color-mix(in srgb, #fff 22%, transparent);
-  color: #fff;
+/* Design hero variant: token fallbacks bridge the next, unpublished shared release.
+   Canonical values: YunLeFun/design packages/ui/styles/css-vars.scss. */
+.ylf-hero-btn[data-slot='button'] {
+  background: var(--ylf-hero-background, linear-gradient(115deg, #2563eb, #0f74b8 58%, #0369a1));
+  color: var(--ylf-hero-foreground, #fff);
+  border-color: var(--ylf-hero-border, rgb(255 255 255 / 0.16));
+  box-shadow: var(--ylf-hero-shadow, inset 0 1px 0 rgb(255 255 255 / 0.24), 0 12px 26px -14px rgb(3 105 161 / 0.58));
+  transition:
+    box-shadow var(--ylf-duration-fast) var(--ylf-ease-standard),
+    transform var(--ylf-duration-fast) var(--ylf-ease-standard);
+}
+
+.ylf-hero-btn[data-slot='button']:hover:not(:disabled, [aria-disabled='true']) {
+  background: var(--ylf-hero-background-hover, linear-gradient(115deg, #1d4ed8, #096ba9 58%, #075985));
+  box-shadow: var(
+    --ylf-hero-shadow-hover,
+    inset 0 1px 0 rgb(255 255 255 / 0.3),
+    0 14px 30px -14px rgb(3 105 161 / 0.58)
+  );
+  transform: translateY(-1px);
+}
+
+.ylf-hero-btn[data-slot='button']:active:not(:disabled, [aria-disabled='true']) {
+  transform: translateY(1px);
+}
+
+.ylf-hero-btn[data-slot='button']:focus-visible {
+  outline: 2px solid var(--ylf-hero-foreground, #fff);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 5px var(--ylf-hero-end, #0369a1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ylf-hero-btn[data-slot='button'] {
+    transition: none;
+  }
+
+  .ylf-hero-btn[data-slot='button']:is(:hover, :active):not(:disabled, [aria-disabled='true']) {
+    transform: none;
+  }
+}
+
+/* 晴空上的次级 CTA：沿用 Design 玻璃材质和明暗前景。 */
+.ylf-glass-btn:is([data-slot='base'], [data-slot='button']) {
+  background: var(--ylf-glass-bg);
+  color: var(--ylf-c-text);
   border: 0;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, #fff 45%, transparent);
-  backdrop-filter: blur(8px) saturate(140%);
-  -webkit-backdrop-filter: blur(8px) saturate(140%);
+  box-shadow: inset 0 0 0 1px var(--ylf-glass-border);
+  backdrop-filter: var(--ylf-glass-blur);
+  -webkit-backdrop-filter: var(--ylf-glass-blur);
   transition:
     background-color 160ms ease,
     transform 160ms ease;
 }
 
-.ylf-glass-btn[data-slot='base']:hover:not(:disabled) {
-  background: color-mix(in srgb, #fff 34%, transparent);
+.ylf-glass-btn:is([data-slot='base'], [data-slot='button']):hover:not(:disabled, [aria-disabled='true']) {
+  background: var(--ylf-c-surface-raised);
   transform: translateY(-1px);
 }
 
@@ -609,9 +529,10 @@ body {
   text-shadow: 0 1px 10px rgba(0, 40, 90, 0.35);
 }
 
-/* 品牌渐变实底 —— 大面积晴空蓝背景（如钱包余额卡） */
+/* 品牌实底 —— 大面积晴空蓝背景（如钱包余额卡） */
 .ylf-brand-bg {
   background: var(--ylf-gradient-brand);
+  color: var(--ylf-c-text-on-accent);
 }
 
 /* SkyScene 用：阳光丁达尔光束 + 飞鸟漂浮 */
@@ -809,7 +730,8 @@ body {
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --font-heading: var(--ylf-font-round);
+  --font-sans: var(--ylf-font-body);
+  --font-heading: var(--ylf-font-heading);
   --radius-sm: calc(var(--radius) - 0.25rem);
   --radius-md: calc(var(--radius) - 0.125rem);
   --radius-lg: var(--radius);

@@ -120,7 +120,7 @@ onMounted(loadApps)
 .app-explorer-page__container {
   position: relative;
   z-index: 1;
-  padding-top: clamp(3rem, 8vw, 6rem);
+  padding-top: clamp(2.5rem, 6vw, 4.5rem);
   padding-bottom: 6rem;
 }
 

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>云乐盘应用图标</title>
+  <defs>
+    <linearGradient id="drive-sky" x1="32" y1="0" x2="32" y2="64" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#55aaff"/>
+      <stop offset="1" stop-color="#2563eb"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" fill="url(#drive-sky)"/>
+  <g fill="#ffffff">
+    <path d="M16.5 37C11.806 37 8 33.194 8 28.5S11.806 20 16.5 20C17.93 20 19.28 20.353 20.466 20.978C21.786 15.815 26.465 12 32 12S42.214 15.815 43.534 20.978C44.72 20.353 46.07 20 47.5 20C52.194 20 56 23.806 56 28.5S52.194 37 47.5 37H16.5Z"/>
+    <path fill-rule="evenodd" d="M16 41H48C50.209 41 52 42.791 52 45V48C52 50.209 50.209 52 48 52H16C13.791 52 12 50.209 12 48V45C12 42.791 13.791 41 16 41ZM27 45A1.5 1.5 0 0 0 27 48H37A1.5 1.5 0 0 0 37 45H27Z"/>
+  </g>
+</svg>

@@ -311,20 +311,20 @@ onMounted(async () => {
     <template v-else-if="activeAsset === 'coin'">
       <!-- 余额 + 会员状态 -->
       <div class="grid gap-4 sm:grid-cols-2">
-        <!-- 余额：渐变主卡 -->
-        <div class="ylf-brand-bg relative overflow-hidden rounded-2xl p-6 text-white shadow-lg shadow-primary/20">
+        <!-- 余额：共享品牌色主卡 -->
+        <div class="ylf-brand-bg relative overflow-hidden rounded-2xl p-6 shadow-lg shadow-primary/20">
           <Icon
             name="i-lucide-coins"
             class="pointer-events-none absolute -right-4 -bottom-4 size-32 opacity-15"
           />
-          <p class="text-sm/relaxed text-white/80">
+          <p class="text-sm/relaxed">
             云币余额
           </p>
           <div class="mt-2 flex items-end gap-2">
             <span class="text-5xl font-extrabold tabular-nums leading-none">{{ coin.balance.value }}</span>
-            <span class="pb-1 text-white/80">云币</span>
+            <span class="pb-1">云币</span>
           </div>
-          <p class="mt-3 text-xs text-white/70">
+          <p class="mt-3 text-xs">
             ≈ {{ formatPrice(coin.balance.value * COIN_RATE_FEN) }} · 100 云币 = 10 元
           </p>
         </div>

@@ -6,7 +6,9 @@ import {
   NavigationMenuRoot,
   useForwardPropsEmits,
 } from 'reka-ui'
+import { provide, toRef } from 'vue'
 import { cn } from '@/lib/utils'
+import { navigationMenuViewportKey } from './context'
 import NavigationMenuViewport from './NavigationMenuViewport.vue'
 
 const props = withDefaults(defineProps<NavigationMenuRootProps & {
@@ -16,6 +18,8 @@ const props = withDefaults(defineProps<NavigationMenuRootProps & {
   viewport: true,
 })
 const emits = defineEmits<NavigationMenuRootEmits>()
+
+provide(navigationMenuViewportKey, toRef(props, 'viewport'))
 
 const delegatedProps = reactiveOmit(props, 'class', 'viewport')
 const forwarded = useForwardPropsEmits(delegatedProps, emits)

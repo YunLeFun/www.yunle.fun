@@ -38,8 +38,34 @@ describe('app components using YunLeFun Design colors', () => {
     expect(button.get('[data-slot="button"]').attributes('data-ylf-tone')).toBeUndefined()
     expect(badge.get('[data-slot="badge"]').attributes()).toMatchObject({
       'data-ylf-status': 'success',
-      'data-ylf-appearance': 'soft',
     })
+    expect(badge.get('[data-slot="badge"]').classes()).toEqual(expect.arrayContaining(['ylf-badge--success', 'is-soft']))
+    expect(badge.get('svg[aria-hidden="true"]').exists()).toBe(true)
+    expect(badge.text()).toBe('已完成')
+  })
+
+  it('updates the shared badge tone and appearance without losing its label', async () => {
+    const badge = await mountSuspended(AppBadge, {
+      props: { label: '精选应用', tone: 'sun', variant: 'outline' },
+    })
+
+    expect(badge.classes()).toEqual(expect.arrayContaining(['ylf-badge--accent', 'is-outline']))
+    expect(badge.attributes('data-ylf-tone')).toBe('sun')
+    await badge.setProps({ tone: 'cyan', variant: 'solid' })
+    expect(badge.classes()).toContain('is-solid')
+    expect(badge.attributes('data-ylf-tone')).toBe('cyan')
+    expect(badge.text()).toBe('精选应用')
+  })
+
+  it('preserves separator accessibility with the shared spectrum variant', async () => {
+    const separator = await mountSuspended(AppSeparator, {
+      props: { variant: 'spectrum', orientation: 'vertical', decorative: false },
+    })
+
+    expect(separator.get('[role="separator"]').attributes('aria-orientation')).toBe('vertical')
+    expect(separator.classes()).toContain('ylf-separator--spectrum')
+    await separator.setProps({ decorative: true })
+    expect(separator.attributes('role')).toBe('none')
   })
 
   it('forwards accent surfaces through existing card and separator wrappers', async () => {

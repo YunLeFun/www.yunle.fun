@@ -24,11 +24,11 @@ const accountState = useSsoAccountState('/explore')
     <div class="app-explorer-hero__intro">
       <div>
         <p class="app-explorer-hero__eyebrow">
-          YUNLE.FUN · APPLICATION ATLAS
+          云乐坊应用集合
         </p>
         <h1>云端应用图谱</h1>
         <p class="app-explorer-hero__lead">
-          一个云乐坊账号，连接已接入统一登录的应用；继续向下，发现全部公开应用。
+          从同一个账号出发，探索创作工具、小游戏和日常灵感。
         </p>
       </div>
 
@@ -65,7 +65,7 @@ const accountState = useSsoAccountState('/explore')
 <style scoped>
 .app-explorer-hero {
   display: grid;
-  gap: 1.5rem;
+  gap: 2rem;
 }
 
 .app-explorer-hero__intro {
@@ -75,57 +75,57 @@ const accountState = useSsoAccountState('/explore')
 }
 
 .app-explorer-hero__eyebrow {
-  color: var(--ylf-dopa-cyan);
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.16em;
+  color: var(--ui-primary);
+  font-size: 0.8rem;
+  font-weight: 600;
 }
 
 .app-explorer-hero h1 {
-  margin-top: 0.45rem;
-  font-size: clamp(2.35rem, 7vw, 5.25rem);
-  font-weight: 900;
-  letter-spacing: -0.055em;
-  line-height: 0.98;
+  margin-top: 0.6rem;
+  color: var(--ui-text-highlighted);
+  font-size: clamp(2.15rem, 5vw, 3.75rem);
+  font-weight: 750;
+  letter-spacing: -0.04em;
+  line-height: 1.15;
 }
 
 .app-explorer-hero__lead {
   max-width: 42rem;
-  margin-top: 1rem;
+  margin-top: 0.85rem;
   color: var(--ui-text-muted);
-  font-size: clamp(1rem, 2vw, 1.15rem);
+  font-size: 0.95rem;
   line-height: 1.8;
 }
 
 .app-explorer-hero__stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.6rem;
+  gap: 1rem;
   margin: 0;
 }
 
 .app-explorer-hero__stats div {
   min-width: 0;
-  border: 1px solid var(--ui-border);
-  border-radius: 1rem;
-  padding: 0.8rem;
-  background: color-mix(in srgb, var(--ui-bg) 72%, transparent);
+  border-left: 1px solid var(--ui-border-muted);
+  padding-left: 1rem;
 }
 
 .app-explorer-hero__stats dt {
   color: var(--ui-text-muted);
-  font-size: 0.68rem;
+  font-size: 0.7rem;
 }
 
 .app-explorer-hero__stats dd {
-  margin: 0.1rem 0 0;
-  font-size: 1.35rem;
-  font-weight: 800;
+  margin: 0.35rem 0 0;
+  color: var(--ui-text-highlighted);
+  font-size: 1.8rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 1024px) {
   .app-explorer-hero__intro {
-    grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.45fr);
+    grid-template-columns: minmax(0, 1fr) minmax(20rem, 0.4fr);
   }
 }
 </style>

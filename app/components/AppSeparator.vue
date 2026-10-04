@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import type { SeparatorProps } from 'reka-ui'
 import type { YlfAccentTone } from '@/types/design'
-import { Separator } from '@/components/ui/separator'
+import YlfSeparator from '@yunlefun/vue/components/YlfSeparator.vue'
 
 withDefaults(defineProps<SeparatorProps & {
-  variant?: 'neutral' | 'brand' | 'accent'
+  variant?: 'neutral' | 'brand' | 'accent' | 'spectrum'
   tone?: YlfAccentTone
 }>(), {
   orientation: 'horizontal',
@@ -14,9 +14,12 @@ withDefaults(defineProps<SeparatorProps & {
 </script>
 
 <template>
-  <Separator
+  <YlfSeparator
+    data-slot="separator"
     :orientation="orientation"
     :decorative="decorative"
+    :variant="variant"
+    :tone="tone"
     :data-ylf-tone="variant === 'accent' ? (tone || 'blue') : undefined"
     :data-ylf-variant="variant"
   />

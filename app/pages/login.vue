@@ -311,7 +311,7 @@ onUnmounted(() => clearTimeout(morphTimer))
       <div class="flex justify-center">
         <div class="ylf-auth-mark ylf-gradient-tile flex h-12 w-14 items-center justify-center rounded-2xl">
           <YlfLogo
-            class="h-7 w-10 text-white"
+            class="h-7 w-10 text-primary-foreground"
             aria-hidden="true"
           />
         </div>
@@ -406,7 +406,6 @@ onUnmounted(() => clearTimeout(morphTimer))
                     color="neutral"
                     variant="outline"
                     size="lg"
-                    class="ylf-auth-button-secondary"
                     :disabled="phoneCountdownActive || loading"
                     @click="handleSendPhoneOtp"
                   />
@@ -418,7 +417,6 @@ onUnmounted(() => clearTimeout(morphTimer))
                 color="primary"
                 size="lg"
                 block
-                class="ylf-auth-button-primary"
                 :loading="loading"
                 :disabled="!RE_OTP.test(phoneOtpCode)"
                 @click="handleVerifyPhoneOtp"
@@ -432,7 +430,6 @@ onUnmounted(() => clearTimeout(morphTimer))
               color="primary"
               size="lg"
               block
-              class="ylf-auth-button-primary"
               :loading="loading"
               :disabled="!phoneValid"
               @click="handleSendPhoneOtp"
@@ -483,7 +480,6 @@ onUnmounted(() => clearTimeout(morphTimer))
                     color="neutral"
                     variant="outline"
                     size="lg"
-                    class="ylf-auth-button-secondary"
                     :disabled="emailCountdownActive || loading"
                     @click="handleSendEmailOtp"
                   />
@@ -495,7 +491,6 @@ onUnmounted(() => clearTimeout(morphTimer))
                 color="primary"
                 size="lg"
                 block
-                class="ylf-auth-button-primary"
                 :loading="loading"
                 :disabled="!RE_OTP.test(emailOtpCode)"
                 @click="handleVerifyEmailOtp"
@@ -509,7 +504,6 @@ onUnmounted(() => clearTimeout(morphTimer))
               color="primary"
               size="lg"
               block
-              class="ylf-auth-button-primary"
               :loading="loading"
               :disabled="!emailValid"
               @click="handleSendEmailOtp"
@@ -585,7 +579,6 @@ onUnmounted(() => clearTimeout(morphTimer))
               color="primary"
               size="lg"
               block
-              class="ylf-auth-button-primary"
               :loading="loading"
               :disabled="!passwordFormValid"
             />
@@ -631,7 +624,6 @@ onUnmounted(() => clearTimeout(morphTimer))
           variant="subtle"
           size="lg"
           block
-          class="ylf-auth-button-secondary"
           @click="provider.onClick"
         />
       </div>
@@ -692,13 +684,11 @@ onUnmounted(() => clearTimeout(morphTimer))
                 color="neutral"
                 variant="outline"
                 type="button"
-                class="ylf-auth-button-secondary"
                 @click="showResetPassword = false"
               />
               <AppButton
                 label="发送验证码"
                 color="primary"
-                class="ylf-auth-button-primary"
                 :loading="loading"
                 :disabled="!resetAccountValid"
                 @click="handleSendReset"
@@ -727,7 +717,6 @@ onUnmounted(() => clearTimeout(morphTimer))
                   variant="outline"
                   size="lg"
                   type="button"
-                  class="ylf-auth-button-secondary"
                   :disabled="resetCountdownActive || loading"
                   @click="handleSendReset"
                 />
@@ -769,14 +758,12 @@ onUnmounted(() => clearTimeout(morphTimer))
                 color="neutral"
                 variant="outline"
                 type="button"
-                class="ylf-auth-button-secondary"
                 @click="resetStep = 'input'"
               />
               <AppButton
                 label="重置密码"
                 type="submit"
                 color="primary"
-                class="ylf-auth-button-primary"
                 :loading="loading"
                 :disabled="!RE_OTP.test(resetOtpCode) || !newPasswordValid"
               />
@@ -837,89 +824,6 @@ onUnmounted(() => clearTimeout(morphTimer))
   content: '';
   inset: 1px;
   pointer-events: none;
-}
-
-.ylf-auth-login :deep(input[data-slot='base']),
-.ylf-auth-login :deep(button[role='combobox'][data-slot='base']) {
-  min-height: 2.625rem;
-  border-radius: 0.625rem;
-  background: color-mix(in srgb, var(--ylf-surface-muted) 52%, var(--ylf-surface));
-  box-shadow: inset 0 0 0 1px var(--ui-border-muted);
-  outline: none;
-  transition:
-    background-color 160ms ease,
-    box-shadow 160ms ease,
-    color 160ms ease;
-}
-
-.ylf-auth-login :deep(input[data-slot='base']:hover:not(:disabled)),
-.ylf-auth-login :deep(button[role='combobox'][data-slot='base']:hover:not(:disabled)) {
-  background: var(--ylf-surface);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-primary) 28%, var(--ui-border-muted));
-}
-
-.ylf-auth-login :deep(input[data-slot='base']:focus-visible),
-.ylf-auth-login :deep(button[role='combobox'][data-slot='base']:focus-visible) {
-  background: var(--ylf-surface);
-  box-shadow:
-    inset 0 0 0 1.5px color-mix(in srgb, var(--ui-primary) 88%, var(--ylf-surface)),
-    0 0 0 3px var(--ylf-ring);
-}
-
-.ylf-auth-login :deep(.ylf-auth-button-primary[data-slot='base']),
-.ylf-auth-login :deep(.ylf-auth-button-secondary[data-slot='base']) {
-  min-height: 2.625rem;
-  border-radius: 0.625rem;
-  transition:
-    background-color 160ms ease,
-    box-shadow 160ms ease,
-    color 160ms ease,
-    transform 160ms ease;
-}
-
-.ylf-auth-login :deep(.ylf-auth-button-primary[data-slot='base']) {
-  background: var(--ylf-gradient-brand);
-  box-shadow: 0 10px 22px -12px color-mix(in srgb, var(--ylf-dopa-violet) 70%, transparent);
-  color: var(--ylf-glass-highlight);
-}
-
-.ylf-auth-login :deep(.ylf-auth-button-primary[data-slot='base']:hover:not(:disabled)) {
-  box-shadow: 0 12px 24px -14px var(--ui-primary);
-  transform: translateY(-1px);
-}
-
-.ylf-auth-login :deep(.ylf-auth-button-primary[data-slot='base']:focus-visible) {
-  outline: none;
-  box-shadow:
-    0 10px 22px -14px var(--ui-primary),
-    0 0 0 3px var(--ylf-ring);
-}
-
-.ylf-auth-login :deep(.ylf-auth-button-primary[data-slot='base']:disabled),
-.ylf-auth-login :deep(.ylf-auth-button-primary[data-slot='base'][aria-disabled='true']) {
-  background: color-mix(in srgb, var(--ui-primary) 42%, var(--ylf-surface));
-  box-shadow: none;
-  color: color-mix(in srgb, var(--ylf-glass-highlight) 82%, var(--ui-text-muted));
-  opacity: 1;
-  transform: none;
-}
-
-.ylf-auth-login :deep(.ylf-auth-button-secondary[data-slot='base']) {
-  background: var(--ylf-surface);
-  box-shadow: inset 0 0 0 1px var(--ui-border-muted);
-  color: var(--ui-text);
-}
-
-.ylf-auth-login :deep(.ylf-auth-button-secondary[data-slot='base']:hover:not(:disabled)) {
-  background: color-mix(in srgb, var(--ui-primary) 6%, var(--ylf-surface));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-primary) 24%, var(--ui-border-muted));
-}
-
-.ylf-auth-login :deep(.ylf-auth-button-secondary[data-slot='base']:focus-visible) {
-  outline: none;
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--ui-primary) 52%, var(--ui-border-muted)),
-    0 0 0 3px var(--ylf-ring);
 }
 
 /* 表单区高度平滑过渡：避免切换登录方式 / 展开验证码时卡片尺寸硬跳 */
