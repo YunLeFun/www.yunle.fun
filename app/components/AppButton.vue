@@ -8,7 +8,7 @@ import { Spinner } from '@/components/ui/spinner'
 
 type LegacyColor = 'primary' | 'secondary' | 'neutral' | 'error' | 'success' | 'info' | 'warning'
 type LegacyVariant = 'solid' | 'soft' | 'subtle' | 'outline' | 'ghost' | 'link' | 'hero'
-type LegacySize = 'xs' | 'sm' | 'md' | 'lg' | 'xl'
+type LegacySize = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'icon' | 'icon-xs' | 'icon-sm' | 'icon-lg'
 
 const props = withDefaults(defineProps<{
   block?: boolean
@@ -74,17 +74,7 @@ const buttonVariant = computed<ButtonVariants['variant']>(() => {
   return 'default'
 })
 
-const buttonSize = computed<ButtonVariants['size']>(() => {
-  if (props.size === 'xs')
-    return 'xs'
-  if (props.size === 'sm')
-    return 'sm'
-  if (props.size === 'xl')
-    return 'xl'
-  if (props.size === 'lg')
-    return 'lg'
-  return 'default'
-})
+const buttonSize = computed<ButtonVariants['size']>(() => props.size === 'md' ? 'default' : props.size)
 </script>
 
 <template>

@@ -36,6 +36,34 @@
 
 弹层外框负责背景、边框、阴影、背景模糊和圆角裁切；`UserAccountPanel` 只负责内容与分组，不重复绘制外框。账户菜单使用 `surface.ts` 的共享面板材质，避免透明外层保留模糊、内外圆角不一致时露出背景边角。
 
+## 社交图标与图标按钮（2026-10-04）
+
+导航和页脚的纯图标入口统一使用 `AppButton / Button size="icon-lg"`：44×44px 点击区域、20px 图标、无文字按钮的左右内边距。图标大小由底层按钮变体统一维护，兼容 Iconify 的 `data-icon` 节点和 SVG 图标。
+
+页脚与联系页复用 `YlfSocialIcons`。圆角使用 `--ylf-radius`（14px），链接间距使用 `--ylf-space-1`（4px），默认图标颜色使用 `text-muted-foreground`。悬停与键盘焦点使用 `design-tokens.css` 中统一维护的 `--ylf-social-*` 品牌色。品牌色在明暗模式下保持原值，背景通过 `--ylf-social-hover-tint` 使用浅色 8% / 深色 14% 的同色淡底；GitHub 按规范切换黑白版本。邮件使用主站主题色。平台色仅用于社交标志，不扩展应用语义色板。焦点环继续使用 `--ring`，动效读取 `--ylf-duration-fast / --ylf-ease-standard` 并遵循减少动态效果设置。窄屏允许换行；每个外链保留可读标签和新窗口提示。
+
+色值来源（2026-10-04 核对）：
+
+| 平台         | 交互颜色                        | 来源与适用范围                                                                                                                                                                                                         |
+| ------------ | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| QQ           | `#1EBAFC`                       | [QQ 官方色板](https://qq.design/brand/BrandDesign/Color/)中标注的 QQ 蓝；完整标志的背景规则另见[标志规范](https://qq.design/brand/BrandDesign/Logo/)                                                                   |
+| 微信         | `#07C160`                       | [微信官方品牌指引](https://wechat.design/brand/main-brand/)的核心色板                                                                                                                                                  |
+| Bilibili     | `#0CB6F2`                       | [官方投资者网站](https://ir.bilibili.com/)实际使用的[蓝色 logo SVG](https://ir.bilibili.com/media/mwvbaepv/logoenblue.svg)填充色；不将其称为所有 B 站场景唯一标准色                                                    |
+| GitHub       | 浅色 `#000000` / 深色 `#FFFFFF` | [GitHub 官方标志规范](https://brand.github.com/foundations/logo)允许的黑白版本                                                                                                                                         |
+| Twitter 小鸟 | `#1D9BF0`                       | 官方[历史 Twitter 资源包](https://about.x.com/content/dam/about-twitter/en/brand-toolkit/downloads/twitter-logo-01282021.zip)内 `Twitter logo/SVG/Logo blue.svg` 的填充色；适用于当前保留的小鸟图形，不代表现行 X 身份 |
+| 微博         | `#E6162D`                       | [Simple Icons 色值目录](https://github.com/simple-icons/simple-icons/blob/develop/data/simple-icons.json)的参考值；官方开放平台资源页当前不可用，尚未核验官方色板，不标记为官方认证色                                  |
+
+当前图形来自 Remix Icon，此次同步的是交互颜色；完整 VI 还包含图形版本、允许的单色版本、背景、留白和尺寸要求。调整主题时不再用自行调亮、调暗后的近似值替代品牌色。
+
+配置入口：
+
+- 全站的图标、链接、名称和顺序：`app/config/social.ts` 中的 `socialList`。
+- 全站品牌色与主题背景：`app/assets/css/design-tokens.css` 中的 `--ylf-social-*`、`--ylf-social-hover-tint`。
+- 单项颜色：`SocialItem.hoverColor`，支持 HEX、RGB 或 `var(--custom-token)`。固定 HEX 会在明暗模式下保持同一色值；主题差异通过自定义 token 控制。省略时使用默认平台 token。
+- 单处列表覆盖：`<YlfSocialIcons :items="customSocialList" />`；默认复用全站配置。
+
+例如微信条目可显式设置 `hoverColor: '#07c160'`；省略时已默认使用这个色值。覆盖只影响交互颜色，固定 HEX 在明暗模式下保持一致；如需自定义主题策略，可以传入 `var(--custom-brand-color)`。
+
 ## 依赖兼容范围
 
 Nuxt 维持最新稳定的 4.5.2；Vue 作为显式主依赖升级至 3.5.43，Nuxt UI 升至 4.11.3，Vite 8.3.2、Vitest 5.0.3、Vue 类型工具与图标依赖同步升级。TypeScript 维持 6.0.3，因为 `vue-tsc@3.3.12` 仍读取 `typescript/lib/tsc`，TypeScript 7 不再导出该接口。H3 保持 Nuxt 兼容的 1.x 稳定版，不采用 npm `latest` 指向的 2.x RC。Node 类型沿用 24.x；pnpm 继续使用仓库约定的 11.22.0。

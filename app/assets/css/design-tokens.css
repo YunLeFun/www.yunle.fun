@@ -37,6 +37,15 @@
   --ylf-radius-panel: var(--ylf-radius-lg);
   --ylf-radius-sheet: var(--ylf-radius-xl);
 
+  --ylf-social-mail: var(--ylf-c-brand);
+  /* Fixed identity colors: preserve the source color across themes.
+     Sources and the Weibo reference-color exception are recorded in docs/design-system.md. */
+  --ylf-social-qq: #1ebafc;
+  --ylf-social-wechat: #07c160;
+  --ylf-social-bilibili: #0cb6f2;
+  --ylf-social-weibo: #e6162d;
+  --ylf-social-twitter: #1d9bf0;
+
   --background: var(--ylf-c-bg);
   --foreground: var(--ylf-c-text);
   --card: var(--ylf-c-surface);
@@ -71,4 +80,18 @@
   --ylf-dopa-green: var(--ylf-accent-green-text);
   --ylf-gradient-rainbow: linear-gradient(90deg, var(--ylf-spectrum-stops));
   --ylf-font-round: var(--ylf-font-heading);
+}
+
+/* Theme changes affect the hover surface and the permitted GitHub monochrome
+   version, rather than tinting the identity colors above. */
+:root,
+.ylf-theme-light {
+  --ylf-social-github: #000000;
+  --ylf-social-hover-tint: 8%;
+}
+
+.dark,
+.ylf-theme-dark {
+  --ylf-social-github: #ffffff;
+  --ylf-social-hover-tint: 14%;
 }

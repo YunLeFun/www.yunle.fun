@@ -14,12 +14,12 @@ function toggleColorMode() {
   <Button
     type="button"
     variant="ghost"
-    size="icon-sm"
+    size="icon-lg"
     title="切换配色模式"
     @click="toggleColorMode"
   >
-    <SunIcon class="hidden dark:block" aria-hidden="true" />
-    <MoonIcon class="dark:hidden" aria-hidden="true" />
+    <SunIcon class="hidden size-5 dark:block" aria-hidden="true" />
+    <MoonIcon class="size-5 dark:hidden" aria-hidden="true" />
     <span class="sr-only dark:hidden">切换到深色模式</span>
     <span class="sr-only hidden dark:inline">切换到浅色模式</span>
   </Button>

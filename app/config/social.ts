@@ -1,4 +1,7 @@
 export interface SocialItem {
+  brand: 'mail' | 'github' | 'qq' | 'wechat' | 'bilibili' | 'weibo' | 'twitter'
+  /** Optional CSS color/token override. Omit to use the platform's documented identity color. */
+  hoverColor?: string
   icon: string
   title: string
   to: string
@@ -6,36 +9,43 @@ export interface SocialItem {
 
 export const socialList: SocialItem[] = [
   {
+    brand: 'mail',
     icon: 'i-ri-mail-fill',
     title: 'i@yunle.fun',
     to: 'mailto:i@yunle.fun',
   },
   {
+    brand: 'github',
     icon: 'i-ri-github-fill',
     title: 'YunLeFun',
     to: 'https://github.com/YunLeFun',
   },
   {
+    brand: 'qq',
     icon: 'i-ri-qq-fill',
     title: 'QQ频道 云乐坊',
     to: 'https://pd.qq.com/s/grfe9jxoe',
   },
   {
+    brand: 'wechat',
     icon: 'i-ri-wechat-fill',
     title: '云乐坊工作室｜微信公众号',
     to: 'https://studio.yunle.fun/images/yunlefun-wechat.webp',
   },
   {
+    brand: 'bilibili',
     icon: 'i-ri-bilibili-fill',
     title: '云乐坊工作室｜哔哩哔哩',
     to: 'https://space.bilibili.com/165596026',
   },
   {
+    brand: 'weibo',
     icon: 'i-ri-weibo-fill',
     title: '云乐坊工作室',
     to: 'https://weibo.com/yunlefun',
   },
   {
+    brand: 'twitter',
     icon: 'i-ri-twitter-fill',
     title: 'YunLeFun | Twitter',
     to: 'https://twitter.com/YunLeFun',
