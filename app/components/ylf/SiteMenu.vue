@@ -70,12 +70,12 @@ const menuItems = [
         <ChevronDownIcon data-icon="inline-end" class="transition-transform duration-200" :class="open ? 'rotate-180' : undefined" />
       </AppButton>
     </DropdownMenuTrigger>
-    <DropdownMenuContent align="start" class="min-w-36">
+    <DropdownMenuContent align="start" :side-offset="8" class="min-w-45">
       <DropdownMenuGroup>
         <DropdownMenuItem v-for="item in menuItems" :key="item.to" as-child>
-          <NuxtLink :to="item.to">
+          <NuxtLink :to="item.to" :aria-current="item.checked ? 'true' : undefined">
             {{ item.label }}
-            <CheckIcon v-if="item.checked" class="ml-auto" />
+            <CheckIcon v-if="item.checked" class="ml-auto text-primary" aria-hidden="true" />
           </NuxtLink>
         </DropdownMenuItem>
       </DropdownMenuGroup>
