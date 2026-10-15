@@ -84,3 +84,16 @@ Admin 详细说明：`../admin/docs/user-acquisition.md`（相对于 www 仓库�
 2026-10-09 的实际生产只读预检与发布范围见 `docs/user-acquisition-release.md`。
 
 业界资料对照、已落地优化及口径差异见 `docs/user-acquisition-practices.md`。
+
+## 不影响正式统计的真实注册验收
+
+真实新注册会立即进入所在 CloudBase 租户的 `sys_user`。QA UTM、应用筛选或注册后再补测试标记，都不能保证它从未计入正式新增分母。受管 synthetic 账号虽然会被正式统计排除，但来源 writer 也会跳过它，不能用已有测试号登录证明新注册来源落库。
+
+需要隔离时，使用同一份发布代码、独立 Auth 和数据库的 development 链路；结果标注为“development 真实注册验收”，不能声称验证了生产域名的新注册。
+
+1. **先核对实际环境。** 已有开发配置指向 `yunlefun-dev-0ge03bdod37093d1` / `ap-shanghai`；必须用管理端精确读取环境详情，确认可访问且有本项目使用的 NoSQL 后端。仅有配置文件、域名包含 `dev`、或 Admin 测试账号目录中的 `environment=test`，均不代表数据库隔离。环境不可访问时先恢复或接入可用的独立环境，不回退到生产 `yunlefun-8g7ybcxc7345c490`。
+2. **核对全链路配置。** Provider、Cook 的 Web SDK，`account-api`、`sso-ticket` 和 Admin 服务端均须指向同一开发租户；所有私有服务凭据、会话密钥、issuer、exchange 和 JWKS 也须匹配开发环境。Provider 的 `accountApiHttpUrl` 默认指向生产，隔离实例必须显式配置已验证的开发端点，不能保留生产默认值。开发 Provider 可复用 `pnpm dev:sso`，详见 `docs/sso-integration.md`。
+3. **准备实际后端和准入。** 在开发租户部署当前来源函数、`ADMINONLY` 来源集合及查询索引，确认真实短信通道可用。通过现有 Registry 维护流程接入 Cook 的精确开发 HTTPS origin、回调和同源图标；当前 development 配置不能直接复用生产 Cook origin。独立 Admin 使用 development `admin-web`、JWKS 及该租户内合法操作员权限，沿用实际 `/acquisition` 页面，不增加任意指定环境的 query 参数。
+4. **完成真实注册。** 新访客会话从带唯一 UTM 的开发 Cook 进入统一登录。手机号只需未在开发租户注册，可以在生产已有账号；手机号、验证码和服务条款确认由测试者直接在页面完成。注册前确认开发 Auth 中没有该用户；不能预先用 Admin 创建 Auth 账号、伪造手机号验证标记或手写来源记录。
+5. **核对落库与展示。** SSO 返回 Cook 并显示登录态后，读取开发 Auth 的真实 UID/创建时间，确认来源记录由实际 writer 生成，`registeredAt` 匹配 Auth，入口为 `cook` / `cook-web` / `registry_validated`，UTM 为本次触点且营销证据为 `client_reported`。在独立 Admin 查询相同日期及“食用手册”，核对新增分母、记录数、渠道和明细。再次登录携带不同 UTM 后，确认首次来源未覆盖。
+6. **保留最少证据。** 保存不含手机号、OTP、密码、授权码或 token 的数据库核对结果与登录后/来源页截图，注明代码版本、环境及未验证范围。测试记录保留在独立租户中，不通过向生产插入再删除的方式验收。

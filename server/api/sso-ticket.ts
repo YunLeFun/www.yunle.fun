@@ -74,7 +74,7 @@ async function invokeDevelopmentTicket(event: H3Event, method: string): Promise<
 
 export default defineEventHandler(async (event) => {
   const method = getMethod(event)
-  if (method !== 'OPTIONS' && method !== 'POST')
+  if (method !== 'GET' && method !== 'OPTIONS' && method !== 'POST')
     throw createError({ statusCode: 405, statusMessage: 'Method Not Allowed' })
   const response = await invokeDevelopmentTicket(event, method)
   const headers = Object.fromEntries(
