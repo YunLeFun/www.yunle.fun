@@ -98,7 +98,33 @@ function updateSpotlight(event: PointerEvent) {
   transition:
     border-color 180ms ease,
     box-shadow 180ms ease,
-    transform 180ms ease;
+    transform var(--ylf-duration-slow) var(--ylf-ease-spring);
+  animation: discovery-card-in 760ms var(--ylf-ease-spring) calc(min(var(--i, 0), 12) * 40ms) backwards;
+}
+
+@keyframes discovery-card-in {
+  from {
+    opacity: 0;
+    translate: 0 1.25rem;
+    scale: 0.95;
+  }
+}
+
+.app-discovery-card :deep(.app-explorer-icon) {
+  transition: transform var(--ylf-duration-slow) var(--ylf-ease-spring);
+}
+
+.app-discovery-card__external-link :deep(svg),
+.app-discovery-card__detail-link :deep(svg) {
+  transition: translate var(--ylf-duration-fast) var(--ylf-ease-standard);
+}
+
+.app-discovery-card__detail-link:hover :deep(svg) {
+  translate: 3px 0;
+}
+
+.app-discovery-card__external-link:hover :deep(svg) {
+  translate: 2px -2px;
 }
 
 .app-discovery-card::before {
@@ -116,11 +142,21 @@ function updateSpotlight(event: PointerEvent) {
   pointer-events: none;
 }
 
-.app-discovery-card:hover,
 .app-discovery-card:focus-within {
   border-color: color-mix(in srgb, var(--app-accent) 42%, var(--ui-border));
-  box-shadow: 0 24px 70px color-mix(in srgb, var(--app-accent) 15%, transparent);
-  transform: translateY(-3px);
+}
+
+/* 与 YlfCard 一致：位移与图标动作只给能悬停的精确指针，触屏不会被“按下抬起”误导。 */
+@media (hover: hover) and (pointer: fine) {
+  .app-discovery-card:hover {
+    border-color: color-mix(in srgb, var(--app-accent) 42%, var(--ui-border));
+    box-shadow: 0 24px 70px color-mix(in srgb, var(--app-accent) 15%, transparent);
+    transform: translateY(-4px);
+  }
+
+  .app-discovery-card:hover :deep(.app-explorer-icon) {
+    transform: translateY(-3px) rotate(-6deg) scale(1.06);
+  }
 }
 
 .app-discovery-card__content {
@@ -261,6 +297,11 @@ function updateSpotlight(event: PointerEvent) {
 @media (prefers-reduced-motion: reduce) {
   .app-discovery-card {
     transition: none;
+    animation: none;
+  }
+
+  .app-discovery-card:hover :deep(.app-explorer-icon) {
+    transform: none;
   }
 
   .app-discovery-card:hover,

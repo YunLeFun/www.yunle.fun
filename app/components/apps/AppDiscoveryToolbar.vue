@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ExplorerCategory, ExplorerCategoryFilter } from '~/types/app-explorer'
-import { computed, useId } from 'vue'
+import { computed, shallowRef, useId } from 'vue'
 
 const props = defineProps<{
   query: string
@@ -15,6 +15,13 @@ const emit = defineEmits<{
 }>()
 
 const searchId = `app-search-${useId()}`
+// 选中动效只在访客点过分类后播放，首屏默认选中的「全部」保持静止。
+const touched = shallowRef(false)
+
+function selectCategory(value: ExplorerCategoryFilter) {
+  touched.value = true
+  emit('update:category', value)
+}
 const hasActiveFilter = computed(() => Boolean(props.query) || props.selectedCategory !== 'all')
 
 function updateQuery(value: string | number | null | undefined) {
@@ -43,7 +50,7 @@ function clearFilters() {
       />
     </div>
 
-    <div class="app-discovery-toolbar__filters" aria-label="应用分类">
+    <div class="app-discovery-toolbar__filters" :class="{ 'is-touched': touched }" aria-label="应用分类">
       <AppButton
         data-category="all"
         label="全部"
@@ -51,7 +58,8 @@ function clearFilters() {
         :variant="selectedCategory === 'all' ? 'solid' : 'soft'"
         :color="selectedCategory === 'all' ? 'primary' : 'neutral'"
         size="sm"
-        @click="emit('update:category', 'all')"
+        class="app-discovery-toolbar__chip"
+        @click="selectCategory('all')"
       />
       <AppButton
         v-for="category in categories"
@@ -63,7 +71,8 @@ function clearFilters() {
         :variant="selectedCategory === category.id ? 'solid' : 'soft'"
         :color="selectedCategory === category.id ? 'primary' : 'neutral'"
         size="sm"
-        @click="emit('update:category', category.id)"
+        class="app-discovery-toolbar__chip"
+        @click="selectCategory(category.id)"
       />
     </div>
 
@@ -114,8 +123,28 @@ function clearFilters() {
   font-size: 0.875rem;
 }
 
+.app-discovery-toolbar__filters.is-touched .app-discovery-toolbar__chip[aria-pressed='true'] {
+  animation: discovery-chip-pop 480ms var(--ylf-ease-spring);
+}
+
+@keyframes discovery-chip-pop {
+  from {
+    scale: 0.88;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-discovery-toolbar__filters.is-touched .app-discovery-toolbar__chip[aria-pressed='true'] {
+    animation: none;
+  }
+}
+
 @media (min-width: 768px) {
+  /* 浏览长列表时筛选栏贴在页头下方，随时可以换分类。 */
   .app-discovery-toolbar {
+    position: sticky;
+    z-index: 10;
+    top: 4.75rem;
     grid-template-columns: minmax(17rem, 0.9fr) minmax(0, 1.6fr);
     align-items: center;
     padding: 1.25rem;

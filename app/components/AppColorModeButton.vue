@@ -1,13 +1,10 @@
 <script setup lang="ts">
 import { MoonIcon, SunIcon } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
+import { useAppearanceTransition } from '~/composables/useAppearanceTransition'
 
-const colorMode = useColorMode()
-const isDark = computed(() => colorMode.value === 'dark')
-
-function toggleColorMode() {
-  colorMode.preference = isDark.value ? 'light' : 'dark'
-}
+// 夜幕从顶端落下、晴空从点击处展开，与 YunLeFun/design 文档站的切换方式一致。
+const { toggleAppearance } = useAppearanceTransition()
 </script>
 
 <template>
@@ -16,7 +13,7 @@ function toggleColorMode() {
     variant="ghost"
     size="icon-lg"
     title="切换配色模式"
-    @click="toggleColorMode"
+    @click="toggleAppearance"
   >
     <SunIcon class="hidden size-5 dark:block" aria-hidden="true" />
     <MoonIcon class="size-5 dark:hidden" aria-hidden="true" />

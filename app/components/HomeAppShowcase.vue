@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { defineAsyncComponent, shallowRef } from 'vue'
+import HomeMarquee from '~/components/home/HomeMarquee.vue'
+import { vReveal } from '~/composables/useReveal'
 import { useSsoAccountState } from '~/composables/useSsoAccountState'
 import { ssoExplorerApps } from '~/config/sso-explorer'
 
@@ -27,9 +29,11 @@ const { stop: stopObservingGallery } = useIntersectionObserver(
 </script>
 
 <template>
-  <section class="home-app-showcase" aria-labelledby="home-app-showcase-title">
+  <section id="home-apps" class="home-app-showcase" aria-labelledby="home-app-showcase-title">
+    <HomeMarquee :apps="ssoExplorerApps" />
+
     <AppContainer>
-      <header class="home-app-showcase__header">
+      <header v-reveal class="home-app-showcase__header">
         <div>
           <p class="home-app-showcase__eyebrow">
             <Icon name="i-lucide-cloud-sun" aria-hidden="true" />
@@ -54,7 +58,7 @@ const { stop: stopObservingGallery } = useIntersectionObserver(
         />
       </header>
 
-      <div ref="galleryHost" class="home-app-showcase__map">
+      <div ref="galleryHost" v-reveal="120" class="home-app-showcase__map">
         <HomeAppGallery
           v-if="shouldRenderGallery"
           :apps="ssoExplorerApps"
@@ -76,7 +80,8 @@ const { stop: stopObservingGallery } = useIntersectionObserver(
 
 <style scoped>
 .home-app-showcase {
-  padding-block: clamp(3.5rem, 7vw, 6rem);
+  padding-block: clamp(1rem, 3vw, 2rem) clamp(3.5rem, 7vw, 6rem);
+  scroll-margin-top: 4rem;
 }
 
 .home-app-showcase__header {

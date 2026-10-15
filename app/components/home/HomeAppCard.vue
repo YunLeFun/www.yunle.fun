@@ -5,6 +5,26 @@ import AppProductIcon from '~/components/apps/AppProductIcon.vue'
 defineProps<{
   app: SsoExplorerApp
 }>()
+
+// 鼠标经过时卡片朝指针微微倾斜，并在表面扫过一道光。触屏保持平放。
+function tilt(event: PointerEvent) {
+  if (event.pointerType !== 'mouse')
+    return
+  const el = event.currentTarget as HTMLElement
+  const box = el.getBoundingClientRect()
+  const x = (event.clientX - box.left) / box.width
+  const y = (event.clientY - box.top) / box.height
+  el.style.setProperty('--ry', `${((x - 0.5) * 10).toFixed(2)}deg`)
+  el.style.setProperty('--rx', `${((0.5 - y) * 8).toFixed(2)}deg`)
+  el.style.setProperty('--gx', `${(x * 100).toFixed(1)}%`)
+  el.style.setProperty('--gy', `${(y * 100).toFixed(1)}%`)
+}
+
+function untilt(event: PointerEvent) {
+  const el = event.currentTarget as HTMLElement
+  el.style.setProperty('--ry', '0deg')
+  el.style.setProperty('--rx', '0deg')
+}
 </script>
 
 <template>
@@ -12,6 +32,8 @@ defineProps<{
     class="home-app-card"
     :style="{ '--app-accent': app.accent }"
     :data-testid="`sso-app-${app.appId}`"
+    @pointermove="tilt"
+    @pointerleave="untilt"
   >
     <a :href="app.origin" target="_blank" rel="noopener noreferrer" class="home-app-card__link">
       <span class="home-app-card__art" aria-hidden="true">
@@ -51,9 +73,37 @@ defineProps<{
   border-radius: 1.35rem;
   background: var(--ui-bg-elevated);
   box-shadow: 0 3px 5px -3px color-mix(in srgb, var(--ylf-shadow-color) 8%, transparent);
+  transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
   transition:
     border-color 180ms ease,
-    box-shadow 180ms ease;
+    box-shadow 180ms ease,
+    transform var(--ylf-duration-slow) var(--ylf-ease-spring),
+    scale var(--ylf-duration-slow) var(--ylf-ease-spring);
+  animation: home-card-in 800ms var(--ylf-ease-spring) calc(var(--i, 0) * 45ms) backwards;
+}
+
+@keyframes home-card-in {
+  from {
+    opacity: 0;
+    translate: 0 1.5rem;
+    scale: 0.92;
+  }
+}
+
+/* 指针位置的柔光，只在悬停时出现。 */
+.home-app-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(circle at var(--gx, 50%) var(--gy, 0%), rgb(255 255 255 / 45%), transparent 55%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--ylf-duration-fast) var(--ylf-ease-standard);
+}
+
+.dark .home-app-card::after {
+  background: radial-gradient(circle at var(--gx, 50%) var(--gy, 0%), rgb(255 255 255 / 10%), transparent 55%);
 }
 
 .home-app-card__link {
@@ -84,12 +134,13 @@ defineProps<{
   height: 8rem;
   color: color-mix(in srgb, var(--app-accent) 9%, transparent);
   stroke-width: 0.75;
+  transition: transform 1200ms var(--ylf-ease-standard);
 }
 
 .home-app-card__logo {
   z-index: 1;
   font-size: 1.2rem;
-  transition: transform 180ms ease;
+  transition: transform var(--ylf-duration-slow) var(--ylf-ease-spring);
 }
 
 .home-app-card__arrow {
@@ -180,7 +231,22 @@ defineProps<{
 }
 
 .home-app-card__link:hover .home-app-card__logo {
-  transform: translateY(-2px);
+  transform: translateY(-4px) scale(1.1) rotate(-5deg);
+}
+
+.home-app-card__link:hover .home-app-card__cloud {
+  transform: translateX(-1.25rem);
+}
+
+/* 按下时像戳云一样轻轻压下，松开后软弹回来。 */
+.home-app-card:active {
+  scale: 0.97;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .home-app-card:hover::after {
+    opacity: 1;
+  }
 }
 
 .home-app-card__link:hover .home-app-card__arrow {
@@ -197,11 +263,20 @@ defineProps<{
 @media (prefers-reduced-motion: reduce) {
   .home-app-card,
   .home-app-card__logo,
+  .home-app-card__cloud,
   .home-app-card__arrow {
     transition: none;
   }
 
-  .home-app-card__link:hover .home-app-card__logo {
+  .home-app-card,
+  .home-app-card:active {
+    transform: none;
+    animation: none;
+    scale: none;
+  }
+
+  .home-app-card__link:hover .home-app-card__logo,
+  .home-app-card__link:hover .home-app-card__cloud {
     transform: none;
   }
 }

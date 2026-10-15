@@ -735,3 +735,112 @@ body {
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 0.25rem);
 }
+
+/* v-reveal：仍在视口下方的区块等待揭示，进入时淡入并带一点软弹簧上浮。
+   使用独立的 translate / scale 属性，不覆盖组件自身的 transform。 */
+.ylf-reveal {
+  opacity: 0;
+  translate: 0 2rem;
+  scale: 0.97;
+}
+
+.ylf-reveal.ylf-reveal--in {
+  opacity: 1;
+  translate: 0 0;
+  scale: 1;
+  transition:
+    opacity 600ms var(--ylf-ease-standard) var(--reveal-delay, 0ms),
+    translate 1000ms var(--ylf-ease-spring) var(--reveal-delay, 0ms),
+    scale 1000ms var(--ylf-ease-spring) var(--reveal-delay, 0ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ylf-reveal {
+    opacity: 1;
+    translate: none;
+    scale: none;
+  }
+}
+
+/* 云朵 Q 弹：点一下先压扁、再弹高、最后落定。首页所有可戳的云共用这一段节奏；
+   使用独立的 scale 属性，不打断云朵自身的漂移与视差位移。 */
+.ylf-squish {
+  transform-origin: 50% 85%;
+  animation: ylf-squish 640ms var(--ylf-ease-standard);
+}
+
+@keyframes ylf-squish {
+  18% {
+    scale: 1.08 0.86;
+  }
+  42% {
+    scale: 0.95 1.07;
+  }
+  66% {
+    scale: 1.02 0.98;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ylf-squish {
+    animation: none;
+  }
+}
+
+/* 明暗切换的场景过渡（见 useAppearanceTransition），与 YunLeFun/design 的文档主题一致。
+   仅在主动切换时启用，首次加载与路由跳转保持静止。 */
+html.ylf-appearance-fade,
+.ylf-appearance-fade *,
+.ylf-appearance-fade *::before,
+.ylf-appearance-fade *::after {
+  transition-property:
+    color, background-color, border-color, box-shadow, fill, stroke, stop-color, opacity, transform, filter !important;
+  transition-duration: 320ms !important;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1) !important;
+  transition-delay: 0s !important;
+}
+
+html.ylf-appearance-reveal::view-transition-old(root),
+html.ylf-appearance-reveal::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* 夜幕落下：新画面是一块下缘柔和的夜色幕布，起始位置在屏幕上方。 */
+html.ylf-appearance-night::view-transition-new(root) {
+  -webkit-mask-image: linear-gradient(to bottom, #000 67%, transparent);
+  mask-image: linear-gradient(to bottom, #000 67%, transparent);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 150vh;
+  mask-size: 100% 150vh;
+  -webkit-mask-position: 0 -150vh;
+  mask-position: 0 -150vh;
+}
+
+/* 晴空展开：新画面是一团边缘柔和的光，起始大小为零。 */
+html.ylf-appearance-day::view-transition-new(root) {
+  -webkit-mask-image: radial-gradient(closest-side, #000 70%, transparent);
+  mask-image: radial-gradient(closest-side, #000 70%, transparent);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 0 0;
+  mask-size: 0 0;
+}
+
+/* 新旧快照都去掉毛玻璃，过渡只需合成，不再逐帧重绘模糊。 */
+html.ylf-appearance-reveal *,
+html.ylf-appearance-reveal *::before,
+html.ylf-appearance-reveal *::after {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.ylf-appearance-fade,
+  .ylf-appearance-fade *,
+  .ylf-appearance-fade *::before,
+  .ylf-appearance-fade *::after {
+    transition: none !important;
+  }
+}
