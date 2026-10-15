@@ -4,19 +4,27 @@
 
 国内环境 `yunlefun-8g7ybcxc7345c490`（`ap-shanghai`）已创建 `user_acquisition` 私有集合、两个来源索引及 `sys_user(createdAt DESC, _id DESC)` 非唯一索引。来源 ACL 已验证为 `ADMINONLY`，真实 Auth 分页及 Admin 统计查询通过，未回填历史。
 
-| 项目            | 已发布代码                                                 | 结果                                                                                             |
-| --------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| account-api     | `YunLeFun/api@eeaf2a4`                                     | Active；仅新增 Apps 专用凭据，既有配置指纹保持；依赖安装参数从 FALSE 改为 TRUE，使用钉定依赖构建 |
-| SSO 云函数      | `YunLeFun/www.yunle.fun@1643943`                           | Active；代码更新后配置指纹一致                                                                   |
-| 官网            | `1643943` / EdgeOne `dpchrgwvizn3`                         | Production Success；Cloudflare 的 dev.yunle.fun 同提交也成功                                     |
-| Admin 新来源 UI | `YunLeFun/admin@14fe0ed` / EdgeOne `dpeqwr08mor7`          | Production Success，地址为 https://admin.yunle.fun/acquisition，保留管理员登录要求               |
-| Apps Web/BFF    | `YunLeFun/apps.yunle.fun@b56a209` / EdgeOne `dp9866tote7u` | Production Success；仅增加来源专用运行时变量，原有 6 项值保持不变                                |
+| 项目            | 已发布代码                                                 | 结果                                                                                               |
+| --------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| account-api     | `YunLeFun/api@eeaf2a4`                                     | Active；仅新增 Apps 专用凭据，既有配置指纹保持；依赖安装参数从 FALSE 改为 TRUE，使用钉定依赖构建   |
+| SSO 云函数      | `YunLeFun/www.yunle.fun@1643943`                           | Active；代码更新后配置指纹一致                                                                     |
+| 官网            | `1643943` / EdgeOne `dpchrgwvizn3`                         | Production Success；Cloudflare 的 dev.yunle.fun 同提交也成功                                       |
+| Admin 新来源 UI | `YunLeFun/admin@14fe0ed` / EdgeOne `dpeqwr08mor7`          | Production Success，地址为 https://admin.yunle.fun/acquisition，保留管理员登录要求                 |
+| Apps Web/BFF    | `YunLeFun/apps.yunle.fun@b56a209` / EdgeOne `dp9866tote7u` | Production Success；仅增加来源专用运行时变量，原有 6 项值保持不变                                  |
+| Cook 主域       | `YunYouJun/cook@5526481` / EdgeOne `dp3s7hdapy2u`          | 项目 `yunyoujun-cook`；Success / UsedInProd=true；`cook.yunyoujun.cn` 线上 HTML 摘要与产物完全一致 |
+| Cook 次域       | `YunYouJun/cook@dad177c9` / EdgeOne `dpc8c5pe6ptb`         | 自动生产发布 Success / UsedInProd=true；域名 `cook.yunle.fun`                                      |
 
 验收：官网 OAuth callback 返回 200，`Cache-Control: no-store`、`Referrer-Policy: no-referrer` 和 noindex 已实际生效；Admin 页面未登录跳转登录页，统计接口未登录返回 401；Apps 来源 BFF 未登录返回 401/no-store。账户 API 缺身份或内部凭据的来源动作均返回不可重试 401。生产真实统计查询的来源集合状态为 available，结果未截断。没有创建测试用户或伪造来源记录，完整新账号跨域/真机流程仍待实际新注册验收。
 
 本次验证：官网 172 文件/1055 项测试、完整 lint/typecheck/build；API 43 文件/466 项测试；Admin 699 项中 698 通过、1 项既有跳过，typecheck/build/postbuild 通过；Apps 560 项 unit 与 71 项 Nuxt、typecheck 与 Web 构建通过。新 UI 使用隔离模拟数据验收桌面、320/390px、明暗主题、空/错/截断状态，未在生产绕过认证。
 
-待完成：共享 SDK 代码已提交 `YunLeFun/ylf@0c1003e`，并以 `5b6f327` 修复现有主分支的 lockfile 漂移，42 项 SSO 测试及类型/构建通过。npm `@yunlefun/sso@0.7.0` 发布任务 [38711016222](https://github.com/YunLeFun/ylf/actions/runs/38711016222) 被 GitHub Actions 预算限制拦截，尚未发布。Cook 改动已隔离提交到 [Draft PR #97](https://github.com/YunYouJun/cook/pull/97)，44 项实际 SDK 打包联调测试通过；等待 npm 发布后更新 lockfile，再合入部署。Cook 其他未提交的 UI/菜谱改动未纳入此 PR。Native 容器及商店 release 未在本次 Web 发布中执行。
+共享 SDK：`YunLeFun/ylf` 经当前文件、完整 Git 历史、远端分支/标签及 PR refs 的敏感信息审查后已公开，当前提交为 [`d8cb871`](https://github.com/YunLeFun/ylf/commit/d8cb871)。SDK 的 42 项 SSO 测试及类型/构建通过；`@yunlefun/sso@0.7.0` 已通过 [OIDC 发布任务 38732814238](https://github.com/YunLeFun/ylf/actions/runs/38732814238) 发布并核验可安装。完整 SRI、npm 包签名、`npm audit signatures` 与 OIDC provenance 校验均通过；registry 包解包后的 28 个文件与本地预备包完全一致，tgz 仅 gzip OS 字节不同。
+
+公开前还审查了全部可读协作记录和 Actions 日志：140 次日志请求中 92 份可下载、48 份已过期不可复查；全部可读内容未发现已确认的敏感信息。真实 `.env` 未纳入 Git，示例账号 ID 已改为环境变量，普通 CI 显式使用只读权限。扫描结论限于已取得的内容。
+
+Cook 发布：[PR #97](https://github.com/YunYouJun/cook/pull/97) 已合入 `main`，合并提交为 [`dad177c9bc3149a3a0c72beeca0d6f1499ece36e`](https://github.com/YunYouJun/cook/commit/dad177c9bc3149a3a0c72beeca0d6f1499ece36e)。真实 registry 锁文件提交为 [`7efe14b`](https://github.com/YunYouJun/cook/commit/7efe14b)，实际隔离构建源码 [`5526481`](https://github.com/YunYouJun/cook/commit/5526481) 已在 `main` 祖先中，并将 EdgeOne 目标修正为 `yunyoujun-cook`。frozen install、完整 lint、Nuxt typecheck、10 个文件的 93 项测试、workspace 包构建与静态生成均通过；PR 全部平台检查及 [main CI 38733998862](https://github.com/YunYouJun/cook/actions/runs/38733998862) 全部 Success。
+
+主域部署 `dp3s7hdapy2u` 已确认 Success、UsedInProd=true，公开 HTML 及包含来源采集代码的 JS bundle 的 SHA256 均与本次隔离 artifact 完全匹配，生产首页正常渲染，`/auth/callback` 返回 200。次域 `cook.yunle.fun` 自动发布合并提交 `dad177c9`，部署 `dpc8c5pe6ptb` 已确认 Success、UsedInProd=true。Cook 原工作区其他未提交的 UI/菜谱改动未纳入本次发布。Native 容器与商店 release、真实新账号跨域端到端仍待单独验收。
 
 私有回滚材料保存在 API 仓库忽略的 `.cloudbase/releases/acquisition-20261015/{account-api,sso-ticket}`，包含旧代码 ZIP、配置及摘要，目录 0700/文件 0600；不要提交、分享或打印其内容。资源变更与 Web 平台只读状态另存本机私有发布目录。函数可按下述独立回滚流程恢复；来源数据不删除。
 

@@ -69,15 +69,15 @@ Admin 按东八区注册日期统计，分母来自当前仍存在的 Auth 新�
 
 ## 上线顺序与验收
 
-2026-10-15 已部署来源集合、查询索引、账户 API、SSO 云函数、官网、Apps Web/BFF 和 Admin 新 UI；SDK 的 npm 发布受 GitHub Actions 预算限制，Cook 新采集代码保留在 Draft PR，尚未上线。完整状态见 `docs/user-acquisition-release.md`。以下为依赖顺序与验收要求。
+2026-10-15 已部署来源集合、查询索引、账户 API、SSO 云函数、官网、Apps Web/BFF、Admin 新 UI 和 Cook Web。`YunLeFun/ylf` 经敏感信息审查后已公开，提交为 `d8cb871`；`@yunlefun/sso@0.7.0` 已通过 [OIDC 发布任务 38732814238](https://github.com/YunLeFun/ylf/actions/runs/38732814238) 发布，已核验可安装、完整 SRI、npm 包签名与 provenance。Cook [PR #97](https://github.com/YunYouJun/cook/pull/97) 已合入 `main@dad177c9`，主域 `cook.yunyoujun.cn` 与次域 `cook.yunle.fun` 均已生产发布成功，主域线上 HTML 摘要与本次产物完全一致。完整状态见 `docs/user-acquisition-release.md`。以下为依赖顺序与验收要求。
 
 1. 在 `api` 仓库先检查 `scripts/ensure-user-acquisition-resources.mjs` 的离线 dry-run，再按其显式环境参数创建私有集合与索引。Admin 查询所需的 `sys_user(createdAt DESC, _id DESC)` 索引用 Admin 的 `scripts/ensure-acquisition-indexes.mjs` 只读预检和显式 apply，具体要求见 Admin 文档。
 2. 发布 `account-api`，保持现有 `ACCOUNT_API_INTERNAL_TOKEN` 的 SSO 内部调用关系，另配置仅授权 Apps 来源动作的独立 `APPS_ACQUISITION_INTERNAL_TOKEN`。接着发布带来源代理的 `sso-ticket` 与官网。旧客户端兼容，未知渠道会如实展示。
 3. 发布 Admin API 与页面；先用现有管理员检查来源集合可读、真实分母正确、未知来源可见。
-4. 共享 `@yunlefun/sso@0.7.0` 使用 `ylf` 的现有 GitHub OIDC 发布流程，发布提交必须已合入 `main`，无需本地 npm token。发布后在 Cook 正式更新 lockfile、完成依赖安装和发布；当前 lockfile 保留原有版本，不能直接按 frozen install 发布新版本。Apps 的私有运行时配置需注入 `NUXT_APPS_ACQUISITION_INTERNAL_TOKEN` 和现有服务端 CloudBase 凭据；与 API 同名专用 token 一致，不能复用通用业务 token，禁止放入 public/VITE 配置。宿主与原生版本按各自发布流程更新。
+4. 共享 `@yunlefun/sso@0.7.0` 已通过 `ylf` 的 GitHub OIDC 流程发布并核验可安装。Cook 已用真实 registry 版本更新 lockfile，通过 frozen install、测试、类型检查与静态生成，PR 和主分支 CI 均成功，已合入并完成两个域名的生产部署。Apps 的私有运行时配置需注入 `NUXT_APPS_ACQUISITION_INTERNAL_TOKEN` 和现有服务端 CloudBase 凭据；与 API 同名专用 token 一致，不能复用通用业务 token，禁止放入 public/VITE 配置。宿主与原生版本按各自发布流程更新。
 5. 用专门的新测试账号验证官网验证码、GitHub OAuth、Cook Web SSO 和原生更换账号流程：入口应用正确、上下文跨跳转保留、记录只写一次、后续登录不覆盖、Admin 新增分母匹配。来源参数异常或写入失败时登录仍应成功。
 
-已验证前后端测试、类型检查、Web 构建、SDK 打包联调和原生协议编译，生产来源集合及分页索引已执行并通过查询验收。完整 iOS 应用构建及真实新账号跨域登录端到端仍需单独验收。
+已验证前后端测试、类型检查、Web 构建、SDK 打包联调和原生协议编译，生产来源集合及分页索引已执行并通过查询验收。Native 容器与商店发布、完整 iOS 应用构建及真实新账号跨域登录端到端仍需单独验收。
 
 Admin 详细说明：`../admin/docs/user-acquisition.md`（相对于 www 仓库根目录的相邻仓库路径）。Cook 发布和联调说明位于其 `docs/dev/acquisition.md`。
 
