@@ -102,6 +102,23 @@ function pokeCloud(name: string, event: MouseEvent) {
   }
 }
 
+const wobbling = shallowRef(new Set<string>())
+
+function wobble(name: string) {
+  const next = new Set(wobbling.value)
+  next.delete(name)
+  wobbling.value = next
+  requestAnimationFrame(() => {
+    wobbling.value = new Set(wobbling.value).add(name)
+  })
+}
+
+function settle(name: string) {
+  const next = new Set(wobbling.value)
+  next.delete(name)
+  wobbling.value = next
+}
+
 // 按钮被鼠标轻轻吸住，离开时弹回原位。
 function attract(event: PointerEvent) {
   if (event.pointerType !== 'mouse')
@@ -124,14 +141,22 @@ function release(event: PointerEvent) {
     <!-- 太阳藏在右上角那朵云后面，光束从云隙里漏下来。 -->
     <SkyScene clouds="none" sun sun-x="84%" sun-y="20%" />
     <span class="home-cta__atmosphere" aria-hidden="true" />
-    <HomeCloud
+    <!-- 装饰云同样是软的：只响应指针，点一下 Q 弹，不进入键盘焦点顺序。 -->
+    <span
       v-for="cloud in decorClouds"
       :key="cloud.name"
-      :shape="cloud.shape"
       class="home-cta__decor"
       :class="`home-cta__decor--${cloud.name}`"
       :style="{ '--depth': cloud.depth, '--haze': cloud.haze }"
-    />
+      aria-hidden="true"
+      @click="wobble(cloud.name)"
+    >
+      <HomeCloud
+        :shape="cloud.shape"
+        :class="{ 'ylf-squish': wobbling.has(cloud.name) }"
+        @animationend="settle(cloud.name)"
+      />
+    </span>
     <button
       v-for="cloud in pokeClouds"
       :key="cloud.name"
@@ -262,6 +287,14 @@ function release(event: PointerEvent) {
   z-index: 1;
   translate: calc(var(--px, 0) * var(--depth) * 20px) calc(var(--py, 0) * var(--depth) * 12px);
   transition: translate 1000ms var(--ylf-ease-standard);
+}
+
+.home-cta__decor {
+  cursor: pointer;
+}
+
+.home-cta__decor > :deep(svg) {
+  display: block;
 }
 
 .home-cta__decor--far {

@@ -194,7 +194,13 @@ const artwork = ['browse', 'launch', 'account'] as const
   background: var(--ui-bg-elevated);
   transition:
     border-color var(--ylf-duration-fast) var(--ylf-ease-standard),
-    box-shadow var(--ylf-duration-fast) var(--ylf-ease-standard);
+    box-shadow var(--ylf-duration-fast) var(--ylf-ease-standard),
+    scale var(--ylf-duration-slow) var(--ylf-ease-spring);
+}
+
+/* 与戳云一致的按压回弹。 */
+.home-journey__steps li:active {
+  scale: 0.98;
 }
 
 .home-journey__visual :deep(.journey-art) {
@@ -469,6 +475,10 @@ const artwork = ['browse', 'launch', 'account'] as const
 
   .home-journey__visual :deep(.journey-art) {
     transition: none;
+  }
+
+  .home-journey__steps li:active {
+    scale: none;
   }
 }
 

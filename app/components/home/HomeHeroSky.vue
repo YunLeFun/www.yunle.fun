@@ -70,10 +70,10 @@ const caption = computed(() => {
   return `这朵云已经被你戳了 ${pokes.value} 下`
 })
 
-function burst(x: number, y: number, count: number) {
+function burst(x: number, y: number, count: number, puff = false) {
   const pieces = Array.from({ length: count }, (_, index): Confetti => {
     const angle = (Math.PI * 2 * index) / count + Math.random() * 0.6
-    const distance = 46 + Math.random() * 70
+    const distance = (puff ? 24 : 46) + Math.random() * (puff ? 30 : 70)
     return {
       id: ++confettiSeed,
       x,
@@ -81,8 +81,9 @@ function burst(x: number, y: number, count: number) {
       dx: Math.cos(angle) * distance,
       dy: Math.sin(angle) * distance - 24,
       rotate: Math.round(Math.random() * 540 - 270),
-      color: confettiColors[index % confettiColors.length]!,
-      shape: index % 3 === 0 ? 'star' : index % 3 === 1 ? 'chip' : 'dot',
+      // 普通的云只吐出几团小白絮；彩纸留给会说话的主云。
+      color: puff ? 'rgb(255 255 255 / 88%)' : confettiColors[index % confettiColors.length]!,
+      shape: puff ? 'dot' : index % 3 === 0 ? 'star' : index % 3 === 1 ? 'chip' : 'dot',
     }
   })
   confetti.value = [...confetti.value, ...pieces]
@@ -116,6 +117,28 @@ function poke(event: MouseEvent) {
   requestAnimationFrame(() => {
     squish.value = true
   })
+}
+
+// 其余的云也是软的：点一下 Q 弹回去，再吐几团小白絮。它们只响应指针，不进入键盘焦点顺序。
+const wobbling = shallowRef(new Set<string>())
+
+function wobble(name: string, event: MouseEvent) {
+  const box = root.value?.getBoundingClientRect()
+  if (box)
+    burst(event.clientX - box.left, event.clientY - box.top, 6, true)
+
+  const next = new Set(wobbling.value)
+  next.delete(name)
+  wobbling.value = next
+  requestAnimationFrame(() => {
+    wobbling.value = new Set(wobbling.value).add(name)
+  })
+}
+
+function settle(name: string) {
+  const next = new Set(wobbling.value)
+  next.delete(name)
+  wobbling.value = next
 }
 
 function onCloudAnimationEnd(event: AnimationEvent) {
@@ -173,10 +196,11 @@ onMounted(() => {
         @click="cloud.name === 'main' ? poke($event) : undefined"
       >
         <span v-if="cloud.name === 'main'" class="home-hero-sky__poke-target" aria-hidden="true" />
+        <span v-else class="home-hero-sky__poke-target" @click="wobble(cloud.name, $event)" />
         <span
           class="home-hero-sky__squish"
-          :class="cloud.name === 'main' && { 'is-squished': squish, 'is-away': away }"
-          @animationend="cloud.name === 'main' && onCloudAnimationEnd($event)"
+          :class="cloud.name === 'main' ? { 'is-squished': squish, 'is-away': away } : { 'ylf-squish': wobbling.has(cloud.name) }"
+          @animationend="cloud.name === 'main' ? onCloudAnimationEnd($event) : settle(cloud.name)"
         >
           <HomeCloud
             class="home-hero-sky__cloud"

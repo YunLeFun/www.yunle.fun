@@ -77,7 +77,8 @@ function untilt(event: PointerEvent) {
   transition:
     border-color 180ms ease,
     box-shadow 180ms ease,
-    transform var(--ylf-duration-slow) var(--ylf-ease-spring);
+    transform var(--ylf-duration-slow) var(--ylf-ease-spring),
+    scale var(--ylf-duration-slow) var(--ylf-ease-spring);
   animation: home-card-in 800ms var(--ylf-ease-spring) calc(var(--i, 0) * 45ms) backwards;
 }
 
@@ -237,6 +238,11 @@ function untilt(event: PointerEvent) {
   transform: translateX(-1.25rem);
 }
 
+/* 按下时像戳云一样轻轻压下，松开后软弹回来。 */
+.home-app-card:active {
+  scale: 0.97;
+}
+
 @media (hover: hover) and (pointer: fine) {
   .home-app-card:hover::after {
     opacity: 1;
@@ -262,9 +268,11 @@ function untilt(event: PointerEvent) {
     transition: none;
   }
 
-  .home-app-card {
+  .home-app-card,
+  .home-app-card:active {
     transform: none;
     animation: none;
+    scale: none;
   }
 
   .home-app-card__link:hover .home-app-card__logo,

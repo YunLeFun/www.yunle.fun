@@ -106,7 +106,13 @@ const layout = [
   -webkit-backdrop-filter: blur(6px);
   transition:
     transform var(--ylf-duration-slow) var(--ylf-ease-spring),
+    scale var(--ylf-duration-slow) var(--ylf-ease-spring),
     box-shadow var(--ylf-duration-fast) var(--ylf-ease-standard);
+}
+
+/* 捏一下气球：按下时压扁，松开后弹回。 */
+.home-hero-balloons__link:active .home-hero-balloons__bubble {
+  scale: 1.08 0.86;
 }
 
 .home-hero-balloons__bubble img {

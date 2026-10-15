@@ -762,6 +762,31 @@ body {
   }
 }
 
+/* 云朵 Q 弹：点一下先压扁、再弹高、最后落定。首页所有可戳的云共用这一段节奏；
+   使用独立的 scale 属性，不打断云朵自身的漂移与视差位移。 */
+.ylf-squish {
+  transform-origin: 50% 85%;
+  animation: ylf-squish 640ms var(--ylf-ease-standard);
+}
+
+@keyframes ylf-squish {
+  18% {
+    scale: 1.08 0.86;
+  }
+  42% {
+    scale: 0.95 1.07;
+  }
+  66% {
+    scale: 1.02 0.98;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ylf-squish {
+    animation: none;
+  }
+}
+
 /* 明暗切换的场景过渡（见 useAppearanceTransition），与 YunLeFun/design 的文档主题一致。
    仅在主动切换时启用，首次加载与路由跳转保持静止。 */
 html.ylf-appearance-fade,
