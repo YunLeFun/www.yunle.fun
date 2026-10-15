@@ -30,6 +30,7 @@ const { Buffer } = require('node:buffer')
 const process = require('node:process')
 const cloudbase = require('@cloudbase/node-sdk')
 const { assertActiveAccountForUid } = require('./account-access')
+const { recordSsoAcquisition } = require('./acquisition')
 const {
   buildAuthorizationResolvedAudit,
   buildSsoCodeConsumedAudit,
@@ -64,6 +65,13 @@ const db = contextApp.database()
 const ssoCodeStore = createSsoCodeStore(db)
 const ssoRateLimiter = createSsoRateLimiter(db)
 const callAccountApi = data => contextApp.callFunction({ name: 'account-api', data }).then(r => r.result)
+// Analytics gets its own short request budget; account access checks keep their existing policy.
+function callAcquisitionApi(data) {
+  return contextApp.callFunction({ name: 'account-api', data }, {
+    timeout: 1000,
+    retryOptions: { retries: 0 },
+  }).then(r => r.result)
+}
 
 function assertActiveAccount(uid) {
   return assertActiveAccountForUid(callAccountApi, {
@@ -128,7 +136,8 @@ function mintTicket(uid, expiresAtLimit) {
 function currentCallerUid() {
   let uid = ''
   try {
-    uid = contextApp.auth().getUserInfo()?.uid || ''
+    const info = contextApp.auth().getUserInfo()
+    uid = info?.isAnonymous === true ? '' : info?.uid || ''
   }
   catch {
     uid = ''
@@ -223,6 +232,12 @@ async function issueSsoCode(payload, clientAddress = 'unknown') {
   ])
   const issued = await ssoCodeStore.issue({ uid, ...request })
   emitSecurityAudit(buildSsoCodeIssuedAudit(uid, request))
+  await recordSsoAcquisition(callAcquisitionApi, {
+    userId: uid,
+    request,
+    payload,
+    serviceToken: process.env.ACCOUNT_API_INTERNAL_TOKEN || '',
+  })
   return { ok: true, code: issued.code, expiresAt: issued.expiresAt }
 }
 

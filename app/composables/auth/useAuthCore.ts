@@ -13,10 +13,12 @@ import {
   normalizeUsername,
 } from '~/utils/username'
 import { getErrorMessage, mapCloudbaseUser } from './types'
+import { useAuthAcquisition } from './useAcquisition'
 import { useServerSession } from './useServerSession'
 
 export function useTcbAuthCore() {
-  const { auth } = useCloudbase()
+  const { app, auth } = useCloudbase()
+  const { resumeAfterSessionRecovery } = useAuthAcquisition(app, auth)
   const nuxtApp = useNuxtApp()
   const config = useRuntimeConfig()
   const router = useRouter()
@@ -171,10 +173,13 @@ export function useTcbAuthCore() {
         }
         if (!data?.session)
           data = (await auth.getSession()).data
-        if (data?.session && !isAnonymousSession(data.session))
+        if (data?.session && !isAnonymousSession(data.session)) {
           await fetchUser()
-        else
+          void resumeAfterSessionRecovery(user.value?.id)
+        }
+        else {
           clearAuth()
+        }
       }
       catch {
         // CloudBase 未登录
@@ -247,6 +252,7 @@ export function useTcbAuthCore() {
   }
 
   return {
+    app,
     auth,
     router,
     toast,

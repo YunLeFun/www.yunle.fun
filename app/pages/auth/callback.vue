@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useAuthAcquisition } from '~/composables/auth/useAcquisition'
+
 /**
  * 通用 OAuth 回调页面
  *
@@ -26,8 +28,9 @@ definePageMeta({
 })
 
 const router = useRouter()
-const { auth } = useCloudbase()
+const { app, auth } = useCloudbase()
 const { fetchUser, isAuthenticated, user } = useTcbAuth()
+const { recordAfterOAuthAuthentication } = useAuthAcquisition(app, auth)
 const toast = useAppToast()
 
 const status = ref<'checking' | 'success' | 'error'>('checking')
@@ -184,6 +187,8 @@ onMounted(async () => {
 
       if (!isAuthenticated.value || !user.value)
         throw new Error('未能获取用户信息，请重试')
+
+      await recordAfterOAuthAuthentication(provider === 'github' || provider === 'wx_open' ? provider : 'unknown', user.value.id, state)
 
       status.value = 'success'
       message.value = '登录成功！正在跳转...'

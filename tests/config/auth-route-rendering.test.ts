@@ -42,6 +42,15 @@ describe('edgeOne client route rendering', () => {
         'x-robots-tag': 'noindex, nofollow, noarchive',
       },
     })
+    expect(routeRules['/auth/callback']).toMatchObject({
+      prerender: true,
+      ssr: false,
+      headers: {
+        'cache-control': 'no-store',
+        'referrer-policy': 'no-referrer',
+        'x-robots-tag': 'noindex, nofollow, noarchive',
+      },
+    })
     expect(config.nitro?.prerender?.routes).toEqual(expect.arrayContaining(expectedRoutes))
   })
 

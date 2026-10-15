@@ -3,9 +3,11 @@
  */
 import type { TcbOtpData, TcbSignUpData } from './types'
 import { getAuthErrorPresentation, getEmailLoginErrorPresentation } from './types'
+import { useAuthAcquisition } from './useAcquisition'
 
 export function useTcbOtp(core: ReturnType<typeof import('./useAuthCore').useTcbAuthCore>) {
   const { auth, router, toast, loading, error, fetchUser } = core
+  const { recordAfterAuthentication, setAcquisitionAuthMethod } = useAuthAcquisition(core.app, core.auth)
 
   function showErrorToast(presentation: ReturnType<typeof getAuthErrorPresentation>, fallbackDescription: string) {
     toast.add({
@@ -29,6 +31,7 @@ export function useTcbOtp(core: ReturnType<typeof import('./useAuthCore').useTcb
     try {
       loading.value = true
       error.value = null
+      setAcquisitionAuthMethod('phone_otp')
       const response = await auth.signInWithOtp({
         phone,
         options: { shouldCreateUser: true },
@@ -60,6 +63,7 @@ export function useTcbOtp(core: ReturnType<typeof import('./useAuthCore').useTcb
       if (verifyError)
         throw verifyError
       await fetchUser()
+      await recordAfterAuthentication('phone_otp', core.user.value?.id)
       toast.add({ title: '登录成功', description: '欢迎回来！', color: 'success' })
       const redirect = router.currentRoute.value.query.redirect as string
       await router.push(redirect || '/')
@@ -81,6 +85,7 @@ export function useTcbOtp(core: ReturnType<typeof import('./useAuthCore').useTcb
     try {
       loading.value = true
       error.value = null
+      setAcquisitionAuthMethod('phone_otp')
       const response = await auth.signUp({ phone } as Parameters<typeof auth.signUp>[0])
       if (response.error)
         throw response.error
@@ -109,6 +114,7 @@ export function useTcbOtp(core: ReturnType<typeof import('./useAuthCore').useTcb
       if (verifyError)
         throw verifyError
       await fetchUser()
+      await recordAfterAuthentication('phone_otp', core.user.value?.id)
       toast.add({ title: '注册成功', description: '欢迎加入！', color: 'success' })
       const redirect = router.currentRoute.value.query.redirect as string
       await router.push(redirect || '/')
@@ -130,6 +136,7 @@ export function useTcbOtp(core: ReturnType<typeof import('./useAuthCore').useTcb
     try {
       loading.value = true
       error.value = null
+      setAcquisitionAuthMethod('email_otp')
       const response = await auth.signInWithOtp({
         email,
         options: { shouldCreateUser: false },
@@ -161,6 +168,7 @@ export function useTcbOtp(core: ReturnType<typeof import('./useAuthCore').useTcb
       if (verifyError)
         throw verifyError
       await fetchUser()
+      await recordAfterAuthentication('email_otp', core.user.value?.id)
       toast.add({ title: '登录成功', description: '欢迎回来！', color: 'success' })
       const redirect = router.currentRoute.value.query.redirect as string
       await router.push(redirect || '/')

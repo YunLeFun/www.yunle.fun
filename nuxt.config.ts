@@ -123,7 +123,15 @@ export default defineNuxtConfig({
       },
     },
     '/auth/github': { prerender: true, ssr: false },
-    '/auth/callback': { prerender: true, ssr: false },
+    '/auth/callback': {
+      prerender: true,
+      ssr: false,
+      headers: {
+        'cache-control': 'no-store',
+        'referrer-policy': 'no-referrer',
+        'x-robots-tag': 'noindex, nofollow, noarchive',
+      },
+    },
     '/docs': { redirect: '/docs/getting-started' },
     // 开发者文档已迁至 docs.yunle.fun（见 docs/nuxt-content-removal.md）
     '/docs/developer': { redirect: 'https://docs.yunle.fun' },

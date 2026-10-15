@@ -2,10 +2,20 @@
  * 全局认证中间件
  * 在每次路由切换时检查认证状态
  */
+import { captureAcquisitionTouch } from '~/utils/acquisition'
+import { captureBrowserAcquisition } from '~/utils/acquisition-storage'
+
 export default defineNuxtRouteMiddleware(async (to) => {
   // 仅在客户端运行
   if (import.meta.server)
     return
+
+  const hasUtmQuery = ['utm_source', 'utm_medium', 'utm_campaign'].some(key => to.query[key])
+  const touch = hasUtmQuery && !to.path.startsWith('/auth/callback')
+    ? captureAcquisitionTouch(new URL(to.fullPath, window.location.origin), '')
+    : null
+  if (to.path === '/auth/sso' || ['/login', '/signup'].includes(to.path) || touch?.utmSource || touch?.utmMedium || touch?.utmCampaign)
+    captureBrowserAcquisition(to.fullPath)
 
   const config = useRuntimeConfig()
   const currentUser = useState<{ id?: string } | null>('auth_user', () => null)

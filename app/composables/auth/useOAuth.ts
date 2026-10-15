@@ -1,10 +1,13 @@
+import { bindAcquisitionOAuthState } from '~/utils/acquisition-storage'
 /**
  * OAuth 登录和第三方身份绑定/解绑
  */
 import { getAuthErrorPresentation, getErrorMessage } from './types'
+import { useAuthAcquisition } from './useAcquisition'
 
 export function useTcbOAuth(core: ReturnType<typeof import('./useAuthCore').useTcbAuthCore>) {
   const { auth, router, toast, loading, error, fetchUser } = core
+  const { setAcquisitionAuthMethod } = useAuthAcquisition(core.app, core.auth)
 
   /**
    * OAuth 登录
@@ -15,18 +18,24 @@ export function useTcbOAuth(core: ReturnType<typeof import('./useAuthCore').useT
     try {
       loading.value = true
       error.value = null
+      const acquisitionAttempt = setAcquisitionAuthMethod(provider)
       const currentRoute = router.currentRoute.value.fullPath
       if (currentRoute !== '/login')
         localStorage.setItem('auth_redirect', currentRoute)
 
       const callbackUrl = `${window.location.origin}/auth/callback`
-      const { error: oauthError } = await auth.signInWithOAuth({
+      const { data, error: oauthError } = await auth.signInWithOAuth({
         provider,
-        options: { redirectTo: callbackUrl },
+        options: { redirectTo: callbackUrl, skipBrowserRedirect: true },
       })
       if (oauthError)
         throw oauthError
-      // SDK 会自动执行 window.location.assign 跳转到授权页面
+      if (!data?.url)
+        throw new Error('未获取到授权地址')
+      if (acquisitionAttempt)
+        bindAcquisitionOAuthState(acquisitionAttempt, new URL(data.url).searchParams.get('state') || '')
+      // Capture the SDK state first; source recording must match this login attempt.
+      window.location.assign(data.url)
     }
     catch (err: unknown) {
       console.error(`OAuth 登录失败 (${provider}):`, err)

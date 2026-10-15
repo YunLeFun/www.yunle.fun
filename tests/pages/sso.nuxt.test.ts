@@ -4,6 +4,7 @@ import { flushPromises } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { computed, ref } from 'vue'
 import SsoPage from '../../app/pages/auth/sso.vue'
+import { clearAcquisitionAttempt } from '../../app/utils/acquisition-storage'
 
 const h = vi.hoisted(() => ({
   state: {} as Record<string, any>,
@@ -51,6 +52,7 @@ async function mount(route = requestRoute()) {
 
 describe('sSO v3 Provider page', () => {
   beforeEach(() => {
+    clearAcquisitionAttempt()
     const callOrder: string[] = []
     const authReady = ref(false)
     const authStatus = ref<'pending' | 'authenticated' | 'guest'>('pending')
@@ -115,9 +117,31 @@ describe('sSO v3 Provider page', () => {
         nonce: 'n'.repeat(43),
         codeChallenge: 'a'.repeat(43),
         codeChallengeMethod: 'S256',
+        acquisition: null,
+        acquisitionAuthMethod: 'unknown',
       },
     })
     expect(errorSpy).not.toHaveBeenCalled()
+  })
+
+  it('carries only the captured marketing context alongside the existing SSO bindings', async () => {
+    const now = Date.now()
+    const source = {
+      version: 1,
+      firstTouch: {
+        capturedAt: now,
+        landingHost: 'cook.yunyoujun.cn',
+        landingPath: '/',
+        referrerHost: 'www.baidu.com',
+        utmSource: 'baidu',
+        utmMedium: 'organic',
+        utmCampaign: '',
+      },
+      registerTouch: null,
+    }
+    await mount(requestRoute({ acquisition: JSON.stringify(source) }))
+    expect(h.state.cloudbase.app.callFunction.mock.calls[0]?.[0].data.acquisition).toEqual(source)
+    expect(h.state.cloudbase.app.callFunction.mock.calls[0]?.[0].data.clientId).toBe('cms-web')
   })
 
   it('shows the current account and waits for confirmation when account selection is requested', async () => {

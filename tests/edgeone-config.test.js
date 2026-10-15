@@ -53,6 +53,18 @@ describe('edgeOne production configuration', () => {
     expect(headers['Content-Security-Policy']).toContain('frame-ancestors \'none\'')
   })
 
+  it('protects OAuth callback query parameters before the baseline static rule', () => {
+    const callbackRule = config.headers.find(rule => rule.source === '/auth/callback')
+    const headers = Object.fromEntries(callbackRule.headers.map(header => [header.key, header.value]))
+
+    expect(config.headers.indexOf(callbackRule)).toBeLessThan(config.headers.findIndex(rule => rule.source === '/*'))
+    expect(headers['Cache-Control']).toBe('no-store')
+    expect(headers['Referrer-Policy']).toBe('no-referrer')
+    expect(headers['X-Robots-Tag']).toBe('noindex, nofollow, noarchive')
+    expect(headers['Strict-Transport-Security']).toBe('max-age=31536000')
+    expect(headers['Content-Security-Policy']).toContain('frame-ancestors \'none\'')
+  })
+
   it('permanently redirects the apex domain to www', () => {
     expect(config.redirects).toContainEqual({
       source: '$host',

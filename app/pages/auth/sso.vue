@@ -11,6 +11,7 @@ import {
   readSsoScope,
   SSO_REDIRECT_HASH_KEY,
 } from '@yunlefun/sso/protocol'
+import { useAuthAcquisition } from '~/composables/auth/useAcquisition'
 import { useTcbAuthSession } from '~/composables/auth/useAuthSession'
 import {
   buildNativeSsoCallbackUrl,
@@ -34,6 +35,7 @@ const route = useRoute()
 const router = useRouter()
 const { app, auth } = useCloudbase()
 const { authReady, authStatus, checkAuthStatus, logout, user } = useTcbAuthSession()
+const { ssoAcquisition } = useAuthAcquisition(app, auth)
 
 const status = shallowRef<'checking' | 'confirmation' | 'success' | 'error'>('checking')
 const message = shallowRef('正在同步云乐坊账号...')
@@ -83,6 +85,7 @@ async function issueSsoCode(input: {
       mode: 'redirect',
       ...input,
       codeChallengeMethod: 'S256',
+      ...ssoAcquisition(input.clientId, input.returnUrl, input.nonce),
     },
   }))
   if (result.ok !== true || typeof result.code !== 'string' || !/^[\w-]{43}$/.test(result.code))
