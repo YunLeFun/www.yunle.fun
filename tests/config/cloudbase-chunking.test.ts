@@ -1,51 +1,73 @@
+import { spawnSync } from 'node:child_process'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { loadNuxtConfig } from '@nuxt/kit'
+import { build } from 'vite'
 import { describe, expect, it } from 'vitest'
 
 const rootDir = fileURLToPath(new URL('../..', import.meta.url))
 
 describe('cloudbase client chunking', () => {
-  it('keeps the browser SDK out of public-page shared chunks', async () => {
+  it('starts authentication when the SDK shares a CommonJS dependency with the app entry', async () => {
     const config = await loadNuxtConfig({ cwd: rootDir })
     const output = config.vite?.build?.rolldownOptions?.output
     const outputOptions = Array.isArray(output) ? output[0] : output
-    const codeSplitting = typeof outputOptions?.codeSplitting === 'object'
-      ? outputOptions.codeSplitting
-      : undefined
-    const groups = codeSplitting?.groups ?? []
-    const sdkGroup = groups.find(group => group.name === 'cloudbase-sdk')
-    const clientGroup = groups.find(group => group.name === 'cloudbase-client')
+    const fixture = await mkdtemp(join(tmpdir(), 'cloudbase-chunking-'))
+    try {
+      // Both the entry and SDK require the encoding shim. Splitting only SDK/auth modules
+      // can leave the shim's CommonJS factory in the entry, creating a startup cycle:
+      // entry -> auth composable -> SDK -> entry's not-yet-initialized factory.
+      const files = {
+        'package.json': JSON.stringify({ type: 'module' }),
+        'entry.ts': [
+          'import { sdkValue } from "./app/composables/useCloudbase.ts"',
+          'import getEncoding from "text-encoding-shim"',
+          'if (sdkValue !== getEncoding()) throw new Error("SDK not initialized")',
+          'console.log("CLOUDBASE_STARTED")',
+        ].join('\n'),
+        'app/composables/useCloudbase.ts': [
+          'import sdk from "@cloudbase/fake"',
+          'export const sdkValue = sdk.value',
+        ].join('\n'),
+        'node_modules/@cloudbase/fake/package.json': JSON.stringify({ name: '@cloudbase/fake', main: 'index.cjs' }),
+        'node_modules/@cloudbase/fake/index.cjs': [
+          'const getEncoding = require("text-encoding-shim")',
+          'module.exports = { value: getEncoding() }',
+        ].join('\n'),
+        'node_modules/text-encoding-shim/package.json': JSON.stringify({ name: 'text-encoding-shim', main: 'index.cjs' }),
+        'node_modules/text-encoding-shim/index.cjs': 'module.exports = function getEncoding() { return "utf-8" }',
+      }
+      await Promise.all(Object.entries(files).map(async ([file, content]) => {
+        const target = join(fixture, file)
+        await mkdir(dirname(target), { recursive: true })
+        await writeFile(target, content)
+      }))
 
-    expect(sdkGroup?.includeDependenciesRecursively).toBe(false)
-    expect(clientGroup?.includeDependenciesRecursively).toBe(false)
+      await build({
+        configFile: false,
+        root: fixture,
+        logLevel: 'silent',
+        build: {
+          minify: false,
+          outDir: join(fixture, 'dist'),
+          emptyOutDir: true,
+          rolldownOptions: {
+            input: join(fixture, 'entry.ts'),
+            output: { ...outputOptions, format: 'es', entryFileNames: 'entry.mjs', chunkFileNames: '[name]-[hash].mjs' },
+          },
+        },
+      })
 
-    expect(sdkGroup?.test).toBeInstanceOf(RegExp)
-    expect(clientGroup?.test).toBeInstanceOf(RegExp)
-    if (!(sdkGroup?.test instanceof RegExp) || !(clientGroup?.test instanceof RegExp))
-      return
-
-    expect(sdkGroup.test.test('/repo/node_modules/.pnpm/@cloudbase+js-sdk@3.6.4/index.js')).toBe(true)
-    expect(clientGroup.test.test('/repo/app/composables/auth/useAuthCore.ts')).toBe(true)
-    expect(clientGroup.test.test('/repo/app/composables/useCloudbase.ts')).toBe(true)
-    expect(clientGroup.test.test('/repo/app/composables/useAccountAccess.ts')).toBe(true)
-    expect(clientGroup.test.test('/repo/app/composables/useUserProfile.ts')).toBe(true)
-    expect(clientGroup.test.test('/repo/app/composables/useAppToast.ts')).toBe(false)
-  })
-
-  it('does not emit speculative prefetch hints for authentication chunks', async () => {
-    const config = await loadNuxtConfig({ cwd: rootDir })
-    const transformManifest = config.hooks?.['build:manifest']
-    const manifest = {
-      sdk: { file: 'sdk.js', name: 'cloudbase-sdk', prefetch: true },
-      client: { file: 'client.js', name: 'cloudbase-client', prefetch: true },
-      public: { file: 'public.js', name: 'public-page', prefetch: true },
+      // A fresh Node process runs the actual ESM output, without Vitest's module transform
+      // or module cache masking factory initialization order. No browser SDK/network is used.
+      const started = spawnSync(process.execPath, [join(fixture, 'dist/entry.mjs')], { encoding: 'utf8', timeout: 10_000 })
+      expect(started.status, started.stderr || started.error?.message).toBe(0)
+      expect(started.stdout).toContain('CLOUDBASE_STARTED')
     }
-
-    expect(transformManifest).toBeTypeOf('function')
-    await transformManifest?.(manifest)
-
-    expect(manifest.sdk.prefetch).toBe(false)
-    expect(manifest.client.prefetch).toBe(false)
-    expect(manifest.public.prefetch).toBe(true)
-  })
+    finally {
+      await rm(fixture, { recursive: true, force: true })
+    }
+  }, 30_000)
 })
