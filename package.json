@@ -11,6 +11,7 @@
   "scripts": {
     "build": "NODE_OPTIONS=--max-old-space-size=4096 nuxt build && node scripts/verify-edgeone-client-shells.mjs",
     "build:authorization-core": "pnpm --dir packages/authorization-core build",
+    "check:app-icons": "node scripts/check-app-icons.mjs",
     "deploy:sso:development": "node scripts/deploy-sso-development.mjs",
     "deploy:test-identities": "node scripts/deploy-test-identity-functions.mjs",
     "dev": "TMPDIR=/tmp nuxt dev --host",

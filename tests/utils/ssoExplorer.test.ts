@@ -33,7 +33,7 @@ describe('sso explorer configuration', () => {
     expect(ssoExplorerApps.find(app => app.appId === 'saier')).toMatchObject({
       name: '云绘 Saier',
       description: '在线绘画、云端工程与协作房间',
-      logoUrl: 'https://saier.yunle.fun/favicon.svg',
+      logoUrl: 'https://saier.yunle.fun/favicon-brush-v1.svg',
     })
     expect(ssoExplorerApps.find(app => app.appId === 'dayun-kicker')?.name)
       .toBe('暴力电驴')

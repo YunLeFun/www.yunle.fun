@@ -22,6 +22,9 @@ const presentationByAppId: Record<string, SsoPresentation> = {
     description: '在线绘画、云端工程与协作房间',
     fallbackMark: '绘',
     accent: 'var(--ylf-dopa-blue)',
+    // 签名注册表仍指向旧的 /favicon.svg；在注册表重新发布或图标进入 @yunlefun/icons 前，
+    // 展示层先使用 Saier 当前的版本化图标。`pnpm check:app-icons` 会报告这类漂移。
+    logoUrl: 'https://saier.yunle.fun/favicon-brush-v1.svg',
     position: { x: 50, y: 91 },
   },
   'cms': {
