@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vReveal } from '~/composables/useReveal'
 import HomeJourneyArt from './HomeJourneyArt.vue'
 
 interface JourneyItem {
@@ -25,7 +26,7 @@ const artwork = ['browse', 'launch', 'account'] as const
 <template>
   <section class="home-journey" aria-labelledby="home-journey-title">
     <AppContainer>
-      <header class="home-journey__header">
+      <header v-reveal class="home-journey__header">
         <p>{{ journey.headline }}</p>
         <h2 id="home-journey-title">
           {{ journey.title }}
@@ -33,8 +34,25 @@ const artwork = ['browse', 'launch', 'account'] as const
         <span>{{ journey.description }}</span>
       </header>
 
+      <!-- 纸飞机沿着三站航线飞过一次，飞到哪站，哪站亮起。 -->
+      <div v-reveal="100" class="home-journey__flight" aria-hidden="true">
+        <span class="home-journey__trail" />
+        <span
+          v-for="(accent, index) in accents"
+          :key="accent"
+          class="home-journey__stop"
+          :style="{ '--stop': index, '--step-accent': accent }"
+        />
+        <span class="home-journey__plane"><Icon name="i-lucide-send" /></span>
+      </div>
+
       <ol class="home-journey__steps">
-        <li v-for="(item, index) in journey.items" :key="item.title" :style="{ '--step-accent': accents[index % accents.length] }">
+        <li
+          v-for="(item, index) in journey.items"
+          :key="item.title"
+          v-reveal="index * 120"
+          :style="{ '--step-accent': accents[index % accents.length] }"
+        >
           <div class="home-journey__visual" aria-hidden="true">
             <span class="home-journey__index">{{ String(index + 1).padStart(2, '0') }}</span>
             <span class="home-journey__route" />
@@ -88,6 +106,75 @@ const artwork = ['browse', 'launch', 'account'] as const
   line-height: 1.75;
 }
 
+.home-journey__flight {
+  position: relative;
+  display: none;
+  height: 2.5rem;
+  margin-top: 2rem;
+  container-type: inline-size;
+}
+
+.home-journey__trail {
+  position: absolute;
+  top: 50%;
+  right: 1rem;
+  left: 0;
+  border-top: 2px dashed color-mix(in srgb, var(--ui-primary) 35%, transparent);
+}
+
+.home-journey__stop {
+  position: absolute;
+  top: 50%;
+  left: calc(100% * (1 + 2 * var(--stop)) / 6);
+  width: 0.75rem;
+  height: 0.75rem;
+  margin: -0.375rem 0 0 -0.375rem;
+  border: 2px solid var(--ui-bg);
+  border-radius: 50%;
+  background: var(--step-accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--step-accent) 18%, transparent);
+}
+
+.home-journey__plane {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  margin-top: -1rem;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--ui-primary);
+  box-shadow: 0 8px 18px -8px color-mix(in srgb, var(--ui-primary) 70%, transparent);
+  color: var(--ylf-c-text-on-accent);
+  translate: calc(100cqw - 2rem) 0;
+  animation: home-plane-bob 3.2s ease-in-out infinite;
+}
+
+.home-journey__plane > :deep(*) {
+  width: 0.95rem;
+  height: 0.95rem;
+  rotate: 45deg;
+  translate: -1px 1px;
+}
+
+/* 只有被滚动揭示时才起飞；首屏可见或无脚本时直接停在终点。 */
+.home-journey__flight.ylf-reveal--in .home-journey__plane {
+  animation:
+    home-plane-fly 2400ms cubic-bezier(0.45, 0, 0.2, 1) 350ms backwards,
+    home-plane-bob 3.2s ease-in-out infinite;
+}
+
+.home-journey__flight.ylf-reveal--in .home-journey__trail {
+  animation: home-trail-draw 2400ms cubic-bezier(0.45, 0, 0.2, 1) 350ms backwards;
+}
+
+.home-journey__flight.ylf-reveal--in .home-journey__stop {
+  animation: home-stop-pop 700ms var(--ylf-ease-spring) calc(350ms + 2400ms * (1 + 2 * var(--stop)) / 6 - 200ms)
+    backwards;
+}
+
 .home-journey__steps {
   display: grid;
   gap: 1.15rem;
@@ -105,6 +192,99 @@ const artwork = ['browse', 'launch', 'account'] as const
   border: 1px solid var(--ui-border-muted);
   border-radius: 1.5rem;
   background: var(--ui-bg-elevated);
+  transition:
+    border-color var(--ylf-duration-fast) var(--ylf-ease-standard),
+    box-shadow var(--ylf-duration-fast) var(--ylf-ease-standard);
+}
+
+.home-journey__visual :deep(.journey-art) {
+  transition:
+    translate var(--ylf-duration-slow) var(--ylf-ease-spring),
+    rotate var(--ylf-duration-slow) var(--ylf-ease-spring);
+}
+
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .home-journey__steps li:hover {
+    border-color: color-mix(in srgb, var(--step-accent) 35%, var(--ui-border));
+    box-shadow: 0 18px 36px -24px color-mix(in srgb, var(--step-accent) 55%, transparent);
+  }
+
+  .home-journey__steps li:hover .home-journey__visual :deep(.journey-art) {
+    translate: 0 -6px;
+    rotate: -2deg;
+  }
+
+  .home-journey__steps li:hover :deep(.journey-art__app) {
+    animation: home-tile-hop 620ms var(--ylf-ease-spring);
+  }
+
+  .home-journey__steps li:hover :deep(.journey-art__app:nth-child(2)) {
+    animation-delay: 70ms;
+  }
+
+  .home-journey__steps li:hover :deep(.journey-art__app:nth-child(3)) {
+    animation-delay: 140ms;
+  }
+
+  .home-journey__steps li:hover :deep(.journey-art__app:nth-child(4)) {
+    animation-delay: 210ms;
+  }
+
+  .home-journey__steps li:hover :deep(.journey-art__pass-check) {
+    animation: home-tile-hop 620ms var(--ylf-ease-spring);
+  }
+
+  .home-journey__steps li:hover .home-journey__icon {
+    animation: home-icon-wiggle 600ms var(--ylf-ease-standard);
+  }
+}
+
+@keyframes home-plane-fly {
+  from {
+    translate: 0 0;
+  }
+}
+
+@keyframes home-plane-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes home-trail-draw {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes home-stop-pop {
+  from {
+    opacity: 0;
+    scale: 0.2;
+  }
+}
+
+@keyframes home-tile-hop {
+  40% {
+    translate: 0 -8px;
+    scale: 1.08;
+  }
+}
+
+@keyframes home-icon-wiggle {
+  25% {
+    rotate: -14deg;
+  }
+  60% {
+    rotate: 10deg;
+  }
 }
 
 .home-journey__visual {
@@ -209,7 +389,12 @@ const artwork = ['browse', 'launch', 'account'] as const
 }
 
 @media (min-width: 768px) {
+  .home-journey__flight {
+    display: block;
+  }
+
   .home-journey__steps {
+    margin-top: 1rem;
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
@@ -271,6 +456,19 @@ const artwork = ['browse', 'launch', 'account'] as const
 
   .home-journey__copy h3 {
     font-size: 1rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-journey__plane,
+  .home-journey__flight.ylf-reveal--in .home-journey__plane,
+  .home-journey__flight.ylf-reveal--in .home-journey__trail,
+  .home-journey__flight.ylf-reveal--in .home-journey__stop {
+    animation: none;
+  }
+
+  .home-journey__visual :deep(.journey-art) {
+    transition: none;
   }
 }
 

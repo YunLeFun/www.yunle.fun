@@ -24,6 +24,14 @@ export const homePage = {
         to: '/signup',
       },
     ],
+    // 首屏漂浮的应用气球只取自带本地图标的官方应用，避免首屏等待远程图片。
+    balloons: [
+      { appId: 'play', name: '云乐坊间', href: 'https://play.yunle.fun' },
+      { appId: 'wenta', name: '问 TA', href: 'https://wenta.yunle.fun' },
+      { appId: 'cook', name: '食用手册', href: 'https://cook.yunle.fun' },
+      { appId: 'drive', name: '云乐盘', href: 'https://drive.yunle.fun' },
+      { appId: 'cms', name: '云栈', href: 'https://cms.yunle.fun' },
+    ],
   },
   journey: {
     headline: '从这里开始',

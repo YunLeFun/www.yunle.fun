@@ -95,3 +95,32 @@
   --ylf-social-github: #ffffff;
   --ylf-social-hover-tint: 14%;
 }
+
+/* Motion tokens from the design source that @yunlefun/ui 0.0.6 does not ship yet.
+   Values mirror packages/ui/styles/css-vars.scss; drop this block after upgrading. */
+:root {
+  --ylf-duration-slow: 480ms;
+  --ylf-ease-spring: linear(
+    0,
+    0.009,
+    0.035 2.1%,
+    0.141 4.4%,
+    0.723 12.9%,
+    0.938 16.7%,
+    1.017 19.4%,
+    1.067,
+    1.089 24.6%,
+    1.088 27.4%,
+    1.061 31.2%,
+    1.008 38.7%,
+    0.988 44.4%,
+    0.999 61.5%,
+    1
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --ylf-duration-slow: 0ms;
+  }
+}

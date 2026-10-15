@@ -70,7 +70,7 @@ function scrollApps(direction: -1 | 1) {
       aria-label="支持统一账号的应用，可左右滚动浏览"
       tabindex="0"
     >
-      <HomeAppCard v-for="app in apps" :key="app.appId" :app="app" />
+      <HomeAppCard v-for="(app, index) in apps" :key="app.appId" :app="app" :style="{ '--i': index }" />
     </div>
 
     <footer class="home-app-gallery__footer">
