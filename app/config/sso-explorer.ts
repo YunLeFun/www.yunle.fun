@@ -7,6 +7,12 @@ import { appIcons } from './app-icons'
 // Import the registry field directly so Vite excludes that envelope from client assets.
 const productionRegistry = productionRegistryJson as ClientRegistrySnapshot
 
+/**
+ * YunLeFun/icons 应用素材目录（assets/catalog/app-assets.json）选定图标的固定 COS 前缀。
+ * 展示层只允许本地图标、应用自身域名，或这一受控目录下的版本化原图。
+ */
+export const catalogAppIconBase = 'https://yunlefun-cos-1253292018.cos.ap-shanghai.myqcloud.com/desktop/app-icons/'
+
 interface SsoPresentation {
   name?: string
   description: string
@@ -22,9 +28,10 @@ const presentationByAppId: Record<string, SsoPresentation> = {
     description: '在线绘画、云端工程与协作房间',
     fallbackMark: '绘',
     accent: 'var(--ylf-dopa-blue)',
-    // 签名注册表仍指向旧的 /favicon.svg；在注册表重新发布或图标进入 @yunlefun/icons 前，
-    // 展示层先使用 Saier 当前的版本化图标。`pnpm check:app-icons` 会报告这类漂移。
-    logoUrl: 'https://saier.yunle.fun/favicon-brush-v1.svg',
+    // 使用 YunLeFun/icons 应用素材目录（assets/catalog/app-assets.json，slug: pixi-painter）
+    // 选定的「画笔与彩虹笔触」原图。saier.yunle.fun 的 favicon-brush-v1.svg 只是标签页用的
+    // 小尺寸简化伴随图，不能代替应用图标；签名注册表仍指向旧的 /favicon.svg。
+    logoUrl: `${catalogAppIconBase}v1/pixi-painter.webp`,
     position: { x: 50, y: 91 },
   },
   'cms': {
@@ -45,6 +52,8 @@ const presentationByAppId: Record<string, SsoPresentation> = {
     description: '暴力电驴 · 足球小游戏',
     fallbackMark: '球',
     accent: 'var(--ylf-dopa-green)',
+    // 素材目录（YunLeFun/icons assets/catalog/app-assets.json）选定的正式应用图标。
+    logoUrl: `${catalogAppIconBase}v1/dayun-kicker.webp`,
     position: { x: 14, y: 63 },
   },
   'ai-sfc': {
@@ -52,6 +61,8 @@ const presentationByAppId: Record<string, SsoPresentation> = {
     fallbackMark: '春',
     accent: 'var(--ylf-dopa-rose)',
     detailSlug: 'ai-sfc',
+    // 素材目录（YunLeFun/icons assets/catalog/app-assets.json）选定的正式应用图标。
+    logoUrl: `${catalogAppIconBase}v1/ai-sfc.webp`,
     position: { x: 24, y: 83 },
   },
   'home': {
@@ -97,6 +108,8 @@ const presentationByAppId: Record<string, SsoPresentation> = {
     description: '汇集实用、有趣又便于分享的在线生成器',
     fallbackMark: '万',
     accent: 'var(--ylf-dopa-violet)',
+    // 素材目录（YunLeFun/icons assets/catalog/app-assets.json）选定的正式应用图标。
+    logoUrl: `${catalogAppIconBase}v2/everything-generator.webp`,
     position: { x: 50, y: 71 },
   },
   'cook': {
@@ -115,6 +128,8 @@ const presentationByAppId: Record<string, SsoPresentation> = {
     description: '编辑、预览与导出结构化简历',
     fallbackMark: 'CV',
     accent: 'var(--ylf-dopa-blue)',
+    // 素材目录（YunLeFun/icons assets/catalog/app-assets.json）选定的正式应用图标。
+    logoUrl: `${catalogAppIconBase}v2/web-resume.webp`,
     position: { x: 14, y: 8 },
   },
 }

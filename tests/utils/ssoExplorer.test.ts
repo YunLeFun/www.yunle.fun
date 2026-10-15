@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildSsoExplorerApps,
+  catalogAppIconBase,
   isSsoExplorerAppSlug,
   ssoExplorerApps,
 } from '../../app/config/sso-explorer'
@@ -20,6 +21,7 @@ describe('sso explorer configuration', () => {
     expect(ssoExplorerApps.every(app => app.origin.startsWith('https://'))).toBe(true)
     expect(ssoExplorerApps.every(app =>
       app.logoUrl.startsWith('/')
+      || app.logoUrl.startsWith(catalogAppIconBase)
       || new URL(app.logoUrl).origin === app.origin,
     )).toBe(true)
     expect(ssoExplorerApps.find(app => app.appId === 'cms')?.logoUrl)
@@ -33,7 +35,7 @@ describe('sso explorer configuration', () => {
     expect(ssoExplorerApps.find(app => app.appId === 'saier')).toMatchObject({
       name: '云绘 Saier',
       description: '在线绘画、云端工程与协作房间',
-      logoUrl: 'https://saier.yunle.fun/favicon-brush-v1.svg',
+      logoUrl: `${catalogAppIconBase}v1/pixi-painter.webp`,
     })
     expect(ssoExplorerApps.find(app => app.appId === 'dayun-kicker')?.name)
       .toBe('暴力电驴')
@@ -124,7 +126,7 @@ describe('sso explorer configuration', () => {
         clientId: 'everything-generator-web',
         name: '万物生成器',
         origin: 'https://dao.yunle.fun',
-        logoUrl: 'https://dao.yunle.fun/favicon.ico',
+        logoUrl: `${catalogAppIconBase}v2/everything-generator.webp`,
       })
   })
 
@@ -156,7 +158,7 @@ describe('sso explorer configuration', () => {
         name: 'Web Resume',
         description: '编辑、预览与导出结构化简历',
         origin: 'https://resume.yunle.fun',
-        logoUrl: 'https://resume.yunle.fun/img/icons/web-resume-mark.svg',
+        logoUrl: `${catalogAppIconBase}v2/web-resume.webp`,
       })
   })
 
