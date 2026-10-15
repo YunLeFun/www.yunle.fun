@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import type { ExplorerApp } from '~/types/app-explorer'
+import { computed } from 'vue'
+import HomeCloud from '~/components/home/HomeCloud.vue'
 import AppDiscoveryCard from './AppDiscoveryCard.vue'
 
-defineProps<{
+const props = defineProps<{
   apps: ExplorerApp[]
   loading: boolean
   error: string | null
@@ -13,6 +15,9 @@ defineEmits<{
   retry: []
   clear: []
 }>()
+
+// 结果集合变化时重建网格，让卡片按顺序重新飘入。
+const listKey = computed(() => props.apps.map(app => app._id || app.slug).join('|'))
 </script>
 
 <template>
@@ -32,7 +37,7 @@ defineEmits<{
     </div>
 
     <div v-else-if="error" class="app-discovery-grid__state" role="alert">
-      <Icon name="i-lucide-cloud-alert" class="app-discovery-grid__state-icon" />
+      <HomeCloud shape="puff" face class="app-discovery-grid__state-cloud is-worried" />
       <h2>应用云暂时飘远了</h2>
       <p>{{ error }}</p>
       <AppButton
@@ -44,7 +49,7 @@ defineEmits<{
     </div>
 
     <div v-else-if="!apps.length" class="app-discovery-grid__state">
-      <Icon name="i-lucide-cloud-sun" class="app-discovery-grid__state-icon" />
+      <HomeCloud shape="puff" face class="app-discovery-grid__state-cloud" />
       <template v-if="hasFilters">
         <h2>没有找到匹配的应用</h2>
         <p>换个关键词或分类，也许会遇到另一朵云。</p>
@@ -62,11 +67,12 @@ defineEmits<{
       </template>
     </div>
 
-    <div v-else class="app-discovery-grid">
+    <div v-else :key="listKey" class="app-discovery-grid">
       <AppDiscoveryCard
-        v-for="app in apps"
+        v-for="(app, index) in apps"
         :key="app._id || app.slug"
         :app="app"
+        :style="{ '--i': index }"
       />
     </div>
   </section>
@@ -110,10 +116,34 @@ defineEmits<{
   color: var(--ui-text-muted);
 }
 
-.app-discovery-grid__state-icon {
-  width: 2.75rem;
-  height: 2.75rem;
-  color: var(--ylf-dopa-cyan);
+.app-discovery-grid__state-cloud {
+  --cloud-face-opacity: 0.85;
+  width: 8rem;
+  filter: drop-shadow(0 10px 14px rgb(40 90 160 / 18%));
+  /* 设计规范不播放循环背景动画：云朵飘两下就停住。 */
+  animation: discovery-cloud-bob 4.5s ease-in-out 2;
+}
+
+/* 出错时云朵歪着头、飘得更慢，像是迷了路。 */
+.app-discovery-grid__state-cloud.is-worried {
+  rotate: -6deg;
+  animation-duration: 6s;
+}
+
+@keyframes discovery-cloud-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-discovery-grid__state-cloud {
+    animation: none;
+  }
 }
 
 @media (min-width: 768px) {
