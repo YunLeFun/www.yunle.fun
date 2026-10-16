@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { RouteLocationRaw } from 'vue-router'
+import YlfCloud from '@yunlefun/vue/components/YlfCloud.vue'
 import { vReveal } from '~/composables/useReveal'
 import { useSkyParallax } from '~/composables/useSkyParallax'
-import HomeCloud from './HomeCloud.vue'
 
 interface CtaLink {
   icon?: string
@@ -147,11 +147,11 @@ function release(event: PointerEvent) {
       :key="cloud.name"
       class="home-cta__decor"
       :class="`home-cta__decor--${cloud.name}`"
-      :style="{ '--depth': cloud.depth, '--haze': cloud.haze }"
+      :style="{ '--depth': cloud.depth, '--ylf-cloud-haze': cloud.haze }"
       aria-hidden="true"
       @click="wobble(cloud.name)"
     >
-      <HomeCloud
+      <YlfCloud
         :shape="cloud.shape"
         :class="{ 'ylf-squish': wobbling.has(cloud.name) }"
         @animationend="settle(cloud.name)"
@@ -163,12 +163,12 @@ function release(event: PointerEvent) {
       type="button"
       class="home-cta__cloud"
       :class="`home-cta__cloud--${cloud.name}`"
-      :style="{ '--depth': cloud.depth, '--haze': cloud.haze }"
+      :style="{ '--depth': cloud.depth, '--ylf-cloud-haze': cloud.haze }"
       aria-label="戳一下云朵，下一阵彩色小雨"
       @click="pokeCloud(cloud.name, $event)"
     >
       <span class="home-cta__cloud-target" aria-hidden="true" />
-      <HomeCloud
+      <YlfCloud
         :shape="cloud.shape"
         face
         class="home-cta__cloud-art"
@@ -367,7 +367,7 @@ function release(event: PointerEvent) {
 .home-cta__cloud:hover .home-cta__cloud-art,
 .home-cta__cloud:focus-visible .home-cta__cloud-art,
 .home-cta__cloud-art.is-squished {
-  --cloud-face-opacity: 0.85;
+  --ylf-cloud-face-opacity: 0.85;
 }
 
 .home-cta__cloud-art.is-squished {

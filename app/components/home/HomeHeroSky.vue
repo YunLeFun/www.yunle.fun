@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import HomeCloud from './HomeCloud.vue'
+import YlfCloud from '@yunlefun/vue/components/YlfCloud.vue'
 
 // depth 决定视差幅度：越靠前的云跟随鼠标与滚动移动得越多。
 // haze 是空气透视：越远的云越接近天空的颜色、对比越低。
@@ -202,12 +202,12 @@ onMounted(() => {
           :class="cloud.name === 'main' ? { 'is-squished': squish, 'is-away': away } : { 'ylf-squish': wobbling.has(cloud.name) }"
           @animationend="cloud.name === 'main' ? onCloudAnimationEnd($event) : settle(cloud.name)"
         >
-          <HomeCloud
+          <YlfCloud
             class="home-hero-sky__cloud"
             :shape="cloud.shape"
             :volumetric="cloud.name === 'main'"
             :face="cloud.name === 'main'"
-            :style="{ '--drift-duration': cloud.duration, '--drift-delay': cloud.delay, '--haze': cloud.haze }"
+            :style="{ '--drift-duration': cloud.duration, '--drift-delay': cloud.delay, '--ylf-cloud-haze': cloud.haze }"
           />
         </span>
       </component>
@@ -243,8 +243,6 @@ onMounted(() => {
 <style scoped>
 .home-hero-sky {
   --home-ray-color: rgb(255 250 226 / 26%);
-  /* 远处的云向这个天空色靠拢。 */
-  --home-sky-haze: #9cc6ef;
   position: absolute;
   inset: 0;
   overflow: hidden;
@@ -492,7 +490,7 @@ onMounted(() => {
 .home-hero-sky__poke:hover .home-hero-sky__cloud,
 .home-hero-sky__poke:focus-visible .home-hero-sky__cloud,
 .home-hero-sky__squish.is-squished .home-hero-sky__cloud {
-  --cloud-face-opacity: 0.85;
+  --ylf-cloud-face-opacity: 0.85;
 }
 
 .home-hero-sky__squish.is-squished {
@@ -573,10 +571,6 @@ onMounted(() => {
 }
 
 /* ---- dusk palette ---- */
-.dark .home-hero-sky {
-  --home-sky-haze: #a48cc4;
-}
-
 .dark .home-hero-sky__atmosphere {
   background:
     radial-gradient(ellipse at 84% 24%, rgb(255 198 176 / 14%), transparent 48%),

@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import type { AppRecord } from '~/types/app'
+import YlfCloud from '@yunlefun/vue/components/YlfCloud.vue'
 import { computed, onMounted, shallowRef, useTemplateRef } from 'vue'
 import AppDiscoveryGrid from '~/components/apps/AppDiscoveryGrid.vue'
 import AppDiscoveryToolbar from '~/components/apps/AppDiscoveryToolbar.vue'
 import AppExplorerHero from '~/components/apps/AppExplorerHero.vue'
-import HomeCloud from '~/components/home/HomeCloud.vue'
 import { useTcbAuthSession } from '~/composables/auth/useAuthSession'
 import { useAppExplorer } from '~/composables/useAppExplorer'
 import { useSkyParallax } from '~/composables/useSkyParallax'
@@ -78,13 +78,13 @@ onMounted(loadApps)
     <div class="app-explorer-page__sky" aria-hidden="true">
       <SkyScene clouds="none" :sun="false" />
       <span class="app-explorer-page__atmosphere" />
-      <HomeCloud
+      <YlfCloud
         v-for="cloud in skyClouds"
         :key="cloud.name"
         :shape="cloud.shape"
         class="app-explorer-page__cloud"
         :class="`app-explorer-page__cloud--${cloud.name}`"
-        :style="{ '--haze': cloud.haze, '--depth': cloud.depth }"
+        :style="{ '--ylf-cloud-haze': cloud.haze, '--depth': cloud.depth }"
       />
       <span class="app-explorer-page__fade" />
     </div>
