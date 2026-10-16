@@ -1,4 +1,5 @@
 import type { AccountSnapshot, CoinTransaction } from '~/types/payment'
+import { isTestAccountFeatureRestriction } from '~/utils/account-feature-restriction'
 
 // 展示工具已收敛到 @yunlefun/types，re-export 保持原引用路径（wallet.vue 等）不变
 export { COIN_TX_TYPE_NAMES, formatCoin } from '@yunlefun/types'
@@ -40,6 +41,13 @@ export interface RewardHistoryItem {
       expireAfter: number | null
     }
   }
+}
+
+/** Reward history can be unavailable by account policy without a service failure. */
+export interface RewardHistoryPage {
+  items: RewardHistoryItem[]
+  nextSkip: number | null
+  restricted?: boolean
 }
 
 /**
@@ -171,17 +179,19 @@ export function useCoin() {
   }
 
   /** 运营奖励历史（云币与会员统一来源记录）。 */
-  async function listRewardHistory(params: { skip?: number, limit?: number } = {}): Promise<{
-    items: RewardHistoryItem[]
-    nextSkip: number | null
-  }> {
+  async function listRewardHistory(params: { skip?: number, limit?: number } = {}): Promise<RewardHistoryPage> {
     if (!app)
       return { items: [], nextSkip: null }
     const res = await app.callFunction({
       name: 'account-api',
       data: { action: 'listRewardHistory', skip: params.skip ?? 0, limit: params.limit ?? 20 },
     })
-    return res.result as { items: RewardHistoryItem[], nextSkip: number | null }
+    if (isTestAccountFeatureRestriction(res.result))
+      return { items: [], nextSkip: null, restricted: true }
+    const result = res.result as RewardHistoryPage
+    if (!Array.isArray(result?.items) || (result.nextSkip !== null && !Number.isSafeInteger(result.nextSkip)))
+      throw new Error('奖励历史响应无效')
+    return result
   }
 
   // 用户变化时自动刷新

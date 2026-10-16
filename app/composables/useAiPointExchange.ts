@@ -1,5 +1,6 @@
 import type { AiPointExchangePolicy, AiPointExchangeResult } from '~/types/ai-points'
 import { useSessionStorage } from '@vueuse/core'
+import { isTestAccountFeatureRestriction } from '~/utils/account-feature-restriction'
 
 interface ExchangeIntent {
   userId: string
@@ -16,6 +17,7 @@ export function useAiPointExchange() {
   const loading = shallowRef(false)
   const submitting = shallowRef(false)
   const error = shallowRef('')
+  const restricted = shallowRef(false)
   // 刷新或切换资产后仍可重试同一笔请求，不因响应丢失而重新扣款。
   const storedIntent = useSessionStorage<ExchangeIntent | null>('wallet-ai-point-exchange', null, {
     serializer: { read: JSON.parse, write: JSON.stringify },
@@ -30,10 +32,16 @@ export function useAiPointExchange() {
     const userId = user.value.id
     loading.value = true
     error.value = ''
+    restricted.value = false
     try {
       const response = await app.callFunction({ name: 'account-api', data: { action: 'getAiPointExchangePolicy' } })
       if (requestEpoch !== epoch || user.value?.id !== userId)
         return
+      if (isTestAccountFeatureRestriction(response.result)) {
+        restricted.value = true
+        policy.value = null
+        return
+      }
       const value = response.result as AiPointExchangePolicy
       if (typeof value?.enabled !== 'boolean' || !Number.isSafeInteger(value.pointsPerCoin) || value.pointsPerCoin <= 0
         || !Number.isSafeInteger(value.minCoin) || value.minCoin < 1 || !Number.isSafeInteger(value.maxCoin) || value.maxCoin < value.minCoin) {
@@ -54,7 +62,7 @@ export function useAiPointExchange() {
   }
 
   async function exchange(coinAmount: number, pointsPerCoin: number): Promise<AiPointExchangeResult | null> {
-    if (submitting.value || !app || !user.value)
+    if (submitting.value || restricted.value || !app || !user.value)
       return null
     const userId = user.value.id
     const intent = pending.value ?? { userId, coinAmount, pointsPerCoin, idempotencyKey: crypto.randomUUID() }
@@ -96,7 +104,8 @@ export function useAiPointExchange() {
     policy.value = null
     error.value = ''
     loading.value = false
+    restricted.value = false
   })
 
-  return { policy: readonly(policy), loading: readonly(loading), submitting: readonly(submitting), error: readonly(error), pending, refresh, exchange }
+  return { policy: readonly(policy), loading: readonly(loading), submitting: readonly(submitting), error: readonly(error), restricted: readonly(restricted), pending, refresh, exchange }
 }

@@ -25,6 +25,7 @@ describe('aI point exchange form', () => {
       loading: ref(false),
       submitting: ref(false),
       error: ref(''),
+      restricted: ref(false),
       refresh: vi.fn(),
       exchange: vi.fn(),
     }
@@ -73,5 +74,20 @@ describe('aI point exchange form', () => {
     await wrapper.get('[role="dialog"]').findAll('button').find(button => button.text() === '重试本次兑换')!.trigger('click')
     expect(h.state.exchange.exchange).toHaveBeenCalledWith(10, 10)
     expect(wrapper.emitted('exchanged')).toBeUndefined()
+  })
+
+  it('shows the test account limitation and hides exchange controls, stale errors and pending retries', async () => {
+    h.state.exchange.restricted.value = true
+    h.state.exchange.policy.value = null
+    h.state.exchange.error.value = '兑换服务暂不可用'
+    h.state.exchange.pending.value = { coinAmount: 10, pointsPerCoin: 10, idempotencyKey: 'same-request' }
+    const wrapper = await mount()
+    const notice = wrapper.get('[data-testid="test-account-ai-point-exchange"]')
+    expect(notice.attributes('role')).toBe('status')
+    expect(notice.text()).toContain('测试账号暂不支持 AI 点数兑换')
+    expect(wrapper.find('form, input, button, [role="dialog"], [role="alert"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('兑换服务暂不可用')
+    expect(wrapper.text()).not.toContain('等待确认结果')
+    expect(h.state.exchange.exchange).not.toHaveBeenCalled()
   })
 })

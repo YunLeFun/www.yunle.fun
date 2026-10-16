@@ -39,6 +39,8 @@ const presets = computed(() => [10, 50, 100].filter(value => value >= (policy.va
 const disabledInput = computed(() => exchange.submitting.value || Boolean(exchange.pending.value))
 
 function review() {
+  if (exchange.restricted.value)
+    return
   success.value = null
   if (exchange.pending.value) {
     confirmation.value = { coinAmount: exchange.pending.value.coinAmount, pointsPerCoin: exchange.pending.value.pointsPerCoin }
@@ -49,7 +51,7 @@ function review() {
 }
 
 async function confirm() {
-  if (!confirmation.value)
+  if (!confirmation.value || exchange.restricted.value)
     return
   const result = await exchange.exchange(confirmation.value.coinAmount, confirmation.value.pointsPerCoin)
   if (result) {
@@ -100,7 +102,8 @@ onMounted(() => {
       </div>
     </div>
 
-    <div v-if="exchange.loading.value && !policy" class="mt-6 space-y-3" aria-label="正在加载兑换规则">
+    <WalletTestAccountNotice v-if="exchange.restricted.value" feature="ai-point-exchange" class="mt-6" />
+    <div v-else-if="exchange.loading.value && !policy" class="mt-6 space-y-3" aria-label="正在加载兑换规则">
       <AppSkeleton class="h-24 rounded-xl" />
       <AppSkeleton class="h-11 rounded-xl" />
     </div>
@@ -192,14 +195,14 @@ onMounted(() => {
         重试本次兑换
       </AppButton>
     </div>
-    <p v-if="exchange.pending.value && !exchange.submitting.value" class="mt-3 text-sm text-muted" role="status">
+    <p v-if="!exchange.restricted.value && exchange.pending.value && !exchange.submitting.value" class="mt-3 text-sm text-muted" role="status">
       有一笔兑换等待确认结果，请重试本次兑换后再发起新的兑换。
     </p>
-    <p v-if="exchange.error.value && !modalOpen" class="mt-3 text-sm text-error" role="alert">
+    <p v-if="!exchange.restricted.value && exchange.error.value && !modalOpen" class="mt-3 text-sm text-error" role="alert">
       {{ exchange.error.value }}
     </p>
 
-    <AppModal v-model:open="modalOpen" title="确认兑换 AI 点数" description="确认扣除的云币和收到的 AI 点数" :dismissible="!exchange.submitting.value" :close="!exchange.submitting.value">
+    <AppModal v-if="!exchange.restricted.value" v-model:open="modalOpen" title="确认兑换 AI 点数" description="确认扣除的云币和收到的 AI 点数" :dismissible="!exchange.submitting.value" :close="!exchange.submitting.value">
       <div v-if="confirmation" class="space-y-5">
         <div>
           <h3 class="text-xl font-semibold">

@@ -3,12 +3,19 @@ import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import { flushPromises } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, ref } from 'vue'
+import WalletAiPointExchange from '../app/components/wallet/WalletAiPointExchange.vue'
 import { useAiPointExchange } from '../app/composables/useAiPointExchange'
 
 const h = vi.hoisted(() => ({ state: {} as Record<string, any> }))
 mockNuxtImport('useCloudbase', () => () => ({ app: { callFunction: h.state.callFunction } }))
 mockNuxtImport('useTcbAuth', () => () => ({ user: h.state.user }))
-mockNuxtImport('useCoin', () => () => ({ refresh: h.state.refreshCoin }))
+mockNuxtImport('useCoin', () => () => ({
+  refresh: h.state.refreshCoin,
+  balance: ref(20),
+  account: ref({ coin: 20 }),
+  error: ref(null),
+  loading: ref(false),
+}))
 const Harness = defineComponent({
   setup() {
     h.state.flow = useAiPointExchange()
@@ -25,6 +32,74 @@ describe('aI exchange request lifecycle', () => {
     h.state.refreshCoin = vi.fn()
   })
   afterEach(() => sessionStorage.clear())
+
+  it('separates a test-account restriction from a temporary policy failure', async () => {
+    const wrapper = await mountSuspended(Harness)
+    h.state.callFunction.mockResolvedValueOnce({ result: {
+      ok: false,
+      code: 'synthetic_action_forbidden',
+      error: '测试账号暂不支持此功能',
+      retryable: false,
+    } })
+    await h.state.flow.refresh()
+    expect(h.state.flow.restricted.value).toBe(true)
+    expect(h.state.flow.error.value).toBe('')
+    expect(await h.state.flow.exchange(10, 10)).toBeNull()
+    expect(h.state.callFunction).toHaveBeenCalledOnce()
+
+    h.state.callFunction.mockRejectedValueOnce(new Error('network unavailable'))
+    await h.state.flow.refresh()
+    expect(h.state.flow.restricted.value).toBe(false)
+    expect(h.state.flow.error.value).toBe('兑换服务暂不可用，请稍后重试。')
+    wrapper.unmount()
+  })
+
+  it('renders the capability notice instead of a failed-service message and exchange controls', async () => {
+    h.state.callFunction.mockResolvedValue({ result: {
+      ok: false,
+      code: 'synthetic_action_forbidden',
+      error: '测试账号暂不支持此功能',
+      retryable: false,
+    } })
+    const wrapper = await mountSuspended(WalletAiPointExchange, {
+      props: { availableMicroPoints: 68_009 },
+      global: { stubs: { AppModal: true } },
+    })
+    await flushPromises()
+    expect(wrapper.get('[data-testid="test-account-ai-point-exchange"]').text()).toContain('测试账号暂不支持 AI 点数兑换')
+    expect(wrapper.text()).toContain('可查看已有 AI 点数和流水')
+    expect(wrapper.text()).not.toContain('服务暂不可用')
+    expect(wrapper.find('form').exists()).toBe(false)
+    expect(wrapper.find('button').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('keeps the normal exchange form available when the server allows it', async () => {
+    h.state.callFunction.mockResolvedValue({ result: { enabled: true, pointsPerCoin: 10, minCoin: 1, maxCoin: 100 } })
+    const wrapper = await mountSuspended(WalletAiPointExchange, {
+      props: { availableMicroPoints: 68_009 },
+      global: { stubs: { AppModal: true } },
+    })
+    await flushPromises()
+    expect(wrapper.find('form').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="test-account-ai-point-exchange"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('兑换 AI 点数')
+    wrapper.unmount()
+  })
+
+  it('does not apply an old account restriction after the signed-in user changes', async () => {
+    const wrapper = await mountSuspended(Harness)
+    let complete!: (value: unknown) => void
+    h.state.callFunction.mockImplementation(() => new Promise(resolve => complete = resolve))
+    const refresh = h.state.flow.refresh()
+    h.state.user.value = { id: 'user-2' }
+    complete({ result: { ok: false, code: 'synthetic_action_forbidden' } })
+    await refresh
+    await flushPromises()
+    expect(h.state.flow.restricted.value).toBe(false)
+    expect(h.state.flow.error.value).toBe('')
+    wrapper.unmount()
+  })
 
   it('keeps the same idempotency key after a lost response and a component remount', async () => {
     let wrapper = await mountSuspended(Harness)

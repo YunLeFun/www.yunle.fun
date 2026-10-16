@@ -124,6 +124,8 @@ async function loadTransactions(reset = false) {
 // 奖励历史（云币 + 会员统一来源）
 const rewards = ref<RewardHistoryItem[]>([])
 const rewardLoading = ref(false)
+const rewardRestricted = shallowRef(false)
+const rewardError = shallowRef('')
 const rewardNextSkip = ref<number | null>(0)
 const rewardHasMore = computed(() => rewardNextSkip.value !== null)
 
@@ -133,14 +135,24 @@ async function loadRewards(reset = false) {
   if (reset) {
     rewards.value = []
     rewardNextSkip.value = 0
+    rewardRestricted.value = false
   }
   if (rewardNextSkip.value === null)
     return
   rewardLoading.value = true
+  rewardError.value = ''
+  const requestedUserId = user.value?.id
   try {
-    const { items, nextSkip } = await coin.listRewardHistory({ skip: rewardNextSkip.value, limit: 20 })
+    const { items, nextSkip, restricted } = await coin.listRewardHistory({ skip: rewardNextSkip.value, limit: 20 })
+    if (user.value?.id !== requestedUserId)
+      return
+    rewardRestricted.value = restricted === true
     rewards.value.push(...items)
     rewardNextSkip.value = nextSkip
+  }
+  catch {
+    if (user.value?.id === requestedUserId)
+      rewardError.value = '奖励历史暂时无法加载，请稍后重试。'
   }
   finally {
     rewardLoading.value = false
@@ -379,11 +391,20 @@ onMounted(async () => {
       <SignInCalendar />
 
       <!-- 运营奖励来源 -->
-      <section v-if="rewards.length || rewardLoading" class="space-y-4">
+      <section v-if="rewards.length || rewardLoading || rewardRestricted || rewardError" class="space-y-4">
         <h2 class="text-lg font-semibold">
           奖励记录
         </h2>
-        <div class="ylf-surface divide-y divide-default overflow-hidden rounded-2xl">
+        <WalletTestAccountNotice v-if="rewardRestricted" feature="reward-history" />
+        <div v-else-if="rewardError" class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-default p-4" role="alert">
+          <p class="text-sm text-error">
+            {{ rewardError }}
+          </p>
+          <AppButton variant="outline" color="neutral" size="sm" :loading="rewardLoading" @click="loadRewards()">
+            重试
+          </AppButton>
+        </div>
+        <div v-else class="ylf-surface divide-y divide-default overflow-hidden rounded-2xl">
           <div v-for="reward in rewards" :key="reward.grantId" class="flex items-center justify-between gap-3 px-4 py-3">
             <div class="flex min-w-0 items-center gap-3">
               <span class="ylf-member-mark flex size-9 shrink-0 items-center justify-center rounded-xl">
@@ -411,7 +432,7 @@ onMounted(async () => {
             </div>
           </div>
         </div>
-        <div v-if="rewardHasMore" class="text-center">
+        <div v-if="!rewardRestricted && !rewardError && rewardHasMore" class="text-center">
           <AppButton variant="outline" color="neutral" size="sm" :loading="rewardLoading" @click="loadRewards()">
             加载更多
           </AppButton>
