@@ -26,6 +26,8 @@ mockNuxtImport('useFollow', () => () => ({
   listFollowing: h.listFollowing,
 }))
 mockNuxtImport('useNotifications', () => () => ({
+  userId: ref('viewer'),
+  restricted: ref(false),
   list: h.listNotifications,
   markRead: h.markRead,
   unread: h.unread,

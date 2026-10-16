@@ -1,7 +1,7 @@
 <script setup lang="ts">
 const props = defineProps<{
   /** Unsupported feature identified by the account service. */
-  feature: 'reward-history' | 'ai-point-exchange' | 'sign-in' | 'profile-sync'
+  feature: 'reward-history' | 'ai-point-exchange' | 'sign-in' | 'profile-sync' | 'notifications'
 }>()
 const notices = {
   'reward-history': {
@@ -19,6 +19,10 @@ const notices = {
   'profile-sync': {
     title: '测试账号暂不支持公开资料同步',
     description: '此账号的资料更新不会同步到公开主页；登录和账户读取不受影响。',
+  },
+  'notifications': {
+    title: '测试账号暂不支持站内通知',
+    description: '此账号暂不提供通知未读数、通知列表和已读标记。登录和账户读取不受影响。',
   },
 }
 const notice = computed(() => notices[props.feature])
