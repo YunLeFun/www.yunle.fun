@@ -18,7 +18,7 @@ const { user, isAuthenticated, loading } = useTcbAuth()
 const { getMyApps, getMyWorkshops } = useApps()
 const { isActive: isMember, state: membershipState, refresh: refreshMembership } = useMembership()
 const { balance: coinBalance, refresh: refreshAccount } = useCoin()
-const { getProfile } = useUserProfile()
+const { getProfile, syncRestricted } = useUserProfile()
 const router = useRouter()
 
 watch(isAuthenticated, (value) => {
@@ -207,6 +207,8 @@ function workshopHref(surface: WorkshopSurface) {
           </div>
         </div>
       </SkyHero>
+
+      <TestAccountNotice v-if="syncRestricted" feature="profile-sync" />
 
       <!-- 未开通会员引导 -->
       <NuxtLink

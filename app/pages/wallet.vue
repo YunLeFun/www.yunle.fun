@@ -395,7 +395,7 @@ onMounted(async () => {
         <h2 class="text-lg font-semibold">
           奖励记录
         </h2>
-        <WalletTestAccountNotice v-if="rewardRestricted" feature="reward-history" />
+        <TestAccountNotice v-if="rewardRestricted" feature="reward-history" />
         <div v-else-if="rewardError" class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-default p-4" role="alert">
           <p class="text-sm text-error">
             {{ rewardError }}

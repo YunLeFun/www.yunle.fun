@@ -102,7 +102,7 @@ onMounted(() => {
       </div>
     </div>
 
-    <WalletTestAccountNotice v-if="exchange.restricted.value" feature="ai-point-exchange" class="mt-6" />
+    <TestAccountNotice v-if="exchange.restricted.value" feature="ai-point-exchange" class="mt-6" />
     <div v-else-if="exchange.loading.value && !policy" class="mt-6 space-y-3" aria-label="正在加载兑换规则">
       <AppSkeleton class="h-24 rounded-xl" />
       <AppSkeleton class="h-11 rounded-xl" />

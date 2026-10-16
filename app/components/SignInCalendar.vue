@@ -8,6 +8,7 @@
  */
 const { user } = useTcbAuth()
 const {
+  restricted,
   signedToday,
   currentStreak,
   longestStreak,
@@ -113,7 +114,8 @@ watch(() => history.value.length, scrollToToday)
 </script>
 
 <template>
-  <div class="ylf-surface rounded-2xl p-5 space-y-4">
+  <TestAccountNotice v-if="restricted" feature="sign-in" />
+  <div v-else class="ylf-surface rounded-2xl p-5 space-y-4">
     <!-- 头部 -->
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div class="space-y-1">
