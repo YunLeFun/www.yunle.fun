@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ExplorerApp } from '~/types/app-explorer'
+import YlfCloud from '@yunlefun/vue/components/YlfCloud.vue'
 import { computed } from 'vue'
-import HomeCloud from '~/components/home/HomeCloud.vue'
 import AppDiscoveryCard from './AppDiscoveryCard.vue'
 
 const props = defineProps<{
@@ -37,7 +37,7 @@ const listKey = computed(() => props.apps.map(app => app._id || app.slug).join('
     </div>
 
     <div v-else-if="error" class="app-discovery-grid__state" role="alert">
-      <HomeCloud shape="puff" face class="app-discovery-grid__state-cloud is-worried" />
+      <YlfCloud shape="puff" face class="app-discovery-grid__state-cloud is-worried" />
       <h2>应用云暂时飘远了</h2>
       <p>{{ error }}</p>
       <AppButton
@@ -49,7 +49,7 @@ const listKey = computed(() => props.apps.map(app => app._id || app.slug).join('
     </div>
 
     <div v-else-if="!apps.length" class="app-discovery-grid__state">
-      <HomeCloud shape="puff" face class="app-discovery-grid__state-cloud" />
+      <YlfCloud shape="puff" face class="app-discovery-grid__state-cloud" />
       <template v-if="hasFilters">
         <h2>没有找到匹配的应用</h2>
         <p>换个关键词或分类，也许会遇到另一朵云。</p>
@@ -117,7 +117,7 @@ const listKey = computed(() => props.apps.map(app => app._id || app.slug).join('
 }
 
 .app-discovery-grid__state-cloud {
-  --cloud-face-opacity: 0.85;
+  --ylf-cloud-face-opacity: 0.85;
   width: 8rem;
   filter: drop-shadow(0 10px 14px rgb(40 90 160 / 18%));
   /* 设计规范不播放循环背景动画：云朵飘两下就停住。 */

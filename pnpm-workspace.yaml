@@ -2,14 +2,14 @@ minimumReleaseAgeExcludePrune: true
 minimumReleaseAgeExclude:
   - '@yunlefun/sso@0.6.2'
   - nanoid@3.3.18
-  - '@yunlefun/ui@0.0.6'
+  - '@yunlefun/ui@0.0.7'
   - '@lucide/vue@1.50.0'
   - '@nuxt/test-utils@4.3.3'
   - '@nuxt/ui@4.11.3'
   - '@nuxtjs/mdc@0.23.2'
   - '@types/node@24.19.1'
   - '@vue/language-core@3.3.12'
-  - '@yunlefun/vue@0.4.2'
+  - '@yunlefun/vue@0.6.0'
   - baseline-browser-mapping@2.11.27
   - vue-tsc@3.3.12
 
@@ -96,8 +96,8 @@ catalog:
   '@yunlefun/icons': ^0.3.1
   '@yunlefun/sso': ^0.6.2
   '@yunlefun/types': ^0.2.1
-  '@yunlefun/ui': ^0.0.6
-  '@yunlefun/vue': ^0.4.2
+  '@yunlefun/ui': ^0.0.7
+  '@yunlefun/vue': ^0.6.0
   baseline-browser-mapping: ^2.11.27
   better-sqlite3: ^13.0.3
   class-variance-authority: ^0.7.1
