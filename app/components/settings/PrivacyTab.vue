@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch'
  * 计数（关注数 / 粉丝数）始终公开，仅「列表明细」受此开关控制。
  */
 const { user } = useTcbAuth()
-const { getProfile, upsertMyProfile } = useUserProfile()
+const { getProfile, upsertMyProfile, syncRestricted } = useUserProfile()
 const toast = useAppToast()
 
 const hideFollowers = ref(false)
@@ -35,9 +35,17 @@ onMounted(async () => {
 })
 
 async function save(field: SwitchField, value: boolean) {
+  if (syncRestricted.value)
+    return
   saving.value = true
   try {
-    await upsertMyProfile({ [field]: value })
+    const result = await upsertMyProfile({ [field]: value })
+    if (!result) {
+      SWITCHES[field].value = !value
+      if (syncRestricted.value)
+        return
+      throw new Error('公开资料保存失败')
+    }
     toast.add({ title: '已保存', icon: 'i-lucide-check', color: 'success' })
   }
   catch {
@@ -53,6 +61,7 @@ async function save(field: SwitchField, value: boolean) {
 
 <template>
   <div class="space-y-6">
+    <TestAccountNotice v-if="syncRestricted" feature="profile-sync" />
     <Card>
       <CardHeader>
         <CardTitle>列表隐私</CardTitle>
@@ -78,7 +87,7 @@ async function save(field: SwitchField, value: boolean) {
             <Switch
               v-model="hideFollowers"
               class="shrink-0"
-              :disabled="saving"
+              :disabled="saving || syncRestricted"
               aria-label="隐藏粉丝列表"
               @update:model-value="save('hideFollowers', $event)"
             />
@@ -95,7 +104,7 @@ async function save(field: SwitchField, value: boolean) {
             <Switch
               v-model="hideFollowing"
               class="shrink-0"
-              :disabled="saving"
+              :disabled="saving || syncRestricted"
               aria-label="隐藏关注列表"
               @update:model-value="save('hideFollowing', $event)"
             />
@@ -128,7 +137,7 @@ async function save(field: SwitchField, value: boolean) {
             <Switch
               v-model="notifyOnFollow"
               class="shrink-0"
-              :disabled="saving"
+              :disabled="saving || syncRestricted"
               aria-label="新增粉丝通知"
               @update:model-value="save('notifyOnFollow', $event)"
             />

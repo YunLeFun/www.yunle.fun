@@ -6,37 +6,74 @@ import type { NotificationItem } from '~/types/social'
 import { displayUserName } from '~/utils/mask'
 
 const open = defineModel<boolean>('open', { default: false })
-const { list, markRead, unread } = useNotifications()
+const { userId, list, markRead, unread, restricted } = useNotifications()
 
 const items = ref<NotificationItem[]>([])
 const loading = ref(false)
 const loaded = ref(false)
 const nextSkip = ref<number | null>(0)
+const loadError = shallowRef('')
 
 async function loadMore() {
-  if (loading.value || nextSkip.value === null)
-    return
+  if (loading.value || nextSkip.value === null || restricted.value)
+    return false
+  const uid = userId.value
   loading.value = true
+  loadError.value = ''
   try {
     const res = await list({ skip: nextSkip.value, limit: 20 })
+    if (userId.value !== uid || restricted.value)
+      return false
     items.value.push(...res.items)
     nextSkip.value = res.nextSkip
+    return true
+  }
+  catch {
+    if (userId.value === uid)
+      loadError.value = '通知暂时无法加载，请稍后重试。'
+    return false
   }
   finally {
-    loading.value = false
-    loaded.value = true
+    if (userId.value === uid) {
+      loading.value = false
+      loaded.value = true
+    }
   }
 }
 
-watch(open, async (v) => {
-  if (!v || loaded.value)
+async function loadInitial() {
+  items.value = []
+  nextSkip.value = 0
+  loaded.value = false
+  const uid = userId.value
+  if (!await loadMore() || userId.value !== uid || restricted.value)
     return
-  await loadMore()
   // 打开即全部已读，清红点
   if (unread.value > 0) {
-    markRead()
-    items.value = items.value.map(i => ({ ...i, read: true }))
+    try {
+      if (await markRead() && userId.value === uid)
+        items.value = items.value.map(i => ({ ...i, read: true }))
+    }
+    catch {
+      if (userId.value === uid)
+        loadError.value = '通知已读状态暂时无法更新，请稍后重试。'
+    }
   }
+}
+
+watch(open, (v) => {
+  if (v && !loaded.value)
+    void loadInitial()
+}, { immediate: true })
+
+watch(userId, () => {
+  items.value = []
+  nextSkip.value = 0
+  loaded.value = false
+  loading.value = false
+  loadError.value = ''
+  if (open.value)
+    void loadInitial()
 })
 
 function fmt(ts: number) {
@@ -52,7 +89,14 @@ function fmt(ts: number) {
           通知
         </h3>
 
-        <div v-if="!loaded && loading" class="flex justify-center py-10">
+        <TestAccountNotice v-if="restricted" feature="notifications" />
+        <div v-else-if="loadError" class="space-y-3 py-6 text-sm" role="alert">
+          <p class="text-error">
+            {{ loadError }}
+          </p>
+          <AppButton color="neutral" variant="outline" label="重试" :loading="loading" @click="loadInitial" />
+        </div>
+        <div v-else-if="!loaded && loading" class="flex justify-center py-10">
           <Icon name="i-lucide-loader-2" class="animate-spin text-2xl text-muted" />
         </div>
         <div v-else-if="items.length === 0" class="py-10 text-center text-sm text-muted">

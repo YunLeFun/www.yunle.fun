@@ -23,7 +23,7 @@ export function useTcbAuthCore() {
   const config = useRuntimeConfig()
   const router = useRouter()
   const toast = useAppToast()
-  const { upsertMyProfile } = useUserProfile()
+  const { upsertMyProfile, syncRestricted } = useUserProfile()
   const { refresh: refreshAccountAccess, clear: clearAccountAccess } = useAccountAccess()
   // 双层会话编排（开关 cookieSession 开启时生效，见 docs/cookie-session-migration.md）
   const cookieSession = config.public.cookieSession as boolean
@@ -134,7 +134,7 @@ export function useTcbAuthCore() {
           avatar: user.value.avatar,
           description: user.value.description,
         })
-        if (!syncedProfile)
+        if (!syncedProfile && !syncRestricted.value)
           console.warn('[auth] 公开资料同步未完成，将在下次登录重试')
         // 密码状态异步补充，不阻塞登录态恢复
         enrichPasswordStatus(user.value.id).catch(e => console.warn('[auth] 获取密码状态失败:', e))

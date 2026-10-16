@@ -1,3 +1,5 @@
+import { isTestAccountFeatureRestriction } from '~/utils/account-feature-restriction'
+
 /**
  * 每日签到 composable。
  *
@@ -64,6 +66,28 @@ export function useSignIn() {
   /** 签到历史（近一年），供热力图日历 */
   const history = useState<SignInDay[]>('signin_history', () => [])
   const historyLoading = ref(false)
+  const restrictedFor = useState<string | null>('signin_restricted_uid', () => null)
+  const stateUserId = useState<string | null>('signin_state_uid', () => null)
+  const restricted = computed(() => !!user.value?.id && restrictedFor.value === user.value.id)
+
+  watch(() => user.value?.id ?? null, (uid) => {
+    if (stateUserId.value === uid)
+      return
+    stateUserId.value = uid
+    status.value = null
+    history.value = []
+    restrictedFor.value = null
+    autoClaimedFor.value = null
+  }, { immediate: true, flush: 'sync' })
+
+  function acceptRestriction(value: unknown, uid: string) {
+    if (!isTestAccountFeatureRestriction(value))
+      return false
+    restrictedFor.value = uid
+    status.value = null
+    history.value = []
+    return true
+  }
 
   const signedToday = computed(() => !!status.value?.signedToday)
   const reward = computed(() => status.value?.reward ?? 1)
@@ -75,17 +99,22 @@ export function useSignIn() {
 
   /** 拉取今日签到态（只读） */
   async function fetchStatus(): Promise<SignInStatus | null> {
-    if (!user.value || !app) {
-      status.value = null
+    const uid = user.value?.id
+    if (!uid || !app || restricted.value) {
       return null
     }
     loading.value = true
     try {
       const res = await app.callFunction({
         name: 'account-api',
-        data: { action: 'getSignInStatus' },
+        data: { action: 'getSignInStatus', restrictionResponse: 'v1' },
       })
-      status.value = res.result as SignInStatus
+      if (user.value?.id !== uid || acceptRestriction(res.result, uid))
+        return null
+      const result = res.result as SignInStatus
+      if (typeof result?.signedToday !== 'boolean')
+        throw new Error('签到状态响应无效')
+      status.value = result
       return status.value
     }
     catch (err) {
@@ -99,17 +128,22 @@ export function useSignIn() {
 
   /** 拉取签到历史（近一年，只读），供热力图日历 */
   async function fetchHistory(): Promise<SignInDay[]> {
-    if (!user.value || !app) {
-      history.value = []
+    const uid = user.value?.id
+    if (!uid || !app || restricted.value) {
       return []
     }
     historyLoading.value = true
     try {
       const res = await app.callFunction({
         name: 'account-api',
-        data: { action: 'getSignInHistory' },
+        data: { action: 'getSignInHistory', restrictionResponse: 'v1' },
       })
-      history.value = (res.result as { days?: SignInDay[] }).days ?? []
+      if (user.value?.id !== uid || acceptRestriction(res.result, uid))
+        return []
+      const result = res.result as { days?: SignInDay[] }
+      if (!Array.isArray(result?.days))
+        throw new Error('签到历史响应无效')
+      history.value = result.days
       return history.value
     }
     catch (err) {
@@ -122,16 +156,23 @@ export function useSignIn() {
   }
 
   /** 执行签到（幂等，当日重复返回 alreadySigned） */
-  async function signIn(): Promise<SignInResult> {
-    if (!user.value || !app)
+  async function signIn(): Promise<SignInResult | null> {
+    const uid = user.value?.id
+    if (!uid || !app)
       throw new Error('请先登录')
+    if (restricted.value)
+      return null
     submitting.value = true
     try {
       const res = await app.callFunction({
         name: 'account-api',
-        data: { action: 'signIn' },
+        data: { action: 'signIn', restrictionResponse: 'v1' },
       })
+      if (user.value?.id !== uid || acceptRestriction(res.result, uid))
+        return null
       const result = res.result as SignInResult
+      if (typeof result?.alreadySigned !== 'boolean' || !Number.isSafeInteger(result.reward))
+        throw new Error('签到响应无效')
       status.value = {
         signedToday: true,
         reward: result.reward,
@@ -180,6 +221,7 @@ export function useSignIn() {
   }
 
   return {
+    restricted,
     status: readonly(status),
     signedToday,
     reward,

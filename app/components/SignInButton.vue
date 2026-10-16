@@ -6,7 +6,7 @@
  * 若自动领取失败仍可点击补领。免费 1 / 会员 2 云币，按东八区每日一次（服务端幂等）。
  */
 const { user } = useTcbAuth()
-const { signedToday, reward, submitting, fetchStatus, signIn } = useSignIn()
+const { signedToday, reward, submitting, restricted, fetchStatus, signIn } = useSignIn()
 const toast = useAppToast()
 
 onMounted(() => {
@@ -19,10 +19,12 @@ watch(() => user.value?.id, (id) => {
 })
 
 async function handleSignIn() {
-  if (signedToday.value || submitting.value)
+  if (signedToday.value || submitting.value || restricted.value)
     return
   try {
     const res = await signIn()
+    if (!res)
+      return
     if (res.alreadySigned)
       toast.add({ title: '今日已领取', color: 'neutral' })
     else
@@ -39,7 +41,9 @@ async function handleSignIn() {
 </script>
 
 <template>
+  <TestAccountNotice v-if="restricted" feature="sign-in" />
   <AppButton
+    v-else
     :icon="signedToday ? 'i-lucide-calendar-check' : 'i-lucide-calendar-plus'"
     :color="signedToday ? 'neutral' : 'primary'"
     :variant="signedToday ? 'subtle' : 'solid'"
