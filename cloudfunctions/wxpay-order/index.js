@@ -472,6 +472,9 @@ async function handleQueryOrder(event) {
     }
   }
 
+  if (order.payType === 'iap')
+    throw new Error('IAP 订单请通过 App Store 恢复购买核对')
+
   // 支付回调会先把订单标为 paid，再发放会员/云币权益。前端轮询可能恰好落在两步之间：
   // 如果此时直接返回 paid，客户端会停止轮询并只刷新一次尚未更新的账户状态。
   // 因此 paid 只有在权益已发放后才作为客户端终态返回；发放失败时保持轮询，
@@ -533,7 +536,7 @@ async function handleReconcile() {
     .orderBy('createdAt', 'desc')
     .limit(RECONCILE_MAX_ORDERS)
     .get()
-  const pending = Array.isArray(data) ? data : []
+  const pending = (Array.isArray(data) ? data : []).filter(order => order.payType !== 'iap')
   let paid = 0
   for (const order of pending) {
     try {
@@ -556,7 +559,7 @@ async function handleReconcile() {
     .orderBy('createdAt', 'desc')
     .limit(RECONCILE_MAX_ORDERS)
     .get()
-  const ungranted = (Array.isArray(paidData) ? paidData : []).filter(o => !o.grantedAt)
+  const ungranted = (Array.isArray(paidData) ? paidData : []).filter(o => !o.grantedAt && o.payType !== 'iap')
   let regranted = 0
   for (const order of ungranted) {
     try {

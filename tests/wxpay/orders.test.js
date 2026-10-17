@@ -439,7 +439,7 @@ describe('grantOrderEntitlement — 幂等与 grantedAt 回写', () => {
     expect(db._store[ORDERS_COLLECTION][0].grantedAt).toBe(NOW)
   })
 
-  it('对账补发 IAP 会员时按 Apple 购买时间起算，而不按处理时间起算', async () => {
+  it('通用微信补发入口拒绝 IAP，避免绕过交易核对和原子发放', async () => {
     const providerPurchasedAt = shanghai('2026-01-31T23:59:00.000')
     const reconciledAt = shanghai('2026-02-02T12:00:00.000')
     const db = makeFakeDb({
@@ -457,13 +457,13 @@ describe('grantOrderEntitlement — 幂等与 grantedAt 回写', () => {
       [MEMBERSHIPS_COLLECTION]: [],
     })
 
-    await grantOrderEntitlement(db, {
+    await expect(grantOrderEntitlement(db, {
       order: db._store[ORDERS_COLLECTION][0],
       now: reconciledAt,
-    })
+    })).rejects.toThrow('App Store 恢复购买')
 
-    expect(db._store[MEMBERSHIPS_COLLECTION][0].expireAt)
-      .toBe(shanghai('2026-02-28T23:59:00.000'))
+    expect(db._store[MEMBERSHIPS_COLLECTION]).toHaveLength(0)
+    expect(db._store[ORDERS_COLLECTION][0]).not.toHaveProperty('grantedAt')
   })
 
   it('对账重入（订单已带 grantedAt）不重复续期', async () => {
