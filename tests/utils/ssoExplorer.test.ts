@@ -9,7 +9,7 @@ import { productionRegistry } from '../../packages/authorization-core/src/regist
 
 describe('sso explorer configuration', () => {
   it('derives only active Web SSO clients from the authorization registry', () => {
-    const controlPlaneClients = new Set(['admin-web', 'cook-mobile', 'studio-web'])
+    const controlPlaneClients = new Set(['admin-web', 'cook-mobile', 'life-ios', 'studio-web'])
     const expectedAppIds = productionRegistry.clients
       .filter(client => client.status === 'active')
       .filter(client => !controlPlaneClients.has(client.clientId))
@@ -65,6 +65,32 @@ describe('sso explorer configuration', () => {
     expect(isSsoExplorerAppSlug('smap')).toBe(true)
     expect(isSsoExplorerAppSlug('support')).toBe(true)
     expect(isSsoExplorerAppSlug('fc')).toBe(true)
+  })
+
+  it('accepts Life iOS registration without listing its callback host as a Web app', () => {
+    const nextRegistry = {
+      ...productionRegistry,
+      clients: [
+        ...productionRegistry.clients.filter(client => client.clientId !== 'life-ios'),
+        {
+          clientId: 'life-ios',
+          appId: 'life',
+          displayName: '云生',
+          iconUrl: 'https://life.yunle.fun/favicon.png',
+          status: 'active' as const,
+          adapters: [{
+            kind: 'web-sso' as const,
+            consent: 'explicit' as const,
+            allowedScopes: ['identity:bootstrap'],
+            origins: ['https://life.yunle.fun'],
+            redirectUris: ['https://life.yunle.fun/auth/callback'],
+          }],
+        },
+      ],
+    }
+
+    expect(buildSsoExplorerApps(nextRegistry).some(app => app.appId === 'life')).toBe(false)
+    expect(buildSsoExplorerApps(nextRegistry)).toEqual(ssoExplorerApps)
   })
 
   it('prepares ADV.JS Studio presentation before activating its Web SSO client', () => {
