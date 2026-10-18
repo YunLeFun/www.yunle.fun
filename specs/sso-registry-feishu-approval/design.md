@@ -195,6 +195,7 @@ interface ApprovalChannelState {
 保留现有动作并增加：
 
 - `getApprovalForAdmin`：返回经过裁剪的只读摘要；需要 Admin channel token。
+- `listClientsForAdmin`：仅生产环境，返回当前生效快照的客户端只读投影（快照元数据与客户端、adapter 字段，不含签名、密钥或 canonical JSON），供 Admin 开放平台目录使用；需要 Admin channel token，签名正文为 `{"action":"listClientsForAdmin"}`。
 - `submitAdminApprovalDecision`：验证 Ed25519 proof，并只把决定原子登记为 `decision_pending`；重复 jti 返回同一结果。
 - 定时入口 `processPendingAdminApprovalDecisions`：只由 `sso-registry-admin` 的 production timer 触发，租约领取待处理决定并执行权威事务。
 

@@ -77,6 +77,17 @@ describe('registry Admin HMAC channel', () => {
       ...signed,
     })).toThrow(expect.objectContaining({ code: 'admin_channel_identity_required' }))
 
+    const listing = signAdminChannelInvocation(SECRET, 'listClientsForAdmin', undefined, 10_000)
+    expect(() => verifier({ action: 'listClientsForAdmin', ...listing })).not.toThrow()
+    // The signature binds the action, so a catalog read cannot be replayed as an approval read.
+    expect(() => verifier({
+      action: 'getApprovalForAdmin',
+      approvalId: 'approval:test',
+      ...listing,
+    })).toThrow(expect.objectContaining({ code: 'admin_channel_identity_required' }))
+    expect(() => verifier({ action: 'getApprovalForAdmin', ...signed }))
+      .toThrow(expect.objectContaining({ code: 'admin_channel_identity_required' }))
+
     const expired = createAdminChannelRequestVerifier(SECRET, { now: () => 80_001 })
     expect(() => expired({
       action: 'getApprovalForAdmin',

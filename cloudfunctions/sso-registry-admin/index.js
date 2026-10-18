@@ -91,7 +91,7 @@ function loadService(environment = currentEnvironment(), context = {}, action = 
         options.sendApprovalCard = channel.sendApprovalCard
       if (action === 'processPendingAdminApprovalDecisions')
         options.notifyApprovalCard = channel.notifyApprovalCard
-      if (action === 'getApprovalForAdmin')
+      if (action === 'getApprovalForAdmin' || action === 'listClientsForAdmin')
         options.verifyAdminChannelRequest = createAdminChannelRequestVerifier(channelConfig.secret)
       if (action === 'submitAdminApprovalDecision') {
         const trustAnchors = loadAdminDecisionTrustAnchors()
@@ -160,6 +160,9 @@ exports.main = async (event, context) => {
         break
       case 'getApprovalForAdmin':
         data = await runtime.getApprovalForAdmin(request)
+        break
+      case 'listClientsForAdmin':
+        data = await runtime.listClientsForAdmin(request)
         break
       case 'submitAdminApprovalDecision':
         data = await runtime.submitAdminApprovalDecision(request)

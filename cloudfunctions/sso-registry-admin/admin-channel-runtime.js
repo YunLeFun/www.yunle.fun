@@ -83,6 +83,13 @@ function createAdminChannelClient(config, options = {}) {
   }
 }
 
+// Reads that address the whole active snapshot rather than one approval.
+const SUBJECTLESS_READ_ACTIONS = new Set(['listClientsForAdmin'])
+
+function invocationBody(action, approvalId) {
+  return JSON.stringify(SUBJECTLESS_READ_ACTIONS.has(action) ? { action } : { action, approvalId })
+}
+
 function createAdminChannelRequestVerifier(secret, options = {}) {
   if (Buffer.byteLength(String(secret || ''), 'utf8') < 32)
     throw new TypeError('Admin channel secret must be at least 32 bytes')
@@ -94,10 +101,10 @@ function createAdminChannelRequestVerifier(secret, options = {}) {
     if (!Number.isSafeInteger(timestamp)
       || Math.abs(now() - timestamp) > MAX_CLOCK_SKEW_MS
       || !action
-      || !approvalId) {
+      || (!approvalId && !SUBJECTLESS_READ_ACTIONS.has(action))) {
       throw new RegistryAdminError('admin_channel_identity_required')
     }
-    const body = JSON.stringify({ action, approvalId })
+    const body = invocationBody(action, approvalId)
     const expected = signature(secret, 'CLOUDBASE', action, String(timestamp), body)
     if (!secureEqual(request?.channelSignature, expected))
       throw new RegistryAdminError('admin_channel_identity_required')
@@ -105,7 +112,7 @@ function createAdminChannelRequestVerifier(secret, options = {}) {
 }
 
 function signAdminChannelInvocation(secret, action, approvalId, timestamp = Date.now()) {
-  const body = JSON.stringify({ action, approvalId })
+  const body = invocationBody(action, approvalId)
   return {
     channelTimestamp: timestamp,
     channelSignature: signature(secret, 'CLOUDBASE', action, String(timestamp), body),

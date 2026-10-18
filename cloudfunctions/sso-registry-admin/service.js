@@ -1319,6 +1319,45 @@ function createRegistryAdminService(options) {
       }
     },
 
+    async listClientsForAdmin(input) {
+      if (environment !== 'production')
+        throw new RegistryAdminError('admin_catalog_production_only')
+      if (typeof verifyAdminChannelRequest !== 'function')
+        throw new RegistryAdminError('admin_channel_verifier_unavailable')
+      verifyAdminChannelRequest(input)
+      const envelope = await activeEnvelope()
+      if (!envelope)
+        throw new RegistryAdminError('active_snapshot_missing')
+      const { state, snapshot } = envelope
+      // A read-only projection: signatures, keys and canonical JSON stay in the Provider.
+      return {
+        environment,
+        generation: state.generation,
+        action: state.action,
+        activatedAt: state.activatedAt,
+        snapshotId: snapshot.snapshotId,
+        policyVersion: snapshot.policyVersion,
+        contentHash: snapshot.contentHash,
+        securityHash: snapshot.securityHash,
+        publishedAt: snapshot.publishedAt,
+        changeReason: snapshot.changeReason,
+        clients: snapshot.registry.clients.map(client => ({
+          clientId: client.clientId,
+          appId: client.appId,
+          displayName: client.displayName,
+          iconUrl: client.iconUrl || null,
+          status: client.status,
+          adapters: client.adapters.map(adapter => ({
+            kind: adapter.kind,
+            consent: adapter.consent,
+            allowedScopes: [...adapter.allowedScopes],
+            origins: [...(adapter.origins || [])],
+            redirectUris: [...(adapter.redirectUris || [])],
+          })),
+        })),
+      }
+    },
+
     async submitAdminApprovalDecision(input) {
       if (environment !== 'production')
         throw new RegistryAdminError('admin_approval_production_only')

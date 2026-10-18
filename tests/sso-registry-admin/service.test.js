@@ -548,6 +548,65 @@ describe('sso-registry-admin service', () => {
     })
   })
 
+  it('lists the active production clients for Admin as a verified read-only projection', async () => {
+    let verifiedRequest
+    const { memory, service } = setup({
+      verifyAdminChannelRequest: (input) => { verifiedRequest = input },
+    })
+    await expect(service.listClientsForAdmin({ action: 'listClientsForAdmin' }))
+      .rejects
+      .toEqual(expect.objectContaining({ code: 'active_snapshot_missing' }))
+
+    const draft = await service.saveDraft(request({ registry: registryWithManagedClient() }))
+    const published = await service.publishDraft(request({ draftId: draft.draftId }))
+    const before = memory.snapshot()
+    const catalog = await service.listClientsForAdmin({
+      action: 'listClientsForAdmin',
+      channelTimestamp: 1,
+      channelSignature: 'verified-by-option',
+    })
+
+    expect(verifiedRequest).toMatchObject({ action: 'listClientsForAdmin' })
+    expect(catalog).toEqual({
+      environment: 'production',
+      generation: 1,
+      action: 'publish',
+      activatedAt: expect.any(Number),
+      snapshotId: published.snapshotId,
+      policyVersion: '2026-08-12.2',
+      contentHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+      securityHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+      publishedAt: expect.any(Number),
+      changeReason: 'test registry change',
+      // Canonical snapshots order clients by clientId.
+      clients: [...registryWithManagedClient().clients].sort((a, b) => a.clientId.localeCompare(b.clientId)).map(client => ({
+        ...client,
+        adapters: client.adapters.map(adapter => ({ origins: [], redirectUris: [], ...adapter })),
+      })),
+    })
+    expect(JSON.stringify(catalog)).not.toMatch(/signature|canonicalJson|keyId/)
+    expect(memory.snapshot()).toEqual(before)
+  })
+
+  it('refuses the Admin client catalog without channel identity or outside production', async () => {
+    const unverified = setup()
+    await expect(unverified.service.listClientsForAdmin({ action: 'listClientsForAdmin' }))
+      .rejects
+      .toEqual(expect.objectContaining({ code: 'admin_channel_verifier_unavailable' }))
+
+    const rejecting = setup({
+      verifyAdminChannelRequest: () => { throw new RegistryAdminError('admin_channel_identity_required') },
+    })
+    await expect(rejecting.service.listClientsForAdmin({ action: 'listClientsForAdmin' }))
+      .rejects
+      .toEqual(expect.objectContaining({ code: 'admin_channel_identity_required' }))
+
+    const development = setup({ environment: 'development', verifyAdminChannelRequest: () => {} })
+    await expect(development.service.listClientsForAdmin({ action: 'listClientsForAdmin' }))
+      .rejects
+      .toEqual(expect.objectContaining({ code: 'admin_catalog_production_only' }))
+  })
+
   it('registers a verified Feishu decision once and exposes only a trimmed Admin view', async () => {
     let decisionClaims
     let channelVerified = false
