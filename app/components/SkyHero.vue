@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import type { YlfCloudShape } from '@yunlefun/vue'
-import YlfCloud from '@yunlefun/vue/components/YlfCloud.vue'
 import { useSkyParallax } from '~/composables/useSkyParallax'
 
 /**
@@ -10,8 +8,9 @@ import { useSkyParallax } from '~/composables/useSkyParallax'
  * 自行控制内边距与栅格；组件负责晴空背景、scrim、云朵、圆角与层叠。
  * 自动跟随站点明暗模式（浅色白日 / 深色黄昏）。
  *
- * 云朵画在压暗层之上，保持干净的白；它们只响应指针：悬停时探出小脸，
- * 戳一下会 Q 弹、下一阵彩色小雨，每第三下挂出一道彩虹。键盘焦点只落在插槽里的控件上。
+ * 云朵是扁平的卡通小云（CuteCloud），画在压暗层之上保持干净；它们只响应指针：
+ * 悬停时眯眼笑，戳一下会 Q 弹、说句话、下一阵彩色小雨，每第三下挂出一道彩虹。
+ * 键盘焦点只落在插槽里的控件上。
  */
 const props = withDefaults(defineProps<{
   /** 是否在文案侧叠加压暗层（白字 hero 建议开启） */
@@ -25,25 +24,25 @@ const props = withDefaults(defineProps<{
 
 interface HeroCloud {
   name: string
-  shape: YlfCloudShape
+  shape: 'round' | 'long' | 'small'
   /** 视差深度：越靠前，随鼠标移动越多 */
   depth: number
-  /** 空气透视：越远越接近天空色 */
-  haze: number
+  /** 远处的云更淡 */
+  opacity: number
   face?: boolean
 }
 
 const LAYOUTS: Record<'full' | 'mini' | 'none', HeroCloud[]> = {
   full: [
-    { name: 'far', shape: 'wisp', depth: 0.25, haze: 0.5 },
-    { name: 'bank', shape: 'bank', depth: 0.55, haze: 0.14 },
-    { name: 'billow', shape: 'billow', depth: 0.8, haze: 0.06, face: true },
-    { name: 'puff', shape: 'puff', depth: 1.1, haze: 0, face: true },
+    { name: 'far', shape: 'small', depth: 0.25, opacity: 0.8 },
+    { name: 'bank', shape: 'long', depth: 0.55, opacity: 0.9 },
+    { name: 'billow', shape: 'round', depth: 0.8, opacity: 1, face: true },
+    { name: 'puff', shape: 'round', depth: 1.1, opacity: 1, face: true },
   ],
   mini: [
-    { name: 'far', shape: 'wisp', depth: 0.25, haze: 0.5 },
-    { name: 'bank', shape: 'bank', depth: 0.55, haze: 0.16 },
-    { name: 'puff', shape: 'puff', depth: 1, haze: 0, face: true },
+    { name: 'far', shape: 'small', depth: 0.25, opacity: 0.8 },
+    { name: 'bank', shape: 'long', depth: 0.55, opacity: 0.85 },
+    { name: 'puff', shape: 'round', depth: 1, opacity: 1, face: true },
   ],
   none: [],
 }
@@ -76,6 +75,7 @@ interface Rainbow { id: number, x: number, y: number, size: number }
 interface Bubble { id: number, x: number, y: number, text: string }
 
 const squished = shallowRef<string | null>(null)
+const hovered = shallowRef<string | null>(null)
 const drops = shallowRef<Drop[]>([])
 const rainbows = shallowRef<Rainbow[]>([])
 const bubble = shallowRef<Bubble | null>(null)
@@ -171,17 +171,23 @@ function poke(cloud: HeroCloud, event: MouseEvent) {
       :key="cloud.name"
       class="ylf-sky-hero__cloud"
       :class="`ylf-sky-hero__cloud--${cloud.name}`"
-      :style="{ '--depth': cloud.depth, '--ylf-cloud-haze': cloud.haze }"
+      :style="{ '--depth': cloud.depth, 'opacity': cloud.opacity }"
       aria-hidden="true"
     >
       <span class="ylf-sky-hero__drift">
-        <span class="ylf-sky-hero__target" @click="poke(cloud, $event)" />
-        <YlfCloud
+        <span
+          class="ylf-sky-hero__target"
+          @click="poke(cloud, $event)"
+          @pointerenter="hovered = cloud.name"
+          @pointerleave="hovered = null"
+        />
+        <CuteCloud
           :shape="cloud.shape"
           :face="cloud.face"
+          :mood="squished === cloud.name || hovered === cloud.name ? 'happy' : 'calm'"
           class="ylf-sky-hero__art"
-          :class="{ 'ylf-squish': squished === cloud.name, 'is-awake': squished === cloud.name }"
-          @animationend="squished = null"
+          :class="{ 'ylf-squish': squished === cloud.name }"
+          @animationend.self="squished = null"
         />
       </span>
     </span>
@@ -290,7 +296,7 @@ function poke(cloud: HeroCloud, event: MouseEvent) {
 .ylf-sky-hero__target {
   position: absolute;
   z-index: 1;
-  inset: 30% 12% 10%;
+  inset: 12% 8% 6%;
   border-radius: 48%;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -298,69 +304,60 @@ function poke(cloud: HeroCloud, event: MouseEvent) {
 
 .ylf-sky-hero__art {
   transform-origin: 50% 85%;
-  filter: drop-shadow(0 10px 12px rgb(30 80 150 / 22%));
+  filter: drop-shadow(0 8px 10px rgb(30 80 150 / 20%));
   transition: translate var(--ylf-duration-slow) var(--ylf-ease-spring);
 }
 
 .dark .ylf-sky-hero__art {
-  filter: drop-shadow(0 10px 12px rgb(30 15 60 / 40%));
+  filter: drop-shadow(0 8px 10px rgb(30 15 60 / 36%));
 }
 
 .ylf-sky-hero__drift:has(.ylf-sky-hero__target:hover) .ylf-sky-hero__art {
   translate: 0 -4px;
-  --ylf-cloud-face-opacity: 0.85;
-}
-
-.ylf-sky-hero__art.is-awake {
-  --ylf-cloud-face-opacity: 0.9;
 }
 
 /* full：个人中心大头图 */
 .ylf-sky-hero__cloud--far {
-  top: 2%;
-  left: 40%;
-  width: clamp(120px, 20%, 200px);
-  filter: blur(1px);
-  opacity: 0.7;
+  top: 8%;
+  left: 42%;
+  width: clamp(70px, 12%, 104px);
 }
 
 [data-clouds='full'] .ylf-sky-hero__cloud--bank {
   bottom: -14%;
   left: -6%;
   width: clamp(240px, 44%, 360px);
-  opacity: 0.85;
 }
 
 [data-clouds='full'] .ylf-sky-hero__cloud--billow {
-  top: -7%;
-  right: 22%;
-  width: clamp(140px, 24%, 200px);
+  top: 3%;
+  right: 24%;
+  width: clamp(110px, 18%, 150px);
 }
 
 [data-clouds='full'] .ylf-sky-hero__cloud--puff {
-  top: 26%;
-  right: -5%;
-  width: clamp(120px, 20%, 170px);
+  top: 30%;
+  right: -2%;
+  width: clamp(90px, 15%, 124px);
 }
 
 /* mini：设置等页面的窄横幅，云都靠右，给标题让出位置 */
 [data-clouds='mini'] .ylf-sky-hero__cloud--far {
-  top: -6%;
-  left: 46%;
-  width: clamp(110px, 18%, 170px);
+  top: 10%;
+  left: 50%;
+  width: clamp(60px, 10%, 88px);
 }
 
 [data-clouds='mini'] .ylf-sky-hero__cloud--bank {
-  right: 18%;
-  bottom: -38%;
-  width: clamp(200px, 36%, 300px);
-  opacity: 0.8;
+  right: 16%;
+  bottom: -30%;
+  width: clamp(160px, 28%, 230px);
 }
 
 [data-clouds='mini'] .ylf-sky-hero__cloud--puff {
-  top: -14%;
-  right: 7%;
-  width: clamp(110px, 20%, 160px);
+  top: 8%;
+  right: 8%;
+  width: clamp(80px, 13%, 104px);
 }
 
 /* ---- rain / rainbow / bubble ---- */
@@ -482,14 +479,14 @@ function poke(cloud: HeroCloud, event: MouseEvent) {
   }
 
   [data-clouds='full'] .ylf-sky-hero__cloud--billow {
-    top: 1%;
-    right: -6%;
-    width: 120px;
+    top: 3%;
+    right: -3%;
+    width: 96px;
   }
 
   [data-clouds='full'] .ylf-sky-hero__cloud--bank {
-    bottom: -8%;
-    width: 220px;
+    bottom: -6%;
+    width: 200px;
   }
 
   [data-clouds='full'] .ylf-sky-hero__cloud--puff {
@@ -497,14 +494,14 @@ function poke(cloud: HeroCloud, event: MouseEvent) {
   }
 
   [data-clouds='mini'] .ylf-sky-hero__cloud--bank {
-    right: -18%;
-    width: 180px;
+    right: -14%;
+    width: 150px;
   }
 
   [data-clouds='mini'] .ylf-sky-hero__cloud--puff {
-    top: -10%;
-    right: -4%;
-    width: 96px;
+    top: 6%;
+    right: -3%;
+    width: 76px;
   }
 }
 

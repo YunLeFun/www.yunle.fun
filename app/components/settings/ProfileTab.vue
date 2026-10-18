@@ -16,7 +16,6 @@ import {
   UserRoundIcon,
   VenusIcon,
 } from '@lucide/vue'
-import YlfCloud from '@yunlefun/vue/components/YlfCloud.vue'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -595,7 +594,7 @@ async function save() {
         <!-- 名片预览：别人在你的公开主页上看到的样子 -->
         <div class="profile-card-preview">
           <span class="profile-card-preview__sky" aria-hidden="true" />
-          <YlfCloud shape="puff" class="profile-card-preview__cloud" aria-hidden="true" />
+          <CuteCloud shape="round" face mood="happy" class="profile-card-preview__cloud" />
           <div class="relative flex items-center gap-4">
             <MemberAvatar
               :src="user?.avatar || undefined"
@@ -811,10 +810,11 @@ async function save() {
 .profile-card-preview__cloud {
   position: absolute;
   z-index: -1;
-  top: -1.25rem;
-  right: -1.5rem;
-  width: 9rem;
-  opacity: 0.75;
+  top: -0.5rem;
+  right: -0.75rem;
+  width: 6.5rem;
+  opacity: 0.95;
+  filter: drop-shadow(0 6px 10px color-mix(in srgb, var(--primary) 18%, transparent));
   animation: ylf-bob 6s ease-in-out infinite;
 }
 
