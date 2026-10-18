@@ -72,12 +72,19 @@ describe('edgeOne production configuration', () => {
 
     expect(config.headers.indexOf(aasaRule)).toBeLessThan(config.headers.findIndex(rule => rule.source === '/*'))
     expect(headers['Content-Type']).toBe('application/json')
-    // Only password sharing: www.yunle.fun links must keep opening in the browser.
-    expect(aasa).toEqual({
-      webcredentials: {
-        apps: ['QT792GAY4C.fun.yunle.apps', 'QT792GAY4C.fun.yunle.apps.native-dev'],
-      },
-    })
+    // 只认领跨 App 授权入口；/auth/sso 等其他 www.yunle.fun 地址必须继续在浏览器中打开。
+    const appIDs = ['QT792GAY4C.fun.yunle.apps', 'QT792GAY4C.fun.yunle.apps.native-dev']
+    expect(aasa.webcredentials).toEqual({ apps: appIDs })
+    expect(aasa.applinks.details).toHaveLength(1)
+    expect(aasa.applinks.details[0].appIDs).toEqual(appIDs)
+    expect(aasa.applinks.details[0].components.map(component => component['/'])).toEqual(['/auth/app'])
+    expect(JSON.stringify(aasa)).not.toContain('/auth/sso')
+  })
+
+  it('serves /auth/app with the same security headers as /auth/sso', () => {
+    const sso = config.headers.find(rule => rule.source === '/auth/sso')
+    const app = config.headers.find(rule => rule.source === '/auth/app')
+    expect(app?.headers).toEqual(sso.headers)
   })
 
   it('permanently redirects the apex domain to www', () => {

@@ -14,7 +14,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const touch = hasUtmQuery && !to.path.startsWith('/auth/callback')
     ? captureAcquisitionTouch(new URL(to.fullPath, window.location.origin), '')
     : null
-  if (to.path === '/auth/sso' || ['/login', '/signup'].includes(to.path) || touch?.utmSource || touch?.utmMedium || touch?.utmCampaign)
+  if (to.path === '/auth/sso' || to.path === '/auth/app' || ['/login', '/signup'].includes(to.path) || touch?.utmSource || touch?.utmMedium || touch?.utmCampaign)
     captureBrowserAcquisition(to.fullPath)
 
   const config = useRuntimeConfig()
