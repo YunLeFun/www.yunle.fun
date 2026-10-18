@@ -27,7 +27,7 @@ const accountState = useSsoAccountState('/explore')
           <Icon name="i-lucide-cloud-sun" aria-hidden="true" />
           云乐坊应用集合
         </p>
-        <h1 class="ylf-dreamy-display ylf-hero-shadow">
+        <h1 class="ylf-hero-shadow">
           云端应用<span class="app-explorer-hero__accent">图谱</span>
         </h1>
         <p class="app-explorer-hero__lead ylf-hero-shadow">
@@ -97,7 +97,11 @@ const accountState = useSsoAccountState('/explore')
 .app-explorer-hero h1 {
   margin-top: 1rem;
   color: #fff;
-  font-size: clamp(2.3rem, 5vw, 3.75rem);
+  /* 「图谱」不在站酷小薇子集内，整行改用圆体标题字，避免同一标题混排两种字体 */
+  font-family: var(--ylf-font-heading);
+  font-size: var(--ylf-type-display);
+  font-weight: 800;
+  letter-spacing: -0.03em;
   line-height: 1.15;
   animation: explore-rise 1000ms var(--ylf-ease-spring) 120ms backwards;
 }

@@ -248,9 +248,9 @@ useSeoMeta({
 .docs-header h1 {
   margin-top: 0.55rem;
   color: var(--ui-text-highlighted);
-  font-size: clamp(2rem, 5vw, 3rem);
-  font-weight: 850;
-  letter-spacing: -0.04em;
+  font-size: var(--ylf-type-headline);
+  font-weight: 700;
+  letter-spacing: -0.02em;
   line-height: 1.15;
   text-wrap: balance;
 }

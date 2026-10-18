@@ -421,8 +421,10 @@ function release(event: PointerEvent) {
 
 .home-cta__content h2 {
   color: #fff;
-  font-family: var(--ylf-font-dreamy);
+  font-family: var(--ylf-font-heading);
   font-size: var(--ylf-type-headline);
+  font-weight: 700;
+  letter-spacing: -0.02em;
   line-height: 1.25;
   text-wrap: balance;
 }

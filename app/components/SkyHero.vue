@@ -275,8 +275,11 @@ function poke(cloud: HeroCloud, event: MouseEvent) {
   pointer-events: none;
 }
 
+/* 标题和正文同样接收指针，昵称、用户名等文字可以选中复制 */
 .ylf-sky-hero__content
-  :deep(:is(a, button, input, select, textarea, label, [role='button'], [tabindex], [data-hero-interactive])) {
+  :deep(
+    :is(a, button, input, select, textarea, label, h1, h2, h3, p, [role='button'], [tabindex], [data-hero-interactive])
+  ) {
   pointer-events: auto;
 }
 
@@ -483,10 +486,11 @@ function poke(cloud: HeroCloud, event: MouseEvent) {
     display: none;
   }
 
+  /* 窄屏头图的文案几乎占满宽度：云躲到右上角编辑按钮后面，不压白字 */
   [data-clouds='full'] .ylf-sky-hero__cloud--billow {
-    top: -3%;
-    right: 20%;
-    width: 72px;
+    top: -9%;
+    right: -6%;
+    width: 88px;
   }
 
   [data-clouds='full'] .ylf-sky-hero__cloud--bank {

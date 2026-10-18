@@ -23,10 +23,11 @@ const parsedDate = computed(() => {
   const value = new Date(props.date)
   return Number.isNaN(value.getTime()) ? null : value
 })
+// frontmatter 里是纯日期（按 UTC 零点解析），用 UTC 格式化，各时区与服务端预渲染都显示同一天
 const dateLabel = computed(() => parsedDate.value
-  ? parsedDate.value.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })
+  ? parsedDate.value.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', timeZone: 'UTC' })
   : props.date)
-const yearLabel = computed(() => parsedDate.value?.getFullYear())
+const yearLabel = computed(() => parsedDate.value?.getUTCFullYear())
 </script>
 
 <template>

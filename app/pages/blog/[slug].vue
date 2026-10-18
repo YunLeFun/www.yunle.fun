@@ -20,7 +20,7 @@ useSeoMeta({
 })
 
 const coverSrc = computed(() => typeof post.value?.image === 'string' ? post.value.image : post.value?.image?.src)
-const publishedAt = computed(() => new Date(post.value?.date ?? Date.now()).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' }))
+const publishedAt = computed(() => formatContentDate(post.value?.date))
 const readingMinutes = computed(() => estimateReadingMinutes(post.value?.body))
 
 // 阅读进度：正文从进入视口顶部到读完的比例，驱动导航栏下方的细进度条

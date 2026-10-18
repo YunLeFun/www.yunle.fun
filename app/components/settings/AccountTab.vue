@@ -193,16 +193,13 @@ async function handleLogout() {
 <template>
   <div class="space-y-6">
     <Card class="overflow-hidden p-0">
-      <div class="border-b border-default bg-gradient-to-br from-primary-50/80 via-default to-warning-50/50 px-6 py-5 dark:from-primary-950/30 dark:to-warning-950/20">
+      <div class="account-status-header border-b border-default px-5 py-5 sm:px-6">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p class="text-xs font-semibold tracking-[0.18em] text-primary uppercase">
-              Account status
-            </p>
-            <h3 class="mt-1 text-xl font-semibold">
+            <h3 class="ylf-section-title">
               账户状态
             </h3>
-            <p class="mt-1 text-sm text-muted">
+            <p class="ylf-caption mt-1">
               身份、会员和注销进度都在这里确认
             </p>
           </div>
@@ -302,10 +299,10 @@ async function handleLogout() {
               <Icon name="i-lucide-hourglass" class="size-5 text-warning" />
             </div>
             <div>
-              <p class="text-xs font-semibold tracking-[0.16em] text-warning uppercase">
-                30-day cooling period
+              <p class="text-xs font-semibold text-warning">
+                30 天冷静期
               </p>
-              <h3 class="mt-1 text-xl font-semibold">
+              <h3 class="ylf-section-title mt-1">
                 {{ deletionRemainingLabel }}
               </h3>
               <p class="mt-1 text-sm text-muted">
@@ -379,10 +376,7 @@ async function handleLogout() {
     <Card class="p-6">
       <div class="mb-4 flex items-center justify-between gap-3">
         <div>
-          <p class="text-xs font-semibold tracking-[0.16em] text-error uppercase">
-            Account actions
-          </p>
-          <h3 class="mt-1 text-lg font-semibold">
+          <h3 class="ylf-section-title">
             账户操作
           </h3>
         </div>
@@ -498,6 +492,13 @@ async function handleLogout() {
 </template>
 
 <style scoped>
+/* 账户状态抬头：晴空蓝向暖黄的淡彩，与设置页其他卡片同源 */
+.account-status-header {
+  background:
+    radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--ui-primary) 10%, transparent), transparent 60%),
+    linear-gradient(120deg, var(--ylf-surface), color-mix(in srgb, var(--ylf-palette-sun) 8%, var(--ylf-surface)));
+}
+
 .uid-copy-enter-active {
   transition:
     opacity var(--ylf-duration-fast) var(--ylf-ease-standard),

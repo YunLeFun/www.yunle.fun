@@ -89,6 +89,8 @@
 | body     | `--ylf-type-body`                           | 15px      | 正文；阅读页由 `.ylf-prose` 放大到 16px |
 | caption  | `--ylf-type-caption` / `.ylf-caption`       | 12px      | 说明、时间、计数                        |
 
+> 站酷小薇（`--ylf-font-dreamy`）是精简子集，只覆盖固定文案里的字。它只用于文案固定、已确认字形齐全的 display 主标题（首页、会员页头图）；区块标题、应用名等会变化的内容一律用圆体标题字 `--ylf-font-heading`，避免同一行混排两种字体。
+
 ### 圆角与留白
 
 - 头图横幅 `--ylf-radius-xl`（28px），卡片与列表项容器 `--ylf-radius-lg`（20px），控件与图标块 `--ylf-radius` / `--ylf-radius-sm`。`.ylf-card` 已改为 20px，页面不再使用 `rounded-3xl`、`rounded-[2rem]`。
@@ -117,6 +119,7 @@
 `app/components/illustration/` 下用 HTML / CSS / SVG 绘制场景，替代图库配图：
 
 - `launch`：浮在云海里的浏览器窗口，随鼠标倾斜，点击撒六色纸屑。
+- `site`：同一扇窗口的「官网」版本，文档 / 博客 / 日志标签自动轮换，点击切换。
 - `apps`：手机放飞应用气球，点气球炸开，点手机多放一只。
 - `studio`：山坡上的工坊，烟囱冒小云，点击亮灯。
 
@@ -233,18 +236,37 @@ CSS 绘制的晴空，填充到 `position:relative;overflow:hidden` 的父容器
 
 ### `<MemberPass>` — 晴空玻璃会员卡
 
-未开通显示「推开云层 · 点亮晴空」蒙层；开通显示昵称 + 有效期。**自动跟随明暗**（`theme` 可选覆盖）。
+可以拿在手里把玩的会员卡，**自动跟随明暗**（`theme` 可选覆盖）：
+
+- 指针在卡面移动时轻微倾斜，表面一道随光移动的虹彩高光（仅 `hover: hover` 的精确指针设备）。
+- 已开通：轻点翻到背面「晴空通行证」，显示剩余天数进度条、会员编号与 6 项已点亮权益。
+- 未开通：两团卡通云遮住卡面，悬停 / 聚焦时向两侧推开；点击发出 `unlock`，页面据此滚动到方案区。
+- `prefers-reduced-motion` 下关闭倾斜、翻面与云层动画。
 
 ```vue
-<MemberPass :member="isMember" :name="memberName" :expire="memberExpire" />
+<MemberPass
+  :member="isMember"
+  :name="memberName"
+  :expire="memberExpire"
+  :expire-at="expireAt"
+  cycle="year"
+  serial="7285 0944"
+  @unlock="scrollToPlans"
+/>
 ```
 
-| Prop     | 类型                | 默认         | 说明                       |
-| -------- | ------------------- | ------------ | -------------------------- |
-| `member` | `boolean`           | `false`      | 是否已开通                 |
-| `name`   | `string`            | `'晴空旅人'` | 会员昵称                   |
-| `expire` | `string`            | `'—— / ——'`  | 有效期文案，如 `2026 / 07` |
-| `theme`  | `'light' \| 'dark'` | 跟随站点     | 可选覆盖                   |
+| Prop          | 类型                | 默认         | 说明                         |
+| ------------- | ------------------- | ------------ | ---------------------------- |
+| `member`      | `boolean`           | `false`      | 是否已开通                   |
+| `name`        | `string`            | `'晴空旅人'` | 会员昵称                     |
+| `expire`      | `string`            | `'—— / ——'`  | 有效期文案，如 `2026 / 07`   |
+| `expireAt`    | `number \| null`    | `null`       | 到期时间戳，背面计算剩余天数 |
+| `cycle`       | `'month' \| 'year'` | `'month'`    | 决定剩余进度条的满格长度     |
+| `serial`      | `string`            | `''`         | 背面的会员编号               |
+| `theme`       | `'light' \| 'dark'` | 跟随站点     | 可选覆盖                     |
+| `interactive` | `boolean`           | `true`       | 关闭后是一张不可点的静态卡片 |
+
+会员页的方案卡、权益卡与钱包会员卡沿用同一套语言：方案卡顶部是一扇「晴空小窗」（月付清晨薄云、年付正午晴空），权益卡按 `--tile` 着色、会员态显示「已点亮」，钱包会员卡用剩余晴空进度条提示续费。
 
 ---
 

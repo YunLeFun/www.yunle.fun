@@ -46,6 +46,9 @@ onMounted(() => {
   greeting.value = getSkyGreeting(new Date().getHours())
 })
 
+// 360px 以下的窄屏，会员到期信息改为「剩 N 天」，避免徽章撑出头图
+const narrowScreen = useMediaQuery('(max-width: 359px)')
+
 // 戳一下头像：像首页的云朵一样 Q 弹一下
 const avatarPoked = ref(false)
 function pokeAvatar() {
@@ -97,18 +100,19 @@ const stats = computed<Array<{ label: string, value: number, to?: string, onClic
 ])
 
 // 快捷入口宫格
+// 快捷入口做成「应用桌面」：每个入口一枚纯色圆角图标，sky 是图标底色，on 是图标前景色
 const entries = computed(() => {
   const list = [
-    { label: '关注动态', icon: 'i-lucide-rss', to: '/feed', color: 'var(--ylf-dopa-amber)' },
-    { label: '我的钱包', icon: 'i-lucide-wallet', to: '/wallet', color: 'var(--ylf-dopa-cyan)' },
-    { label: '主页应用', icon: 'i-lucide-layout-grid', to: appsProfileUrl.value, color: 'var(--ylf-dopa-violet)' },
-    { label: '私人工坊', icon: 'i-lucide-key-round', to: 'https://apps.yunle.fun/user/workshop', color: 'var(--ylf-dopa-green)' },
-    { label: '账户设置', icon: 'i-lucide-settings', to: '/settings', color: 'var(--ylf-dopa-blue)' },
-    { label: '安全设置', icon: 'i-lucide-lock', to: '/settings?tab=security', color: 'var(--ylf-dopa-green)' },
+    { label: '关注动态', icon: 'i-lucide-rss', to: '/feed', sky: 'var(--ylf-palette-sun)', on: 'var(--ylf-accent-sun-on)' },
+    { label: '我的钱包', icon: 'i-lucide-wallet', to: '/wallet', sky: 'var(--ylf-palette-cyan)', on: '#fff' },
+    { label: '主页应用', icon: 'i-lucide-layout-grid', to: appsProfileUrl.value, sky: 'var(--ylf-palette-blue)', on: '#fff' },
+    { label: '私人工坊', icon: 'i-lucide-key-round', to: 'https://apps.yunle.fun/user/workshop', sky: 'var(--ylf-palette-coral)', on: '#fff' },
+    { label: '账户设置', icon: 'i-lucide-settings', to: '/settings', sky: '#7b8aa3', on: '#fff' },
+    { label: '安全设置', icon: 'i-lucide-shield-check', to: '/settings?tab=security', sky: 'var(--ylf-palette-green)', on: '#fff' },
   ]
   // 未设置用户名的老账号使用不可变 uid，仍可访问自己的公开主页。
   if (publicProfilePath.value)
-    list.unshift({ label: '我的主页', icon: 'i-lucide-id-card', to: publicProfilePath.value, color: 'var(--ylf-dopa-pink)' })
+    list.unshift({ label: '我的主页', icon: 'i-lucide-id-card', to: publicProfilePath.value, sky: 'var(--ylf-palette-pink)', on: '#fff' })
   return list
 })
 
@@ -204,6 +208,7 @@ function workshopHref(surface: WorkshopSurface) {
                     v-if="isMember"
                     size="sm"
                     variant="frost"
+                    :compact="narrowScreen"
                     :expire-at="membershipState?.expireAt ?? null"
                   />
                   <span v-else class="ylf-glass rounded-full px-2.5 py-1 font-medium text-white">
@@ -272,25 +277,18 @@ function workshopHref(surface: WorkshopSurface) {
         <template #actions>
           <span class="ylf-caption">{{ entries.length }} 个服务</span>
         </template>
-        <nav class="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="个人中心快捷入口">
+        <nav class="profile-launcher" aria-label="个人中心快捷入口">
           <NuxtLink
             v-for="(e, i) in entries"
             :key="e.to"
             :to="e.to"
-            class="ylf-entry-tile ylf-press ylf-rise group flex min-w-0 items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-start"
-            :style="{ '--tile': e.color, '--i': 3 + i * 0.6 }"
+            class="profile-app ylf-rise"
+            :style="{ '--sky': e.sky, '--on': e.on, '--i': 3 + i * 0.5 }"
           >
-            <span
-              class="ylf-dopa-tile entry-icon inline-flex size-9 shrink-0 items-center justify-center rounded-[0.65rem]"
-            >
-              <Icon :name="e.icon" class="size-[1.125rem]" aria-hidden="true" />
+            <span class="profile-app__icon">
+              <Icon :name="e.icon" class="size-[1.375rem]" aria-hidden="true" />
             </span>
-            <span class="min-w-0 flex-1 truncate text-sm font-medium text-highlighted">{{ e.label }}</span>
-            <Icon
-              name="i-lucide-chevron-right"
-              class="entry-arrow size-3.5 shrink-0 text-dimmed"
-              aria-hidden="true"
-            />
+            <span class="profile-app__label">{{ e.label }}</span>
           </NuxtLink>
         </nav>
       </AppSection>
@@ -474,7 +472,13 @@ function workshopHref(surface: WorkshopSurface) {
   -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
   mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
   filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.55));
-  animation: profile-halo-spin 14s linear infinite;
+  /* 光环平时静止，只在悬停或被戳时转半圈，头图里不再有常驻的旋转 */
+  transition: rotate 1200ms var(--ylf-ease-standard);
+}
+
+.profile-avatar:hover .profile-avatar__halo,
+.profile-avatar.ylf-squish .profile-avatar__halo {
+  rotate: 0.5turn;
 }
 
 .profile-avatar--member .profile-avatar__halo {
@@ -482,9 +486,11 @@ function workshopHref(surface: WorkshopSurface) {
   filter: drop-shadow(0 0 8px rgba(244, 81, 106, 0.45));
 }
 
-@keyframes profile-halo-spin {
-  to {
-    rotate: 1turn;
+/* 手机上头像缩到 64px，给昵称和会员徽章留出宽度 */
+@media (max-width: 639px) {
+  .profile-avatar :deep([data-slot='avatar']) {
+    width: 4rem;
+    height: 4rem;
   }
 }
 
@@ -587,50 +593,74 @@ function workshopHref(surface: WorkshopSurface) {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
 }
 
-.ylf-entry-tile {
-  border: 1px solid transparent;
-  background: color-mix(in srgb, var(--ylf-surface-muted) 66%, transparent);
+/* 应用桌面：手机 4 列、桌面 7 列；图标像真正的 App 一样有高光和投影，悬停 Q 弹、按下回缩 */
+.profile-launcher {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem 0.5rem;
+}
+
+@media (min-width: 640px) {
+  .profile-launcher {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+}
+
+.profile-app {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: var(--ylf-radius);
+  padding-block: 0.25rem;
+  outline: none;
+}
+
+.profile-app__icon {
+  display: grid;
+  width: 3rem;
+  aspect-ratio: 1;
+  place-items: center;
+  border-radius: 30%;
+  color: var(--on);
+  background: linear-gradient(160deg, rgb(255 255 255 / 28%), transparent 55%), var(--sky);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 45%),
+    inset 0 -3px 0 rgb(0 0 0 / 10%),
+    0 8px 16px -10px var(--sky);
   transition:
-    background-color var(--ylf-duration-fast) var(--ylf-ease-standard),
-    border-color var(--ylf-duration-fast) var(--ylf-ease-standard),
     translate var(--ylf-duration-slow) var(--ylf-ease-spring),
     scale var(--ylf-duration-slow) var(--ylf-ease-spring);
 }
 
-.ylf-entry-tile:hover {
-  border-color: color-mix(in srgb, var(--tile, var(--ui-primary)) 22%, var(--ui-border-muted));
-  background: color-mix(in srgb, var(--tile, var(--ui-primary)) 6%, var(--ylf-surface));
-  translate: 0 -2px;
+.profile-app:hover .profile-app__icon {
+  translate: 0 -3px;
+  animation: ylf-squish 640ms var(--ylf-ease-standard);
 }
 
-/* 图标块悬停时俏皮地歪一下头 */
-.entry-icon {
-  transition:
-    rotate var(--ylf-duration-slow) var(--ylf-ease-spring),
-    scale var(--ylf-duration-slow) var(--ylf-ease-spring);
+.profile-app:active .profile-app__icon {
+  scale: 0.9;
+  transition-duration: var(--ylf-duration-press);
 }
 
-.ylf-entry-tile:hover .entry-icon {
-  rotate: -8deg;
-  scale: 1.08;
+.profile-app:focus-visible .profile-app__icon {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: 3px;
 }
 
-.entry-arrow {
-  opacity: 0.45;
-  transition:
-    color var(--ylf-duration-fast) var(--ylf-ease-standard),
-    opacity var(--ylf-duration-fast) var(--ylf-ease-standard),
-    translate var(--ylf-duration-slow) var(--ylf-ease-spring);
-}
-
-.ylf-entry-tile:hover .entry-arrow {
-  color: var(--tile, var(--ui-primary));
-  opacity: 1;
-  translate: 3px 0;
+.profile-app__label {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--ui-text);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .profile-avatar__halo,
   .profile-greeting,
   .ylf-join-cta:hover .join-cloud {
     animation: none;
@@ -638,9 +668,7 @@ function workshopHref(surface: WorkshopSurface) {
 
   .profile-stat:hover,
   .ylf-join-cta:hover,
-  .ylf-entry-tile:hover,
-  .ylf-entry-tile:hover .entry-icon,
-  .ylf-entry-tile:hover .entry-arrow,
+  .profile-app:hover .profile-app__icon,
   .workshop-open:hover :deep(svg),
   .workshop-open:hover :deep(.iconify) {
     translate: none;

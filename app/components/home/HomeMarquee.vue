@@ -38,10 +38,12 @@ defineProps<{
   text-align: center;
 }
 
+/* 应用名来自线上目录，站酷小薇的精简子集覆盖不到，统一用圆体标题字，避免同一行混排两种字体 */
 .home-marquee__verse {
   color: var(--ui-text-muted);
-  font-family: var(--ylf-font-dreamy);
-  font-size: clamp(0.95rem, 1.6vw, 1.15rem);
+  font-family: var(--ylf-font-heading);
+  font-size: clamp(0.9rem, 1.4vw, 1.05rem);
+  font-weight: 500;
   letter-spacing: 0.32em;
 }
 
@@ -69,8 +71,9 @@ defineProps<{
   gap: 0.55rem;
   padding-inline: 1.1rem;
   color: color-mix(in srgb, var(--ui-text) 72%, transparent);
-  font-family: var(--ylf-font-dreamy);
-  font-size: 1.05rem;
+  font-family: var(--ylf-font-heading);
+  font-size: 0.975rem;
+  font-weight: 500;
   white-space: nowrap;
   transition: color var(--ylf-duration-fast) var(--ylf-ease-standard);
 }

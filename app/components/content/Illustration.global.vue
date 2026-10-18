@@ -20,19 +20,20 @@ const props = withDefaults(defineProps<{
   ratio: '16 / 9',
 })
 
-const SCENES: Record<string, Component> = {
-  apps: IllustrationApps,
-  launch: IllustrationLaunch,
-  studio: IllustrationStudio,
+const SCENES: Record<string, { component: Component, props?: Record<string, unknown> }> = {
+  apps: { component: IllustrationApps },
+  launch: { component: IllustrationLaunch },
+  site: { component: IllustrationLaunch, props: { variant: 'site' } },
+  studio: { component: IllustrationStudio },
 }
 
-const scene = computed(() => SCENES[props.name] ?? IllustrationLaunch)
+const scene = computed(() => SCENES[props.name] ?? SCENES.launch!)
 </script>
 
 <template>
   <div class="content-illustration" :style="{ '--ratio': ratio }">
     <ClientOnly>
-      <component :is="scene" />
+      <component :is="scene.component" v-bind="scene.props" />
       <template #fallback>
         <div class="content-illustration__placeholder" />
       </template>

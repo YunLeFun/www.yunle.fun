@@ -36,6 +36,19 @@ export interface DocSearchItem {
   searchText: string
 }
 
+/**
+ * 格式化内容 frontmatter 里的纯日期（如 `2026-02-28`）。
+ *
+ * 纯日期按 UTC 零点解析，必须同样用 UTC 格式化：否则西半球访客会看到前一天，
+ * 服务端预渲染与浏览器的时区不同时还会造成水合不一致。
+ */
+export function formatContentDate(date?: string): string {
+  const value = date ? new Date(date) : new Date()
+  if (Number.isNaN(value.getTime()))
+    return date ?? ''
+  return value.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' })
+}
+
 /** 去掉文件名 / 目录的数字排序前缀，如 `1.getting-started` → `getting-started` */
 function stripNumPrefix(seg: string) {
   return seg.replace(/^\d+\./, '')

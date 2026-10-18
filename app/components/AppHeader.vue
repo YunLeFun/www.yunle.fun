@@ -34,33 +34,37 @@ watch(isDesktop, (desktop) => {
 const items = computed(() => [
   {
     label: '帮助',
-    hint: '使用指南与常见问题',
+    hint: '指南与常见问题',
     icon: 'i-lucide-life-buoy',
     tone: 'var(--ylf-dopa-cyan)',
+    sky: 'var(--ylf-palette-cyan)',
     to: '/docs',
     active: route.path.startsWith('/docs'),
   },
   {
     label: '会员',
-    hint: '点亮所有应用的晴空',
+    hint: '点亮全部晴空',
     icon: 'i-lucide-crown',
     tone: 'var(--ylf-dopa-pink)',
+    sky: 'var(--ylf-palette-pink)',
     to: '/pricing',
     active: route.path.startsWith('/pricing'),
   },
   {
     label: '博客',
-    hint: '幕后故事与创作手记',
+    hint: '幕后与创作手记',
     icon: 'i-lucide-pen-line',
     tone: 'var(--ylf-dopa-amber)',
+    sky: 'var(--ylf-palette-sun)',
     to: '/blog',
     active: route.path.startsWith('/blog'),
   },
   {
     label: '日志',
-    hint: '每一次更新都在这里',
+    hint: '版本更新足迹',
     icon: 'i-lucide-history',
     tone: 'var(--ylf-dopa-green)',
+    sky: 'var(--ylf-palette-green)',
     to: '/changelog',
     active: route.path.startsWith('/changelog'),
   },
@@ -150,25 +154,28 @@ const items = computed(() => [
                 <ChevronRightIcon class="ylf-nav-drawer__chevron" aria-hidden="true" />
               </NuxtLink>
 
-              <nav class="flex flex-col gap-1" aria-label="移动端主导航">
+              <!-- 云端明信片：每个入口是一张带齿孔边的小明信片，小云驮着图标；当前页盖一枚邮戳 -->
+              <nav class="ylf-postcards" aria-label="移动端主导航">
                 <NuxtLink
                   v-for="(item, index) in items"
                   :key="item.to"
                   :to="item.to"
-                  class="ylf-header__link ylf-header__link--mobile ylf-nav-drawer__item"
-                  :style="{ '--i': index + 1, '--tile': item.tone }"
+                  class="ylf-postcard ylf-nav-drawer__item"
+                  :style="{ '--i': index + 1, '--sky': item.sky, '--ink': item.tone }"
                   :data-active="item.active ? '' : undefined"
                   :aria-current="item.active ? 'page' : undefined"
                   @click="mobileOpen = false"
                 >
-                  <span class="ylf-dopa-tile ylf-nav-drawer__icon" aria-hidden="true">
-                    <Icon :name="item.icon" class="size-[1.125rem]" />
+                  <span class="ylf-postcard__no" aria-hidden="true">{{ String(index + 1).padStart(2, '0') }}</span>
+                  <span class="ylf-postcard__label">{{ item.label }}</span>
+                  <span class="ylf-postcard__hint">{{ item.hint }}</span>
+                  <span class="ylf-postcard__rider" aria-hidden="true">
+                    <CuteCloud shape="round" face :mood="item.active ? 'happy' : 'calm'" class="ylf-postcard__cloud" />
+                    <span class="ylf-postcard__icon">
+                      <Icon :name="item.icon" class="size-3.5" />
+                    </span>
                   </span>
-                  <span class="min-w-0 flex-1">
-                    <span class="block">{{ item.label }}</span>
-                    <span class="ylf-nav-drawer__hint">{{ item.hint }}</span>
-                  </span>
-                  <ChevronRightIcon class="ylf-nav-drawer__chevron" aria-hidden="true" />
+                  <span v-if="item.active" class="ylf-postcard__stamp" aria-hidden="true">你在这里</span>
                 </NuxtLink>
               </nav>
 
@@ -237,34 +244,6 @@ const items = computed(() => [
   content: '';
 }
 
-.ylf-header__link--mobile {
-  gap: 0.75rem;
-  min-height: 3.5rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: var(--ylf-radius);
-  color: var(--ylf-c-text);
-  font-size: 0.9375rem;
-  white-space: normal;
-}
-
-.ylf-header__link--mobile[data-active] {
-  background: var(--ylf-c-brand-soft);
-  color: var(--ylf-c-brand);
-}
-
-/* 当前页：左侧一道晴空蓝短条 */
-.ylf-header__link--mobile[data-active]::before {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  width: 3px;
-  height: 1.25rem;
-  border-radius: var(--ylf-radius-pill);
-  background: currentColor;
-  content: '';
-  translate: 0 -50%;
-}
-
 /* Keep keyboard focus inside the hit area so adjacent states never touch. */
 .ylf-header__link:focus-visible {
   outline: 2px solid var(--ylf-c-brand);
@@ -286,9 +265,10 @@ const items = computed(() => [
 
 <!-- 抽屉通过 Portal 渲染到 body，其外框样式不受 scoped 约束，这里用不带作用域的类名维护。 -->
 <style>
-/* 从右侧整屏滑入并软着陆；收起时干脆利落地滑走。 */
+/* 抽屉贴着右边缘：用不回弹的减速曲线滑入，避免越过终点在右侧露出缝隙；
+   俏皮的回弹留给抽屉里的明信片。收起时干脆利落地滑走。 */
 .ylf-nav-drawer[data-state='open'] {
-  animation: ylf-nav-drawer-in 620ms var(--ylf-ease-spring);
+  animation: ylf-nav-drawer-in 480ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .ylf-nav-drawer[data-state='closed'] {
@@ -347,6 +327,7 @@ const items = computed(() => [
 
 .ylf-nav-drawer__description {
   color: rgb(255 255 255 / 88%);
+  text-wrap: balance;
   text-shadow: 0 1px 8px rgb(0 40 90 / 30%);
 }
 
@@ -404,8 +385,7 @@ const items = computed(() => [
   border-color: color-mix(in srgb, var(--ylf-c-brand) 36%, var(--ylf-c-border));
 }
 
-.ylf-nav-drawer__account:active,
-.ylf-header__link--mobile.ylf-nav-drawer__item:active {
+.ylf-nav-drawer__account:active {
   scale: var(--ylf-press-scale);
   transition-duration: var(--ylf-duration-press);
 }
@@ -413,34 +393,6 @@ const items = computed(() => [
 .ylf-nav-drawer__account:focus-visible {
   outline: 2px solid var(--ylf-c-brand);
   outline-offset: 2px;
-}
-
-.ylf-nav-drawer__icon {
-  display: inline-flex;
-  width: 2.25rem;
-  height: 2.25rem;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  border-radius: 0.7rem;
-  transition:
-    rotate var(--ylf-duration-slow) var(--ylf-ease-spring),
-    scale var(--ylf-duration-slow) var(--ylf-ease-spring);
-}
-
-.ylf-nav-drawer__item:hover .ylf-nav-drawer__icon {
-  rotate: -8deg;
-  scale: 1.06;
-}
-
-.ylf-nav-drawer__hint {
-  display: block;
-  overflow: hidden;
-  color: var(--ylf-c-text-3);
-  font-size: 0.75rem;
-  font-weight: 400;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .ylf-nav-drawer__chevron {
@@ -459,6 +411,167 @@ const items = computed(() => [
   translate: 3px 0;
 }
 
+/* ---- 云端明信片 ---- */
+.ylf-postcards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.625rem;
+}
+
+.ylf-postcard {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  overflow: hidden;
+  min-height: 8.75rem;
+  flex-direction: column;
+  border-radius: var(--ylf-radius);
+  padding: 0.75rem 0.875rem;
+  color: var(--ylf-c-text);
+  background:
+    radial-gradient(120% 90% at 100% 100%, color-mix(in srgb, var(--sky) 34%, transparent), transparent 70%),
+    linear-gradient(160deg, color-mix(in srgb, var(--sky) 16%, var(--ylf-c-surface)), var(--ylf-c-surface));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--sky) 22%, var(--ylf-c-border)),
+    0 10px 22px -18px color-mix(in srgb, var(--sky) 80%, transparent);
+  transition:
+    rotate var(--ylf-duration-slow) var(--ylf-ease-spring),
+    scale var(--ylf-duration-slow) var(--ylf-ease-spring),
+    box-shadow var(--ylf-duration-normal) var(--ylf-ease-standard);
+}
+
+/* 齿孔边：内收一圈虚线，像一张能寄出去的明信片 */
+.ylf-postcard::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0.3rem;
+  border: 1.5px dashed color-mix(in srgb, var(--sky) 38%, transparent);
+  border-radius: calc(var(--ylf-radius) - 0.3rem);
+  content: '';
+}
+
+.ylf-postcard:nth-child(odd):hover {
+  rotate: -1.5deg;
+}
+
+.ylf-postcard:nth-child(even):hover {
+  rotate: 1.5deg;
+}
+
+.ylf-postcard:active {
+  scale: 0.96;
+  transition-duration: var(--ylf-duration-press);
+}
+
+.ylf-postcard:focus-visible {
+  outline: 2px solid var(--ylf-c-brand);
+  outline-offset: 2px;
+}
+
+.ylf-postcard[data-active] {
+  box-shadow:
+    0 0 0 1.5px color-mix(in srgb, var(--sky) 70%, transparent),
+    0 12px 26px -16px color-mix(in srgb, var(--sky) 90%, transparent);
+}
+
+.ylf-postcard__no {
+  color: var(--ink);
+  font-family: var(--ylf-font-mono);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  opacity: 0.8;
+}
+
+.ylf-postcard__label {
+  margin-top: 0.25rem;
+  font-family: var(--ylf-font-heading);
+  font-size: 1.375rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.ylf-postcard__hint {
+  margin-top: 0.25rem;
+  max-width: 88%;
+  color: var(--ylf-c-text-2);
+  font-size: 0.6875rem;
+  line-height: 1.45;
+}
+
+/* 一朵小云驮着入口图标，悬停时被风托起、眯眼笑 */
+.ylf-postcard__rider {
+  position: absolute;
+  z-index: -1;
+  right: -0.375rem;
+  bottom: -0.25rem;
+  width: 5rem;
+  transition:
+    translate var(--ylf-duration-slow) var(--ylf-ease-spring),
+    rotate var(--ylf-duration-slow) var(--ylf-ease-spring);
+}
+
+.ylf-postcard:hover .ylf-postcard__rider {
+  translate: -2px -6px;
+  rotate: -6deg;
+}
+
+.ylf-postcard__cloud {
+  filter: drop-shadow(0 4px 6px color-mix(in srgb, var(--sky) 45%, transparent));
+}
+
+.ylf-postcard__icon {
+  position: absolute;
+  top: -0.375rem;
+  left: 50%;
+  display: grid;
+  width: 1.75rem;
+  aspect-ratio: 1;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--sky);
+  box-shadow:
+    0 0 0 2px var(--ylf-c-surface),
+    0 4px 8px -4px color-mix(in srgb, var(--sky) 90%, transparent);
+  translate: -50% 0;
+}
+
+/* 当前页：盖一枚歪歪的圆邮戳 */
+.ylf-postcard__stamp {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.55rem;
+  display: grid;
+  width: 2.75rem;
+  aspect-ratio: 1;
+  place-items: center;
+  border: 1.5px solid var(--ink);
+  border-radius: 50%;
+  color: var(--ink);
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 1.1;
+  text-align: center;
+  opacity: 0.85;
+  rotate: 14deg;
+  padding: 0 0.45rem;
+  /* 内圈再描一道细线，像真正的邮戳 */
+  box-shadow:
+    inset 0 0 0 2.5px transparent,
+    inset 0 0 0 3.5px color-mix(in srgb, var(--ink) 55%, transparent);
+  animation: ylf-postcard-stamp 520ms var(--ylf-ease-spring) 520ms backwards;
+}
+
+@keyframes ylf-postcard-stamp {
+  from {
+    opacity: 0;
+    scale: 1.8;
+    rotate: -10deg;
+  }
+}
+
 .ylf-nav-drawer__footer {
   display: flex;
   min-height: 3.5rem;
@@ -474,7 +587,8 @@ const items = computed(() => [
 @media (prefers-reduced-motion: reduce) {
   .ylf-nav-drawer[data-state='open'],
   .ylf-nav-drawer__item,
-  .ylf-nav-drawer__cloud {
+  .ylf-nav-drawer__cloud,
+  .ylf-postcard__stamp {
     animation: none;
   }
 
@@ -482,8 +596,9 @@ const items = computed(() => [
     animation: ylf-nav-drawer-fade 120ms linear forwards;
   }
 
-  .ylf-nav-drawer__item:hover .ylf-nav-drawer__icon,
-  .ylf-nav-drawer__item:hover .ylf-nav-drawer__chevron {
+  .ylf-nav-drawer__item:hover .ylf-nav-drawer__chevron,
+  .ylf-postcard:hover,
+  .ylf-postcard:hover .ylf-postcard__rider {
     rotate: none;
     scale: none;
     translate: none;

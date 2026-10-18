@@ -18,6 +18,8 @@ const props = withDefaults(defineProps<{
   expireAt?: number | null
   /** 文案，默认「会员」；传空串则只显示到期信息 */
   label?: string
+  /** 窄屏紧凑模式：到期信息改为「剩 N 天」 */
+  compact?: boolean
 }>(), {
   size: 'sm',
   variant: 'fill',
@@ -33,7 +35,9 @@ const SIZE: Record<MarkSize, { wrap: string, icon: string }> = {
 const cls = computed(() => SIZE[props.size])
 
 function formatExpire(ts: number) {
-  return new Date(ts).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })
+  if (props.compact)
+    return `剩 ${Math.max(1, Math.ceil((ts - Date.now()) / 86_400_000))} 天`
+  return `至 ${new Date(ts).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}`
 }
 </script>
 
@@ -48,6 +52,6 @@ function formatExpire(ts: number) {
       v-if="expireAt"
       class="font-medium"
       :class="{ 'opacity-85': label }"
-    >{{ label ? '· ' : '' }}至 {{ formatExpire(expireAt) }}</span>
+    >{{ label ? '· ' : '' }}{{ formatExpire(expireAt) }}</span>
   </span>
 </template>

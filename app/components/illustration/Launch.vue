@@ -4,7 +4,43 @@
  *
  * 窗口随鼠标轻轻倾斜，里面的小页面在加载、亮起；点一下窗口会撒出一把六色纸屑，
  * 角落的「上线啦」贴纸悬停时会晃一晃。
+ *
+ * variant="site" 是「官网」场景：窗口里的文档 / 博客 / 日志标签自动轮换，
+ * 地址栏与头图颜色跟着切换，点一下切到下一个标签。
  */
+const props = withDefaults(defineProps<{
+  variant?: 'launch' | 'site'
+}>(), {
+  variant: 'launch',
+})
+
+const TABS = [
+  { label: '文档', path: '/docs', color: 'var(--ylf-palette-blue)' },
+  { label: '博客', path: '/blog', color: 'var(--ylf-palette-pink)' },
+  { label: '日志', path: '/changelog', color: 'var(--ylf-palette-green)' },
+]
+const tab = shallowRef(0)
+const isSite = computed(() => props.variant === 'site')
+const reducedMotion = usePreferredReducedMotion()
+
+function nextTab() {
+  tab.value = (tab.value + 1) % TABS.length
+}
+
+const { pause, resume } = useIntervalFn(nextTab, 2600, { immediate: false })
+watch([isSite, reducedMotion], ([site, motion]) => {
+  if (site && motion !== 'reduce')
+    resume()
+  else
+    pause()
+}, { immediate: true })
+
+function onWindowClick(event: MouseEvent) {
+  if (isSite.value)
+    nextTab()
+  else
+    celebrate(event)
+}
 const PALETTE = [
   'var(--ylf-palette-blue)',
   'var(--ylf-palette-cyan)',
@@ -55,18 +91,22 @@ function celebrate(event: MouseEvent) {
       <CuteCloud shape="small" class="launch__cloud launch__cloud--far" />
 
       <div class="launch__float">
-        <div class="launch__window" @click="celebrate">
+        <div class="launch__window" @click="onWindowClick">
           <div class="launch__bar">
             <span class="launch__dot" style="--c: var(--ylf-palette-coral)" />
             <span class="launch__dot" style="--c: var(--ylf-palette-sun)" />
             <span class="launch__dot" style="--c: var(--ylf-palette-green)" />
             <span class="launch__url">
               <span class="launch__lock" />
-              www.yunle.fun
+              www.yunle.fun<span v-if="isSite" class="launch__path">{{ TABS[tab]!.path }}</span>
             </span>
           </div>
           <div class="launch__page">
-            <div class="launch__hero">
+            <div v-if="isSite" class="launch__tabs" :style="{ '--t': tab }">
+              <span v-for="(item, index) in TABS" :key="item.path" :class="{ 'is-active': index === tab }">{{ item.label }}</span>
+              <span class="launch__tab-indicator" />
+            </div>
+            <div class="launch__hero" :style="isSite ? { '--hero': TABS[tab]!.color } : undefined">
               <CuteCloud shape="round" face mood="happy" class="launch__hero-cloud" />
               <span class="launch__line launch__line--title" />
               <span class="launch__line launch__line--sub" />
@@ -77,7 +117,7 @@ function celebrate(event: MouseEvent) {
             </div>
           </div>
         </div>
-        <span class="launch__sticker">上线啦</span>
+        <span v-if="!isSite" class="launch__sticker">上线啦</span>
       </div>
 
       <CuteCloud shape="round" face class="launch__cloud launch__cloud--front" />
@@ -227,7 +267,43 @@ function celebrate(event: MouseEvent) {
   gap: calc(1.2 * var(--u));
   border-radius: calc(2 * var(--u));
   padding: calc(3 * var(--u));
-  background: linear-gradient(150deg, var(--ylf-palette-blue), #7cc4f2);
+  background: linear-gradient(
+    150deg,
+    var(--hero, var(--ylf-palette-blue)),
+    color-mix(in srgb, var(--hero, var(--ylf-palette-blue)) 45%, #bfe3fb)
+  );
+  transition: background 600ms var(--ylf-ease-standard);
+}
+
+.launch__path {
+  color: var(--ui-primary);
+}
+
+/* 官网场景的标签栏：下划线跟着当前标签滑动 */
+.launch__tabs {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  color: var(--ui-text-muted);
+  font-size: max(9px, calc(2.2 * var(--u)));
+  font-weight: 600;
+  text-align: center;
+}
+
+.launch__tabs .is-active {
+  color: var(--ui-text-highlighted);
+}
+
+.launch__tab-indicator {
+  position: absolute;
+  bottom: calc(-0.8 * var(--u));
+  left: 0;
+  width: calc(100% / 3);
+  height: calc(0.5 * var(--u));
+  border-radius: 99px;
+  background: var(--ui-primary);
+  translate: calc(var(--t) * 100%) 0;
+  transition: translate var(--ylf-duration-slow) var(--ylf-ease-spring);
 }
 
 .launch__hero-cloud {
