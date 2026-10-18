@@ -4,8 +4,21 @@
     {
       "name": "dev",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["dev"],
+      "runtimeArgs": [
+        "dev"
+      ],
       "port": 3001
+    },
+    {
+      "name": "dev-sky",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "nuxt",
+        "dev",
+        "--port",
+        "3031"
+      ],
+      "port": 3031
     }
   ]
 }
