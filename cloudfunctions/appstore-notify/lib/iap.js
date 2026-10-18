@@ -29,6 +29,23 @@ const IAP_APP_ID = 'apps'
 const IAP_OUT_TRADE_NO_PREFIX = 'iap_'
 
 /**
+ * 当前钱包 / 会员集合只承载正式权益，不能接收 Sandbox 发放或退款。
+ * 此处的环境必须来自 Apple 验签结果，不能由客户端字段或环境变量覆盖。
+ * Sandbox 查询回退仍可用于识别交易；隔离权益存储接入前不允许结算。
+ */
+function assertProductionEnvironment(payload, environment = payload?.environment) {
+  if (!['Production', 'Sandbox'].includes(environment)
+    || payload?.environment !== environment) {
+    throw new Error('Apple 交易环境缺失或不一致')
+  }
+  if (environment === 'Sandbox') {
+    const error = new Error('Sandbox 交易不能修改正式钱包或会员权益')
+    error.code = 'IAP_ENVIRONMENT_UNSUPPORTED'
+    throw error
+  }
+}
+
+/**
  * 将 Apple 交易 payload 的标价换算为分（仅 CNY；其他币种返回 0，原始值入 meta）。
  * Apple 的 price 字段单位是货币毫单位（milliunits），如 ¥12.00 = 12000。
  *
@@ -58,10 +75,7 @@ async function grantIapTransaction(db, { userId, payload, environment, now }) {
     throw new Error('grantIapTransaction: 缺少 userId')
   if (typeof payload.transactionId !== 'string' || !/^\d{1,32}$/.test(payload.transactionId))
     throw new Error('Apple transactionId 非法')
-  if (!['Production', 'Sandbox'].includes(environment)
-    || (payload.environment && payload.environment !== environment)) {
-    throw new Error('Apple 交易环境不一致')
-  }
+  assertProductionEnvironment(payload, environment)
   if (typeof payload.bundleId !== 'string' || !payload.bundleId || !Number.isFinite(now))
     throw new Error('Apple 交易应用标识或处理时间非法')
   const accountToken = assertPurchaseOwner(userId, payload)
@@ -125,6 +139,7 @@ async function grantIapTransaction(db, { userId, payload, environment, now }) {
  * @returns {Promise<{ handled: boolean, orderType?: string, outTradeNo: string, clawed?: number, entitlementReverted?: boolean, manualReviewRequired?: boolean }>}
  */
 async function handleIapRefund(db, { payload, now }) {
+  assertProductionEnvironment(payload)
   const transactionId = String(payload.transactionId)
   const outTradeNo = `${IAP_OUT_TRADE_NO_PREFIX}${transactionId}`
 
@@ -132,6 +147,13 @@ async function handleIapRefund(db, { payload, now }) {
   if (!order) {
     console.warn(`[iap] 退款通知对应订单不存在: ${outTradeNo}`)
     return { handled: false, outTradeNo }
+  }
+
+  // 不能仅靠交易 ID 将测试通知、其他 App 或环境不明的旧单关联到正式权益。
+  if (order.payType !== 'iap'
+    || order.meta?.environment !== payload.environment
+    || order.meta?.bundleId !== payload.bundleId) {
+    throw new Error('Apple 退款交易与订单应用或环境不一致，需人工核对')
   }
 
   const result = await db

@@ -29,7 +29,17 @@
 1. 在隔离 CloudBase 环境验证实际事务、并发冲突、失败回滚、索引和仅服务端可写权限。补丁复用现有四个集合，没有创建新集合或修改权限。
 2. 只读盘点重复 `outTradeNo`、旧 `paid` 无 `grantedAt`、重复钱包 / 会员 / 流水记录。无法确定归属和是否已发放的记录进入人工核对，不自动删除或合并。
 3. 暂停并排空旧版 IAP 请求及会修改 IAP 的旧补发实例，协调更新 `iap-order` 和微信入口保护；执行 `node scripts/sync-wxpay-lib.mjs --check`，部署包使用同步后的库。混跑旧随机建单实现不满足本补丁的唯一订单前提。
-4. 完成 Sandbox 环境、测试账号、数据库和原生查询端点的隔离后，才能执行真实 Sandbox 购买、恢复、退出换号、撤销与退款。当前 Server API 的 Production → Sandbox 回退仍沿用原实现，**本补丁尚未隔离 Sandbox 权益数据，不能向生产钱包发放测试权益**。
+4. 完成 Sandbox 环境、测试账号、数据库和原生查询端点的隔离后，才能执行真实 Sandbox 购买、恢复、退出换号、撤销与退款。Server API 的 Production → Sandbox 回退用于识别和验签；当前正式权益库的发放和退款均拒绝 Sandbox，详见下节。此拒绝保护不代表已具备隔离 Sandbox 权益服务。
 5. 取得隔离环境证据及上线授权后再部署。当前没有生产部署、TestFlight 或提审操作。
 
 回退时应先停止 IAP 请求并保留数据库快照；不要直接恢复会随机建单或通过微信补发 IAP 的旧实例。已提交的新凭据与订单应保留，回退方案不能依靠删除付款记录。
+
+## Sandbox 正式权益保护 · 2026-10-18
+
+在 `ffaabaa` 后补充结算边界：Apple 验签结果必须明确声明 `Production`，且与查询环境相同，才可以进入当前正式钱包 / 会员的发放；缺失、未知或不一致的环境拒绝。`Sandbox` 返回 `IAP_ENVIRONMENT_UNSUPPORTED`，`verifyPurchase` 失败、`restore` 对应项为 `ok: false`，客户端不能据此结束真实交易。环境不能由客户端参数或开关覆盖。Apple 在 [JWSTransactionDecodedPayload](https://developer.apple.com/documentation/appstoreserverapi/jwstransactiondecodedpayload) 中定义签名交易的 `environment`。
+
+退款同样先检查签名交易环境，再检查已有订单的支付方式、环境和 bundle ID。相同交易 ID 的 Sandbox 通知不能回滚正式订单，历史环境缺失或应用不匹配的订单保留原状并要求人工核对。通知端不再把缺失环境默认为 Production；通知与交易环境必须一致。已完成验签且环境一致的 Sandbox 退款通知返回 200 并明确标记忽略，不反复重试、不更改权益。正式交易的退款重试机制保留。
+
+本地 12 个新增结算边界用例在旧实现上全部失败，修复后通过；完整支付回归为 **21 文件 / 312 项通过 / 0 失败 / 0 跳过**，包含 7 个函数入口新增用例，以已验签载荷服务替身和内存数据库执行实际 `iap-order` / `appstore-notify` 入口。覆盖购买、恢复、合成账号禁止、正式发放与退款、Sandbox 同 ID 退款、缺失环境和跨环境通知。不是 Apple 在线验签、真实数据库或 Sandbox 购买证据。首次 pnpm 命令被共享依赖目录保护拒绝，改用现有 Vitest 执行；原失败日志保留。
+
+此候选尚未部署。当前正式端点仍不能用来验收 Sandbox；App Review 的测试权益也需独立设计和验证，不能以本保护通过宣称已满足审核购买流程。

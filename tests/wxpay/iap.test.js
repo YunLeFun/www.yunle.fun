@@ -17,6 +17,7 @@ function coinPayload(overrides = {}) {
     originalTransactionId: '20001',
     productId: 'fun.yunle.apps.coin_100',
     bundleId: 'fun.yunle.apps',
+    environment: 'Production',
     price: 12000,
     currency: 'CNY',
     ...overrides,
@@ -29,6 +30,7 @@ function memberPayload(overrides = {}) {
     originalTransactionId: '30001',
     productId: 'fun.yunle.apps.member_month',
     bundleId: 'fun.yunle.apps',
+    environment: 'Production',
     price: 12000,
     currency: 'CNY',
     purchaseDate: NOW,
@@ -127,7 +129,7 @@ describe('grantIapTransaction - 会员', () => {
     const result = await grantIapTransaction(db, {
       userId: 'u1',
       payload: memberPayload(),
-      environment: 'Sandbox',
+      environment: 'Production',
       now: NOW,
     })
     expect(result.granted).toBe(true)
@@ -136,7 +138,7 @@ describe('grantIapTransaction - 会员', () => {
     expect(order.orderType).toBe('membership')
     expect(order.level).toBe('basic')
     expect(order.billingCycle).toBe('month')
-    expect(order.meta.environment).toBe('Sandbox')
+    expect(order.meta.environment).toBe('Production')
 
     const membership = db._store.user_memberships[0]
     expect(membership._id).toBe('u1')

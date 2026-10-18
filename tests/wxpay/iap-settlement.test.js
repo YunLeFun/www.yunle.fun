@@ -16,6 +16,7 @@ function input(kind = 'coin', overrides = {}) {
       transactionId: '10001',
       originalTransactionId: '10001',
       bundleId: 'fun.yunle.apps',
+      environment: 'Production',
       productId: kind === 'coin' ? 'fun.yunle.apps.coin_100' : 'fun.yunle.apps.member_month',
       price: 12000,
       currency: 'CNY',
