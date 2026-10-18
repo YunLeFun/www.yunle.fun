@@ -160,7 +160,7 @@ function openList(type: 'following' | 'followers') {
     <div v-else-if="profile" class="mx-auto max-w-3xl space-y-6">
       <!-- 晴空 hero -->
       <SkyHero class="ylf-rise">
-        <div class="flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
+        <div class="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-7">
           <div class="flex items-center gap-4 sm:gap-5">
             <MemberAvatar
               :src="profile.avatar"
@@ -170,7 +170,7 @@ function openList(type: 'following' | 'followers') {
               ring-class="ring-white/60"
             />
             <div class="min-w-0 text-white">
-              <h1 class="ylf-hero-shadow truncate text-2xl font-bold sm:text-3xl">
+              <h1 class="ylf-hero-shadow truncate text-xl font-bold sm:text-2xl">
                 {{ displayName }}
               </h1>
               <p v-if="profile.login" class="ylf-hero-shadow mt-0.5 text-sm text-white/85">
@@ -207,26 +207,15 @@ function openList(type: 'following' | 'followers') {
       </SkyHero>
 
       <!-- 简介 -->
-      <section v-if="profile.description" class="ylf-card ylf-rise rounded-[var(--ylf-radius-lg)] p-4 sm:p-5" style="--i: 1">
-        <h2 class="ylf-dreamy-display mb-3 text-xl text-highlighted">
-          简介
-        </h2>
+      <AppSection v-if="profile.description" title="简介" :rise="1">
         <p class="whitespace-pre-wrap text-sm leading-relaxed text-default">
           {{ profile.description }}
         </p>
-      </section>
+      </AppSection>
 
       <!-- ta 的主页应用 -->
-      <section class="ylf-card ylf-rise rounded-[var(--ylf-radius-lg)] p-4 sm:p-5" style="--i: 2">
-        <div class="mb-4 flex items-start justify-between gap-3">
-          <div>
-            <h2 class="ylf-dreamy-display text-xl text-highlighted">
-              {{ isSelf ? '我' : 'Ta' }}的主页应用
-            </h2>
-            <p class="mt-1 text-xs text-muted">
-              已发布到个人主页的公开作品
-            </p>
-          </div>
+      <AppSection :title="`${isSelf ? '我' : 'Ta'}的主页应用`" description="已发布到个人主页的公开作品" :rise="2">
+        <template #actions>
           <AppButton
             v-if="developerProfileUrl"
             :to="developerProfileUrl"
@@ -236,7 +225,7 @@ function openList(type: 'following' | 'followers') {
             variant="ghost"
             size="xs"
           />
-        </div>
+        </template>
 
         <div v-if="appsLoading" class="space-y-2.5" aria-busy="true" aria-label="正在加载主页应用">
           <div v-for="n in 2" :key="n" class="flex items-center gap-3">
@@ -269,7 +258,7 @@ function openList(type: 'following' | 'followers') {
             class="mt-3"
           />
         </template>
-      </section>
+      </AppSection>
 
       <FollowListModal v-if="profile" v-model:open="showList" :user-id="profile.userId" :type="listType" />
     </div>

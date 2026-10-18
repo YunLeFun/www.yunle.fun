@@ -15,6 +15,8 @@ const props = defineProps<{
   date?: string
   description?: string
   image?: string | { src?: string, alt?: string }
+  /** 可交互插画名，存在时代替封面图 */
+  illustration?: string
   orientation?: 'horizontal' | 'vertical'
   /** 预计阅读分钟数 */
   readingMinutes?: number
@@ -37,11 +39,13 @@ const featured = computed(() => props.orientation === 'horizontal')
       :class="featured ? 'md:flex-row' : ''"
     >
       <div
-        v-if="imageSrc"
+        v-if="illustration || imageSrc"
         class="blog-card__media relative shrink-0 overflow-hidden"
         :class="featured ? 'md:w-[52%]' : ''"
       >
+        <ContentIllustration v-if="illustration" :name="illustration" class="blog-card__image" />
         <img
+          v-else
           :src="imageSrc"
           :alt="typeof image === 'object' ? image.alt || title : title"
           class="blog-card__image size-full object-cover"
@@ -120,6 +124,11 @@ const featured = computed(() => props.orientation === 'horizontal')
 .blog-card__media {
   aspect-ratio: 16 / 10;
   background: var(--ylf-surface-muted);
+}
+
+/* 整张卡片是链接：卡片里的插画只作装饰，交互留给文章封面 */
+.blog-card__media :deep(.content-illustration) {
+  pointer-events: none;
 }
 
 [data-featured] .blog-card__media {

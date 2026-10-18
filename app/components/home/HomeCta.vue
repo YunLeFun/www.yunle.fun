@@ -422,7 +422,7 @@ function release(event: PointerEvent) {
 .home-cta__content h2 {
   color: #fff;
   font-family: var(--ylf-font-dreamy);
-  font-size: clamp(1.9rem, 4.5vw, 3rem);
+  font-size: var(--ylf-type-headline);
   line-height: 1.25;
   text-wrap: balance;
 }

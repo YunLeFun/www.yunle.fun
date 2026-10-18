@@ -231,6 +231,7 @@ function poke(cloud: HeroCloud, event: MouseEvent) {
 <style scoped>
 .ylf-sky-hero {
   box-shadow: 0 28px 60px -30px color-mix(in srgb, #0b82c4 60%, transparent);
+  container-type: inline-size;
 }
 
 .ylf-sky-hero__scrim {
@@ -323,10 +324,14 @@ function poke(cloud: HeroCloud, event: MouseEvent) {
   width: clamp(70px, 12%, 104px);
 }
 
+/* 云堤只从底边探出圆顶，避开左下角的白字文案 */
 [data-clouds='full'] .ylf-sky-hero__cloud--bank {
-  bottom: -14%;
+  --w: clamp(200px, 34cqw, 300px);
+
+  /* 云堤高约为宽的 0.376，只露出顶部约 36px */
+  bottom: calc(var(--w) * -0.376 + 2.25rem);
   left: -6%;
-  width: clamp(240px, 44%, 360px);
+  width: var(--w);
 }
 
 [data-clouds='full'] .ylf-sky-hero__cloud--billow {
@@ -485,8 +490,7 @@ function poke(cloud: HeroCloud, event: MouseEvent) {
   }
 
   [data-clouds='full'] .ylf-sky-hero__cloud--bank {
-    bottom: -6%;
-    width: 200px;
+    --w: 180px;
   }
 
   [data-clouds='full'] .ylf-sky-hero__cloud--puff {

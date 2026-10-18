@@ -112,7 +112,7 @@ const { stop: stopObservingGallery } = useIntersectionObserver(
 .home-app-showcase__header h2 {
   margin-top: 0.55rem;
   color: var(--ui-text-highlighted);
-  font-size: clamp(1.85rem, 3.5vw, 2.75rem);
+  font-size: var(--ylf-type-headline);
   font-weight: 700;
   letter-spacing: -0.04em;
   line-height: 1.3;
@@ -154,7 +154,7 @@ const { stop: stopObservingGallery } = useIntersectionObserver(
 
   .home-app-showcase__map-placeholder {
     min-height: 29rem;
-    border-radius: 1.5rem;
+    border-radius: var(--ylf-radius-lg);
   }
 
   .home-app-showcase__header {

@@ -143,7 +143,7 @@ onMounted(() => {
               <Icon name="i-lucide-sparkles" class="size-3.5 text-amber-200" />
               云乐坊会员 · 晴空同行
             </span>
-            <h1 class="ylf-dreamy-display ylf-hero-shadow mt-5 text-4xl leading-[1.15] sm:text-5xl">
+            <h1 class="ylf-display ylf-hero-shadow mt-5">
               {{ isMember ? '你的晴空，一直都在' : '推开云层，遇见晴空' }}
             </h1>
             <p class="ylf-hero-shadow mt-4 max-w-md text-sm/relaxed text-white/90 sm:text-base/relaxed">
@@ -166,7 +166,7 @@ onMounted(() => {
       <!-- 方案选择 -->
       <section class="space-y-6">
         <div class="text-center">
-          <h2 class="ylf-dreamy-display text-2xl text-highlighted sm:text-3xl">
+          <h2 class="ylf-headline text-highlighted">
             选择你的方案
           </h2>
           <p class="mt-2 text-sm text-muted">
@@ -177,7 +177,7 @@ onMounted(() => {
           <div
             v-for="(plan, index) in billingPlans"
             :key="index"
-            class="ylf-plan relative flex flex-col rounded-3xl p-6"
+            class="ylf-plan relative flex flex-col rounded-[var(--ylf-radius-lg)] p-6"
             :class="plan.highlight ? 'ylf-plan--best' : ''"
           >
             <span
@@ -222,7 +222,7 @@ onMounted(() => {
       <!-- 专属权益 -->
       <section class="space-y-6">
         <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <h2 class="ylf-dreamy-display text-2xl text-highlighted sm:text-3xl">
+          <h2 class="ylf-headline text-highlighted">
             专属权益
           </h2>
           <span class="text-sm text-muted">会员点亮的 6 项晴朗体验</span>
@@ -231,7 +231,7 @@ onMounted(() => {
           <div
             v-for="b in BENEFITS"
             :key="b.title"
-            class="ylf-benefit relative overflow-hidden rounded-3xl p-5"
+            class="ylf-benefit relative overflow-hidden rounded-[var(--ylf-radius-lg)] p-5"
           >
             <span
               class="ylf-dopa-tile mb-3.5 inline-flex size-12 items-center justify-center rounded-2xl"
@@ -254,7 +254,7 @@ onMounted(() => {
       </section>
 
       <!-- 云币 与 会员 -->
-      <section class="ylf-coin-strip flex flex-col items-start gap-5 rounded-3xl p-6 sm:flex-row sm:items-center">
+      <section class="ylf-coin-strip flex flex-col items-start gap-5 rounded-[var(--ylf-radius-lg)] p-5 sm:p-6 sm:flex-row sm:items-center">
         <div class="flex flex-1 items-center gap-3 sm:gap-4">
           <span class="inline-flex size-12 shrink-0 items-center justify-center rounded-2xl bg-sky-100 text-sky-600 dark:bg-sky-400/15 dark:text-sky-300">
             <Icon name="i-lucide-coins" class="size-6" />
@@ -285,7 +285,7 @@ onMounted(() => {
       <!-- FAQ -->
       <section class="space-y-6">
         <div class="text-center">
-          <h2 class="ylf-dreamy-display text-2xl text-highlighted sm:text-3xl">
+          <h2 class="ylf-headline text-highlighted">
             {{ page.faq.title }}
           </h2>
           <p class="mt-2 text-sm text-muted">

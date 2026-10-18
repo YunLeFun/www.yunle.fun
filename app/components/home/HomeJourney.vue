@@ -91,7 +91,7 @@ const artwork = ['browse', 'launch', 'account'] as const
 .home-journey__header h2 {
   margin-top: 0.55rem;
   color: var(--ui-text-highlighted);
-  font-size: clamp(1.75rem, 3.5vw, 2.65rem);
+  font-size: var(--ylf-type-headline);
   font-weight: 700;
   letter-spacing: -0.04em;
   line-height: 1.3;
@@ -190,7 +190,7 @@ const artwork = ['browse', 'launch', 'account'] as const
   flex-direction: column;
   overflow: hidden;
   border: 1px solid var(--ui-border-muted);
-  border-radius: 1.5rem;
+  border-radius: var(--ylf-radius-lg);
   background: var(--ui-bg-elevated);
   transition:
     border-color var(--ylf-duration-fast) var(--ylf-ease-standard),

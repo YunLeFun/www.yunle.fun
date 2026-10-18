@@ -72,6 +72,60 @@
 
 「官网」采用轻量文字下拉入口；桌面当前页使用蓝色文字和 16×2px 短线，悬停使用中性浅底，键盘焦点使用内收的 2px 轮廓，避免相邻链接的状态挤在一起。移动抽屉沿用浅蓝选中背景，并提供 `aria-current="page"`。颜色、圆角和动效均读取共享主题变量，减少动态效果设置通过共享时长令牌生效。
 
+## 个人中心、内容页与插画（2026-10-18）
+
+个人中心、设置、钱包、关注动态、个人主页、博客、更新日志、首页与会员页统一到同一套层级、圆角与动效规则。新页面直接复用下列令牌与组件，不再逐页手写字号和圆角。
+
+### 字号与层级
+
+`main.css` 的 `:root` 定义 `--ylf-type-*`，对应同名工具类；字号随视口平滑缩放。
+
+| 层级     | 令牌 / 类名                                 | 范围      | 用途                                    |
+| -------- | ------------------------------------------- | --------- | --------------------------------------- |
+| display  | `--ylf-type-display` / `.ylf-display`       | 36 → 56px | 首页、会员页头图主标题（站酷小薇）      |
+| headline | `--ylf-type-headline` / `.ylf-headline`     | 26 → 36px | 营销页的区块标题                        |
+| title    | `--ylf-type-title` / `.ylf-title`           | 20 → 24px | 应用页页头标题（`SubpageHero`）         |
+| section  | `--ylf-type-section` / `.ylf-section-title` | 16 → 18px | 卡片、区块标题（`AppSection`）          |
+| body     | `--ylf-type-body`                           | 15px      | 正文；阅读页由 `.ylf-prose` 放大到 16px |
+| caption  | `--ylf-type-caption` / `.ylf-caption`       | 12px      | 说明、时间、计数                        |
+
+### 圆角与留白
+
+- 头图横幅 `--ylf-radius-xl`（28px），卡片与列表项容器 `--ylf-radius-lg`（20px），控件与图标块 `--ylf-radius` / `--ylf-radius-sm`。`.ylf-card` 已改为 20px，页面不再使用 `rounded-3xl`、`rounded-[2rem]`。
+- 卡片内边距：手机 16px、桌面 20px；页面区块间距 24px。
+
+### 公共组件
+
+| 组件                  | 作用                                                                                                      |
+| --------------------- | --------------------------------------------------------------------------------------------------------- |
+| `SkyHero`             | 晴空头图；`clouds="full / mini / none"`。云朵是可戳的 `CuteCloud`，画在压暗层之上；内容层只有控件接收指针 |
+| `SubpageHero`         | 子页面窄横幅：返回按钮 + 标题；内容页传 `:back="false"` 与 `icon`                                         |
+| `AppSection`          | 标准内容卡片：`title`、`description`、`icon`、`#actions`，`rise` 控制进场序号                             |
+| `CuteCloud`           | 扁平卡通云：`shape="round / long / small"`、`face`、`mood="happy"`；颜色读 `--ylf-cloud-*`                |
+| `AppCountUp`          | 数字滚动，读屏只读最终值                                                                                  |
+| `ContentIllustration` | 可交互插画入口（见下）                                                                                    |
+
+### 动效
+
+- 时长与缓动只用 `--ylf-duration-*`、`--ylf-ease-standard / spring`；全部在 `prefers-reduced-motion` 下关闭。
+- 进场：`.ylf-rise` + `--i` 错开（70ms 步长）；按压：`.ylf-press`；加载：`.ylf-shimmer` 骨架，不用转圈。
+- **常驻循环只放在装饰区域**（头图云朵、空状态插画、交互插画）。列表与表单只保留进场和点击反馈：更新日志最新节点呼吸 3 次后停止；会员入口的光带进场扫两次、悬停再扫一次；设置页里的云不做漂浮。
+- 交互插画离开视口时暂停全部动画。
+
+### 可交互插画
+
+`app/components/illustration/` 下用 HTML / CSS / SVG 绘制场景，替代图库配图：
+
+- `launch`：浮在云海里的浏览器窗口，随鼠标倾斜，点击撒六色纸屑。
+- `apps`：手机放飞应用气球，点气球炸开，点手机多放一只。
+- `studio`：山坡上的工坊，烟囱冒小云，点击亮灯。
+
+使用方式：
+
+- 博客、更新日志 frontmatter 写 `illustration: apps`，卡片与封面优先显示插画，`image` 继续作为分享图和兜底。
+- Markdown 正文嵌入：`::content-illustration{name="studio" ratio="2 / 1"}`。
+- 新场景放在 `illustration/` 下，内部用 `cqw / cqh` 排版、包在 `IllustrationFrame` 里，并在 `content/Illustration.global.vue` 的 `SCENES` 登记名字。
+
 ## 依赖兼容范围
 
 Nuxt 维持最新稳定的 4.5.2；Vue 作为显式主依赖升级至 3.5.43，Nuxt UI 升至 4.11.3，Vite 8.3.2、Vitest 5.0.3、Vue 类型工具与图标依赖同步升级。TypeScript 维持 6.0.3，因为 `vue-tsc@3.3.12` 仍读取 `typescript/lib/tsc`，TypeScript 7 不再导出该接口。H3 保持 Nuxt 兼容的 1.x 稳定版，不采用 npm `latest` 指向的 2.x RC。Node 类型沿用 24.x；pnpm 继续使用仓库约定的 11.22.0。

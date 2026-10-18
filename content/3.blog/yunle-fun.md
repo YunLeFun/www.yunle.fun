@@ -9,6 +9,8 @@ authors:
     avatar:
       src: https://www.yunyoujun.cn/images/avatar.jpg
 date: 2026-02-28
+# 卡片与封面使用可交互插画（app/components/illustration），image 仍作为分享图与兜底
+illustration: launch
 badge:
   label: 公告
 ---

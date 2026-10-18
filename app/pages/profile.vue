@@ -268,13 +268,10 @@ function workshopHref(surface: WorkshopSurface) {
       </NuxtLink>
 
       <!-- 快捷入口 -->
-      <section class="ylf-card ylf-rise rounded-[var(--ylf-radius-lg)] p-4 sm:p-5" style="--i: 2">
-        <div class="mb-3 flex items-center justify-between gap-3 px-1">
-          <h2 class="font-heading text-base font-semibold tracking-tight text-highlighted sm:text-lg">
-            快捷入口
-          </h2>
-          <span class="text-xs text-dimmed">{{ entries.length }} 个服务</span>
-        </div>
+      <AppSection title="快捷入口" :rise="2">
+        <template #actions>
+          <span class="ylf-caption">{{ entries.length }} 个服务</span>
+        </template>
         <nav class="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="个人中心快捷入口">
           <NuxtLink
             v-for="(e, i) in entries"
@@ -296,19 +293,11 @@ function workshopHref(surface: WorkshopSurface) {
             />
           </NuxtLink>
         </nav>
-      </section>
+      </AppSection>
 
       <!-- 主页应用 -->
-      <section class="ylf-card ylf-rise rounded-[var(--ylf-radius-lg)] p-4 sm:p-5" style="--i: 4">
-        <div class="mb-4 flex items-center justify-between">
-          <div>
-            <h2 class="font-heading text-base font-semibold tracking-tight text-highlighted sm:text-lg">
-              主页应用
-            </h2>
-            <p class="mt-1 text-xs text-muted">
-              已发布并展示在你的云乐坊个人主页
-            </p>
-          </div>
+      <AppSection title="主页应用" description="已发布并展示在你的云乐坊个人主页" :rise="4">
+        <template #actions>
           <AppButton
             :to="appsProfileUrl"
             label="打开主页"
@@ -318,7 +307,7 @@ function workshopHref(surface: WorkshopSurface) {
             size="xs"
             trailing
           />
-        </div>
+        </template>
 
         <div v-if="appsLoading" class="space-y-2.5" aria-busy="true" aria-label="正在加载主页应用">
           <div v-for="n in 2" :key="n" class="flex items-center gap-3">
@@ -350,20 +339,16 @@ function workshopHref(surface: WorkshopSurface) {
           </p>
         </div>
         <AppSurfaceList v-else :apps="homeApps.slice(0, 6)" />
-      </section>
+      </AppSection>
 
       <!-- 私人工坊 -->
-      <section class="ylf-card ylf-rise rounded-[var(--ylf-radius-lg)] p-4 sm:p-5" style="--i: 5">
-        <div class="mb-4 flex items-start justify-between gap-3">
-          <div>
-            <h2 class="font-heading flex items-center gap-2 text-base font-semibold tracking-tight text-highlighted sm:text-lg">
-              私人工坊
-              <Icon name="i-lucide-key-round" class="size-4 text-primary" aria-hidden="true" />
-            </h2>
-            <p class="mt-1 text-xs text-muted">
-              这里只展示你作为坊主或坊客有权查看的作品
-            </p>
-          </div>
+      <AppSection
+        title="私人工坊"
+        icon="i-lucide-key-round"
+        description="这里只展示你作为坊主或坊客有权查看的作品"
+        :rise="5"
+      >
+        <template #actions>
           <AppButton
             to="https://apps.yunle.fun/user/workshop"
             :label="myWorkshops.owned ? '管理' : '开启'"
@@ -372,7 +357,7 @@ function workshopHref(surface: WorkshopSurface) {
             variant="ghost"
             size="xs"
           />
-        </div>
+        </template>
 
         <div v-if="appsLoading" class="ylf-shimmer h-28 rounded-[1.1rem]" aria-busy="true" aria-label="正在加载私人工坊" />
         <div v-else-if="workshopSurfaces.length === 0" class="ylf-empty-state rounded-2xl px-4 py-8 text-center">
@@ -453,7 +438,7 @@ function workshopHref(surface: WorkshopSurface) {
             </p>
           </article>
         </div>
-      </section>
+      </AppSection>
 
       <FollowListModal v-if="user" v-model:open="showList" :user-id="user.id" :type="listType" />
     </div>

@@ -21,6 +21,8 @@ export interface MdContent {
   image?: { src: string } | string
   authors?: { name: string, to?: string, avatar?: { src: string } }[]
   badge?: { label: string }
+  /** 可交互插画名（见 ContentIllustration），存在时代替 image 展示 */
+  illustration?: string
   body?: MDCParserResult['body']
   toc?: MDCParserResult['toc']
   path?: string

@@ -145,7 +145,7 @@ onMounted(() => {
             <Icon name="i-lucide-cloud-sun" class="size-4" aria-hidden="true" />
             {{ page.headline }}
           </span>
-          <h1 class="ylf-dreamy-display ylf-hero-shadow mt-5 text-4xl leading-[1.15] text-white sm:text-5xl lg:text-6xl">
+          <h1 class="ylf-display ylf-hero-shadow mt-5 text-white">
             <span class="sr-only">{{ headlineText }}</span>
             <span aria-hidden="true">
               <span

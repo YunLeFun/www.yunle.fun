@@ -48,6 +48,7 @@ function mountPage() {
       stubs: {
         AppContainer: { template: '<div><slot /></div>' },
         SkyHero: { template: '<section><slot /></section>' },
+        AppSection: { props: ['title'], template: '<section><h2>{{ title }}</h2><slot name="actions" /><slot /></section>' },
         AppButton: {
           props: ['label'],
           emits: ['click'],

@@ -57,6 +57,7 @@ describe('profile home entry', () => {
         stubs: {
           AppContainer: { template: '<main><slot /></main>' },
           SkyHero: { template: '<section><slot /></section>' },
+          AppSection: { props: ['title'], template: '<section><h2>{{ title }}</h2><slot name="actions" /><slot /></section>' },
           NuxtLink: {
             props: ['to'],
             template: '<a :href="to"><slot /></a>',
@@ -123,6 +124,7 @@ describe('profile home entry', () => {
         stubs: {
           AppContainer: { template: '<main><slot /></main>' },
           SkyHero: { template: '<section><slot /></section>' },
+          AppSection: { props: ['title'], template: '<section><h2>{{ title }}</h2><slot name="actions" /><slot /></section>' },
           NuxtLink: {
             props: ['to'],
             template: '<a :href="to"><slot /></a>',

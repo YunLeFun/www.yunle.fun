@@ -815,7 +815,6 @@ async function save() {
   width: 6.5rem;
   opacity: 0.95;
   filter: drop-shadow(0 6px 10px color-mix(in srgb, var(--primary) 18%, transparent));
-  animation: ylf-bob 6s ease-in-out infinite;
 }
 
 .profile-card-preview__arrow,
@@ -837,10 +836,6 @@ async function save() {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .profile-card-preview__cloud {
-    animation: none;
-  }
-
   .ylf-profile-editor * {
     scroll-behavior: auto;
     transition-duration: 0.01ms !important;

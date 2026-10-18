@@ -96,8 +96,13 @@ onBeforeUnmount(() => cancelAnimationFrame(frame))
           </div>
         </header>
 
-        <figure v-if="coverSrc" class="blog-cover ylf-rise mt-8" style="--i: 2">
-          <img :src="coverSrc" :alt="post.title" class="size-full object-cover">
+        <figure v-if="post.illustration || coverSrc" class="blog-cover ylf-rise mt-8" style="--i: 2">
+          <ContentIllustration v-if="post.illustration" :name="post.illustration" />
+          <img v-else :src="coverSrc" :alt="post.title" class="size-full object-cover">
+          <figcaption v-if="post.illustration" class="blog-cover__hint">
+            <Icon name="i-lucide-mouse-pointer-click" class="size-3.5" aria-hidden="true" />
+            可以戳一戳
+          </figcaption>
         </figure>
 
         <div class="ylf-rise mt-8 sm:mt-10" style="--i: 3">
@@ -182,11 +187,30 @@ a.blog-author:hover {
 }
 
 .blog-cover {
+  position: relative;
   overflow: hidden;
   aspect-ratio: 16 / 9;
   border: 1px solid var(--ui-border-muted);
   border-radius: var(--ylf-radius-lg);
   background: var(--ylf-surface-muted);
+}
+
+.blog-cover__hint {
+  position: absolute;
+  bottom: 0.75rem;
+  left: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: var(--ylf-radius-pill);
+  padding: 0.25rem 0.6rem;
+  color: #fff;
+  background: color-mix(in srgb, #0a3161 50%, transparent);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  font-size: 0.75rem;
+  font-weight: 500;
+  pointer-events: none;
 }
 
 .blog-end {

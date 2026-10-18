@@ -35,6 +35,7 @@ useSeoMeta({
           :description="version.description"
           :date="version.date"
           :image="version.image"
+          :illustration="version.illustration"
           :latest="index === 0"
         >
           <template #body>

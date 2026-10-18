@@ -70,6 +70,15 @@
   --ylf-gradient-sunset: linear-gradient(115deg, #fbbf24, #fb7185);
   --ylf-gradient-member: linear-gradient(135deg, #fb8a2e 0%, #f4516a 52%, #e6315f 100%);
   --ylf-font-dreamy: 'ZCOOL XiaoWei', 'PingFang SC', 'Songti SC', ui-serif, serif;
+
+  /* 字号阶梯（见 docs/design-system.md「字号与层级」）：营销页用 display / headline，
+     应用页用 title / section，正文与说明统一 body / caption。随视口平滑缩放，不再逐页手写。 */
+  --ylf-type-display: clamp(2.25rem, 1.6rem + 2.8vw, 3.5rem);
+  --ylf-type-headline: clamp(1.625rem, 1.3rem + 1.4vw, 2.25rem);
+  --ylf-type-title: clamp(1.25rem, 1.1rem + 0.6vw, 1.5rem);
+  --ylf-type-section: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
+  --ylf-type-body: 0.9375rem;
+  --ylf-type-caption: 0.75rem;
 }
 
 .dark {
@@ -787,6 +796,50 @@ body {
   }
 }
 
+/* ------------------------------------------------------------------ *
+ * 字号层级 —— 与 --ylf-type-* 一一对应，页面直接用类名，不再手写 text-3xl / 44px。
+ * ------------------------------------------------------------------ */
+.ylf-display {
+  font-family: var(--ylf-font-dreamy);
+  font-size: var(--ylf-type-display);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  line-height: 1.15;
+  text-wrap: balance;
+}
+
+.ylf-headline {
+  font-family: var(--ylf-font-dreamy);
+  font-size: var(--ylf-type-headline);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+.ylf-title {
+  font-family: var(--ylf-font-heading);
+  font-size: var(--ylf-type-title);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+.ylf-section-title {
+  color: var(--ui-text-highlighted);
+  font-family: var(--ylf-font-heading);
+  font-size: var(--ylf-type-section);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  line-height: 1.4;
+}
+
+.ylf-caption {
+  color: var(--ui-text-muted);
+  font-size: var(--ylf-type-caption);
+  line-height: 1.5;
+}
+
 /* 云朵浮起：页面区块首次挂载时像云一样从下方轻轻浮上来，按 --i 依次错开。
    与 v-reveal 不同，它面向首屏内容，只播放一次，不依赖滚动。 */
 .ylf-rise {
@@ -856,7 +909,21 @@ body {
   content: '';
   pointer-events: none;
   translate: -100% 0;
-  animation: ylf-shine 6s var(--ylf-ease-standard) 1.2s infinite;
+  /* 进场时扫过两次就停，悬停时再扫一次，避免在列表里常驻闪动 */
+  animation: ylf-shine 4.5s var(--ylf-ease-standard) 0.8s 2;
+}
+
+.ylf-shine:hover::after {
+  animation: ylf-shine-once 900ms var(--ylf-ease-standard);
+}
+
+@keyframes ylf-shine-once {
+  from {
+    translate: -100% 0;
+  }
+  to {
+    translate: 100% 0;
+  }
 }
 
 @keyframes ylf-shine {

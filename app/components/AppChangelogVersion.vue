@@ -9,6 +9,8 @@ const props = defineProps<{
   date?: string
   description?: string
   image?: string | { src?: string, alt?: string }
+  /** 可交互插画名，存在时代替配图 */
+  illustration?: string
   title?: string
   latest?: boolean
 }>()
@@ -46,8 +48,10 @@ const yearLabel = computed(() => parsedDate.value?.getFullYear())
       <p v-if="description" class="text-sm leading-6 text-muted-foreground">
         {{ description }}
       </p>
-      <figure v-if="imageSrc" class="changelog-entry__media">
+      <figure v-if="illustration || imageSrc" class="changelog-entry__media">
+        <ContentIllustration v-if="illustration" :name="illustration" />
         <img
+          v-else
           :src="imageSrc"
           :alt="typeof image === 'object' ? image.alt || title : title"
           class="size-full object-cover"
@@ -136,7 +140,8 @@ const yearLabel = computed(() => parsedDate.value?.getFullYear())
   border-radius: inherit;
   box-shadow: 0 0 0 0 color-mix(in srgb, var(--ui-primary) 45%, transparent);
   content: '';
-  animation: changelog-pulse 2.4s var(--ylf-ease-standard) infinite;
+  /* 列表里不做常驻循环：进场后呼吸三次就停下 */
+  animation: changelog-pulse 2.4s var(--ylf-ease-standard) 3;
 }
 
 @keyframes changelog-pulse {

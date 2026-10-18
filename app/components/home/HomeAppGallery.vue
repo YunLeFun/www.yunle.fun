@@ -285,7 +285,7 @@ function scrollApps(direction: -1 | 1) {
 @media (max-width: 767px) {
   .home-app-gallery {
     --gallery-inset: 1rem;
-    border-radius: 1.5rem;
+    border-radius: var(--ylf-radius-lg);
   }
 
   .home-app-gallery__header {
