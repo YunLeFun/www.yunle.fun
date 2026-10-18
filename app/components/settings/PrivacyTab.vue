@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
 
 /**
@@ -19,6 +18,34 @@ const saving = ref(false)
 
 const SWITCHES = { hideFollowers, hideFollowing, notifyOnFollow }
 type SwitchField = keyof typeof SWITCHES
+
+interface SwitchRow {
+  field: SwitchField
+  label: string
+  hint: string
+  icon: string
+  tone: string
+}
+
+const LIST_ROWS: SwitchRow[] = [
+  { field: 'hideFollowers', label: '隐藏粉丝列表', hint: '开启后，仅你本人可查看粉丝列表', icon: 'i-lucide-users', tone: 'var(--ylf-dopa-pink)' },
+  { field: 'hideFollowing', label: '隐藏关注列表', hint: '开启后，仅你本人可查看关注列表', icon: 'i-lucide-user-check', tone: 'var(--ylf-dopa-cyan)' },
+]
+const NOTIFY_ROWS: SwitchRow[] = [
+  { field: 'notifyOnFollow', label: '新增粉丝通知', hint: '有人关注你时收到站内通知', icon: 'i-lucide-bell-ring', tone: 'var(--ylf-dopa-amber)' },
+]
+
+// 保存成功后在对应开关旁短暂亮起「已保存」，比全局提示更贴近操作位置
+const savedField = ref<SwitchField | null>(null)
+let savedTimer: ReturnType<typeof setTimeout> | undefined
+function flashSaved(field: SwitchField) {
+  savedField.value = field
+  clearTimeout(savedTimer)
+  savedTimer = setTimeout(() => {
+    savedField.value = null
+  }, 1800)
+}
+onBeforeUnmount(() => clearTimeout(savedTimer))
 
 onMounted(async () => {
   if (!user.value) {
@@ -46,7 +73,7 @@ async function save(field: SwitchField, value: boolean) {
         return
       throw new Error('公开资料保存失败')
     }
-    toast.add({ title: '已保存', icon: 'i-lucide-check', color: 'success' })
+    flashSaved(field)
   }
   catch {
     // 失败回滚开关状态
@@ -71,42 +98,34 @@ async function save(field: SwitchField, value: boolean) {
       </CardHeader>
 
       <CardContent>
-        <div v-if="loading" class="flex justify-center py-6">
-          <Spinner class="size-5 text-muted-foreground" />
+        <div v-if="loading" class="space-y-3 py-2" aria-busy="true">
+          <div v-for="n in LIST_ROWS.length" :key="n" class="ylf-shimmer h-12 rounded-xl" />
         </div>
         <div v-else class="divide-y divide-border">
-          <div class="flex items-center justify-between gap-4 py-4">
-            <div class="min-w-0">
+          <div v-for="row in LIST_ROWS" :key="row.field" class="privacy-row">
+            <span class="ylf-dopa-tile privacy-row__icon" :style="{ '--tile': row.tone }" aria-hidden="true">
+              <Icon :name="row.icon" class="size-4" />
+            </span>
+            <div class="min-w-0 flex-1">
               <p class="text-sm font-medium">
-                隐藏粉丝列表
+                {{ row.label }}
               </p>
               <p class="text-xs text-muted-foreground">
-                开启后，仅你本人可查看粉丝列表
+                {{ row.hint }}
               </p>
             </div>
+            <Transition name="privacy-saved">
+              <span v-if="savedField === row.field" class="privacy-saved" role="status">
+                <Icon name="i-lucide-check" class="size-3.5" aria-hidden="true" />
+                已保存
+              </span>
+            </Transition>
             <Switch
-              v-model="hideFollowers"
+              v-model="SWITCHES[row.field].value"
               class="shrink-0"
               :disabled="saving || syncRestricted"
-              aria-label="隐藏粉丝列表"
-              @update:model-value="save('hideFollowers', $event)"
-            />
-          </div>
-          <div class="flex items-center justify-between gap-4 py-4">
-            <div class="min-w-0">
-              <p class="text-sm font-medium">
-                隐藏关注列表
-              </p>
-              <p class="text-xs text-muted-foreground">
-                开启后，仅你本人可查看关注列表
-              </p>
-            </div>
-            <Switch
-              v-model="hideFollowing"
-              class="shrink-0"
-              :disabled="saving || syncRestricted"
-              aria-label="隐藏关注列表"
-              @update:model-value="save('hideFollowing', $event)"
+              :aria-label="row.label"
+              @update:model-value="save(row.field, $event)"
             />
           </div>
         </div>
@@ -121,25 +140,34 @@ async function save(field: SwitchField, value: boolean) {
       </CardHeader>
 
       <CardContent>
-        <div v-if="loading" class="flex justify-center py-6">
-          <Spinner class="size-5 text-muted-foreground" />
+        <div v-if="loading" class="py-2" aria-busy="true">
+          <div class="ylf-shimmer h-12 rounded-xl" />
         </div>
         <div v-else class="divide-y divide-border">
-          <div class="flex items-center justify-between gap-4 py-4">
-            <div class="min-w-0">
+          <div v-for="row in NOTIFY_ROWS" :key="row.field" class="privacy-row">
+            <span class="ylf-dopa-tile privacy-row__icon" :style="{ '--tile': row.tone }" aria-hidden="true">
+              <Icon :name="row.icon" class="size-4" />
+            </span>
+            <div class="min-w-0 flex-1">
               <p class="text-sm font-medium">
-                新增粉丝通知
+                {{ row.label }}
               </p>
               <p class="text-xs text-muted-foreground">
-                有人关注你时收到站内通知
+                {{ row.hint }}
               </p>
             </div>
+            <Transition name="privacy-saved">
+              <span v-if="savedField === row.field" class="privacy-saved" role="status">
+                <Icon name="i-lucide-check" class="size-3.5" aria-hidden="true" />
+                已保存
+              </span>
+            </Transition>
             <Switch
-              v-model="notifyOnFollow"
+              v-model="SWITCHES[row.field].value"
               class="shrink-0"
               :disabled="saving || syncRestricted"
-              aria-label="新增粉丝通知"
-              @update:model-value="save('notifyOnFollow', $event)"
+              :aria-label="row.label"
+              @update:model-value="save(row.field, $event)"
             />
           </div>
         </div>
@@ -147,3 +175,67 @@ async function save(field: SwitchField, value: boolean) {
     </Card>
   </div>
 </template>
+
+<style scoped>
+.privacy-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding-block: 1rem;
+}
+
+.privacy-row__icon {
+  display: inline-flex;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.65rem;
+  transition: rotate var(--ylf-duration-slow) var(--ylf-ease-spring);
+}
+
+.privacy-row:hover .privacy-row__icon {
+  rotate: -8deg;
+}
+
+.privacy-saved {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 9999px;
+  padding: 0.125rem 0.5rem;
+  color: var(--ylf-status-success-text);
+  background: var(--ylf-status-success-soft);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.privacy-saved-enter-active {
+  transition:
+    opacity var(--ylf-duration-fast) var(--ylf-ease-standard),
+    translate var(--ylf-duration-slow) var(--ylf-ease-spring),
+    scale var(--ylf-duration-slow) var(--ylf-ease-spring);
+}
+
+.privacy-saved-leave-active {
+  transition: opacity var(--ylf-duration-exit) var(--ylf-ease-standard);
+}
+
+.privacy-saved-enter-from {
+  opacity: 0;
+  translate: 6px 0;
+  scale: 0.8;
+}
+
+.privacy-saved-leave-to {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .privacy-row:hover .privacy-row__icon {
+    rotate: none;
+  }
+}
+</style>

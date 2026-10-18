@@ -787,6 +787,106 @@ body {
   }
 }
 
+/* 云朵浮起：页面区块首次挂载时像云一样从下方轻轻浮上来，按 --i 依次错开。
+   与 v-reveal 不同，它面向首屏内容，只播放一次，不依赖滚动。 */
+.ylf-rise {
+  animation: ylf-rise 760ms var(--ylf-ease-spring) calc(var(--i, 0) * 70ms) backwards;
+}
+
+@keyframes ylf-rise {
+  from {
+    opacity: 0;
+    translate: 0 14px;
+    scale: 0.985;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+
+/* 轻按回弹：可点的卡片 / 宫格按下时略微收缩，松开后由 spring 弹回。 */
+.ylf-press {
+  transition: scale var(--ylf-duration-slow) var(--ylf-ease-spring);
+}
+
+.ylf-press:active {
+  scale: var(--ylf-press-scale);
+  transition-duration: var(--ylf-duration-press);
+}
+
+/* 晴空骨架：加载占位以一道淡蓝光带扫过，比闪烁更安静，明暗主题均可读。 */
+.ylf-shimmer {
+  background:
+    linear-gradient(
+        100deg,
+        transparent 20%,
+        color-mix(in srgb, var(--ui-primary) 10%, transparent) 50%,
+        transparent 80%
+      )
+      0 0 / 220% 100% no-repeat,
+    color-mix(in srgb, var(--ylf-surface-muted) 90%, var(--ui-border-muted));
+  animation: ylf-shimmer 1.6s var(--ylf-ease-standard) infinite;
+}
+
+@keyframes ylf-shimmer {
+  from {
+    background-position:
+      120% 0,
+      0 0;
+  }
+  to {
+    background-position:
+      -120% 0,
+      0 0;
+  }
+}
+
+/* 阳光掠过：品牌色块上每隔几秒扫过一道柔光，用于会员 / 主行动入口。 */
+.ylf-shine {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.ylf-shine::after {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.32) 50%, transparent 65%);
+  content: '';
+  pointer-events: none;
+  translate: -100% 0;
+  animation: ylf-shine 6s var(--ylf-ease-standard) 1.2s infinite;
+}
+
+@keyframes ylf-shine {
+  0% {
+    translate: -100% 0;
+  }
+  28%,
+  100% {
+    translate: 100% 0;
+  }
+}
+
+/* 轻飘：空状态插画、小云朵的缓慢上下浮动。 */
+.ylf-bob {
+  animation: ylf-bob 5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ylf-rise,
+  .ylf-shimmer,
+  .ylf-shine::after,
+  .ylf-bob {
+    animation: none;
+  }
+
+  .ylf-shine::after {
+    display: none;
+  }
+}
+
 /* 明暗切换的场景过渡（见 useAppearanceTransition），与 YunLeFun/design 的文档主题一致。
    仅在主动切换时启用，首次加载与路由跳转保持静止。 */
 html.ylf-appearance-fade,

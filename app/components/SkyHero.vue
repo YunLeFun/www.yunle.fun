@@ -9,14 +9,17 @@
 withDefaults(defineProps<{
   /** 是否在文案侧叠加压暗层（白字 hero 建议开启） */
   scrim?: boolean
+  /** 云量：大头图用 full，窄横幅用 mini */
+  clouds?: 'full' | 'mini' | 'none'
 }>(), {
   scrim: true,
+  clouds: 'full',
 })
 </script>
 
 <template>
   <section class="ylf-sky-hero relative overflow-hidden rounded-[1.75rem] sm:rounded-[2rem]">
-    <SkyScene :sun="false" class="pointer-events-none" />
+    <SkyScene :sun="false" :clouds="clouds" class="pointer-events-none" />
     <div v-if="scrim" class="ylf-sky-hero__scrim pointer-events-none absolute inset-0 z-[1]" />
     <div class="relative z-[2]">
       <slot />

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { AppRecord, MyWorkshopOverview, WorkshopSurface } from '~/types/app'
 import type { UserProfile } from '~/types/social'
+import type { SkyGreeting } from '~/utils/skyGreeting'
 import AppSurfaceList from '~/components/apps/AppSurfaceList.vue'
 import { isOfficialUser } from '~/config'
 import { getPublicProfilePath } from '~/utils/publicProfilePath'
@@ -38,6 +39,21 @@ const joinDate = computed(() => {
 })
 
 const displayName = computed(() => user.value?.nickname || user.value?.login || '未设置')
+
+// 问候语跟随当地天色；挂载后计算，避免服务端与浏览器时区不一致
+const greeting = ref<SkyGreeting | null>(null)
+onMounted(() => {
+  greeting.value = getSkyGreeting(new Date().getHours())
+})
+
+// 戳一下头像：像首页的云朵一样 Q 弹一下
+const avatarPoked = ref(false)
+function pokeAvatar() {
+  avatarPoked.value = false
+  requestAnimationFrame(() => {
+    avatarPoked.value = true
+  })
+}
 
 // 开发者平台未上线，仅官方账号可自助发布应用
 const canCreate = computed(() => isOfficialUser(user.value))
@@ -129,27 +145,42 @@ function workshopHref(surface: WorkshopSurface) {
 
 <template>
   <AppContainer class="py-8 sm:py-10">
-    <div v-if="loading" class="flex justify-center py-20">
-      <Icon
-        name="i-lucide-loader-2"
-        class="animate-spin text-3xl text-muted"
-      />
+    <!-- 登录态恢复中：与正式布局同形的晴空骨架，避免内容加载后跳动 -->
+    <div v-if="loading" class="mx-auto max-w-3xl space-y-6" aria-busy="true" aria-label="正在加载个人中心">
+      <div class="ylf-shimmer h-60 rounded-[1.75rem] sm:h-64 sm:rounded-[2rem]" />
+      <div class="ylf-shimmer h-[4.5rem] rounded-3xl" />
+      <div class="ylf-shimmer h-44 rounded-3xl" />
     </div>
 
     <div v-else-if="user" class="mx-auto max-w-3xl space-y-6">
       <!-- 晴空 hero：身份 + 数据条 -->
-      <SkyHero>
+      <SkyHero class="ylf-rise">
         <div class="p-6 sm:p-8">
           <div class="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
             <div class="flex items-center gap-4 sm:gap-5">
-              <MemberAvatar
-                :src="user.avatar"
-                :alt="displayName"
-                size="3xl"
-                :is-member="isMember"
-                ring-class="ring-white/60"
-              />
+              <div
+                class="profile-avatar shrink-0"
+                :class="[{ 'ylf-squish': avatarPoked }, isMember ? 'profile-avatar--member' : '']"
+                @click="pokeAvatar"
+                @animationend.self="avatarPoked = false"
+              >
+                <span class="profile-avatar__halo" aria-hidden="true" />
+                <MemberAvatar
+                  :src="user.avatar"
+                  :alt="displayName"
+                  size="3xl"
+                  :is-member="isMember"
+                  ring-class="ring-white/60"
+                />
+              </div>
               <div class="min-w-0 text-white">
+                <p
+                  v-if="greeting"
+                  class="profile-greeting ylf-hero-shadow mb-1 inline-flex items-center gap-1.5 text-xs font-medium text-white/90"
+                >
+                  <Icon :name="greeting.icon" class="size-3.5" aria-hidden="true" />
+                  {{ greeting.text }}
+                </p>
                 <h1 class="ylf-hero-shadow truncate text-2xl font-bold sm:text-3xl">
                   {{ displayName }}
                 </h1>
@@ -190,18 +221,18 @@ function workshopHref(surface: WorkshopSurface) {
           </div>
 
           <!-- 数据条（点击直达） -->
-          <div class="ylf-glass-deep ylf-hero-shadow mt-6 flex items-stretch rounded-2xl px-2 py-2.5">
+          <div class="ylf-glass-deep ylf-hero-shadow mt-6 flex items-stretch rounded-2xl p-1.5">
             <component
               :is="s.to ? 'NuxtLink' : 'button'"
               v-for="(s, i) in stats"
               :key="s.label"
               :to="s.to"
               :type="s.to ? undefined : 'button'"
-              class="flex flex-1 flex-col items-center gap-0.5 py-1 text-white transition-transform hover:-translate-y-0.5"
-              :class="i > 0 ? 'border-l border-white/25' : ''"
+              class="profile-stat ylf-press relative flex flex-1 flex-col items-center gap-0.5 rounded-xl py-2 text-white"
+              :class="i > 0 ? 'profile-stat--divided' : ''"
               @click="s.onClick?.()"
             >
-              <span class="text-xl font-semibold leading-none tabular-nums">{{ s.value }}</span>
+              <AppCountUp :value="s.value" class="text-xl font-semibold leading-none" />
               <span class="text-xs text-white/90">{{ s.label }}</span>
             </component>
           </div>
@@ -214,11 +245,12 @@ function workshopHref(surface: WorkshopSurface) {
       <NuxtLink
         v-if="!isMember"
         to="/pricing"
-        class="ylf-join-cta group flex items-center justify-between gap-3 rounded-3xl px-5 py-4 text-primary-foreground sm:px-6"
+        class="ylf-join-cta ylf-shine ylf-rise group flex items-center justify-between gap-3 rounded-3xl px-5 py-4 text-primary-foreground sm:px-6"
+        style="--i: 1"
       >
         <span class="flex items-center gap-3">
           <span class="ylf-pass-tile inline-flex size-10 shrink-0 items-center justify-center rounded-xl">
-            <Icon name="i-lucide-cloud" class="size-5" />
+            <Icon name="i-lucide-cloud" class="join-cloud size-5" />
           </span>
           <span class="min-w-0">
             <span class="block font-semibold">开通云乐坊会员 · 点亮晴空</span>
@@ -229,7 +261,7 @@ function workshopHref(surface: WorkshopSurface) {
       </NuxtLink>
 
       <!-- 快捷入口 -->
-      <section class="ylf-card rounded-3xl p-4 sm:p-5">
+      <section class="ylf-card ylf-rise rounded-3xl p-4 sm:p-5" style="--i: 2">
         <div class="mb-3 flex items-center justify-between gap-3 px-1">
           <h2 class="font-heading text-lg font-bold tracking-tight text-highlighted">
             快捷入口
@@ -238,14 +270,14 @@ function workshopHref(surface: WorkshopSurface) {
         </div>
         <nav class="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="个人中心快捷入口">
           <NuxtLink
-            v-for="e in entries"
+            v-for="(e, i) in entries"
             :key="e.to"
             :to="e.to"
-            class="ylf-entry-tile group flex min-w-0 items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-start"
-            :style="{ '--tile': e.color }"
+            class="ylf-entry-tile ylf-press ylf-rise group flex min-w-0 items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-start"
+            :style="{ '--tile': e.color, '--i': 3 + i * 0.6 }"
           >
             <span
-              class="ylf-dopa-tile inline-flex size-9 shrink-0 items-center justify-center rounded-[0.65rem]"
+              class="ylf-dopa-tile entry-icon inline-flex size-9 shrink-0 items-center justify-center rounded-[0.65rem]"
             >
               <Icon :name="e.icon" class="size-[1.125rem]" aria-hidden="true" />
             </span>
@@ -260,7 +292,7 @@ function workshopHref(surface: WorkshopSurface) {
       </section>
 
       <!-- 主页应用 -->
-      <section class="ylf-card rounded-3xl p-6">
+      <section class="ylf-card ylf-rise rounded-3xl p-6" style="--i: 4">
         <div class="mb-4 flex items-center justify-between">
           <div>
             <h2 class="font-heading text-xl font-bold tracking-tight text-highlighted">
@@ -281,10 +313,19 @@ function workshopHref(surface: WorkshopSurface) {
           />
         </div>
 
-        <div v-if="appsLoading" class="flex justify-center py-6">
-          <Icon name="i-lucide-loader-2" class="animate-spin text-xl text-muted" />
+        <div v-if="appsLoading" class="space-y-2.5" aria-busy="true" aria-label="正在加载主页应用">
+          <div v-for="n in 2" :key="n" class="flex items-center gap-3">
+            <div class="ylf-shimmer size-11 shrink-0 rounded-xl" />
+            <div class="flex-1 space-y-2">
+              <div class="ylf-shimmer h-3.5 w-2/5 rounded-full" />
+              <div class="ylf-shimmer h-3 w-3/4 rounded-full" />
+            </div>
+          </div>
         </div>
-        <div v-else-if="homeApps.length === 0" class="ylf-empty-state rounded-2xl py-8 text-center">
+        <div v-else-if="homeApps.length === 0" class="ylf-empty-state rounded-2xl px-4 py-8 text-center">
+          <span class="profile-empty-cloud ylf-bob" aria-hidden="true">
+            <Icon name="i-lucide-cloud" class="size-6" />
+          </span>
           <p class="mb-3 text-sm text-muted">
             还没有在主页展示应用
           </p>
@@ -305,7 +346,7 @@ function workshopHref(surface: WorkshopSurface) {
       </section>
 
       <!-- 私人工坊 -->
-      <section class="ylf-card rounded-3xl p-6">
+      <section class="ylf-card ylf-rise rounded-3xl p-6" style="--i: 5">
         <div class="mb-4 flex items-start justify-between gap-3">
           <div>
             <h2 class="font-heading flex items-center gap-2 text-xl font-bold tracking-tight text-highlighted">
@@ -326,11 +367,11 @@ function workshopHref(surface: WorkshopSurface) {
           />
         </div>
 
-        <div v-if="appsLoading" class="flex justify-center py-6">
-          <Icon name="i-lucide-loader-2" class="animate-spin text-xl text-muted" />
-        </div>
+        <div v-if="appsLoading" class="ylf-shimmer h-28 rounded-[1.1rem]" aria-busy="true" aria-label="正在加载私人工坊" />
         <div v-else-if="workshopSurfaces.length === 0" class="ylf-empty-state rounded-2xl px-4 py-8 text-center">
-          <Icon name="i-lucide-door-open" class="mb-2 size-7 text-muted" />
+          <span class="profile-empty-cloud ylf-bob" aria-hidden="true">
+            <Icon name="i-lucide-door-open" class="size-6" />
+          </span>
           <p class="text-sm text-muted">
             还没有开启或加入私人工坊
           </p>
@@ -346,9 +387,10 @@ function workshopHref(surface: WorkshopSurface) {
         </div>
         <div v-else class="space-y-3">
           <article
-            v-for="surface in workshopSurfaces"
+            v-for="(surface, i) in workshopSurfaces"
             :key="surface.workshop._id"
-            class="private-workshop"
+            class="private-workshop ylf-rise"
+            :style="{ '--i': i }"
           >
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
@@ -385,7 +427,7 @@ function workshopHref(surface: WorkshopSurface) {
                 :href="workshopHref(surface)"
                 target="_blank"
                 rel="noopener noreferrer"
-                class="inline-flex size-8 shrink-0 items-center justify-center rounded-full text-muted transition hover:bg-elevated hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                class="workshop-open inline-flex size-8 shrink-0 items-center justify-center rounded-full text-muted transition hover:bg-elevated hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                 :aria-label="`打开${surface.workshop.name}`"
               >
                 <Icon name="i-lucide-arrow-up-right" class="size-4" aria-hidden="true" />
@@ -416,6 +458,82 @@ function workshopHref(surface: WorkshopSurface) {
   text-shadow: 0 1px 10px rgba(0, 40, 90, 0.35);
 }
 
+/* 头像光环：一圈缓慢旋转的晴空光晕，会员换成落日暖色。 */
+.profile-avatar {
+  position: relative;
+  display: inline-flex;
+  border-radius: 9999px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.profile-avatar__halo {
+  position: absolute;
+  inset: -6px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from 0deg,
+    rgba(255, 255, 255, 0.85),
+    rgba(147, 214, 255, 0.2),
+    rgba(255, 255, 255, 0.75),
+    rgba(147, 214, 255, 0.2),
+    rgba(255, 255, 255, 0.85)
+  );
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.55));
+  animation: profile-halo-spin 14s linear infinite;
+}
+
+.profile-avatar--member .profile-avatar__halo {
+  background: conic-gradient(from 0deg, #ffd29a, #f4516a, #ffb38a, #ff7a9a, #ffd29a);
+  filter: drop-shadow(0 0 8px rgba(244, 81, 106, 0.45));
+}
+
+@keyframes profile-halo-spin {
+  to {
+    rotate: 1turn;
+  }
+}
+
+.profile-greeting {
+  animation: profile-greeting-in 900ms var(--ylf-ease-spring) 320ms backwards;
+}
+
+@keyframes profile-greeting-in {
+  from {
+    opacity: 0;
+    translate: -6px 0;
+  }
+}
+
+/* 数据条：每项是一块可按的玻璃，悬停时微微亮起并上浮。 */
+.profile-stat {
+  transition:
+    background-color var(--ylf-duration-fast) var(--ylf-ease-standard),
+    translate var(--ylf-duration-slow) var(--ylf-ease-spring),
+    scale var(--ylf-duration-slow) var(--ylf-ease-spring);
+}
+
+.profile-stat--divided::before {
+  position: absolute;
+  inset-block: 0.75rem;
+  inset-inline-start: 0;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.25);
+  content: '';
+}
+
+.profile-stat:hover {
+  background: rgba(255, 255, 255, 0.12);
+  translate: 0 -2px;
+}
+
+.profile-stat:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.85);
+  outline-offset: -2px;
+}
+
 .private-workshop {
   position: relative;
   overflow: hidden;
@@ -425,6 +543,14 @@ function workshopHref(surface: WorkshopSurface) {
   background:
     linear-gradient(120deg, color-mix(in srgb, var(--ylf-dopa-violet) 7%, transparent), transparent 42%),
     color-mix(in srgb, var(--ylf-surface-muted) 54%, transparent);
+  transition:
+    border-color var(--ylf-duration-fast) var(--ylf-ease-standard),
+    box-shadow var(--ylf-duration-normal) var(--ylf-ease-standard);
+}
+
+.private-workshop:hover {
+  border-color: color-mix(in srgb, var(--ylf-dopa-violet) 36%, var(--ui-border));
+  box-shadow: 0 14px 30px -24px color-mix(in srgb, var(--ylf-dopa-violet) 70%, transparent);
 }
 
 .private-workshop::before {
@@ -437,17 +563,31 @@ function workshopHref(surface: WorkshopSurface) {
   inset-inline-start: 0;
 }
 
+.workshop-open :deep(svg),
+.workshop-open :deep(.iconify) {
+  transition: translate var(--ylf-duration-slow) var(--ylf-ease-spring);
+}
+
+.workshop-open:hover :deep(svg),
+.workshop-open:hover :deep(.iconify) {
+  translate: 2px -2px;
+}
+
 .ylf-join-cta {
   background: var(--ylf-gradient-brand);
   box-shadow: 0 16px 36px -20px color-mix(in srgb, #0b82c4 70%, transparent);
   transition:
-    transform 180ms ease,
-    box-shadow 180ms ease;
+    translate var(--ylf-duration-slow) var(--ylf-ease-spring),
+    box-shadow var(--ylf-duration-normal) var(--ylf-ease-standard);
 }
 
 .ylf-join-cta:hover {
-  transform: translateY(-2px);
+  translate: 0 -2px;
   box-shadow: 0 22px 44px -22px color-mix(in srgb, #0b82c4 75%, transparent);
+}
+
+.ylf-join-cta:hover .join-cloud {
+  animation: ylf-squish 640ms var(--ylf-ease-standard);
 }
 
 .ylf-pass-tile {
@@ -459,40 +599,74 @@ function workshopHref(surface: WorkshopSurface) {
   border: 1px solid transparent;
   background: color-mix(in srgb, var(--ylf-surface-muted) 66%, transparent);
   transition:
-    background-color 160ms ease,
-    border-color 160ms ease,
-    transform 160ms ease;
+    background-color var(--ylf-duration-fast) var(--ylf-ease-standard),
+    border-color var(--ylf-duration-fast) var(--ylf-ease-standard),
+    translate var(--ylf-duration-slow) var(--ylf-ease-spring),
+    scale var(--ylf-duration-slow) var(--ylf-ease-spring);
 }
 
 .ylf-entry-tile:hover {
   border-color: color-mix(in srgb, var(--tile, var(--ui-primary)) 22%, var(--ui-border-muted));
   background: color-mix(in srgb, var(--tile, var(--ui-primary)) 6%, var(--ylf-surface));
-  transform: translateY(-1px);
+  translate: 0 -2px;
+}
+
+/* 图标块悬停时俏皮地歪一下头 */
+.entry-icon {
+  transition:
+    rotate var(--ylf-duration-slow) var(--ylf-ease-spring),
+    scale var(--ylf-duration-slow) var(--ylf-ease-spring);
+}
+
+.ylf-entry-tile:hover .entry-icon {
+  rotate: -8deg;
+  scale: 1.08;
 }
 
 .entry-arrow {
   opacity: 0.45;
   transition:
-    color 160ms ease,
-    opacity 160ms ease,
-    transform 160ms ease;
+    color var(--ylf-duration-fast) var(--ylf-ease-standard),
+    opacity var(--ylf-duration-fast) var(--ylf-ease-standard),
+    translate var(--ylf-duration-slow) var(--ylf-ease-spring);
 }
 
 .ylf-entry-tile:hover .entry-arrow {
   color: var(--tile, var(--ui-primary));
   opacity: 1;
-  transform: translateX(2px);
+  translate: 3px 0;
+}
+
+.profile-empty-cloud {
+  display: inline-flex;
+  width: 3rem;
+  height: 3rem;
+  margin-bottom: 0.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  color: var(--ui-primary);
+  background: color-mix(in srgb, var(--ui-primary) 10%, var(--ylf-surface));
+  box-shadow: 0 10px 24px -16px color-mix(in srgb, var(--ui-primary) 70%, transparent);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ylf-entry-tile,
-  .entry-arrow {
-    transition: none;
+  .profile-avatar__halo,
+  .profile-greeting,
+  .ylf-join-cta:hover .join-cloud {
+    animation: none;
   }
 
+  .profile-stat:hover,
+  .ylf-join-cta:hover,
   .ylf-entry-tile:hover,
-  .ylf-entry-tile:hover .entry-arrow {
-    transform: none;
+  .ylf-entry-tile:hover .entry-icon,
+  .ylf-entry-tile:hover .entry-arrow,
+  .workshop-open:hover :deep(svg),
+  .workshop-open:hover :deep(.iconify) {
+    translate: none;
+    rotate: none;
+    scale: none;
   }
 }
 </style>
