@@ -51,7 +51,8 @@ describe('sso-registry-admin deployment contract', () => {
         SSO_REGISTRY_ADMIN_CHANNEL_SECRET: '{{env.SSO_REGISTRY_ADMIN_CHANNEL_SECRET}}',
         SSO_REGISTRY_ADMIN_DECISION_PUBLIC_KEYS: '{{env.SSO_REGISTRY_ADMIN_DECISION_PUBLIC_KEYS}}',
         SSO_REGISTRY_APPROVER_UIDS: '{{env.SSO_REGISTRY_APPROVER_UIDS}}',
-        SSO_REGISTRY_FEISHU_APPROVAL_ENABLED: 'false',
+        // Production approves through Feishu; a full deploy must not silently fall back to email.
+        SSO_REGISTRY_FEISHU_APPROVAL_ENABLED: 'true',
       })
     }
   })
