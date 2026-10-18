@@ -128,12 +128,16 @@ function openList(type: 'following' | 'followers') {
 
 <template>
   <AppContainer class="py-8 sm:py-10">
-    <div v-if="loading" class="flex justify-center py-20">
-      <Icon name="i-lucide-loader-2" class="animate-spin text-3xl text-muted" />
+    <div v-if="loading" class="mx-auto max-w-3xl space-y-6" aria-busy="true" aria-label="正在加载用户主页">
+      <div class="ylf-shimmer h-48 rounded-[1.75rem] sm:h-44 sm:rounded-[2rem]" />
+      <div class="ylf-shimmer h-28 rounded-3xl" />
+      <div class="ylf-shimmer h-44 rounded-3xl" />
     </div>
 
-    <div v-else-if="profileUnavailable" class="ylf-empty-state rounded-3xl px-4 py-20 text-center">
-      <Icon name="i-lucide-cloud-off" class="mb-4 text-5xl text-muted" />
+    <div v-else-if="profileUnavailable" class="ylf-empty-state ylf-rise rounded-3xl px-4 py-20 text-center">
+      <span class="ylf-empty-cloud ylf-bob size-16!" aria-hidden="true">
+        <Icon name="i-lucide-cloud-off" class="size-8" />
+      </span>
       <p class="mb-2 text-lg text-muted">
         暂时无法加载用户资料
       </p>
@@ -143,8 +147,10 @@ function openList(type: 'following' | 'followers') {
       <AppButton label="重新加载" icon="i-lucide-refresh-cw" color="neutral" variant="outline" @click="retryProfile" />
     </div>
 
-    <div v-else-if="profileNotFound" class="ylf-empty-state rounded-3xl px-4 py-20 text-center">
-      <Icon name="i-lucide-user-x" class="mb-4 text-5xl text-muted" />
+    <div v-else-if="profileNotFound" class="ylf-empty-state ylf-rise rounded-3xl px-4 py-20 text-center">
+      <span class="ylf-empty-cloud ylf-bob size-16!" aria-hidden="true">
+        <Icon name="i-lucide-user-x" class="size-8" />
+      </span>
       <p class="mb-4 text-lg text-muted">
         用户不存在
       </p>
@@ -153,7 +159,7 @@ function openList(type: 'following' | 'followers') {
 
     <div v-else-if="profile" class="mx-auto max-w-3xl space-y-6">
       <!-- 晴空 hero -->
-      <SkyHero>
+      <SkyHero class="ylf-rise">
         <div class="flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
           <div class="flex items-center gap-4 sm:gap-5">
             <MemberAvatar
@@ -172,10 +178,10 @@ function openList(type: 'following' | 'followers') {
               </p>
               <div class="ylf-hero-shadow mt-2.5 flex items-center gap-4 text-sm text-white/90">
                 <Button type="button" variant="ghost" size="xs" class="h-auto px-0 text-white hover:bg-transparent hover:text-white/80" @click="openList('followers')">
-                  <strong class="font-bold">{{ followersCount }}</strong> 粉丝
+                  <AppCountUp :value="followersCount" class="font-bold" /> 粉丝
                 </Button>
                 <Button type="button" variant="ghost" size="xs" class="h-auto px-0 text-white hover:bg-transparent hover:text-white/80" @click="openList('following')">
-                  <strong class="font-bold">{{ profile.followingCount }}</strong> 关注
+                  <AppCountUp :value="profile.followingCount" class="font-bold" /> 关注
                 </Button>
               </div>
             </div>
@@ -201,7 +207,7 @@ function openList(type: 'following' | 'followers') {
       </SkyHero>
 
       <!-- 简介 -->
-      <section v-if="profile.description" class="ylf-card rounded-3xl p-6">
+      <section v-if="profile.description" class="ylf-card ylf-rise rounded-3xl p-6" style="--i: 1">
         <h2 class="ylf-dreamy-display mb-3 text-xl text-highlighted">
           简介
         </h2>
@@ -211,7 +217,7 @@ function openList(type: 'following' | 'followers') {
       </section>
 
       <!-- ta 的主页应用 -->
-      <section class="ylf-card rounded-3xl p-6">
+      <section class="ylf-card ylf-rise rounded-3xl p-6" style="--i: 2">
         <div class="mb-4 flex items-start justify-between gap-3">
           <div>
             <h2 class="ylf-dreamy-display text-xl text-highlighted">
@@ -232,10 +238,19 @@ function openList(type: 'following' | 'followers') {
           />
         </div>
 
-        <div v-if="appsLoading" class="flex justify-center py-6">
-          <Icon name="i-lucide-loader-2" class="animate-spin text-xl text-muted" />
+        <div v-if="appsLoading" class="space-y-2.5" aria-busy="true" aria-label="正在加载主页应用">
+          <div v-for="n in 2" :key="n" class="flex items-center gap-3">
+            <div class="ylf-shimmer size-11 shrink-0 rounded-xl" />
+            <div class="flex-1 space-y-2">
+              <div class="ylf-shimmer h-3.5 w-2/5 rounded-full" />
+              <div class="ylf-shimmer h-3 w-3/4 rounded-full" />
+            </div>
+          </div>
         </div>
-        <div v-else-if="userApps.length === 0" class="ylf-empty-state rounded-2xl py-8 text-center">
+        <div v-else-if="userApps.length === 0" class="ylf-empty-state rounded-2xl px-4 py-8 text-center">
+          <span class="ylf-empty-cloud ylf-bob" aria-hidden="true">
+            <Icon name="i-lucide-cloud" class="size-6" />
+          </span>
           <p class="text-sm text-muted">
             还没有在主页展示应用
           </p>

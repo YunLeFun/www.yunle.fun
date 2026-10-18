@@ -234,6 +234,11 @@ function handleClose() {
   }
 }
 
+/** 明细行依次浮起：按每页 20 条错开，「加载更多」的新行也从头错开，延迟封顶 */
+function rowStagger(index: number): number {
+  return Math.min(index % 20, 8) * 0.5
+}
+
 function formatDate(ts: number): string {
   return new Date(ts).toLocaleString('zh-CN', {
     year: 'numeric',
@@ -278,20 +283,17 @@ onMounted(async () => {
 
 <template>
   <AppContainer class="py-8 sm:py-10 space-y-8">
-    <header class="space-y-1">
-      <h1 class="text-2xl font-bold tracking-tight">
-        我的钱包
-      </h1>
-      <p class="text-sm text-muted">
-        {{ activeAsset === 'coin' ? '管理你的云币余额、充值与消费记录' : '管理 AI 点数，用云币为创作补充能量' }}
-      </p>
-    </header>
+    <SubpageHero
+      title="我的钱包"
+      :description="activeAsset === 'coin' ? '管理你的云币余额、充值与消费记录' : '管理 AI 点数，用云币为创作补充能量'"
+    />
 
     <ToggleGroup
       v-if="user"
       v-model="activeAsset"
       type="single"
-      class="ylf-soft-panel grid w-full max-w-sm grid-cols-2 rounded-xl p-1"
+      class="ylf-soft-panel ylf-rise grid w-full max-w-sm grid-cols-2 rounded-xl p-1"
+      style="--i: 1"
       aria-label="选择钱包资产"
     >
       <ToggleGroupItem value="coin" class="w-full rounded-lg" data-testid="wallet-asset-coin">
@@ -307,9 +309,10 @@ onMounted(async () => {
     <!-- 未登录 -->
     <div
       v-if="!user"
-      class="ylf-empty-state rounded-2xl px-6 py-12 text-center space-y-4"
+      class="ylf-empty-state ylf-rise rounded-2xl px-6 py-12 text-center space-y-4"
+      style="--i: 1"
     >
-      <div class="ylf-icon-tile mx-auto flex size-14 items-center justify-center rounded-2xl">
+      <div class="ylf-icon-tile ylf-bob mx-auto flex size-14 items-center justify-center rounded-2xl">
         <Icon name="i-lucide-wallet" class="size-7" />
       </div>
       <p class="text-muted">
@@ -324,26 +327,27 @@ onMounted(async () => {
       <!-- 余额 + 会员状态 -->
       <div class="grid gap-4 sm:grid-cols-2">
         <!-- 余额：共享品牌色主卡 -->
-        <div class="ylf-brand-bg relative overflow-hidden rounded-2xl p-6 shadow-lg shadow-primary/20">
+        <div class="ylf-brand-bg ylf-shine ylf-rise relative overflow-hidden rounded-2xl p-6 shadow-lg shadow-primary/20" style="--i: 2">
           <Icon
             name="i-lucide-coins"
-            class="pointer-events-none absolute -right-4 -bottom-4 size-32 opacity-15"
+            class="wallet-coin-float ylf-bob pointer-events-none absolute -right-4 -bottom-4 size-32 opacity-15"
           />
           <p class="text-sm/relaxed">
             云币余额
           </p>
           <div class="mt-2 flex items-end gap-2">
-            <span class="text-5xl font-extrabold tabular-nums leading-none">{{ coin.balance.value }}</span>
+            <AppCountUp :value="coin.balance.value" class="text-5xl font-extrabold leading-none" />
             <span class="pb-1">云币</span>
           </div>
           <p class="mt-3 text-xs">
-            ≈ {{ formatPrice(coin.balance.value * COIN_RATE_FEN) }} · 100 云币 = 10 元
+            ≈ <AppCountUp :value="coin.balance.value * COIN_RATE_FEN" :format="formatPrice" /> · 100 云币 = 10 元
           </p>
         </div>
 
         <!-- 会员状态 -->
         <div
-          class="flex flex-col justify-between rounded-2xl p-6"
+          class="ylf-rise flex flex-col justify-between rounded-2xl p-6"
+          style="--i: 3"
           :class="coin.isMember.value ? 'ylf-member-soft' : 'ylf-surface'"
         >
           <div class="space-y-2">
@@ -388,10 +392,10 @@ onMounted(async () => {
       </div>
 
       <!-- 每日登录奖励：连续签到日历（登录后自动领取，日历为状态展示 + 手动兜底） -->
-      <SignInCalendar />
+      <SignInCalendar class="ylf-rise" style="--i: 4" />
 
       <!-- 运营奖励来源 -->
-      <section v-if="rewards.length || rewardLoading || rewardRestricted || rewardError" class="space-y-4">
+      <section v-if="rewards.length || rewardLoading || rewardRestricted || rewardError" class="ylf-rise space-y-4" style="--i: 5">
         <h2 class="text-lg font-semibold">
           奖励记录
         </h2>
@@ -404,8 +408,14 @@ onMounted(async () => {
             重试
           </AppButton>
         </div>
+        <WalletRowsSkeleton v-else-if="rewards.length === 0" :rows="2" label="正在加载奖励记录" />
         <div v-else class="ylf-surface divide-y divide-default overflow-hidden rounded-2xl">
-          <div v-for="reward in rewards" :key="reward.grantId" class="flex items-center justify-between gap-3 px-4 py-3">
+          <div
+            v-for="(reward, i) in rewards"
+            :key="reward.grantId"
+            class="ylf-rise flex items-center justify-between gap-3 px-4 py-3"
+            :style="{ '--i': rowStagger(i) }"
+          >
             <div class="flex min-w-0 items-center gap-3">
               <span class="ylf-member-mark flex size-9 shrink-0 items-center justify-center rounded-xl">
                 <Icon name="i-lucide-gift" class="size-4" />
@@ -440,7 +450,7 @@ onMounted(async () => {
       </section>
 
       <!-- 充值 -->
-      <section class="space-y-4">
+      <section class="ylf-rise space-y-4" style="--i: 6">
         <div class="flex items-center justify-between gap-2">
           <h2 class="text-lg font-semibold">
             云币充值
@@ -455,7 +465,7 @@ onMounted(async () => {
             :key="pack.id"
             type="button"
             variant="outline"
-            class="ylf-interactive-card relative h-auto flex-col rounded-2xl p-4 text-center"
+            class="ylf-interactive-card wallet-pack relative h-auto flex-col rounded-2xl p-4 text-center"
             :class="pack.popular ? 'ring-2 ring-primary/50' : ''"
             @click="handleRecharge(pack.id)"
           >
@@ -465,10 +475,10 @@ onMounted(async () => {
               color="primary"
               variant="solid"
               size="xs"
-              class="absolute -top-2 left-1/2 -translate-x-1/2"
+              class="wallet-pack__badge absolute -top-2 left-1/2 -translate-x-1/2"
             />
             <div class="space-y-1 py-2">
-              <Icon name="i-lucide-coins" class="mx-auto size-7 text-primary" />
+              <Icon name="i-lucide-coins" class="wallet-pack__coin mx-auto size-7 text-primary" />
               <div class="text-2xl font-extrabold tabular-nums">
                 {{ pack.coin }}
               </div>
@@ -535,9 +545,7 @@ onMounted(async () => {
                 <div class="text-xs text-muted">
                   应付金额
                 </div>
-                <div class="text-2xl font-bold text-primary tabular-nums">
-                  {{ formatPrice(customPrice) }}
-                </div>
+                <AppCountUp :value="customPrice" :format="formatPrice" :duration="520" class="block text-2xl font-bold text-primary" />
               </div>
               <AppButton
                 size="lg"
@@ -557,21 +565,26 @@ onMounted(async () => {
       </section>
 
       <!-- 流水 -->
-      <section class="space-y-4">
+      <section class="ylf-rise space-y-4" style="--i: 7">
         <h2 class="text-lg font-semibold">
           云币明细
         </h2>
 
         <div v-if="transactions.length === 0 && !txLoading" class="ylf-empty-state rounded-2xl py-12 text-center text-muted">
-          <Icon name="i-lucide-receipt-text" class="mx-auto mb-2 size-8 opacity-60" />
+          <span class="ylf-empty-cloud ylf-bob" aria-hidden="true">
+            <Icon name="i-lucide-receipt-text" class="size-6" />
+          </span>
           <p>暂无记录</p>
         </div>
 
+        <WalletRowsSkeleton v-else-if="transactions.length === 0" label="正在加载云币明细" />
+
         <div v-else class="ylf-surface divide-y divide-default overflow-hidden rounded-2xl">
           <div
-            v-for="tx in transactions"
+            v-for="(tx, i) in transactions"
             :key="tx._id"
-            class="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-elevated/60"
+            class="ylf-rise flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-elevated/60"
+            :style="{ '--i': rowStagger(i) }"
           >
             <div class="flex min-w-0 items-center gap-3">
               <span
@@ -620,21 +633,26 @@ onMounted(async () => {
       </section>
 
       <!-- 订单历史 -->
-      <section class="space-y-4">
+      <section class="ylf-rise space-y-4" style="--i: 8">
         <h2 class="text-lg font-semibold">
           订单历史
         </h2>
 
         <div v-if="orders.length === 0 && !orderLoading" class="ylf-empty-state rounded-2xl py-12 text-center text-muted">
-          <Icon name="i-lucide-scroll-text" class="mx-auto mb-2 size-8 opacity-60" />
+          <span class="ylf-empty-cloud ylf-bob" aria-hidden="true">
+            <Icon name="i-lucide-scroll-text" class="size-6" />
+          </span>
           <p>暂无订单</p>
         </div>
 
+        <WalletRowsSkeleton v-else-if="orders.length === 0" :rows="2" label="正在加载订单历史" />
+
         <div v-else class="ylf-surface divide-y divide-default overflow-hidden rounded-2xl">
           <div
-            v-for="order in orders"
+            v-for="(order, i) in orders"
             :key="order.id"
-            class="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-elevated/60"
+            class="ylf-rise flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-elevated/60"
+            :style="{ '--i': rowStagger(i) }"
           >
             <div class="flex min-w-0 items-center gap-3">
               <span
@@ -675,10 +693,10 @@ onMounted(async () => {
       </section>
 
       <!-- 应用支持榜 -->
-      <AppTipLeaderboard :limit="10" />
+      <AppTipLeaderboard :limit="10" class="ylf-rise" style="--i: 9" />
     </template>
 
-    <WalletAiPointsPanel v-else @exchanged="loadTransactions(true)" />
+    <WalletAiPointsPanel v-else class="ylf-rise" style="--i: 2" @exchanged="loadTransactions(true)" />
 
     <!-- 充值弹窗 -->
     <CoinRechargeModal
@@ -695,3 +713,76 @@ onMounted(async () => {
     />
   </AppContainer>
 </template>
+
+<style scoped>
+/* 充值档位：悬停微微浮起、硬币翻个面，按下由 spring 回弹。 */
+.wallet-pack {
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    translate var(--ylf-duration-slow) var(--ylf-ease-spring),
+    scale var(--ylf-duration-slow) var(--ylf-ease-spring);
+}
+
+.wallet-pack:hover {
+  translate: 0 -2px;
+}
+
+.wallet-pack:active {
+  scale: var(--ylf-press-scale);
+  transition-duration: var(--ylf-duration-press);
+}
+
+.wallet-pack__coin {
+  transition: rotate 720ms var(--ylf-ease-spring);
+}
+
+.wallet-pack:hover .wallet-pack__coin {
+  rotate: y 1turn;
+}
+
+/* 推荐角标：每隔几秒轻轻摆一下，提示但不打扰 */
+.wallet-pack__badge {
+  animation: wallet-badge-nudge 3.6s var(--ylf-ease-standard) 1.4s infinite;
+}
+
+@keyframes wallet-badge-nudge {
+  0%,
+  86%,
+  100% {
+    rotate: 0deg;
+  }
+  90% {
+    rotate: -6deg;
+  }
+  94% {
+    rotate: 5deg;
+  }
+}
+
+/* 余额卡底纹硬币：慢慢飘，略带倾斜 */
+.wallet-coin-float {
+  --rot: -12deg;
+  animation-duration: 7s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wallet-pack,
+  .wallet-pack__coin {
+    transition: none;
+  }
+
+  .wallet-pack:hover {
+    translate: none;
+  }
+
+  .wallet-pack:hover .wallet-pack__coin {
+    rotate: none;
+  }
+
+  .wallet-pack__badge {
+    animation: none;
+  }
+}
+</style>

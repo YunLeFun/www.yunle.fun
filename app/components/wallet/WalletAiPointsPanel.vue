@@ -15,13 +15,15 @@ onMounted(() => points.refresh())
 
 <template>
   <section class="ai-wallet space-y-8" aria-label="AI 点数钱包">
-    <div v-if="points.loading.value && !points.account.value" class="grid gap-5 lg:grid-cols-5" aria-label="正在加载 AI 点数">
-      <AppSkeleton class="h-80 rounded-2xl lg:col-span-2" />
-      <AppSkeleton class="h-80 rounded-2xl lg:col-span-3" />
+    <div v-if="points.loading.value && !points.account.value" class="grid gap-5 lg:grid-cols-5" aria-busy="true" aria-label="正在加载 AI 点数">
+      <div class="ylf-shimmer h-80 rounded-2xl lg:col-span-2" />
+      <div class="ylf-shimmer h-80 rounded-2xl lg:col-span-3" />
     </div>
 
     <div v-else-if="points.error.value && !points.account.value" class="ylf-empty-state rounded-2xl px-6 py-12 text-center space-y-4" role="alert">
-      <Icon name="i-lucide-cloud-alert" class="mx-auto size-8 text-error" />
+      <span class="ylf-empty-cloud ylf-bob ai-wallet-alert-cloud" aria-hidden="true">
+        <Icon name="i-lucide-cloud-alert" class="size-6" />
+      </span>
       <div class="space-y-1">
         <h2 class="font-semibold">
           AI 点数暂时无法加载
@@ -37,9 +39,9 @@ onMounted(() => points.refresh())
 
     <template v-else-if="points.account.value">
       <div class="grid items-stretch gap-5 lg:grid-cols-5">
-        <section class="balance-panel flex min-w-0 flex-col lg:col-span-2" aria-labelledby="ai-points-heading">
+        <section class="balance-panel ylf-rise flex min-w-0 flex-col lg:col-span-2" aria-labelledby="ai-points-heading">
           <div class="flex items-center gap-3">
-            <span class="balance-icon flex size-10 items-center justify-center"><Icon name="i-lucide-sparkles" class="size-5" /></span>
+            <span class="balance-icon flex size-10 items-center justify-center"><Icon name="i-lucide-sparkles" class="balance-sparkle size-5" /></span>
             <h2 id="ai-points-heading" class="text-sm font-medium">
               可用 AI 点数
             </h2>
@@ -48,7 +50,7 @@ onMounted(() => points.refresh())
             </AppButton>
           </div>
           <p class="my-5 flex flex-wrap items-baseline gap-2">
-            <strong class="balance-number font-semibold tracking-tight tabular-nums">{{ formatAiPoints(points.account.value.availableMicroPoints) }}</strong>
+            <AppCountUp :value="points.account.value.availableMicroPoints" :format="formatAiPoints" class="balance-number font-semibold tracking-tight" />
             <span class="text-sm text-muted">点</span>
           </p>
           <p class="max-w-sm text-sm leading-relaxed text-muted">
@@ -59,7 +61,7 @@ onMounted(() => points.refresh())
             <Icon name="i-lucide-hourglass" class="mt-0.5 size-4 shrink-0 text-muted" />
             <div class="space-y-1">
               <p class="text-sm">
-                任务预留 <strong class="tabular-nums">{{ formatAiPoints(points.account.value.reservedMicroPoints) }}</strong> 点
+                任务预留 <AppCountUp :value="points.account.value.reservedMicroPoints" :format="formatAiPoints" class="font-bold" /> 点
               </p>
               <p class="text-xs text-muted">
                 {{ points.account.value.activeReservationCount > 0 ? `${points.account.value.activeReservationCount} 个任务进行中，预留点数暂不可使用` : '当前没有进行中的 AI 任务' }}
@@ -71,23 +73,25 @@ onMounted(() => points.refresh())
               <dt class="text-xs text-muted">
                 累计获得
               </dt><dd class="mt-1 text-lg font-semibold tabular-nums">
-                {{ formatAiPoints(points.account.value.lifetimeGrantedMicroPoints) }} <span class="text-xs font-normal text-muted">点</span>
+                <AppCountUp :value="points.account.value.lifetimeGrantedMicroPoints" :format="formatAiPoints" /> <span class="text-xs font-normal text-muted">点</span>
               </dd>
             </div>
             <div>
               <dt class="text-xs text-muted">
                 累计使用
               </dt><dd class="mt-1 text-lg font-semibold tabular-nums">
-                {{ formatAiPoints(points.account.value.lifetimeChargedMicroPoints) }} <span class="text-xs font-normal text-muted">点</span>
+                <AppCountUp :value="points.account.value.lifetimeChargedMicroPoints" :format="formatAiPoints" /> <span class="text-xs font-normal text-muted">点</span>
               </dd>
             </div>
           </dl>
         </section>
 
-        <WalletAiPointExchange id="ai-point-exchange" class="min-w-0 scroll-mt-24 lg:col-span-3" :available-micro-points="points.account.value.availableMicroPoints" @exchanged="handleExchanged" />
+        <WalletAiPointExchange id="ai-point-exchange" class="ylf-rise min-w-0 scroll-mt-24 lg:col-span-3" style="--i: 1" :available-micro-points="points.account.value.availableMicroPoints" @exchanged="handleExchanged" />
       </div>
 
       <WalletAiPointTransactions
+        class="ylf-rise"
+        style="--i: 2"
         :transactions="points.transactions.value"
         :loading="points.loading.value"
         :loading-more="points.loadingMore.value"
@@ -126,9 +130,41 @@ onMounted(() => points.refresh())
   border-top: 1px solid var(--ylf-c-border);
   border-bottom: 1px solid var(--ylf-c-border);
 }
+.balance-number {
+  display: inline-block;
+}
+.ai-wallet-alert-cloud {
+  color: var(--ui-error);
+  background: color-mix(in srgb, var(--ui-error) 10%, var(--ylf-surface));
+}
+/* 星光图标：隔几秒闪一下，像灵感一闪 */
+.balance-sparkle {
+  animation: ai-wallet-twinkle 4.8s var(--ylf-ease-standard) 1s infinite;
+}
+@keyframes ai-wallet-twinkle {
+  0%,
+  78%,
+  100% {
+    scale: 1;
+    rotate: 0deg;
+  }
+  86% {
+    scale: 1.2;
+    rotate: 14deg;
+  }
+  93% {
+    scale: 0.95;
+    rotate: -4deg;
+  }
+}
 @media (max-width: 639px) {
   .balance-panel {
     padding: var(--ylf-space-4);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .balance-sparkle {
+    animation: none;
   }
 }
 </style>

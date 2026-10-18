@@ -84,15 +84,24 @@ function transactionAmountLabel(transaction: AiPointTransaction): string {
     </div>
 
     <div v-if="props.transactions.length === 0 && !props.loading" class="ylf-empty-state rounded-2xl py-12 text-center text-muted">
-      <Icon name="i-lucide-receipt-text" class="mx-auto mb-2 size-8 opacity-60" />
+      <span class="ylf-empty-cloud ylf-bob" aria-hidden="true">
+        <Icon name="i-lucide-receipt-text" class="size-6" />
+      </span>
       <p>暂无 AI 点数记录</p>
       <p class="mt-1 text-xs">
         兑换点数或开始 AI 创作后，记录会显示在这里。
       </p>
     </div>
 
+    <WalletRowsSkeleton v-else-if="props.transactions.length === 0" label="正在加载 AI 点数明细" />
+
     <div v-else class="ylf-surface divide-y divide-default overflow-hidden rounded-2xl">
-      <div v-for="transaction in props.transactions" :key="transaction.id" class="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-elevated/60">
+      <div
+        v-for="(transaction, i) in props.transactions"
+        :key="transaction.id"
+        class="ylf-rise flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-elevated/60"
+        :style="{ '--i': Math.min(i % 20, 8) * 0.5 }"
+      >
         <div class="flex min-w-0 items-center gap-3">
           <span class="flex size-9 shrink-0 items-center justify-center rounded-xl" :class="transactionAmount(transaction) >= 0 ? 'bg-success/12 text-success' : 'bg-elevated text-dimmed'">
             <Icon :name="transactionAmount(transaction) >= 0 ? 'i-lucide-arrow-down-left' : 'i-lucide-arrow-up-right'" class="size-4" />

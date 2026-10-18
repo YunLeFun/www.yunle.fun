@@ -874,6 +874,20 @@ body {
   animation: ylf-bob 5s ease-in-out infinite;
 }
 
+/* 空状态小云：圆形晴空底托 + 图标，配合 .ylf-bob 轻飘。 */
+.ylf-empty-cloud {
+  display: inline-flex;
+  width: 3rem;
+  height: 3rem;
+  margin-bottom: 0.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  color: var(--ui-primary);
+  background: color-mix(in srgb, var(--ui-primary) 10%, var(--ylf-surface));
+  box-shadow: 0 10px 24px -16px color-mix(in srgb, var(--ui-primary) 70%, transparent);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ylf-rise,
   .ylf-shimmer,

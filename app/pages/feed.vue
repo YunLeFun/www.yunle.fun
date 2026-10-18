@@ -48,16 +48,30 @@ function formatTime(ts: number) {
 <template>
   <AppContainer class="py-8 sm:py-10">
     <div class="mx-auto max-w-2xl space-y-5">
-      <h1 class="ylf-dreamy-display text-2xl text-highlighted">
-        关注动态
-      </h1>
+      <SubpageHero title="关注动态" description="你关注的创作者最近发布与更新的应用" />
 
-      <div v-if="!loaded && loading" class="flex justify-center py-20">
-        <Icon name="i-lucide-loader-2" class="animate-spin text-3xl text-muted" />
+      <!-- 首次加载：与动态卡片同形的晴空骨架 -->
+      <div v-if="!loaded && loading" class="space-y-3" aria-busy="true" aria-label="正在加载关注动态">
+        <div v-for="n in 3" :key="n" class="ylf-card rounded-3xl p-5">
+          <div class="mb-3 flex items-center gap-2.5">
+            <div class="ylf-shimmer size-8 shrink-0 rounded-full" />
+            <div class="ylf-shimmer h-3.5 w-24 rounded-full" />
+            <div class="ylf-shimmer h-3 w-20 rounded-full" />
+          </div>
+          <div class="flex items-center gap-3 rounded-2xl bg-elevated/40 p-3">
+            <div class="ylf-shimmer size-11 shrink-0 rounded-xl" />
+            <div class="flex-1 space-y-2">
+              <div class="ylf-shimmer h-3.5 w-2/5 rounded-full" />
+              <div class="ylf-shimmer h-3 w-3/4 rounded-full" />
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div v-else-if="items.length === 0" class="ylf-empty-state rounded-3xl px-4 py-16 text-center">
-        <Icon name="i-lucide-rss" class="mb-4 text-5xl text-muted" />
+      <div v-else-if="items.length === 0" class="ylf-empty-state ylf-rise rounded-3xl px-4 py-16 text-center" style="--i: 1">
+        <span class="feed-empty-cloud ylf-empty-cloud ylf-bob" aria-hidden="true">
+          <Icon name="i-lucide-rss" class="size-7" />
+        </span>
         <p class="mb-2 text-lg text-muted">
           还没有动态
         </p>
@@ -68,10 +82,15 @@ function formatTime(ts: number) {
       </div>
 
       <div v-else class="space-y-3">
-        <article v-for="item in items" :key="item.appId" class="ylf-card rounded-3xl p-5">
+        <article
+          v-for="(item, i) in items"
+          :key="item.appId"
+          class="ylf-card ylf-rise rounded-3xl p-5"
+          :style="{ '--i': 1 + Math.min(i % 20, 8) * 0.6 }"
+        >
           <NuxtLink
             :to="item.owner.login ? `/u/${item.owner.login}` : `/u/${item.owner.userId}`"
-            class="mb-3 flex items-center gap-2.5"
+            class="feed-owner group/owner mb-3 flex min-w-0 items-center gap-2.5"
           >
             <MemberAvatar
               :src="item.owner.avatar"
@@ -79,15 +98,15 @@ function formatTime(ts: number) {
               :is-member="item.owner.isMember"
               size="sm"
             />
-            <span class="text-sm font-medium text-highlighted">{{ displayUserName(item.owner.nickname) }}</span>
-            <span class="text-xs text-muted">发布了应用 · {{ formatTime(item.updatedAt) }}</span>
+            <span class="truncate text-sm font-medium text-highlighted transition-colors group-hover/owner:text-primary">{{ displayUserName(item.owner.nickname) }}</span>
+            <span class="shrink-0 text-xs text-muted">发布了应用 · {{ formatTime(item.updatedAt) }}</span>
           </NuxtLink>
 
           <NuxtLink
             :to="getAppDetailPath({ slug: item.slug, ownerLogin: item.owner.login || undefined })"
-            class="group flex items-center gap-3 rounded-2xl bg-elevated/40 p-3 transition-colors hover:bg-elevated/70"
+            class="feed-app ylf-press group flex items-center gap-3 rounded-2xl bg-elevated/40 p-3 hover:bg-elevated/70"
           >
-            <div class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-elevated">
+            <div class="feed-app__icon flex size-11 shrink-0 items-center justify-center rounded-xl bg-elevated">
               <img v-if="item.icon" :src="item.icon" :alt="item.name" class="size-7 rounded">
               <Icon v-else name="i-lucide-box" class="text-lg text-muted" />
             </div>
@@ -96,7 +115,7 @@ function formatTime(ts: number) {
               <span v-if="item.description" class="line-clamp-1 text-sm text-muted">{{ item.description }}</span>
               <span v-else class="font-mono text-xs text-muted">{{ item.slug }}</span>
             </div>
-            <Icon name="i-lucide-chevron-right" class="shrink-0 text-muted" />
+            <Icon name="i-lucide-chevron-right" class="feed-app__chevron shrink-0 text-muted" />
           </NuxtLink>
         </article>
 
@@ -107,3 +126,42 @@ function formatTime(ts: number) {
     </div>
   </AppContainer>
 </template>
+
+<style scoped>
+.feed-empty-cloud {
+  width: 3.5rem;
+  height: 3.5rem;
+  margin-bottom: 1rem;
+}
+
+/* 应用卡：悬停时图标像云一样轻轻弹起、箭头向前探，按下由 .ylf-press 回弹。 */
+.feed-app {
+  transition:
+    background-color var(--ylf-duration-fast) var(--ylf-ease-standard),
+    scale var(--ylf-duration-slow) var(--ylf-ease-spring);
+}
+
+.feed-app:active {
+  transition-duration: var(--ylf-duration-fast), var(--ylf-duration-press);
+}
+
+.feed-app__icon,
+.feed-app__chevron {
+  transition: translate var(--ylf-duration-slow) var(--ylf-ease-spring);
+}
+
+.feed-app:hover .feed-app__icon {
+  translate: 0 -3px;
+}
+
+.feed-app:hover .feed-app__chevron {
+  translate: 3px 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .feed-app:hover .feed-app__icon,
+  .feed-app:hover .feed-app__chevron {
+    translate: none;
+  }
+}
+</style>

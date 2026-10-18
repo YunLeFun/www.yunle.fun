@@ -1,13 +1,11 @@
 <script setup lang="ts">
 import {
-  ArrowLeftIcon,
   EyeOffIcon,
   SettingsIcon,
   ShieldIcon,
   UserIcon,
 } from '@lucide/vue'
 import { TabsIndicator } from 'reka-ui'
-import { Button } from '@/components/ui/button'
 import {
   Tabs,
   TabsContent,
@@ -104,26 +102,11 @@ function clearProfileEditRequest() {
       :class="editProfileRequested ? 'max-w-4xl' : 'max-w-2xl'"
     >
       <!-- 页面标题：与个人中心同款的晴空横幅，缩成一条 -->
-      <SkyHero clouds="mini" class="ylf-rise">
-        <div class="flex items-center gap-3 p-4 sm:gap-4 sm:p-5">
-          <Button
-            as-child
-            variant="ghost"
-            size="icon-lg"
-            class="settings-back ylf-glass-btn shrink-0 rounded-full"
-          >
-            <NuxtLink to="/profile" aria-label="返回个人中心">
-              <ArrowLeftIcon />
-            </NuxtLink>
-          </Button>
-          <div class="min-w-0 flex-1 text-white">
-            <h1 class="ylf-hero-shadow truncate text-2xl font-semibold tracking-tight sm:text-3xl">
-              {{ editProfileRequested ? '编辑资料' : '设置' }}
-            </h1>
-            <p class="ylf-hero-shadow mt-0.5 line-clamp-2 text-sm leading-6 text-white/85">
-              {{ editProfileRequested ? '调整其他人看到的头像、昵称和个人介绍' : '管理个人资料、隐私和账户安全' }}
-            </p>
-          </div>
+      <SubpageHero
+        :title="editProfileRequested ? '编辑资料' : '设置'"
+        :description="editProfileRequested ? '调整其他人看到的头像、昵称和个人介绍' : '管理个人资料、隐私和账户安全'"
+      >
+        <template #trailing>
           <MemberAvatar
             :src="user.avatar"
             :alt="displayName"
@@ -132,8 +115,8 @@ function clearProfileEditRequest() {
             ring-class="ring-white/60"
             class="max-sm:hidden"
           />
-        </div>
-      </SkyHero>
+        </template>
+      </SubpageHero>
 
       <SettingsProfileTab
         v-if="editProfileRequested"

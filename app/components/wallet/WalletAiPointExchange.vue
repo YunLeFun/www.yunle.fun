@@ -85,13 +85,13 @@ onMounted(() => {
       </div>
       <span class="exchange-direction" aria-label="云币兑换 AI 点数">
         <span class="asset-mark asset-mark-coin"><Icon name="i-lucide-coins" class="size-4" /></span>
-        <Icon name="i-lucide-arrow-right" class="size-4 text-muted" />
+        <Icon name="i-lucide-arrow-right" class="exchange-flow size-4 text-muted" />
         <span class="asset-mark asset-mark-points"><Icon name="i-lucide-sparkles" class="size-4" /></span>
       </span>
     </div>
 
-    <div v-if="success" class="exchange-success mt-5 flex items-start gap-3 p-4" role="status">
-      <Icon name="i-lucide-circle-check" class="mt-0.5 size-5 shrink-0" />
+    <div v-if="success" class="exchange-success ylf-rise mt-5 flex items-start gap-3 p-4" role="status">
+      <Icon name="i-lucide-circle-check" class="exchange-success__check ylf-squish mt-0.5 size-5 shrink-0" />
       <div>
         <p class="font-semibold">
           {{ formatAiPoints(success.creditedMicroPoints) }} AI 点数已到账
@@ -103,9 +103,9 @@ onMounted(() => {
     </div>
 
     <TestAccountNotice v-if="exchange.restricted.value" feature="ai-point-exchange" class="mt-6" />
-    <div v-else-if="exchange.loading.value && !policy" class="mt-6 space-y-3" aria-label="正在加载兑换规则">
-      <AppSkeleton class="h-24 rounded-xl" />
-      <AppSkeleton class="h-11 rounded-xl" />
+    <div v-else-if="exchange.loading.value && !policy" class="mt-6 space-y-3" aria-busy="true" aria-label="正在加载兑换规则">
+      <div class="ylf-shimmer h-24 rounded-xl" />
+      <div class="ylf-shimmer h-11 rounded-xl" />
     </div>
     <form v-else-if="policy?.enabled" class="mt-6 space-y-4" @submit.prevent="review">
       <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
@@ -138,7 +138,8 @@ onMounted(() => {
         <Icon name="i-lucide-arrow-right" class="mt-4 size-5 text-muted" aria-hidden="true" />
         <div class="min-w-0 space-y-2" aria-live="polite" aria-atomic="true">
           <output for="exchange-coin" class="exchange-output flex min-h-14 flex-wrap items-baseline gap-x-2 px-4 py-3">
-            <strong class="text-2xl leading-none tabular-nums">{{ previewPoints ? formatAiPoints(previewPoints) : '—' }}</strong>
+            <AppCountUp v-if="previewPoints" :value="previewPoints" :format="formatAiPoints" :duration="520" class="text-2xl font-bold leading-none" />
+            <strong v-else class="text-2xl leading-none">—</strong>
             <span class="text-xs">AI 点数</span>
           </output>
           <p class="text-xs text-muted">
@@ -305,6 +306,26 @@ onMounted(() => {
   border-radius: var(--ylf-radius);
   background: var(--ylf-status-success-soft);
   color: var(--ylf-status-success-text);
+}
+/* 兑换方向箭头：云币缓缓流向点数 */
+.exchange-flow {
+  animation: exchange-flow 2.4s var(--ylf-ease-standard) infinite;
+}
+@keyframes exchange-flow {
+  0%,
+  100% {
+    translate: -2px 0;
+    opacity: 0.6;
+  }
+  50% {
+    translate: 2px 0;
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .exchange-flow {
+    animation: none;
+  }
 }
 @media (max-width: 639px) {
   .exchange-panel {

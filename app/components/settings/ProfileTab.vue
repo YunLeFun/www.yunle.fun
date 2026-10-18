@@ -5,6 +5,7 @@ import {
   AtSignIcon,
   CameraIcon,
   CheckIcon,
+  EyeIcon,
   EyeOffIcon,
   IdCardIcon,
   ImageUpIcon,
@@ -15,6 +16,7 @@ import {
   UserRoundIcon,
   VenusIcon,
 } from '@lucide/vue'
+import YlfCloud from '@yunlefun/vue/components/YlfCloud.vue'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -202,6 +204,7 @@ const usernameError = ref('')
 
 // 系统临时用户名允许用户自行替换一次；用户确认后的正式用户名不可修改。
 const hasUsername = computed(() => !!user.value?.login)
+const publicProfilePath = computed(() => getPublicProfilePath(user.value, null))
 const hasTemporaryUsername = computed(() => isTemporaryUsername(user.value?.login))
 const canChangeUsername = computed(() => !hasUsername.value || hasTemporaryUsername.value)
 
@@ -535,7 +538,7 @@ async function save() {
               </span>
               <span class="flex shrink-0 items-center gap-1 text-sm font-medium text-primary">
                 管理
-                <ArrowRightIcon class="transition-transform duration-150 group-hover:translate-x-0.5" />
+                <ArrowRightIcon class="profile-security-arrow" />
               </span>
             </NuxtLink>
           </FieldGroup>
@@ -589,20 +592,34 @@ async function save() {
       </header>
 
       <div class="px-5 py-6 sm:px-7">
-        <div class="flex items-center gap-4">
-          <MemberAvatar
-            :src="user?.avatar || undefined"
-            :alt="user?.nickname || user?.login || 'User'"
-            size="3xl"
-            ring-class="ring-(color:--ylf-surface)"
-          />
-          <div class="min-w-0">
-            <p class="truncate font-heading font-semibold text-foreground">
-              {{ user?.nickname || '未设置昵称' }}
-            </p>
-            <p v-if="user?.login" class="mt-1 truncate font-mono text-sm text-muted-foreground">
-              @{{ user.login }}
-            </p>
+        <!-- 名片预览：别人在你的公开主页上看到的样子 -->
+        <div class="profile-card-preview">
+          <span class="profile-card-preview__sky" aria-hidden="true" />
+          <YlfCloud shape="puff" class="profile-card-preview__cloud" aria-hidden="true" />
+          <div class="relative flex items-center gap-4">
+            <MemberAvatar
+              :src="user?.avatar || undefined"
+              :alt="user?.nickname || user?.login || 'User'"
+              size="3xl"
+              ring-class="ring-(color:--ylf-surface)"
+            />
+            <div class="min-w-0 flex-1">
+              <p class="truncate font-heading text-lg font-semibold text-foreground">
+                {{ user?.nickname || '未设置昵称' }}
+              </p>
+              <p v-if="user?.login" class="mt-0.5 truncate font-mono text-sm text-muted-foreground">
+                @{{ user.login }}
+              </p>
+              <NuxtLink
+                v-if="publicProfilePath"
+                :to="publicProfilePath"
+                class="profile-card-preview__link mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary"
+              >
+                <EyeIcon class="size-3.5" aria-hidden="true" />
+                以访客身份查看主页
+                <ArrowRightIcon class="profile-card-preview__arrow size-3.5" aria-hidden="true" />
+              </NuxtLink>
+            </div>
           </div>
         </div>
 
@@ -654,7 +671,7 @@ async function save() {
           class="ylf-profile-editor__secondary-row group mt-5 flex min-h-14 items-center justify-between gap-3 rounded-xl border px-4 py-3 transition-colors duration-150 hover:bg-muted/60"
         >
           <span class="flex min-w-0 items-center gap-3">
-            <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+            <span class="ylf-dopa-tile profile-security-icon flex size-9 shrink-0 items-center justify-center rounded-lg" style="--tile: var(--ylf-dopa-green)">
               <ShieldCheckIcon />
             </span>
             <span class="min-w-0">
@@ -664,7 +681,7 @@ async function save() {
           </span>
           <span class="flex shrink-0 items-center gap-1 text-sm font-medium text-primary">
             管理
-            <ArrowRightIcon class="transition-transform duration-150 group-hover:translate-x-0.5" />
+            <ArrowRightIcon class="profile-security-arrow" />
           </span>
         </NuxtLink>
       </div>
@@ -773,7 +790,57 @@ async function save() {
     color-mix(in srgb, var(--muted) 72%, var(--card));
 }
 
+.profile-card-preview {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--primary) 16%, var(--border));
+  border-radius: 1.25rem;
+  padding: 1.25rem;
+}
+
+.profile-card-preview__sky {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background:
+    radial-gradient(120% 140% at 100% 0%, color-mix(in srgb, var(--primary) 16%, transparent), transparent 60%),
+    linear-gradient(160deg, color-mix(in srgb, var(--primary) 6%, var(--card)), var(--card));
+}
+
+.profile-card-preview__cloud {
+  position: absolute;
+  z-index: -1;
+  top: -1.25rem;
+  right: -1.5rem;
+  width: 9rem;
+  opacity: 0.75;
+  animation: ylf-bob 6s ease-in-out infinite;
+}
+
+.profile-card-preview__arrow,
+.profile-security-arrow {
+  transition: translate var(--ylf-duration-slow) var(--ylf-ease-spring);
+}
+
+.profile-card-preview__link:hover .profile-card-preview__arrow,
+.ylf-profile-editor__secondary-row:hover .profile-security-arrow {
+  translate: 3px 0;
+}
+
+.profile-security-icon {
+  transition: rotate var(--ylf-duration-slow) var(--ylf-ease-spring);
+}
+
+.ylf-profile-editor__secondary-row:hover .profile-security-icon {
+  rotate: -10deg;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .profile-card-preview__cloud {
+    animation: none;
+  }
+
   .ylf-profile-editor * {
     scroll-behavior: auto;
     transition-duration: 0.01ms !important;

@@ -9,6 +9,8 @@ const props = withDefaults(defineProps<{
   value: number
   /** 滚动时长（毫秒） */
   duration?: number
+  /** 自定义格式化（如价格、小数点数）；默认取整并按中文千分位显示 */
+  format?: (value: number) => string
 }>(), {
   duration: 900,
 })
@@ -20,12 +22,15 @@ const animated = useTransition(source, {
   easing: [0.22, 1, 0.36, 1],
 })
 
-const display = computed(() => Math.round(animated.value).toLocaleString('zh-CN'))
+function formatValue(value: number) {
+  return props.format ? props.format(value) : Math.round(value).toLocaleString('zh-CN')
+}
+const display = computed(() => formatValue(animated.value))
 </script>
 
 <template>
   <span class="tabular-nums">
     <span aria-hidden="true">{{ display }}</span>
-    <span class="sr-only">{{ value.toLocaleString('zh-CN') }}</span>
+    <span class="sr-only">{{ formatValue(value) }}</span>
   </span>
 </template>

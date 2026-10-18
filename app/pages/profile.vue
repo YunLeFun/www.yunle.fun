@@ -160,6 +160,7 @@ function workshopHref(surface: WorkshopSurface) {
             <div class="flex items-center gap-4 sm:gap-5">
               <div
                 class="profile-avatar shrink-0"
+                data-hero-interactive
                 :class="[{ 'ylf-squish': avatarPoked }, isMember ? 'profile-avatar--member' : '']"
                 @click="pokeAvatar"
                 @animationend.self="avatarPoked = false"
@@ -323,7 +324,7 @@ function workshopHref(surface: WorkshopSurface) {
           </div>
         </div>
         <div v-else-if="homeApps.length === 0" class="ylf-empty-state rounded-2xl px-4 py-8 text-center">
-          <span class="profile-empty-cloud ylf-bob" aria-hidden="true">
+          <span class="ylf-empty-cloud ylf-bob" aria-hidden="true">
             <Icon name="i-lucide-cloud" class="size-6" />
           </span>
           <p class="mb-3 text-sm text-muted">
@@ -369,7 +370,7 @@ function workshopHref(surface: WorkshopSurface) {
 
         <div v-if="appsLoading" class="ylf-shimmer h-28 rounded-[1.1rem]" aria-busy="true" aria-label="正在加载私人工坊" />
         <div v-else-if="workshopSurfaces.length === 0" class="ylf-empty-state rounded-2xl px-4 py-8 text-center">
-          <span class="profile-empty-cloud ylf-bob" aria-hidden="true">
+          <span class="ylf-empty-cloud ylf-bob" aria-hidden="true">
             <Icon name="i-lucide-door-open" class="size-6" />
           </span>
           <p class="text-sm text-muted">
@@ -635,19 +636,6 @@ function workshopHref(surface: WorkshopSurface) {
   color: var(--tile, var(--ui-primary));
   opacity: 1;
   translate: 3px 0;
-}
-
-.profile-empty-cloud {
-  display: inline-flex;
-  width: 3rem;
-  height: 3rem;
-  margin-bottom: 0.5rem;
-  align-items: center;
-  justify-content: center;
-  border-radius: 9999px;
-  color: var(--ui-primary);
-  background: color-mix(in srgb, var(--ui-primary) 10%, var(--ylf-surface));
-  box-shadow: 0 10px 24px -16px color-mix(in srgb, var(--ui-primary) 70%, transparent);
 }
 
 @media (prefers-reduced-motion: reduce) {

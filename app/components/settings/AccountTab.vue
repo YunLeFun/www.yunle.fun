@@ -163,12 +163,21 @@ onBeforeUnmount(() => {
     clearInterval(clockTimer)
 })
 
+// 复制成功后按钮原地变成对勾，比全局提示更贴近操作
+const uidCopied = ref(false)
+let uidCopiedTimer: ReturnType<typeof setTimeout> | undefined
+onBeforeUnmount(() => clearTimeout(uidCopiedTimer))
+
 async function copyUid() {
   if (!user.value?.id)
     return
   try {
     await navigator.clipboard.writeText(user.value.id)
-    toast.add({ title: '已复制用户 ID', icon: 'i-lucide-check', color: 'success' })
+    uidCopied.value = true
+    clearTimeout(uidCopiedTimer)
+    uidCopiedTimer = setTimeout(() => {
+      uidCopied.value = false
+    }, 1600)
   }
   catch {
     toast.add({ title: '复制失败', color: 'error' })
@@ -260,9 +269,20 @@ async function handleLogout() {
             <span class="shrink-0 text-sm text-muted">用户 ID</span>
             <div class="flex min-w-0 items-center gap-1.5">
               <span class="truncate font-mono text-sm text-muted">{{ user?.id }}</span>
-              <Button variant="ghost" size="icon-xs" aria-label="复制用户 ID" class="shrink-0" @click="copyUid">
-                <Icon name="i-lucide-copy" />
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                :aria-label="uidCopied ? '已复制用户 ID' : '复制用户 ID'"
+                class="shrink-0"
+                :class="uidCopied ? 'text-success' : ''"
+                @click="copyUid"
+              >
+                <Transition name="uid-copy" mode="out-in">
+                  <Icon v-if="uidCopied" key="done" name="i-lucide-check" />
+                  <Icon v-else key="copy" name="i-lucide-copy" />
+                </Transition>
               </Button>
+              <span class="sr-only" role="status">{{ uidCopied ? '已复制用户 ID' : '' }}</span>
             </div>
           </div>
 
@@ -476,3 +496,24 @@ async function handleLogout() {
     </AlertDialog>
   </div>
 </template>
+
+<style scoped>
+.uid-copy-enter-active {
+  transition:
+    opacity var(--ylf-duration-fast) var(--ylf-ease-standard),
+    scale var(--ylf-duration-slow) var(--ylf-ease-spring);
+}
+
+.uid-copy-leave-active {
+  transition: opacity var(--ylf-duration-exit) var(--ylf-ease-standard);
+}
+
+.uid-copy-enter-from {
+  opacity: 0;
+  scale: 0.4;
+}
+
+.uid-copy-leave-to {
+  opacity: 0;
+}
+</style>

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { OAuthIdentityLike } from '~/utils/authProviders'
 import { ShieldCheckIcon } from '@lucide/vue'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -52,6 +51,16 @@ const configuredCredentialCount = computed(() =>
   + Number(!!user.value?.phone)
   + Number(!!user.value?.hasPassword),
 )
+
+// 凭证越多越安心：0–1 需加强，2 还不错，3 很安心
+const securityLevel = computed(() => {
+  const count = configuredCredentialCount.value
+  if (count >= 3)
+    return { key: 'great', label: '很安心' }
+  if (count === 2)
+    return { key: 'good', label: '还不错' }
+  return { key: 'weak', label: '需加强' }
+})
 
 const isGitHubBound = computed(() =>
   hasOAuthProvider(allBoundProviders.value, GITHUB_PROVIDER_ID),
@@ -169,9 +178,26 @@ onMounted(async () => {
               管理可用于登录和找回账号的验证方式
             </CardDescription>
           </div>
-          <Badge variant="outline" class="shrink-0">
-            {{ configuredCredentialCount }}/3 已配置
-          </Badge>
+          <div
+            class="security-meter shrink-0"
+            :data-level="securityLevel.key"
+            role="img"
+            :aria-label="`已配置 ${configuredCredentialCount}/3 种登录凭证，${securityLevel.label}`"
+          >
+            <svg viewBox="0 0 36 36" aria-hidden="true">
+              <circle class="security-meter__track" cx="18" cy="18" r="15" pathLength="100" />
+              <circle
+                class="security-meter__value"
+                cx="18"
+                cy="18"
+                r="15"
+                pathLength="100"
+                :style="{ '--p': configuredCredentialCount / 3 }"
+              />
+            </svg>
+            <span class="security-meter__count" aria-hidden="true">{{ configuredCredentialCount }}/3</span>
+            <span class="security-meter__label" aria-hidden="true">{{ securityLevel.label }}</span>
+          </div>
         </div>
       </CardHeader>
 
@@ -270,6 +296,81 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.security-meter {
+  --meter: var(--ylf-status-warning-text);
+
+  position: relative;
+  display: grid;
+  width: 3.25rem;
+  justify-items: center;
+  gap: 0.125rem;
+}
+
+.security-meter[data-level='good'] {
+  --meter: var(--primary);
+}
+
+.security-meter[data-level='great'] {
+  --meter: var(--ylf-status-success-text);
+}
+
+.security-meter svg {
+  width: 2.75rem;
+  height: 2.75rem;
+  rotate: -90deg;
+}
+
+.security-meter circle {
+  fill: none;
+  stroke-width: 3.5;
+  stroke-linecap: round;
+}
+
+.security-meter__track {
+  stroke: color-mix(in srgb, var(--meter) 14%, var(--muted));
+}
+
+/* 进度环从零画到当前凭证数，颜色随安全程度从暖黄过渡到晴空蓝、再到草地绿。 */
+.security-meter__value {
+  stroke: var(--meter);
+  stroke-dasharray: 100;
+  stroke-dashoffset: calc(100 - var(--p) * 100);
+  transition:
+    stroke-dashoffset var(--ylf-duration-slow) var(--ylf-ease-spring),
+    stroke var(--ylf-duration-normal) var(--ylf-ease-standard);
+  animation: security-meter-draw 1100ms var(--ylf-ease-spring) 200ms backwards;
+}
+
+@keyframes security-meter-draw {
+  from {
+    stroke-dashoffset: 100;
+  }
+}
+
+.security-meter__count {
+  position: absolute;
+  top: 1.375rem;
+  left: 50%;
+  translate: -50% -50%;
+  color: var(--foreground);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.security-meter__label {
+  color: var(--meter);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .security-meter__value {
+    animation: none;
+  }
+}
+
 .security-credentials {
   position: relative;
   gap: 0;
