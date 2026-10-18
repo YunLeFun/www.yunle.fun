@@ -14,7 +14,8 @@ const callAccountApi = data => app.callFunction({ name: 'account-api', data }).t
 
 function callerUid() {
   try {
-    return app.auth().getUserInfo()?.uid || ''
+    const info = app.auth().getUserInfo()
+    return info?.isAnonymous === true ? '' : info?.uid || ''
   }
   catch {
     return ''
@@ -50,7 +51,7 @@ exports.main = async (event) => {
     if (payload.transactionId !== transactionId)
       throw new Error('Apple 返回交易与请求不一致')
     assertGrantablePayload(payload, { bundleId: settings.bundleId })
-    return grantIapTransaction(db, { userId: uid, payload, environment, now: Date.now() })
+    return { ...await grantIapTransaction(db, { userId: uid, payload, environment, now: Date.now() }), ledgerEnvironment: 'Sandbox' }
   }
   if (event?.action === 'verifyPurchase')
     return verify(event.transactionId)
@@ -70,7 +71,7 @@ exports.main = async (event) => {
         results.push({ transactionId, ok: false, error: 'Sandbox 交易校验失败' })
       }
     }
-    return { results }
+    return { results, ledgerEnvironment: 'Sandbox' }
   }
   throw new Error('未知 Sandbox action')
 }

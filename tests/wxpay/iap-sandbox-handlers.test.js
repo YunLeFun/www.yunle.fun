@@ -43,7 +43,7 @@ function collection(target, name) {
 const cloudbase = {
   SYMBOL_CURRENT_ENV: Symbol.for('test-env'),
   init: () => ({
-    auth: () => ({ getUserInfo: () => ({ uid: h.uid }) }),
+    auth: () => ({ getUserInfo: () => ({ uid: h.uid, isAnonymous: h.isAnonymous }) }),
     callFunction,
     database: () => ({
       collection: name => collection(h.db, name),
@@ -95,7 +95,7 @@ describe('sandbox function entry points', () => {
     vi.stubEnv('APPSTORE_BUNDLE_ID', 'fun.yunle.apps')
     vi.stubEnv('ACCOUNT_API_INTERNAL_TOKEN', 'test-internal-token')
     vi.stubEnv('IAP_SANDBOX_TEST_UIDS', '["alice"]')
-    Object.assign(h, { db: makeFakeDb(), uid: 'alice', environment: 'Production', notificationEnvironment: 'Sandbox', payload: {}, accesses: [], accountAccess: { restricted: false, state: 'active' } })
+    Object.assign(h, { db: makeFakeDb(), uid: 'alice', isAnonymous: false, environment: 'Production', notificationEnvironment: 'Sandbox', payload: {}, accesses: [], accountAccess: { restricted: false, state: 'active' } })
     await grantIapTransaction(h.db, { userId: 'alice', payload: transaction(), environment: 'Production', now: NOW })
     h.production = structuredClone(h.db._store)
     h.environment = 'Sandbox'
@@ -107,7 +107,8 @@ describe('sandbox function entry points', () => {
   })
 
   it('verifies, deduplicates restore and refunds only the Sandbox same-ID order', async () => {
-    expect((await order({ action: 'verifyPurchase', transactionId: '20001', environment: 'Production', userId: 'bob', collection: 'orders' })).granted).toBe(true)
+    expect(await order({ action: 'verifyPurchase', transactionId: '20001', environment: 'Production', userId: 'bob', collection: 'orders' }))
+      .toMatchObject({ granted: true, ledgerEnvironment: 'Sandbox' })
     expect(callFunction).toHaveBeenCalledWith({ name: 'account-api', data: { action: 'getAccountAccessForUser', serviceToken: 'test-internal-token', userId: 'alice' } })
     expect((await order({ action: 'restore', transactionIds: ['20001', '20001'] })).results)
       .toEqual([{ transactionId: '20001', ok: true, granted: false }])
@@ -175,8 +176,16 @@ describe('sandbox function entry points', () => {
   })
 
   it('empty restore checks trusted account and config without a purchase or database operation', async () => {
-    expect(await order({ action: 'restore', transactionIds: [] })).toEqual({ results: [] })
+    expect(await order({ action: 'restore', transactionIds: [] })).toEqual({ results: [], ledgerEnvironment: 'Sandbox' })
     expect(callFunction).toHaveBeenCalledOnce()
+    expect(service.getVerifiedTransaction).not.toHaveBeenCalled()
+    expect(h.accesses).toHaveLength(0)
+  })
+
+  it('rejects an anonymous session even when its UID was accidentally allowlisted', async () => {
+    h.isAnonymous = true
+    await expect(order({ action: 'verifyPurchase', transactionId: '20001' })).rejects.toThrow('账号')
+    expect(callFunction).not.toHaveBeenCalled()
     expect(service.getVerifiedTransaction).not.toHaveBeenCalled()
     expect(h.accesses).toHaveLength(0)
   })
