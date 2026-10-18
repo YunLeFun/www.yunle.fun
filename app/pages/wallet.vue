@@ -262,6 +262,13 @@ const memberDaysLeft = computed(() => {
     return null
   return Math.max(0, Math.ceil((expireAt - Date.now()) / (24 * 60 * 60 * 1000)))
 })
+/** 剩余进度条：超过一个月按年付满格计，否则按月付 */
+const memberMeter = computed(() => {
+  const days = memberDaysLeft.value
+  if (days == null)
+    return 0
+  return Math.min(1, Math.max(0.04, days / (days > 31 ? 366 : 31)))
+})
 /** 会员即将到期（7 天内）—— 触发主动续费提醒 */
 const memberExpiringSoon = computed(() => memberDaysLeft.value != null && memberDaysLeft.value <= 7)
 
@@ -344,13 +351,18 @@ onMounted(async () => {
           </p>
         </div>
 
-        <!-- 会员状态 -->
+        <!-- 会员状态：已开通是一小片晴空 + 剩余天数，未开通是被云遮住的邀请 -->
         <div
-          class="ylf-rise flex flex-col justify-between rounded-2xl p-6"
+          class="wallet-member ylf-rise relative flex flex-col justify-between overflow-hidden rounded-2xl p-6"
           style="--i: 3"
-          :class="coin.isMember.value ? 'ylf-member-soft' : 'ylf-surface'"
+          :class="coin.isMember.value ? 'wallet-member--active' : 'ylf-surface'"
         >
-          <div class="space-y-2">
+          <CuteCloud
+            shape="long"
+            class="wallet-member__cloud pointer-events-none absolute"
+            :style="{ width: '9.5rem', right: '-1.75rem', top: coin.isMember.value ? '0.5rem' : '-0.75rem' }"
+          />
+          <div class="relative space-y-2">
             <p class="text-sm text-muted">
               云乐坊会员
             </p>
@@ -373,11 +385,23 @@ onMounted(async () => {
                 {{ memberExpiringSoon ? `${memberDaysLeft} 天后到期` : `至 ${formatExpire(coin.membership.value?.expireAt ?? null)}` }}
               </AppBadge>
             </div>
+            <div v-if="memberDaysLeft !== null" class="pt-1">
+              <div class="flex items-baseline justify-between text-xs text-muted">
+                <span>剩余晴空</span>
+                <span><b class="text-base font-semibold text-highlighted tabular-nums">{{ memberDaysLeft }}</b> 天</span>
+              </div>
+              <div class="wallet-member__meter mt-1.5" :class="{ 'is-low': memberExpiringSoon }">
+                <span :style="{ width: `${memberMeter * 100}%` }" />
+              </div>
+            </div>
             <p v-if="memberExpiringSoon" class="text-xs text-warning">
               会员即将到期，续费以免权益中断
             </p>
+            <p v-else-if="!coin.isMember.value" class="text-xs/relaxed text-muted">
+              跨应用通用、数据同步，部分功能免扣云币
+            </p>
           </div>
-          <div class="pt-4">
+          <div class="relative pt-4">
             <AppButton
               to="/pricing"
               size="sm"
@@ -761,6 +785,68 @@ onMounted(async () => {
   }
 }
 
+/* 会员卡：已开通铺一层很淡的晴空，右上一朵云 */
+.wallet-member--active {
+  background:
+    radial-gradient(80% 70% at 100% 0%, color-mix(in srgb, #7dd3fc 28%, transparent), transparent 70%),
+    linear-gradient(
+      140deg,
+      color-mix(in srgb, #2563eb 8%, var(--ylf-surface)),
+      color-mix(in srgb, #f4516a 8%, var(--ylf-surface))
+    );
+  border: 1px solid color-mix(in srgb, #38bdf8 32%, transparent);
+}
+
+.dark .wallet-member--active {
+  background:
+    radial-gradient(80% 70% at 100% 0%, color-mix(in srgb, #818cf8 24%, transparent), transparent 70%),
+    linear-gradient(
+      140deg,
+      color-mix(in srgb, #3b82f6 14%, var(--ylf-surface)),
+      color-mix(in srgb, #ec4899 12%, var(--ylf-surface))
+    );
+  border-color: color-mix(in srgb, #8b5cf6 36%, transparent);
+}
+
+.wallet-member__cloud {
+  opacity: 0.9;
+  transition: translate 900ms var(--ylf-ease-spring);
+}
+
+.wallet-member:not(.wallet-member--active) .wallet-member__cloud {
+  opacity: 0.55;
+}
+
+.wallet-member:hover .wallet-member__cloud {
+  translate: -10px 0;
+}
+
+.wallet-member__meter {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ui-primary) 12%, var(--ylf-surface));
+}
+
+.wallet-member__meter > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--ylf-gradient-brand);
+  transform-origin: left;
+  animation: wallet-meter-fill 1s var(--ylf-ease-spring) 0.4s backwards;
+}
+
+.wallet-member__meter.is-low > span {
+  background: var(--ylf-gradient-member);
+}
+
+@keyframes wallet-meter-fill {
+  from {
+    transform: scaleX(0);
+  }
+}
+
 /* 余额卡底纹硬币：慢慢飘，略带倾斜 */
 .wallet-coin-float {
   --rot: -12deg;
@@ -781,8 +867,13 @@ onMounted(async () => {
     rotate: none;
   }
 
-  .wallet-pack__badge {
+  .wallet-pack__badge,
+  .wallet-member__meter > span {
     animation: none;
+  }
+
+  .wallet-member__cloud {
+    transition: none;
   }
 }
 </style>

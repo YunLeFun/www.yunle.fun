@@ -5,11 +5,14 @@
  * 比写实的 YlfCloud 更简单、更可爱，用于个人中心等轻松场景。
  * 配色读取 --ylf-cloud-* 主题 token，浅色是白日白云，深色是黄昏的淡紫云。
  * mood="happy" 时眯成 ^ ^ 眼、腮红变深，适合被戳或悬停的瞬间。
+ * look 传入 -1~1 的方向时，眼睛朝那边看（跟随指针等）。
  */
 const props = withDefaults(defineProps<{
   shape?: 'round' | 'long' | 'small'
   face?: boolean
   mood?: 'calm' | 'happy'
+  /** 视线方向，x / y 取 -1~1 */
+  look?: { x: number, y: number }
 }>(), {
   shape: 'round',
   face: false,
@@ -51,6 +54,9 @@ const SHAPES: Record<'round' | 'long' | 'small', Silhouette> = {
 }
 
 const shapeDef = computed(() => SHAPES[props.shape])
+const gaze = computed(() => props.look
+  ? `translate(${(Math.max(-1, Math.min(1, props.look.x)) * 2.2).toFixed(2)}px, ${(Math.max(-1, Math.min(1, props.look.y)) * 1.4).toFixed(2)}px)`
+  : undefined)
 const id = `cute-cloud-${useId()}`
 </script>
 
@@ -96,7 +102,7 @@ const id = `cute-cloud-${useId()}`
     <g v-if="face" class="cute-cloud__face" :transform="`translate(${shapeDef.face.x} ${shapeDef.face.y})`">
       <ellipse class="cute-cloud__blush" cx="-14" cy="4" rx="4.5" ry="2.6" />
       <ellipse class="cute-cloud__blush" cx="14" cy="4" rx="4.5" ry="2.6" />
-      <g class="cute-cloud__eyes">
+      <g class="cute-cloud__eyes" :style="{ transform: gaze }">
         <ellipse class="cute-cloud__eye" cx="-7" cy="-1" rx="2.2" ry="2.8" />
         <ellipse class="cute-cloud__eye" cx="7" cy="-1" rx="2.2" ry="2.8" />
       </g>
@@ -165,6 +171,10 @@ const id = `cute-cloud-${useId()}`
 
 .cute-cloud__happy-eyes {
   opacity: 0;
+}
+
+.cute-cloud__eyes {
+  transition: transform 180ms var(--ylf-ease-standard);
 }
 
 .cute-cloud--happy .cute-cloud__eyes {
