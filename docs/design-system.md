@@ -197,7 +197,24 @@ Nuxt 维持最新稳定的 4.5.2；Vue 作为显式主依赖升级至 3.5.43，N
 - 站酷小薇以本地 WOFF2 字符子集加载，只用于展示标题；正文和 UI 继续使用系统字体栈。
 - 使用 `font-display: swap`，字体下载期间由苹方/宋体回退，不阻塞文字渲染。
 - 大标题用工具类 `.ylf-dreamy-display`（= `--ylf-font-dreamy` + 字重 400 + 微字距）。
-- 新增展示标题字符时，需要同步更新 `public/fonts/zcool-xiaowei-display.woff2` 子集。
+- 子集只覆盖展示字体实际渲染的字，由脚本从源码生成，测试保证不缺字（见下）。
+
+### 展示字体子集
+
+`public/fonts/zcool-xiaowei-display.woff2` 由 `scripts/subset-display-font.mjs` 生成，字符清单来自 `scripts/lib/display-font-text.mjs`：
+
+- 自动扫描 `app/` 下模板里静态 class 为 `.ylf-display` / `.ylf-dreamy-display` 的元素，以及 `AppPageHero` 调用处的 `title` / `#title` 插槽，收集静态文本、插值里的字符串字面量和同文件可静态求值的 `const` / `computed`。
+- 无法静态求值的插值（props、`v-for` 变量、接口或 YAML 数据）必须在 `DYNAMIC_TEXT` 声明可能渲染的字符；`EXTRA_CHARACTERS` 固定保留可打印 ASCII、`¥`、`，`、`—`。
+- 用 `:class` 绑定、TS 字符串或新的 `var(--ylf-font-dreamy)` 使用展示字体会直接报错，因为这些写法无法收集文案。
+
+`tests/styles/display-font.test.ts` 解析 woff2 的 cmap，任何展示文案缺字、或有未声明的动态插值都会失败；同时保持子集小于 100KB。改了展示标题后：
+
+```bash
+node scripts/subset-display-font.mjs --check
+node scripts/subset-display-font.mjs --source path/to/ZCOOLXiaoWei-Regular.ttf
+```
+
+源字体不入库，从 [google/fonts](https://github.com/google/fonts/tree/main/ofl/zcoolxiaowei) 获取（OFL，许可证见 `public/fonts/OFL.txt`）；生成依赖 fontTools 的 `pyftsubset`，未安装时脚本会用 `uvx` 临时运行。
 
 ---
 
