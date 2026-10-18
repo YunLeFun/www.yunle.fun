@@ -2,16 +2,24 @@
  * 轻量 Markdown 内容加载（替代 @nuxt/content，见 docs/nuxt-content-removal.md）。
  *
  * content/ 下的 .md 经 Vite `?raw` 导入 + `@nuxtjs/mdc` 的 parseMarkdown 解析渲染，
- * 不依赖 SQL 数据库（better-sqlite3）。内容量很小，eager 全量导入即可。
+ * 不依赖 SQL 数据库（better-sqlite3）。
+ *
+ * 内容页都是预渲染的：浏览器水合与站内跳转直接读取 payload 里解析好的 AST，不会再调用这里的加载函数。
+ * 因此 Markdown 原文与 MDC 解析器（parse5 / yaml / remark 等约 160KB gzip）都按需动态导入，
+ * 只有 payload 缺失时才会在客户端下载，不进入页面首屏 chunk。
  */
 import type { MDCParserResult } from '@nuxtjs/mdc'
-import { parseMarkdown } from '@nuxtjs/mdc/runtime'
 
-type RawMap = Record<string, string>
+type RawMap = Record<string, () => Promise<string>>
 
-const docsRaw = import.meta.glob('../../content/1.docs/**/*.md', { query: '?raw', import: 'default', eager: true }) as RawMap
-const blogRaw = import.meta.glob('../../content/3.blog/*.md', { query: '?raw', import: 'default', eager: true }) as RawMap
-const changelogRaw = import.meta.glob('../../content/4.changelog/*.md', { query: '?raw', import: 'default', eager: true }) as RawMap
+const docsRaw = import.meta.glob('../../content/1.docs/**/*.md', { query: '?raw', import: 'default' }) as RawMap
+const blogRaw = import.meta.glob('../../content/3.blog/*.md', { query: '?raw', import: 'default' }) as RawMap
+const changelogRaw = import.meta.glob('../../content/4.changelog/*.md', { query: '?raw', import: 'default' }) as RawMap
+
+async function parseMarkdown(raw: string) {
+  const mdc = await import('@nuxtjs/mdc/runtime')
+  return mdc.parseMarkdown(raw)
+}
 
 export interface MdContent {
   title?: string
@@ -78,9 +86,9 @@ function byDateDesc(a: MdContent, b: MdContent) {
 
 /** 按路由（/docs/...）取文档页 */
 export async function getDocPage(routePath: string): Promise<MdContent | null> {
-  for (const [abs, raw] of Object.entries(docsRaw)) {
+  for (const [abs, load] of Object.entries(docsRaw)) {
     if (docsRouteOf(abs) === routePath)
-      return await parseFlat(raw, { path: routePath })
+      return await parseFlat(await load(), { path: routePath })
   }
   return null
 }
@@ -98,7 +106,8 @@ function searchableText(raw: string) {
 /** 构建轻量帮助搜索索引，供 /docs 下的客户端搜索使用。 */
 export async function getDocSearchIndex(): Promise<DocSearchItem[]> {
   const items = await Promise.all(
-    Object.entries(docsRaw).map(async ([abs, raw]) => {
+    Object.entries(docsRaw).map(async ([abs, load]) => {
+      const raw = await load()
       const parsed = await parseMarkdown(raw)
       const path = docsRouteOf(abs)
       const title = String(parsed.data.title || path)
@@ -121,9 +130,9 @@ export async function getDocSearchIndex(): Promise<DocSearchItem[]> {
 
 /** 按 slug 取博客文章 */
 export async function getBlogPost(slug: string): Promise<MdContent | null> {
-  for (const [abs, raw] of Object.entries(blogRaw)) {
+  for (const [abs, load] of Object.entries(blogRaw)) {
     if (slugOf(abs) === slug)
-      return await parseFlat(raw, { path: `/blog/${slug}` })
+      return await parseFlat(await load(), { path: `/blog/${slug}` })
   }
   return null
 }
@@ -131,13 +140,13 @@ export async function getBlogPost(slug: string): Promise<MdContent | null> {
 /** 博客文章列表（按日期倒序） */
 export async function getBlogPosts(): Promise<MdContent[]> {
   const list = await Promise.all(
-    Object.entries(blogRaw).map(([abs, raw]) => parseFlat(raw, { path: `/blog/${slugOf(abs)}` })),
+    Object.entries(blogRaw).map(async ([abs, load]) => parseFlat(await load(), { path: `/blog/${slugOf(abs)}` })),
   )
   return list.sort(byDateDesc)
 }
 
 /** 更新日志版本列表（按日期倒序，含正文 body） */
 export async function getChangelogVersions(): Promise<MdContent[]> {
-  const list = await Promise.all(Object.values(changelogRaw).map(raw => parseFlat(raw)))
+  const list = await Promise.all(Object.values(changelogRaw).map(async load => parseFlat(await load())))
   return list.sort(byDateDesc)
 }

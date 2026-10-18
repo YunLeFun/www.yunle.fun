@@ -1,6 +1,6 @@
 // @vitest-environment nuxt
 import type { AppRecord } from '../../app/types/app'
-import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
+import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { flushPromises } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
@@ -12,8 +12,8 @@ const h = vi.hoisted(() => ({
   auth: {} as Record<string, unknown>,
 }))
 
-mockNuxtImport('useApps', () => () => ({
-  getOfficialApps: h.getOfficialApps,
+vi.mock('~/composables/usePublicApps', () => ({
+  usePublicApps: () => ({ getOfficialApps: h.getOfficialApps }),
 }))
 
 vi.mock('~/composables/auth/useAuthSession', () => ({
@@ -46,7 +46,6 @@ describe('explore page', () => {
     h.getOfficialApps.mockReset()
     h.getOfficialApps.mockResolvedValue(apps)
     h.auth = {
-      authReady: ref(false),
       checkAuthStatus: vi.fn().mockResolvedValue(undefined),
     }
   })
@@ -57,12 +56,13 @@ describe('explore page', () => {
       finishBootstrap = resolve
     }))
     h.auth = {
-      authReady: ref(false),
       checkAuthStatus,
     }
+    // 模拟全局中间件尚未完成会话恢复：页面需按需加载认证模块并等待它就绪。
+    useState<boolean>('auth_ready').value = false
 
     const wrapper = await mountSuspended(ExplorePage)
-    await nextTick()
+    await flushPromises()
 
     expect(checkAuthStatus).toHaveBeenCalledTimes(1)
     expect(h.getOfficialApps).not.toHaveBeenCalled()

@@ -71,6 +71,11 @@ export default defineNuxtConfig({
 
   ui: {
     fonts: false,
+    experimental: {
+      // 业务界面使用本地 reka-ui 组件，Nuxt UI 只负责渲染 Markdown Prose。
+      // 只为 Prose 内部依赖的组件生成主题类，避免把整套未使用组件的 ~120KB 样式打进全站入口 CSS。
+      componentDetection: ['Accordion', 'Badge', 'Button', 'Collapsible', 'Icon', 'Kbd', 'Link', 'Tabs'],
+    },
   },
 
   runtimeConfig: {
@@ -267,6 +272,8 @@ export default defineNuxtConfig({
   },
 
   icon: {
+    // 全局 client bundle 随 <Icon> 进入每个页面的入口 chunk，只放下面手动列出的图标；
+    // 其余图标由 modules/icon-colocation.ts 随引用它的模块（或渲染 Markdown 的页面）按需打包。
     clientBundle: {
       // Nuxt UI Prose 与本地 reka-ui 组件有源码扫描无法发现的内部默认图标。
       icons: [
@@ -276,11 +283,8 @@ export default defineNuxtConfig({
         'lucide:sun',
       ],
       scan: {
-        globInclude: [
-          'app/**/*.{vue,ts,js,mjs}',
-          'content/**/*.{md,yml,yaml}',
-          'docs/**/*.{md,yml,yaml}',
-        ],
+        // 只扫描 Markdown 正文：它经 MDC 在运行时渲染，图标交给 icon-colocation 挂到 MDCRenderer 页面。
+        globInclude: ['content/**/*.md'],
       },
       sizeLimitKb: 128,
     },

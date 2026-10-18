@@ -5,8 +5,8 @@ import { computed, onMounted, shallowRef, useTemplateRef } from 'vue'
 import AppDiscoveryGrid from '~/components/apps/AppDiscoveryGrid.vue'
 import AppDiscoveryToolbar from '~/components/apps/AppDiscoveryToolbar.vue'
 import AppExplorerHero from '~/components/apps/AppExplorerHero.vue'
-import { useTcbAuthSession } from '~/composables/auth/useAuthSession'
 import { useAppExplorer } from '~/composables/useAppExplorer'
+import { usePublicApps } from '~/composables/usePublicApps'
 import { useSkyParallax } from '~/composables/useSkyParallax'
 
 const apps = shallowRef<AppRecord[]>([])
@@ -23,8 +23,11 @@ const skyClouds = [
   { name: 'near', shape: 'heap', haze: 0, depth: 0.9 },
   { name: 'low', shape: 'bank', haze: 0.12, depth: 0.7 },
 ] as const
-const { getOfficialApps } = useApps()
-const { authReady, checkAuthStatus } = useTcbAuthSession()
+const nuxtApp = useNuxtApp()
+const { getOfficialApps } = usePublicApps()
+// 全局中间件会先恢复会话（匿名访客直接标记就绪）；只有它尚未就绪时才按需加载认证 SDK，
+// 避免公开图谱页把 CloudBase SDK 打进首屏 chunk。
+const authReady = useState<boolean>('auth_ready', () => false)
 const {
   query,
   selectedCategory,
@@ -48,8 +51,10 @@ async function loadApps() {
   error.value = null
 
   try {
-    if (!authReady.value)
-      await checkAuthStatus()
+    if (!authReady.value) {
+      const { useTcbAuthSession } = await import('~/composables/auth/useAuthSession')
+      await nuxtApp.runWithContext(() => useTcbAuthSession().checkAuthStatus())
+    }
 
     const result = await getOfficialApps()
     apps.value = result.filter(app => app.isPublic)

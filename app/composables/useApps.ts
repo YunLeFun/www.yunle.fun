@@ -1,6 +1,6 @@
 import type { AppRecord, MyWorkshopOverview } from '~/types/app'
-import { isOfficialOwner } from '~/config'
 import { matchesAppOwner } from '~/utils/appRoutes'
+import { usePublicApps } from './usePublicApps'
 
 /**
  * 应用数据管理 composable
@@ -10,6 +10,7 @@ export function useApps() {
   const { auth } = useCloudbase()
   const { user } = useTcbAuth()
   const requestFetch = useRequestFetch()
+  const { getOfficialApps } = usePublicApps()
   /**
    * 获取当前用户的所有应用
    */
@@ -19,16 +20,6 @@ export function useApps() {
     const headers = await authorizationHeaders()
     const response = await requestFetch<{ items: AppRecord[] }>('/api/apps-platform/mine', { headers })
     return response.items
-  }
-
-  /**
-   * 获取所有官方账号发布的公开应用
-   *
-   * 开发者平台尚未上线，公开展示处只上架官方应用，普通用户暂不可自助发布。
-   */
-  async function getOfficialApps(): Promise<AppRecord[]> {
-    const response = await requestFetch<{ items: AppRecord[] }>('/api/apps-platform/public')
-    return response.items.filter(app => app.isOfficial === true || isOfficialOwner(app.ownerLogin))
   }
 
   /**
