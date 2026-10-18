@@ -65,6 +65,21 @@ describe('edgeOne production configuration', () => {
     expect(headers['Content-Security-Policy']).toContain('frame-ancestors \'none\'')
   })
 
+  it('serves shared web credentials to the native Yunle app as JSON', () => {
+    const aasaRule = config.headers.find(rule => rule.source === '/.well-known/apple-app-site-association')
+    const headers = Object.fromEntries(aasaRule.headers.map(header => [header.key, header.value]))
+    const aasa = JSON.parse(readFileSync(new URL('../public/.well-known/apple-app-site-association', import.meta.url), 'utf8'))
+
+    expect(config.headers.indexOf(aasaRule)).toBeLessThan(config.headers.findIndex(rule => rule.source === '/*'))
+    expect(headers['Content-Type']).toBe('application/json')
+    // Only password sharing: www.yunle.fun links must keep opening in the browser.
+    expect(aasa).toEqual({
+      webcredentials: {
+        apps: ['QT792GAY4C.fun.yunle.apps', 'QT792GAY4C.fun.yunle.apps.native-dev'],
+      },
+    })
+  })
+
   it('permanently redirects the apex domain to www', () => {
     expect(config.redirects).toContainEqual({
       source: '$host',
