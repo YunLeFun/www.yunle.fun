@@ -148,6 +148,12 @@ onUserSession(async () => {
 function workshopHref(surface: WorkshopSurface) {
   return `https://apps.yunle.fun/w/${encodeURIComponent(surface.workshop._id)}`
 }
+
+/** 工坊首字：按码点取，避免把 emoji 等代理对切成半个字符。 */
+function workshopInitial(name?: string) {
+  const first = Array.from(name?.trim() || '坊')[0]!
+  return first.toUpperCase()
+}
 </script>
 
 <template>
@@ -390,10 +396,17 @@ function workshopHref(surface: WorkshopSurface) {
             v-for="(surface, i) in workshopSurfaces"
             :key="surface.workshop._id"
             class="private-workshop ylf-rise"
+            :class="[
+              surface.access === 'owner' ? 'private-workshop--owner' : 'private-workshop--guest',
+              { 'private-workshop--disabled': surface.workshop.status === 'disabled' },
+            ]"
             :style="{ '--i': i }"
           >
-            <div class="flex items-start justify-between gap-3">
-              <div class="min-w-0">
+            <div class="flex items-start gap-3">
+              <span class="workshop-mark" aria-hidden="true">
+                {{ workshopInitial(surface.workshop.name) }}
+              </span>
+              <div class="min-w-0 flex-1">
                 <div class="flex flex-wrap items-center gap-2">
                   <h3 class="truncate text-sm font-semibold text-highlighted">
                     {{ surface.workshop.name }}
@@ -542,33 +555,69 @@ function workshopHref(surface: WorkshopSurface) {
   outline-offset: -2px;
 }
 
+/* 工坊卡片：坊主落日暖色、坊客晴空冷色，由首字图标块和左上角淡淡的色晕区分身份。 */
 .private-workshop {
+  --workshop-tone: var(--ylf-palette-coral);
+  --workshop-mark: linear-gradient(
+    135deg,
+    var(--ylf-palette-sun),
+    var(--ylf-palette-coral) 55%,
+    var(--ylf-palette-pink)
+  );
+
   position: relative;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--ylf-dopa-violet) 20%, var(--ui-border));
+  border: 1px solid color-mix(in srgb, var(--workshop-tone) 18%, var(--ui-border));
   border-radius: 1.1rem;
   padding: 1rem;
   background:
-    linear-gradient(120deg, color-mix(in srgb, var(--ylf-dopa-violet) 7%, transparent), transparent 42%),
-    color-mix(in srgb, var(--ylf-surface-muted) 54%, transparent);
+    linear-gradient(135deg, color-mix(in srgb, var(--workshop-tone) 9%, transparent), transparent 55%),
+    var(--ylf-surface);
   transition:
     border-color var(--ylf-duration-fast) var(--ylf-ease-standard),
     box-shadow var(--ylf-duration-normal) var(--ylf-ease-standard);
 }
 
-.private-workshop:hover {
-  border-color: color-mix(in srgb, var(--ylf-dopa-violet) 36%, var(--ui-border));
-  box-shadow: 0 14px 30px -24px color-mix(in srgb, var(--ylf-dopa-violet) 70%, transparent);
+.private-workshop--guest {
+  --workshop-tone: var(--ylf-palette-cyan);
+  --workshop-mark: linear-gradient(135deg, var(--ylf-palette-cyan), var(--ylf-palette-blue));
 }
 
-.private-workshop::before {
-  position: absolute;
-  width: 4px;
-  border-radius: 999px;
-  background: linear-gradient(var(--ylf-dopa-violet), var(--ylf-dopa-cyan));
-  content: '';
-  inset-block: 1rem;
-  inset-inline-start: 0;
+.private-workshop:hover {
+  border-color: color-mix(in srgb, var(--workshop-tone) 36%, var(--ui-border));
+  box-shadow: 0 14px 30px -24px color-mix(in srgb, var(--workshop-tone) 70%, transparent);
+}
+
+.workshop-mark {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.75rem;
+  background: var(--workshop-mark);
+  box-shadow: 0 8px 16px -10px color-mix(in srgb, var(--workshop-tone) 80%, transparent);
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 18%);
+  transition: rotate var(--ylf-duration-slow) var(--ylf-ease-spring);
+}
+
+.private-workshop:hover .workshop-mark {
+  rotate: -6deg;
+}
+
+.private-workshop--disabled .workshop-mark {
+  filter: grayscale(1);
+  opacity: 0.6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .private-workshop:hover .workshop-mark {
+    rotate: none;
+  }
 }
 
 .workshop-open :deep(svg),
