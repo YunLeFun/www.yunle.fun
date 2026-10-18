@@ -158,7 +158,7 @@ function poke(cloud: HeroCloud, event: MouseEvent) {
 <template>
   <section
     ref="root"
-    class="ylf-sky-hero relative isolate overflow-hidden rounded-[1.75rem] sm:rounded-[2rem]"
+    class="ylf-sky-hero relative isolate overflow-hidden rounded-[var(--ylf-radius-xl)]"
     :data-clouds="clouds"
   >
     <SkyScene :sun="false" clouds="none" class="pointer-events-none" />
@@ -479,9 +479,9 @@ function poke(cloud: HeroCloud, event: MouseEvent) {
   }
 
   [data-clouds='full'] .ylf-sky-hero__cloud--billow {
-    top: 3%;
-    right: -3%;
-    width: 96px;
+    top: -3%;
+    right: 20%;
+    width: 72px;
   }
 
   [data-clouds='full'] .ylf-sky-hero__cloud--bank {

@@ -52,7 +52,7 @@ function formatTime(ts: number) {
 
       <!-- 首次加载：与动态卡片同形的晴空骨架 -->
       <div v-if="!loaded && loading" class="space-y-3" aria-busy="true" aria-label="正在加载关注动态">
-        <div v-for="n in 3" :key="n" class="ylf-card rounded-3xl p-5">
+        <div v-for="n in 3" :key="n" class="ylf-card rounded-[var(--ylf-radius-lg)] p-5">
           <div class="mb-3 flex items-center gap-2.5">
             <div class="ylf-shimmer size-8 shrink-0 rounded-full" />
             <div class="ylf-shimmer h-3.5 w-24 rounded-full" />
@@ -68,7 +68,7 @@ function formatTime(ts: number) {
         </div>
       </div>
 
-      <div v-else-if="items.length === 0" class="ylf-empty-state ylf-rise rounded-3xl px-4 py-16 text-center" style="--i: 1">
+      <div v-else-if="items.length === 0" class="ylf-empty-state ylf-rise rounded-[var(--ylf-radius-lg)] px-4 py-16 text-center" style="--i: 1">
         <span class="feed-empty-cloud ylf-empty-cloud ylf-bob" aria-hidden="true">
           <Icon name="i-lucide-rss" class="size-7" />
         </span>
@@ -85,7 +85,7 @@ function formatTime(ts: number) {
         <article
           v-for="(item, i) in items"
           :key="item.appId"
-          class="ylf-card ylf-rise rounded-3xl p-5"
+          class="ylf-card ylf-rise rounded-[var(--ylf-radius-lg)] p-5"
           :style="{ '--i': 1 + Math.min(i % 20, 8) * 0.6 }"
         >
           <NuxtLink

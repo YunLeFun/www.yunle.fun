@@ -39,7 +39,7 @@ function formatExpire(ts: number) {
 
 <template>
   <span
-    class="inline-flex items-center rounded-full font-semibold leading-none"
+    class="inline-flex shrink-0 items-center whitespace-nowrap rounded-full font-semibold leading-none"
     :class="[props.variant === 'frost' ? 'ylf-member-frost' : 'ylf-member-mark', cls.wrap]"
   >
     <Icon name="i-lucide-cloud" :class="cls.icon" />

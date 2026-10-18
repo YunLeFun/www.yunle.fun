@@ -147,17 +147,17 @@ function workshopHref(surface: WorkshopSurface) {
   <AppContainer class="py-8 sm:py-10">
     <!-- 登录态恢复中：与正式布局同形的晴空骨架，避免内容加载后跳动 -->
     <div v-if="loading" class="mx-auto max-w-3xl space-y-6" aria-busy="true" aria-label="正在加载个人中心">
-      <div class="ylf-shimmer h-60 rounded-[1.75rem] sm:h-64 sm:rounded-[2rem]" />
-      <div class="ylf-shimmer h-[4.5rem] rounded-3xl" />
-      <div class="ylf-shimmer h-44 rounded-3xl" />
+      <div class="ylf-shimmer h-52 rounded-[var(--ylf-radius-xl)] sm:h-56" />
+      <div class="ylf-shimmer h-16 rounded-[var(--ylf-radius-lg)]" />
+      <div class="ylf-shimmer h-44 rounded-[var(--ylf-radius-lg)]" />
     </div>
 
     <div v-else-if="user" class="mx-auto max-w-3xl space-y-6">
       <!-- 晴空 hero：身份 + 数据条 -->
       <SkyHero class="ylf-rise">
-        <div class="p-6 sm:p-8">
-          <div class="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-            <div class="flex items-center gap-4 sm:gap-5">
+        <div class="p-5 sm:p-7">
+          <div class="flex items-start justify-between gap-3 sm:gap-5">
+            <div class="flex min-w-0 items-center gap-4 sm:gap-5">
               <div
                 class="profile-avatar shrink-0"
                 data-hero-interactive
@@ -182,7 +182,7 @@ function workshopHref(surface: WorkshopSurface) {
                   <Icon :name="greeting.icon" class="size-3.5" aria-hidden="true" />
                   {{ greeting.text }}
                 </p>
-                <h1 class="ylf-hero-shadow truncate text-2xl font-bold sm:text-3xl">
+                <h1 class="ylf-hero-shadow truncate text-xl font-bold sm:text-2xl">
                   {{ displayName }}
                 </h1>
                 <p
@@ -212,17 +212,23 @@ function workshopHref(surface: WorkshopSurface) {
                 </div>
               </div>
             </div>
+            <!-- 窄屏只留图标按钮，和头像同一行，省出首屏高度 -->
             <AppButton
               to="/settings?edit=profile"
               label="编辑资料"
               icon="i-lucide-pencil"
-              size="lg"
-              class="ylf-glass-btn shrink-0 self-start rounded-full"
+              class="ylf-glass-btn shrink-0 rounded-full max-sm:hidden"
+            />
+            <AppButton
+              to="/settings?edit=profile"
+              icon="i-lucide-pencil"
+              aria-label="编辑资料"
+              class="ylf-glass-btn size-10 shrink-0 rounded-full sm:hidden"
             />
           </div>
 
           <!-- 数据条（点击直达） -->
-          <div class="ylf-glass-deep ylf-hero-shadow mt-6 flex items-stretch rounded-2xl p-1.5">
+          <div class="ylf-glass-deep ylf-hero-shadow mt-5 flex items-stretch rounded-2xl p-1.5 sm:mt-6">
             <component
               :is="s.to ? 'NuxtLink' : 'button'"
               v-for="(s, i) in stats"
@@ -233,7 +239,7 @@ function workshopHref(surface: WorkshopSurface) {
               :class="i > 0 ? 'profile-stat--divided' : ''"
               @click="s.onClick?.()"
             >
-              <AppCountUp :value="s.value" class="text-xl font-semibold leading-none" />
+              <AppCountUp :value="s.value" class="text-lg font-semibold leading-none" />
               <span class="text-xs text-white/90">{{ s.label }}</span>
             </component>
           </div>
@@ -246,7 +252,7 @@ function workshopHref(surface: WorkshopSurface) {
       <NuxtLink
         v-if="!isMember"
         to="/pricing"
-        class="ylf-join-cta ylf-shine ylf-rise group flex items-center justify-between gap-3 rounded-3xl px-5 py-4 text-primary-foreground sm:px-6"
+        class="ylf-join-cta ylf-shine ylf-rise group flex items-center justify-between gap-3 rounded-[var(--ylf-radius-lg)] px-4 py-3.5 text-primary-foreground sm:px-5"
         style="--i: 1"
       >
         <span class="flex items-center gap-3">
@@ -262,9 +268,9 @@ function workshopHref(surface: WorkshopSurface) {
       </NuxtLink>
 
       <!-- 快捷入口 -->
-      <section class="ylf-card ylf-rise rounded-3xl p-4 sm:p-5" style="--i: 2">
+      <section class="ylf-card ylf-rise rounded-[var(--ylf-radius-lg)] p-4 sm:p-5" style="--i: 2">
         <div class="mb-3 flex items-center justify-between gap-3 px-1">
-          <h2 class="font-heading text-lg font-bold tracking-tight text-highlighted">
+          <h2 class="font-heading text-base font-semibold tracking-tight text-highlighted sm:text-lg">
             快捷入口
           </h2>
           <span class="text-xs text-dimmed">{{ entries.length }} 个服务</span>
@@ -293,10 +299,10 @@ function workshopHref(surface: WorkshopSurface) {
       </section>
 
       <!-- 主页应用 -->
-      <section class="ylf-card ylf-rise rounded-3xl p-6" style="--i: 4">
+      <section class="ylf-card ylf-rise rounded-[var(--ylf-radius-lg)] p-4 sm:p-5" style="--i: 4">
         <div class="mb-4 flex items-center justify-between">
           <div>
-            <h2 class="font-heading text-xl font-bold tracking-tight text-highlighted">
+            <h2 class="font-heading text-base font-semibold tracking-tight text-highlighted sm:text-lg">
               主页应用
             </h2>
             <p class="mt-1 text-xs text-muted">
@@ -347,10 +353,10 @@ function workshopHref(surface: WorkshopSurface) {
       </section>
 
       <!-- 私人工坊 -->
-      <section class="ylf-card ylf-rise rounded-3xl p-6" style="--i: 5">
+      <section class="ylf-card ylf-rise rounded-[var(--ylf-radius-lg)] p-4 sm:p-5" style="--i: 5">
         <div class="mb-4 flex items-start justify-between gap-3">
           <div>
-            <h2 class="font-heading flex items-center gap-2 text-xl font-bold tracking-tight text-highlighted">
+            <h2 class="font-heading flex items-center gap-2 text-base font-semibold tracking-tight text-highlighted sm:text-lg">
               私人工坊
               <Icon name="i-lucide-key-round" class="size-4 text-primary" aria-hidden="true" />
             </h2>

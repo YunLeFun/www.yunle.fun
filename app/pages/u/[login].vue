@@ -129,12 +129,12 @@ function openList(type: 'following' | 'followers') {
 <template>
   <AppContainer class="py-8 sm:py-10">
     <div v-if="loading" class="mx-auto max-w-3xl space-y-6" aria-busy="true" aria-label="正在加载用户主页">
-      <div class="ylf-shimmer h-48 rounded-[1.75rem] sm:h-44 sm:rounded-[2rem]" />
-      <div class="ylf-shimmer h-28 rounded-3xl" />
-      <div class="ylf-shimmer h-44 rounded-3xl" />
+      <div class="ylf-shimmer h-48 rounded-[var(--ylf-radius-xl)] sm:h-44" />
+      <div class="ylf-shimmer h-28 rounded-[var(--ylf-radius-lg)]" />
+      <div class="ylf-shimmer h-44 rounded-[var(--ylf-radius-lg)]" />
     </div>
 
-    <div v-else-if="profileUnavailable" class="ylf-empty-state ylf-rise rounded-3xl px-4 py-20 text-center">
+    <div v-else-if="profileUnavailable" class="ylf-empty-state ylf-rise rounded-[var(--ylf-radius-lg)] px-4 py-20 text-center">
       <span class="ylf-empty-cloud ylf-bob size-16!" aria-hidden="true">
         <Icon name="i-lucide-cloud-off" class="size-8" />
       </span>
@@ -147,7 +147,7 @@ function openList(type: 'following' | 'followers') {
       <AppButton label="重新加载" icon="i-lucide-refresh-cw" color="neutral" variant="outline" @click="retryProfile" />
     </div>
 
-    <div v-else-if="profileNotFound" class="ylf-empty-state ylf-rise rounded-3xl px-4 py-20 text-center">
+    <div v-else-if="profileNotFound" class="ylf-empty-state ylf-rise rounded-[var(--ylf-radius-lg)] px-4 py-20 text-center">
       <span class="ylf-empty-cloud ylf-bob size-16!" aria-hidden="true">
         <Icon name="i-lucide-user-x" class="size-8" />
       </span>
@@ -207,7 +207,7 @@ function openList(type: 'following' | 'followers') {
       </SkyHero>
 
       <!-- 简介 -->
-      <section v-if="profile.description" class="ylf-card ylf-rise rounded-3xl p-6" style="--i: 1">
+      <section v-if="profile.description" class="ylf-card ylf-rise rounded-[var(--ylf-radius-lg)] p-4 sm:p-5" style="--i: 1">
         <h2 class="ylf-dreamy-display mb-3 text-xl text-highlighted">
           简介
         </h2>
@@ -217,7 +217,7 @@ function openList(type: 'following' | 'followers') {
       </section>
 
       <!-- ta 的主页应用 -->
-      <section class="ylf-card ylf-rise rounded-3xl p-6" style="--i: 2">
+      <section class="ylf-card ylf-rise rounded-[var(--ylf-radius-lg)] p-4 sm:p-5" style="--i: 2">
         <div class="mb-4 flex items-start justify-between gap-3">
           <div>
             <h2 class="ylf-dreamy-display text-xl text-highlighted">

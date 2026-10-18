@@ -91,9 +91,9 @@ function clearProfileEditRequest() {
       aria-busy="true"
       aria-label="正在加载设置"
     >
-      <div class="ylf-shimmer h-[6.5rem] rounded-[1.75rem]" />
+      <div class="ylf-shimmer h-[5.5rem] rounded-[var(--ylf-radius-xl)]" />
       <div class="ylf-shimmer h-11 rounded-xl" />
-      <div class="ylf-shimmer h-72 rounded-3xl" />
+      <div class="ylf-shimmer h-72 rounded-[var(--ylf-radius-lg)]" />
     </div>
 
     <div

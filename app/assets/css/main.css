@@ -518,7 +518,7 @@ body {
 .ylf-card {
   background: var(--ylf-surface);
   border: 1px solid var(--ui-border-muted);
-  border-radius: 1.5rem;
+  border-radius: var(--ylf-radius-lg);
   box-shadow: 0 16px 40px -30px color-mix(in srgb, #0b82c4 50%, transparent);
 }
 
@@ -957,4 +957,130 @@ html.ylf-appearance-reveal *::after {
   .ylf-appearance-fade *::after {
     transition: none !important;
   }
+}
+
+/* ------------------------------------------------------------------ *
+ * 阅读排版 —— 博客正文、更新日志共用。正文 15/16px、行高 1.85，
+ * 标题与段落按 8px 节奏留白；链接用晴空蓝细下划线，引用块像一朵安静的云。
+ * ------------------------------------------------------------------ */
+.ylf-prose {
+  color: var(--ui-text-toned);
+  font-size: 0.9375rem;
+  line-height: 1.85;
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 640px) {
+  .ylf-prose {
+    font-size: 1rem;
+  }
+}
+
+.ylf-prose :where(p, ul, ol, blockquote, pre, table, figure, img) {
+  margin-block: 0 1.1em;
+}
+
+.ylf-prose :where(h2, h3, h4) {
+  margin-block: 1.9em 0.6em;
+  color: var(--ui-text-highlighted);
+  font-family: var(--ylf-font-heading);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+  scroll-margin-top: 5.5rem;
+  text-wrap: balance;
+}
+
+.ylf-prose :where(h2) {
+  font-size: 1.3em;
+}
+
+.ylf-prose :where(h3) {
+  font-size: 1.1em;
+}
+
+.ylf-prose :where(h4) {
+  font-size: 1em;
+}
+
+.ylf-prose > :where(:first-child) {
+  margin-top: 0;
+}
+
+.ylf-prose :where(a) {
+  color: var(--ui-primary);
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--ui-primary) 35%, transparent);
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.2em;
+  transition: text-decoration-color var(--ylf-duration-fast) var(--ylf-ease-standard);
+}
+
+.ylf-prose :where(a:hover) {
+  text-decoration-color: currentColor;
+}
+
+/* 标题自带的锚点链接保持标题本色 */
+.ylf-prose :where(h2, h3, h4) a {
+  color: inherit;
+  font-weight: inherit;
+  text-decoration: none;
+}
+
+.ylf-prose :where(strong) {
+  color: var(--ui-text-highlighted);
+  font-weight: 600;
+}
+
+.ylf-prose :where(ul, ol) {
+  padding-inline-start: 1.25em;
+}
+
+.ylf-prose :where(ul) {
+  list-style: disc;
+}
+
+.ylf-prose :where(ol) {
+  list-style: decimal;
+}
+
+.ylf-prose :where(li) {
+  margin-block: 0.35em;
+  padding-inline-start: 0.2em;
+}
+
+.ylf-prose :where(li)::marker {
+  color: var(--ui-primary);
+}
+
+.ylf-prose :where(blockquote) {
+  border-inline-start: 3px solid color-mix(in srgb, var(--ui-primary) 45%, transparent);
+  border-radius: 0 var(--ylf-radius-sm) var(--ylf-radius-sm) 0;
+  padding: 0.75em 1em;
+  color: var(--ui-text-muted);
+  background: color-mix(in srgb, var(--ui-primary) 6%, var(--ylf-surface));
+}
+
+.ylf-prose :where(blockquote > :last-child) {
+  margin-bottom: 0;
+}
+
+.ylf-prose :where(code):not(:where(pre code)) {
+  border-radius: 0.35rem;
+  padding: 0.1em 0.35em;
+  color: var(--ui-text-highlighted);
+  background: var(--ylf-surface-muted);
+  font-family: var(--ylf-font-mono);
+  font-size: 0.875em;
+}
+
+.ylf-prose :where(img) {
+  border: 1px solid var(--ui-border-muted);
+  border-radius: var(--ylf-radius);
+}
+
+.ylf-prose :where(hr) {
+  margin-block: 2em;
+  border-color: var(--ui-border-muted);
 }

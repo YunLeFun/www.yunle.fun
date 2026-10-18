@@ -334,7 +334,7 @@ async function save() {
     <form
       v-if="editing"
       aria-label="编辑个人资料"
-      class="ylf-profile-editor overflow-hidden rounded-[1.75rem]"
+      class="ylf-profile-editor overflow-hidden rounded-[var(--ylf-radius-lg)]"
       @submit.prevent="save"
     >
       <header class="ylf-profile-editor__divider flex items-start justify-between gap-4 border-b px-5 py-5 sm:px-7 sm:py-6">
@@ -572,7 +572,7 @@ async function save() {
       </footer>
     </form>
 
-    <section v-else class="ylf-profile-editor overflow-hidden rounded-[1.75rem]">
+    <section v-else class="ylf-profile-editor overflow-hidden rounded-[var(--ylf-radius-lg)]">
       <header class="ylf-profile-editor__divider flex items-start justify-between gap-4 border-b px-5 py-5 sm:px-7 sm:py-6">
         <div>
           <h2 class="font-heading text-lg font-semibold text-foreground">
