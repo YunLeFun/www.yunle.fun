@@ -32,6 +32,8 @@ useSeoMeta({
 const toast = useAppToast()
 const user = useState<{ id?: string } | null>('auth_user', () => null)
 const hasUser = computed(() => Boolean(user.value?.id))
+// 戳云满 10 / 50 / 100 下时的小徽章，到点才懒加载
+const { milestone: cloudMilestone } = useCloudCollection()
 
 async function claimDailyReward(userId: string) {
   const { useSignIn } = await import('~/composables/useSignIn')
@@ -85,5 +87,15 @@ watch(() => user.value?.id, (id) => {
   -->
   <ClientOnly>
     <LazyOnboardingModal v-if="hasUser" />
+  </ClientOnly>
+
+  <!-- 戳云满 10 / 50 / 100 下时的「云朵收藏家」小徽章 -->
+  <ClientOnly>
+    <LazyCloudCollectorBadge
+      v-if="cloudMilestone"
+      :key="cloudMilestone"
+      :count="cloudMilestone"
+      @done="cloudMilestone = null"
+    />
   </ClientOnly>
 </template>

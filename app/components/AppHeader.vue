@@ -21,6 +21,7 @@ import {
 
 const route = useRoute()
 const mobileOpen = shallowRef(false)
+const { collect } = useCloudCollection()
 // 只读登录态展示账号卡片；登录恢复由全局中间件负责
 const user = useState<User | null>('auth_user', () => null)
 
@@ -122,9 +123,9 @@ const items = computed(() => [
             </Button>
           </SheetTrigger>
           <SheetContent class="ylf-nav-drawer w-[min(22rem,88vw)] gap-0 overflow-x-hidden p-0" side="right">
-            <!-- 晴空抬头：一朵小云在角落打招呼 -->
+            <!-- 晴空抬头：一朵小云在角落打招呼，戳一下会 Q 弹并记进云朵收藏 -->
             <SheetHeader class="ylf-nav-drawer__sky">
-              <CuteCloud shape="round" face mood="happy" class="ylf-nav-drawer__cloud" />
+              <CuteCloud shape="round" face mood="happy" class="ylf-nav-drawer__cloud" @click="collect($event.currentTarget)" />
               <CuteCloud shape="small" class="ylf-nav-drawer__cloud ylf-nav-drawer__cloud--far" />
               <SheetTitle class="ylf-nav-drawer__title">
                 主导航
@@ -339,6 +340,11 @@ const items = computed(() => [
   width: 5.5rem;
   animation: ylf-bob 5s ease-in-out infinite;
   filter: drop-shadow(0 6px 8px rgb(30 80 150 / 22%));
+}
+
+svg.ylf-nav-drawer__cloud:not(.ylf-nav-drawer__cloud--far) {
+  cursor: pointer;
+  pointer-events: auto;
 }
 
 .ylf-nav-drawer__cloud--far {

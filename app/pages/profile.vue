@@ -42,8 +42,11 @@ const displayName = computed(() => user.value?.nickname || user.value?.login || 
 
 // 问候语跟随当地天色；挂载后计算，避免服务端与浏览器时区不一致
 const greeting = ref<SkyGreeting | null>(null)
+// 本浏览器里戳过的云朵数，悄悄跟在问候语后面
+const { count: cloudPokes, load: loadCloudPokes } = useCloudCollection()
 onMounted(() => {
   greeting.value = getSkyGreeting(new Date().getHours())
+  loadCloudPokes()
 })
 
 // 360px 以下的窄屏，会员到期信息改为「剩 N 天」，避免徽章撑出头图
@@ -185,6 +188,9 @@ function workshopHref(surface: WorkshopSurface) {
                 >
                   <Icon :name="greeting.icon" class="size-3.5" aria-hidden="true" />
                   {{ greeting.text }}
+                  <span v-if="cloudPokes" class="inline-flex items-center gap-1 text-white/75" title="在本浏览器里戳过的云朵">
+                    · <Icon name="i-lucide-cloud" class="size-3" aria-hidden="true" /> 已收集 {{ cloudPokes }} 朵云
+                  </span>
                 </p>
                 <h1 class="ylf-hero-shadow truncate text-xl font-bold sm:text-2xl">
                   {{ displayName }}

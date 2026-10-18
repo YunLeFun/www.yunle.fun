@@ -9,7 +9,7 @@ import { useSkyParallax } from '~/composables/useSkyParallax'
  * 自动跟随站点明暗模式（浅色白日 / 深色黄昏）。
  *
  * 云朵是扁平的卡通小云（CuteCloud），画在压暗层之上保持干净；它们只响应指针：
- * 悬停时眯眼笑，戳一下会 Q 弹、说句话、下一阵彩色小雨，每第三下挂出一道彩虹。
+ * 悬停时眯眼笑，戳一下会 Q 弹、说句话、下一阵彩色小雨，每第三下挂出一道彩虹；每一下都记进云朵收藏。
  * 键盘焦点只落在插槽里的控件上。
  */
 const props = withDefaults(defineProps<{
@@ -53,6 +53,7 @@ const root = shallowRef<HTMLElement | null>(null)
 useSkyParallax(root)
 
 const reducedMotion = usePreferredReducedMotion()
+const { collect } = useCloudCollection()
 
 const POKE_LINES = [
   '软的，真的是软的。',
@@ -98,6 +99,7 @@ onBeforeUnmount(() => {
 
 function poke(cloud: HeroCloud, event: MouseEvent) {
   pokes++
+  collect()
   squished.value = null
   requestAnimationFrame(() => {
     squished.value = cloud.name
@@ -244,7 +246,7 @@ function poke(cloud: HeroCloud, event: MouseEvent) {
   );
 }
 
-/* 黄昏时分的几颗早星，缓慢呼吸。 */
+/* 黄昏时分（深色模式）与入夜后的几颗星，缓慢呼吸。 */
 .ylf-sky-hero__stars {
   position: absolute;
   z-index: 0;
@@ -259,7 +261,8 @@ function poke(cloud: HeroCloud, event: MouseEvent) {
     radial-gradient(1.5px 1.5px at 48% 40%, #fff4e8, transparent);
 }
 
-.dark .ylf-sky-hero__stars {
+.dark .ylf-sky-hero__stars,
+:root[data-sky-phase='night'] .ylf-sky-hero__stars {
   animation: ylf-sky-hero-twinkle 4.8s ease-in-out infinite;
   opacity: 0.85;
 }
@@ -515,7 +518,8 @@ function poke(cloud: HeroCloud, event: MouseEvent) {
 
 @media (prefers-reduced-motion: reduce) {
   .ylf-sky-hero__drift,
-  .dark .ylf-sky-hero__stars {
+  .dark .ylf-sky-hero__stars,
+  :root[data-sky-phase='night'] .ylf-sky-hero__stars {
     animation: none;
   }
 

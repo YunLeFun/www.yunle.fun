@@ -61,6 +61,7 @@ const away = shallowRef(false)
 const hintVisible = shallowRef(false)
 const confetti = shallowRef<Confetti[]>([])
 let confettiSeed = 0
+const { collect } = useCloudCollection()
 
 const caption = computed(() => {
   if (pokes.value === 0)
@@ -98,6 +99,7 @@ function poke(event: MouseEvent) {
     return
 
   pokes.value++
+  collect()
   hintVisible.value = true
 
   const box = root.value?.getBoundingClientRect()
@@ -123,6 +125,7 @@ function poke(event: MouseEvent) {
 const wobbling = shallowRef(new Set<string>())
 
 function wobble(name: string, event: MouseEvent) {
+  collect()
   const box = root.value?.getBoundingClientRect()
   if (box)
     burst(event.clientX - box.left, event.clientY - box.top, 6, true)

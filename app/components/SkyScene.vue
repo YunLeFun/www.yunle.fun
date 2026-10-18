@@ -8,6 +8,7 @@ import type { CSSProperties } from 'vue'
  * 移植自设计稿 dreamy.jsx 的 SkyScene。填充到 position:relative;overflow:hidden 的父容器。
  *
  * - light：晴朗白日；dark：新海诚式黄昏暮色。
+ * - 挂载后按当地时辰再叠一层天色（清晨粉霞 / 午后金光 / 入夜星空），见 main.css 的 .ylf-sky-phase。
  */
 interface CloudConf {
   w: number
@@ -73,7 +74,7 @@ function circ(s: number, l: number, b: number): CSSProperties {
 
 <template>
   <div
-    class="ylf-skyscene"
+    class="ylf-skyscene ylf-sky-phase"
     :data-theme="theme"
     aria-hidden="true"
   >

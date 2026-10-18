@@ -2,10 +2,11 @@
 import { useSkyParallax } from '~/composables/useSkyParallax'
 
 /**
- * 交互插画的画框：晴空 / 黄昏背景 + 鼠标视差变量（--px / --py）+ 容器查询单位。
+ * 交互插画的画框：晴空 / 黄昏背景 + 随时辰的天色层 + 鼠标视差变量（--px / --py）+ 容器查询单位。
  *
  * 场景内部用 cqw / cqh 排版，画框是什么比例都能自适应；离开视口时暂停所有循环动画，
  * 系统要求减少动态效果时只保留静态画面。
+ * 场景里的每朵 CuteCloud 都可以戳：点在云的实色部分上会 Q 弹一下，并记进云朵收藏。
  */
 const props = withDefaults(defineProps<{
   /** 天色：day 晴空、dawn 清晨暖光 */
@@ -22,16 +23,24 @@ useIntersectionObserver(root, ([entry]) => {
   visible.value = entry?.isIntersecting ?? true
 })
 
+const { collect } = useCloudCollection()
+function poke(event: MouseEvent) {
+  const cloud = (event.target as Element | null)?.closest('.cute-cloud')
+  if (cloud)
+    collect(cloud)
+}
+
 defineExpose({ root })
 </script>
 
 <template>
   <div
     ref="root"
-    class="ylf-illustration"
+    class="ylf-illustration ylf-sky-phase"
     :data-tone="props.tone"
     :data-paused="visible ? undefined : ''"
     aria-hidden="true"
+    @click="poke"
   >
     <span class="ylf-illustration__sun" />
     <slot :visible="visible" />
@@ -81,6 +90,12 @@ defineExpose({ root })
   border-radius: 50%;
   background: radial-gradient(circle, var(--sun), transparent 62%);
   pointer-events: none;
+}
+
+/* 云只在画出来的实色部分接收点击（svg 外框的透明处仍然穿透）；烟囱冒出的小云太快，不算 */
+.ylf-illustration :deep(.cute-cloud:not(.studio__puff) > *) {
+  cursor: pointer;
+  pointer-events: visiblePainted;
 }
 
 /* 离开视口或减少动态效果时，场景里的循环动画全部停下 */

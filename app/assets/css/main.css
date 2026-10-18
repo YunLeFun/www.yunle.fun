@@ -551,6 +551,74 @@ body {
   animation: ylf-bob 6s ease-in-out infinite;
 }
 
+/* 随时辰变化的天色：sky-phase 插件挂载后给 <html> 写 data-sky-phase，
+   晴空背景（SkyScene、插画画框）用 .ylf-sky-phase 在底色之上叠一层淡淡的天色与星星。
+   明暗模式仍是底色：浅色是晴空、深色是暮色，天色只做轻微偏移，不替用户切换明暗。 */
+:root {
+  --ylf-sky-tint: none;
+  --ylf-sky-stars: 0;
+  --ylf-sky-starfield:
+    radial-gradient(1.5px 1.5px at 18% 22%, rgb(255 244 232 / var(--ylf-sky-stars)), transparent),
+    radial-gradient(1px 1px at 31% 9%, rgb(255 244 232 / var(--ylf-sky-stars)), transparent),
+    radial-gradient(1.5px 1.5px at 57% 16%, rgb(255 244 232 / var(--ylf-sky-stars)), transparent),
+    radial-gradient(1px 1px at 69% 31%, rgb(255 244 232 / var(--ylf-sky-stars)), transparent),
+    radial-gradient(1px 1px at 83% 11%, rgb(255 244 232 / var(--ylf-sky-stars)), transparent),
+    radial-gradient(1.5px 1.5px at 44% 34%, rgb(255 244 232 / var(--ylf-sky-stars)), transparent),
+    radial-gradient(1px 1px at 92% 27%, rgb(255 244 232 / var(--ylf-sky-stars)), transparent);
+}
+
+:root[data-sky-phase='dawn'] {
+  --ylf-sky-tint: linear-gradient(175deg, rgb(255 168 200 / 26%), rgb(255 196 176 / 30%) 62%, rgb(255 214 186 / 42%));
+}
+
+:root[data-sky-phase='golden'] {
+  --ylf-sky-tint: linear-gradient(175deg, rgb(255 200 120 / 8%), rgb(255 178 92 / 26%) 58%, rgb(255 156 82 / 40%));
+}
+
+:root[data-sky-phase='night'] {
+  --ylf-sky-tint: linear-gradient(175deg, rgb(18 30 92 / 46%), rgb(40 52 120 / 22%) 55%, transparent 85%);
+  --ylf-sky-stars: 0.7;
+}
+
+.dark[data-sky-phase='dawn'] {
+  --ylf-sky-tint: linear-gradient(175deg, rgb(255 150 190 / 14%), rgb(255 170 190 / 20%) 60%, rgb(255 200 180 / 24%));
+}
+
+.dark[data-sky-phase='day'] {
+  --ylf-sky-tint: linear-gradient(175deg, rgb(90 140 230 / 22%), rgb(120 160 230 / 10%) 55%, transparent 80%);
+}
+
+.dark[data-sky-phase='golden'] {
+  --ylf-sky-tint: linear-gradient(175deg, transparent 30%, rgb(255 170 90 / 22%) 70%, rgb(255 190 110 / 30%));
+}
+
+.dark[data-sky-phase='night'] {
+  --ylf-sky-tint: linear-gradient(175deg, rgb(10 12 48 / 52%), rgb(30 24 80 / 26%) 55%, transparent 88%);
+  --ylf-sky-stars: 0.95;
+}
+
+/* 天色层：铺在背景之上、云朵与内容之下；宿主需要 position + isolation */
+.ylf-sky-phase::before {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  background: var(--ylf-sky-starfield), var(--ylf-sky-tint);
+  content: '';
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 1200ms var(--ylf-ease-standard);
+}
+
+:root[data-sky-phase] .ylf-sky-phase::before {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ylf-sky-phase::before {
+    transition: none;
+  }
+}
+
 @keyframes ylf-drift {
   from {
     transform: translateX(0);
