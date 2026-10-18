@@ -11,8 +11,11 @@ import {
   readSsoScope,
   SSO_REDIRECT_HASH_KEY,
 } from '@yunlefun/sso/protocol'
+import AppProductIcon from '~/components/apps/AppProductIcon.vue'
 import { useAuthAcquisition } from '~/composables/auth/useAcquisition'
 import { useTcbAuthSession } from '~/composables/auth/useAuthSession'
+import { resolveSsoClientPresentation } from '~/config/sso-explorer'
+import { readableHost } from '~/utils/auth-entry'
 import {
   buildNativeSsoCallbackUrl,
   readNativeSsoCallbackUri,
@@ -38,7 +41,7 @@ const { authReady, authStatus, checkAuthStatus, logout, user } = useTcbAuthSessi
 const { ssoAcquisition } = useAuthAcquisition(app, auth)
 
 const status = shallowRef<'checking' | 'confirmation' | 'success' | 'error'>('checking')
-const message = shallowRef('正在同步云乐坊账号...')
+const message = shallowRef('正在确认你的云乐坊账号…')
 
 interface PendingAuthorization {
   clientId: string
@@ -53,6 +56,26 @@ const pendingAuthorization = shallowRef<PendingAuthorization | null>(null)
 const accountSwitchAllowed = shallowRef(false)
 const currentAccountName = computed(() => user.value?.nickname || user.value?.login || '云乐坊账号')
 let nativeCallbackUri: string | null = null
+
+// 展示用：哪个应用在请求登录。签发仍以 sso-ticket 的注册表校验为准。
+const requestedClientId = readSsoClientId(route.query.client_id)
+const requestedRedirectUri = readSsoRedirectUri(route.query.redirect_uri)
+const resolvedClient = requestedClientId && requestedRedirectUri
+  ? resolveSsoClientPresentation(requestedClientId, requestedRedirectUri)
+  : null
+// 回调地址未登记时不借用应用品牌，只显示真实域名
+const client = resolvedClient?.verified ? resolvedClient : null
+const clientHost = readableHost(requestedRedirectUri)
+const clientName = client?.name ?? (clientHost || '应用')
+const heading = computed(() => {
+  if (status.value === 'error')
+    return '暂时无法登录'
+  if (status.value === 'confirmation')
+    return `登录 ${clientName}`
+  if (status.value === 'success')
+    return `正在返回 ${clientName}`
+  return client ? `正在登录 ${clientName}` : '账号同步'
+})
 
 interface SsoCodeResult {
   ok?: boolean
@@ -102,7 +125,7 @@ function redirectBack(redirectUri: string, nonce: string, code: string): void {
     code,
   })}`
   status.value = 'success'
-  message.value = '账号已同步，正在返回…'
+  message.value = '登录成功，正在乘云返回…'
   window.location.replace(resultDestination(url.toString()))
 }
 
@@ -155,6 +178,10 @@ function denyAuthorization(): void {
   if (!request || status.value !== 'confirmation')
     return
   redirectDenied(request.returnUrl, request.nonce)
+}
+
+function retry(): void {
+  window.location.reload()
 }
 
 async function loginWithOtherAccount(): Promise<void> {
@@ -246,7 +273,7 @@ onMounted(async () => {
     if (prompt === 'consent' || prompt === 'select_account') {
       accountSwitchAllowed.value = prompt === 'select_account'
       status.value = 'confirmation'
-      message.value = '确认用于登录的云乐坊账号。'
+      message.value = `${clientName} 请求使用你的云乐坊账号登录。`
       return
     }
     await authorize(request)
@@ -258,59 +285,81 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="mx-auto flex w-full max-w-[21rem] min-w-0 flex-col items-center text-center space-y-6">
-    <div class="flex justify-center">
-      <Icon
-        v-if="status === 'checking'"
-        name="i-lucide-loader-circle"
-        class="h-14 w-14 animate-spin text-primary"
-      />
-      <Icon
-        v-else-if="status === 'confirmation'"
-        name="i-lucide-user-round-check"
-        class="h-14 w-14 text-primary"
-      />
-      <Icon
-        v-else-if="status === 'success'"
-        name="i-lucide-check-circle"
-        class="h-14 w-14 text-green-500"
-      />
-      <Icon
-        v-else
-        name="i-lucide-x-circle"
-        class="h-14 w-14 text-red-500"
-      />
+  <div class="mx-auto flex w-full max-w-[21rem] min-w-0 flex-col items-center text-center space-y-5">
+    <AuthRoute
+      v-if="status !== 'error'"
+      class="w-full"
+      :from-label="user ? currentAccountName : '云乐坊账号'"
+      :to-label="clientName"
+      :to-hint="clientHost"
+      :to-hint-tone="client ? 'safe' : 'warning'"
+      :accent="client?.accent"
+      :state="status === 'checking' ? 'flying' : status === 'success' ? 'arrived' : 'idle'"
+    >
+      <template #from>
+        <MemberAvatar
+          v-if="user"
+          :src="user.avatar"
+          :alt="currentAccountName"
+          size="xl"
+          class="sso-avatar"
+        />
+        <span v-else class="sso-brand ylf-gradient-tile">
+          <YlfLogo class="h-5 w-7 text-primary-foreground" aria-hidden="true" />
+        </span>
+      </template>
+      <template #to>
+        <span class="relative">
+          <AppProductIcon
+            v-if="client?.logoUrl"
+            :app="{ appId: client.appId, logoUrl: client.logoUrl, fallbackMark: client.fallbackMark }"
+          />
+          <span v-else class="sso-mark" :style="{ color: client?.accent }">
+            {{ client?.fallbackMark ?? '' }}
+            <Icon v-if="!client" name="i-lucide-globe" class="size-6" />
+          </span>
+          <Transition name="sso-pop">
+            <span v-if="status === 'success'" class="sso-check">
+              <Icon name="i-lucide-check" class="size-3.5" />
+            </span>
+          </Transition>
+        </span>
+      </template>
+    </AuthRoute>
+
+    <div v-else class="sso-error">
+      <Icon name="i-lucide-cloud-off" class="size-9" />
     </div>
 
     <div class="w-full min-w-0 space-y-2">
-      <h1 class="text-2xl font-bold">
-        账号同步
+      <h1 class="font-heading text-2xl font-semibold tracking-tight text-balance [overflow-wrap:anywhere] [word-break:keep-all]">
+        {{ heading }}
       </h1>
-      <p class="mx-auto max-w-full whitespace-normal break-words text-center text-sm leading-6 text-muted [overflow-wrap:anywhere]">
+      <p class="mx-auto max-w-full whitespace-normal break-words text-center text-sm leading-6 text-muted text-balance [overflow-wrap:anywhere] [word-break:keep-all]">
         {{ message }}
       </p>
     </div>
 
     <div v-if="status === 'confirmation'" class="w-full space-y-4 text-left">
-      <div class="flex items-center gap-3 rounded-2xl border border-default bg-default/70 p-4">
-        <img
-          v-if="user?.avatar"
-          :src="user.avatar"
-          :alt="currentAccountName"
-          class="h-11 w-11 rounded-full object-cover"
-        >
-        <div v-else class="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <Icon name="i-lucide-user-round" class="h-5 w-5" />
-        </div>
-        <div class="min-w-0 flex-1">
-          <strong class="block truncate text-sm">{{ currentAccountName }}</strong>
-          <span v-if="user?.login" class="block truncate text-xs text-muted">@{{ user.login }}</span>
-        </div>
+      <div class="sso-account">
+        <Icon name="i-lucide-user-round-check" class="size-4 shrink-0 text-primary" />
+        <span class="min-w-0 flex-1 truncate">
+          以 <strong>{{ currentAccountName }}</strong>
+          <span v-if="user?.login" class="text-muted"> @{{ user.login }}</span>
+          的身份继续
+        </span>
       </div>
 
-      <p class="text-center text-xs leading-5 text-muted">
-        应用只会获得用于建立独立会话的一次性身份授权，不会获得密码或云乐坊长期令牌。
-      </p>
+      <ul class="sso-grants">
+        <li>
+          <Icon name="i-lucide-badge-check" class="size-4 shrink-0 text-primary" />
+          确认你的云乐坊身份（昵称与头像）
+        </li>
+        <li>
+          <Icon name="i-lucide-key-round" class="size-4 shrink-0 text-primary" />
+          应用只会获得用于建立独立会话的一次性身份授权，不会获得密码或云乐坊长期令牌。
+        </li>
+      </ul>
 
       <div class="grid gap-2">
         <AppButton
@@ -344,5 +393,110 @@ onMounted(async () => {
         </AppButton>
       </div>
     </div>
+
+    <div v-else-if="status === 'error'" class="grid w-full gap-2">
+      <AppButton block size="lg" icon="i-lucide-rotate-cw" @click="retry">
+        重试
+      </AppButton>
+      <AppButton block size="lg" color="neutral" variant="ghost" to="/">
+        返回云乐坊首页
+      </AppButton>
+    </div>
   </div>
 </template>
+
+<style scoped>
+.sso-brand,
+.sso-mark {
+  display: grid;
+  width: 3rem;
+  height: 3rem;
+  place-items: center;
+}
+
+.sso-avatar {
+  border-radius: 9999px;
+  box-shadow:
+    0 0 0 3px var(--ylf-surface),
+    0 8px 18px -12px var(--ylf-shadow-color);
+}
+
+.sso-brand,
+.sso-mark {
+  border-radius: 22%;
+}
+
+.sso-mark {
+  background: color-mix(in srgb, currentColor 14%, var(--ylf-surface));
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.sso-check {
+  position: absolute;
+  right: -0.375rem;
+  bottom: -0.375rem;
+  display: grid;
+  width: 1.375rem;
+  height: 1.375rem;
+  place-items: center;
+  border-radius: 9999px;
+  background: var(--ylf-status-success, #16a34a);
+  box-shadow: 0 0 0 2px var(--ylf-surface);
+  color: #fff;
+}
+
+.sso-pop-enter-active {
+  transition:
+    opacity 160ms ease,
+    scale 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.sso-pop-enter-from {
+  opacity: 0;
+  scale: 0.4;
+}
+
+.sso-error {
+  display: grid;
+  width: 4rem;
+  height: 4rem;
+  place-items: center;
+  border-radius: 1.25rem;
+  background: color-mix(in srgb, var(--ylf-status-danger, #dc2626) 10%, var(--ylf-surface));
+  color: var(--ylf-status-danger-text, #dc2626);
+}
+
+.sso-account {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid var(--ui-border-muted);
+  border-radius: 0.875rem;
+  background: color-mix(in srgb, var(--ylf-surface-muted) 60%, var(--ylf-surface));
+  font-size: 0.875rem;
+}
+
+.sso-grants {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0 0.25rem;
+  color: var(--ui-text-muted);
+  font-size: var(--ylf-type-caption);
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.sso-grants li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sso-pop-enter-active {
+    transition: none;
+  }
+}
+</style>

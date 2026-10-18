@@ -1,9 +1,15 @@
 <script setup lang="ts">
 import { Card } from '@/components/ui/card'
+
+// 从其他应用跳来登录时，左上角改为「返回 应用」，卡片晨光也染上该应用的强调色
+const { backTarget, ssoClient } = useAuthEntry()
+const shellStyle = computed(() => ssoClient.value
+  ? { '--ylf-auth-accent': ssoClient.value.accent }
+  : undefined)
 </script>
 
 <template>
-  <div class="ylf-auth-shell relative min-h-screen min-h-dvh overflow-x-hidden">
+  <div class="ylf-auth-shell relative min-h-screen min-h-dvh overflow-x-hidden" :style="shellStyle">
     <!-- 梦幻晴空背景（天气之子） -->
     <SkyScene class="pointer-events-none" />
     <!-- 顶部留白处压一层柔和提亮，保证返回按钮在亮空下清晰 -->
@@ -11,6 +17,20 @@ import { Card } from '@/components/ui/card'
 
     <div class="absolute left-4 top-[calc(env(safe-area-inset-top)_+_0.75rem)] z-20 sm:left-8 sm:top-8">
       <AppButton
+        v-if="backTarget"
+        icon="i-lucide-arrow-left"
+        :href="backTarget.href"
+        size="lg"
+        color="neutral"
+        variant="subtle"
+        class="ylf-auth-back max-w-[calc(100vw-2rem)] rounded-full"
+        :aria-label="backTarget.label"
+        :title="backTarget.label"
+      >
+        <span class="truncate">{{ backTarget.label }}</span>
+      </AppButton>
+      <AppButton
+        v-else
         icon="i-lucide-arrow-left"
         to="/"
         size="lg"
@@ -54,7 +74,7 @@ import { Card } from '@/components/ui/card'
   border: 1px solid color-mix(in srgb, var(--ylf-glass-highlight) 55%, transparent);
   box-shadow:
     0 1px 0 0 color-mix(in srgb, var(--ylf-glass-highlight) 70%, transparent) inset,
-    0 30px 64px -28px color-mix(in srgb, var(--ui-primary) 55%, transparent);
+    0 30px 64px -28px color-mix(in srgb, var(--ylf-auth-accent, var(--ui-primary)) 55%, transparent);
   backdrop-filter: blur(16px) saturate(140%);
   -webkit-backdrop-filter: blur(16px) saturate(140%);
   overflow-anchor: none;
@@ -72,7 +92,7 @@ import { Card } from '@/components/ui/card'
   background: radial-gradient(
     circle,
     color-mix(in srgb, var(--ylf-glass-highlight) 86%, transparent) 0%,
-    color-mix(in srgb, var(--ui-primary) 14%, transparent) 42%,
+    color-mix(in srgb, var(--ylf-auth-accent, var(--ui-primary)) 18%, transparent) 42%,
     transparent 70%
   );
   content: '';

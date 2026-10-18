@@ -1,5 +1,6 @@
 import type { ClientRegistrySnapshot } from '../../packages/authorization-core/src/registry-types'
 import type { SsoExplorerApp } from '~/types/app-explorer'
+import { registry as developmentRegistryJson } from '../../packages/authorization-core/src/generated/development-registry.json'
 import { registry as productionRegistryJson } from '../../packages/authorization-core/src/generated/production-registry.json'
 import { appIcons } from './app-icons'
 
@@ -201,4 +202,54 @@ const ssoExplorerSlugs = new Set(
 
 export function isSsoExplorerAppSlug(slug: string) {
   return ssoExplorerSlugs.has(slug)
+}
+
+export interface SsoClientPresentation {
+  clientId: string
+  appId: string
+  name: string
+  logoUrl: string | null
+  fallbackMark: string
+  accent: string
+  /** redirect_uri 与注册表中该客户端的回调地址完全一致（与 sso-ticket 的校验口径相同） */
+  verified: boolean
+}
+
+/**
+ * 登录页 / SSO 确认页展示「正在登录哪个应用」。
+ *
+ * 只用于展示：签发仍由 sso-ticket 按签名注册表校验。未注册的 client_id 返回 null，
+ * 回调地址不匹配时仍返回应用信息但 verified=false，界面据此提示用户核对来源。
+ * 本地开发额外认可开发注册表里的 *.yunle.localhost 回调。
+ */
+export function resolveSsoClientPresentation(
+  clientId: string,
+  redirectUri: string,
+  registries: readonly ClientRegistrySnapshot[] = import.meta.dev
+    ? [productionRegistry, developmentRegistryJson as ClientRegistrySnapshot]
+    : [productionRegistry],
+): SsoClientPresentation | null {
+  const matches = registries.flatMap(registry =>
+    registry.clients.filter(client => client.clientId === clientId && client.status === 'active'),
+  )
+  const client = matches[0]
+  if (!client)
+    return null
+
+  const verified = matches.some(candidate => candidate.adapters.some(adapter =>
+    adapter.kind === 'web-sso' && (adapter.redirectUris ?? []).includes(redirectUri),
+  ))
+  const presentation = presentationByAppId[client.appId] as SsoPresentation | undefined
+  const iconUrl = 'iconUrl' in client && client.iconUrl ? client.iconUrl : null
+  const name = presentation?.name ?? client.displayName
+
+  return {
+    clientId: client.clientId,
+    appId: client.appId,
+    name,
+    logoUrl: presentation?.logoUrl ?? iconUrl,
+    fallbackMark: presentation?.fallbackMark ?? (Array.from(name)[0] ?? '云'),
+    accent: presentation?.accent ?? 'var(--ylf-sso-accent)',
+    verified,
+  }
 }

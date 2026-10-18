@@ -34,6 +34,20 @@ const {
 } = useTcbAuth()
 const router = useRouter()
 const toast = useAppToast()
+const { entry, ssoClient } = useAuthEntry()
+
+// 来路决定标题：SSO 写明要登录的应用，设备授权写明下一步，其余保持「登录或注册云乐坊」
+const heading = computed(() => {
+  if (entry.value.kind === 'sso' && ssoClient.value)
+    return { prefix: '登录', highlight: ssoClient.value.name, subtitle: '使用云乐坊账号，一处登录，处处通行' }
+  if (entry.value.kind === 'sso')
+    return { prefix: '使用', highlight: '云乐坊账号', subtitle: '登录后将返回发起请求的应用' }
+  if (entry.value.kind === 'device')
+    return { prefix: '登录以授权', highlight: '桌面应用', subtitle: '登录后在下一步核对设备并授权' }
+  return { prefix: '登录或注册', highlight: '云乐坊', subtitle: '选择一种方式继续' }
+})
+const hasJourney = computed(() => entry.value.kind === 'sso' || entry.value.kind === 'device')
+const submitLabel = computed(() => entry.value.kind === 'direct' ? '登录' : '登录并继续')
 
 // 如果已登录，重定向（优先 redirect 查询参数，回退首页）
 watch(isAuthenticated, (value) => {
@@ -46,6 +60,7 @@ watch(isAuthenticated, (value) => {
 // 登录方式切换
 type LoginMode = 'phone' | 'email' | 'password'
 const loginMode = shallowRef<LoginMode>('password')
+const lastLoginMode = shallowRef<LoginMode | null>(null)
 const loginModeStorageKey = 'ylf:last-successful-login-mode'
 
 function selectLoginMode(value: unknown) {
@@ -56,7 +71,10 @@ function selectLoginMode(value: unknown) {
 
 onMounted(() => {
   try {
-    selectLoginMode(localStorage.getItem(loginModeStorageKey))
+    const stored = localStorage.getItem(loginModeStorageKey)
+    selectLoginMode(stored)
+    if (stored === 'password' || stored === 'phone' || stored === 'email')
+      lastLoginMode.value = stored
   }
   catch {
     // 浏览器禁用存储时，继续使用默认登录方式。
@@ -288,6 +306,25 @@ function openResetPassword() {
   resetData.value = null
 }
 
+// 航线小云：真正提交登录时起飞，登录成功后降落；只是发送验证码时不算出发
+const routeState = computed(() => {
+  if (isAuthenticated.value)
+    return 'arrived' as const
+  const submitting = loginMode.value === 'password'
+    || (loginMode.value === 'phone' && phoneCodeSent.value)
+    || (loginMode.value === 'email' && emailCodeSent.value)
+  return loading.value && submitting ? 'flying' as const : 'idle' as const
+})
+
+// 云宝：平时看向表单；输入隐藏的密码时把视线移开，登录成功后眯眼笑
+const focusedField = shallowRef<'password' | 'other' | null>(null)
+function trackFocus(event: FocusEvent) {
+  const target = event.target as HTMLInputElement | null
+  focusedField.value = target?.autocomplete === 'current-password' || target?.autocomplete === 'new-password' ? 'password' : 'other'
+}
+const mascotShy = computed(() => focusedField.value === 'password' && !showPassword.value)
+const mascotLook = computed(() => mascotShy.value ? { x: -1, y: -1 } : focusedField.value ? { x: -0.4, y: 1 } : { x: -0.8, y: 0.4 })
+
 // 表单区高度平滑过渡：切换登录方式 / 展开验证码时，卡片尺寸渐变而非硬跳
 const formAreaRef = useTemplateRef<HTMLElement>('formArea')
 const { height: formAreaHeight } = useElementSize(formAreaRef)
@@ -305,10 +342,22 @@ onUnmounted(() => clearTimeout(morphTimer))
 </script>
 
 <template>
-  <div class="ylf-auth-login w-full space-y-5">
-    <!-- 标题区域 -->
+  <div class="ylf-auth-login relative w-full space-y-5" @focusin="trackFocus" @focusout="focusedField = null">
+    <!-- 云宝：只在没有航线横幅时出现，避免和来源信息抢位置 -->
+    <div
+      v-if="!hasJourney"
+      class="ylf-auth-mascot"
+      :class="{ 'ylf-auth-mascot--shy': mascotShy }"
+      aria-hidden="true"
+    >
+      <CuteCloud shape="round" face :mood="isAuthenticated ? 'happy' : 'calm'" :look="mascotLook" />
+      <span class="ylf-auth-mascot__bubble">不偷看～</span>
+    </div>
+
+    <!-- 标题区域：其他应用跳转而来时，先说明「从哪来、回哪去」 -->
     <div class="text-center space-y-2">
-      <div class="flex justify-center">
+      <AuthEntryBanner v-if="hasJourney" class="mb-3 sm:mb-4" :route-state="routeState" />
+      <div v-else class="flex justify-center">
         <div class="ylf-auth-mark ylf-gradient-tile flex h-12 w-14 items-center justify-center rounded-2xl">
           <YlfLogo
             class="h-7 w-10 text-primary-foreground"
@@ -316,24 +365,29 @@ onUnmounted(() => clearTimeout(morphTimer))
           />
         </div>
       </div>
-      <h1 class="font-heading text-3xl font-semibold tracking-tight">
-        登录或注册 <span class="ylf-gradient-text">云乐坊</span>
+      <!-- 手机上横幅已说明去向，标题收小、省掉副标题，让表单留在首屏 -->
+      <h1 class="font-heading font-semibold tracking-tight text-balance [overflow-wrap:anywhere] [word-break:keep-all]" :class="hasJourney ? 'text-2xl sm:text-3xl' : 'text-3xl'">
+        {{ heading.prefix }} <span class="ylf-gradient-text">{{ heading.highlight }}</span>
       </h1>
-      <p class="text-sm text-muted">
-        选择一种方式继续
+      <p class="text-sm text-muted text-balance [word-break:keep-all]" :class="{ 'max-sm:hidden': hasJourney }">
+        {{ heading.subtitle }}
       </p>
+      <AuthEntryBanner v-if="entry.kind === 'page'" class="!mt-3" />
     </div>
 
     <!-- 登录方式切换 -->
     <ToggleGroup :model-value="loginMode" type="single" :spacing="1" :disabled="loading" class="ylf-auth-tabs grid w-full grid-cols-3 p-1" aria-label="登录方式" @update:model-value="selectLoginMode">
       <ToggleGroupItem value="password" class="ylf-auth-tab w-full">
         密码登录
+        <span v-if="lastLoginMode === 'password'" class="ylf-auth-tab__last" title="上次使用">上次</span>
       </ToggleGroupItem>
       <ToggleGroupItem value="phone" class="ylf-auth-tab w-full">
         短信登录
+        <span v-if="lastLoginMode === 'phone'" class="ylf-auth-tab__last" title="上次使用">上次</span>
       </ToggleGroupItem>
       <ToggleGroupItem value="email" class="ylf-auth-tab w-full">
         邮箱登录
+        <span v-if="lastLoginMode === 'email'" class="ylf-auth-tab__last" title="上次使用">上次</span>
       </ToggleGroupItem>
     </ToggleGroup>
 
@@ -413,7 +467,7 @@ onUnmounted(() => clearTimeout(morphTimer))
               </AppFormField>
 
               <AppButton
-                label="登录"
+                :label="submitLabel"
                 color="primary"
                 size="lg"
                 block
@@ -487,7 +541,7 @@ onUnmounted(() => clearTimeout(morphTimer))
               </AppFormField>
 
               <AppButton
-                label="登录"
+                :label="submitLabel"
                 color="primary"
                 size="lg"
                 block
@@ -574,7 +628,7 @@ onUnmounted(() => clearTimeout(morphTimer))
             </div>
 
             <AppButton
-              label="登录"
+              :label="submitLabel"
               type="submit"
               color="primary"
               size="lg"
@@ -826,6 +880,70 @@ onUnmounted(() => clearTimeout(morphTimer))
   pointer-events: none;
 }
 
+/* 「上次」角标：只标记上次成功的方式，不代替选中态 */
+.ylf-auth-tab__last {
+  margin-left: 0.25rem;
+  padding: 0 0.3125rem;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--ui-primary) 12%, transparent);
+  color: var(--ui-primary);
+  font-size: 0.625rem;
+  font-weight: 600;
+  line-height: 1rem;
+}
+
+/* 云宝：坐在卡片右上角，轻轻浮动；害羞时侧过身并冒出气泡 */
+.ylf-auth-mascot {
+  position: absolute;
+  z-index: 2;
+  top: -0.25rem;
+  right: -0.25rem;
+  width: 5.25rem;
+  filter: drop-shadow(0 6px 10px color-mix(in srgb, var(--ylf-sso-sky) 45%, transparent))
+    drop-shadow(0 1px 1px color-mix(in srgb, var(--ylf-sso-cloud-border) 55%, transparent));
+  animation: ylf-auth-mascot-float 5s ease-in-out infinite;
+  pointer-events: none;
+  transition: rotate var(--ylf-duration-normal, 220ms) var(--ylf-ease-standard, ease);
+}
+
+.ylf-auth-mascot--shy {
+  rotate: -8deg;
+}
+
+.ylf-auth-mascot__bubble {
+  position: absolute;
+  top: -0.25rem;
+  right: 4.25rem;
+  padding: 0.125rem 0.5rem;
+  border: 1px solid var(--ui-border-muted);
+  border-radius: 9999px 9999px 0.25rem 9999px;
+  background: var(--ylf-surface);
+  color: var(--ui-text-muted);
+  font-size: 0.625rem;
+  opacity: 0;
+  scale: 0.85;
+  transform-origin: bottom right;
+  transition:
+    opacity 160ms ease,
+    scale 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  white-space: nowrap;
+}
+
+.ylf-auth-mascot--shy .ylf-auth-mascot__bubble {
+  opacity: 1;
+  scale: 1;
+}
+
+@keyframes ylf-auth-mascot-float {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -3px;
+  }
+}
+
 /* 表单区高度平滑过渡：避免切换登录方式 / 展开验证码时卡片尺寸硬跳 */
 .ylf-auth-morph {
   transition: height 240ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -873,6 +991,10 @@ onUnmounted(() => clearTimeout(morphTimer))
   .ylf-auth-form-leave-active,
   .ylf-auth-tab {
     transition: none;
+  }
+
+  .ylf-auth-mascot {
+    animation: none;
   }
 
   .ylf-auth-tab[data-state='on'] {

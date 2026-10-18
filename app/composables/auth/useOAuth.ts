@@ -1,4 +1,5 @@
 import { bindAcquisitionOAuthState } from '~/utils/acquisition-storage'
+import { getSafeLoginRedirect } from '~/utils/authRoutes'
 /**
  * OAuth 登录和第三方身份绑定/解绑
  */
@@ -19,9 +20,16 @@ export function useTcbOAuth(core: ReturnType<typeof import('./useAuthCore').useT
       loading.value = true
       error.value = null
       const acquisitionAttempt = setAcquisitionAuthMethod(provider)
-      const currentRoute = router.currentRoute.value.fullPath
-      if (currentRoute !== '/login')
-        localStorage.setItem('auth_redirect', currentRoute)
+      // 从登录页发起时直接记下最终去处（如 /auth/sso?…），回调后少绕一次登录页
+      const currentRoute = router.currentRoute.value
+      if (currentRoute.path !== '/login') {
+        localStorage.setItem('auth_redirect', currentRoute.fullPath)
+      }
+      else {
+        const redirect = getSafeLoginRedirect(currentRoute.query.redirect)
+        if (redirect !== '/')
+          localStorage.setItem('auth_redirect', redirect)
+      }
 
       const callbackUrl = `${window.location.origin}/auth/callback`
       const { data, error: oauthError } = await auth.signInWithOAuth({
