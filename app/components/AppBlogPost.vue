@@ -33,7 +33,12 @@ const featured = computed(() => props.orientation === 'horizontal')
 </script>
 
 <template>
-  <NuxtLink :to="destination" class="blog-card group block h-full" :data-featured="featured ? '' : undefined">
+  <NuxtLink
+    :to="destination"
+    class="blog-card group block h-full"
+    :data-featured="featured ? '' : undefined"
+    data-vt-link="blog-cover"
+  >
     <article
       class="blog-card__surface flex h-full flex-col overflow-hidden"
       :class="featured ? 'md:flex-row' : ''"
@@ -41,6 +46,7 @@ const featured = computed(() => props.orientation === 'horizontal')
       <div
         v-if="illustration || imageSrc"
         class="blog-card__media relative shrink-0 overflow-hidden"
+        data-vt="blog-cover"
         :class="featured ? 'md:w-[52%]' : ''"
       >
         <ContentIllustration v-if="illustration" :name="illustration" class="blog-card__image" />

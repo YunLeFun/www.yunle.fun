@@ -168,6 +168,7 @@ function workshopHref(surface: WorkshopSurface) {
               <div
                 class="profile-avatar shrink-0"
                 data-hero-interactive
+                data-vt="avatar"
                 :class="[{ 'ylf-squish': avatarPoked }, isMember ? 'profile-avatar--member' : '']"
                 @click="pokeAvatar"
                 @animationend.self="avatarPoked = false"
@@ -226,12 +227,14 @@ function workshopHref(surface: WorkshopSurface) {
             <!-- 窄屏只留图标按钮，和头像同一行，省出首屏高度 -->
             <AppButton
               to="/settings?edit=profile"
+              data-vt-link="avatar page-header"
               label="编辑资料"
               icon="i-lucide-pencil"
               class="ylf-glass-btn shrink-0 rounded-full max-sm:hidden"
             />
             <AppButton
               to="/settings?edit=profile"
+              data-vt-link="avatar page-header"
               icon="i-lucide-pencil"
               aria-label="编辑资料"
               class="ylf-glass-btn size-10 shrink-0 rounded-full sm:hidden"
@@ -290,6 +293,7 @@ function workshopHref(surface: WorkshopSurface) {
             :to="e.to"
             class="profile-app ylf-rise"
             :style="{ '--sky': e.sky, '--on': e.on, '--i': 3 + i * 0.5 }"
+            :data-vt-link="e.to.startsWith('/settings') ? 'avatar page-header' : undefined"
           >
             <span class="profile-app__icon">
               <Icon :name="e.icon" class="size-[1.375rem]" aria-hidden="true" />

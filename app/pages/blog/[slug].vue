@@ -96,7 +96,7 @@ onBeforeUnmount(() => cancelAnimationFrame(frame))
           </div>
         </header>
 
-        <figure v-if="post.illustration || coverSrc" class="blog-cover ylf-rise mt-8" style="--i: 2">
+        <figure v-if="post.illustration || coverSrc" class="blog-cover ylf-rise mt-8" style="--i: 2" data-vt="blog-cover">
           <ContentIllustration v-if="post.illustration" :name="post.illustration" />
           <img v-else :src="coverSrc" :alt="post.title" class="size-full object-cover">
           <figcaption v-if="post.illustration" class="blog-cover__hint">

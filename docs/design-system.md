@@ -113,6 +113,7 @@
 - 进场：`.ylf-rise` + `--i` 错开（70ms 步长）；按压：`.ylf-press`；加载：`.ylf-shimmer` 骨架，不用转圈。
 - **常驻循环只放在装饰区域**（头图云朵、空状态插画、交互插画）。列表与表单只保留进场和点击反馈：更新日志最新节点呼吸 3 次后停止；会员入口的光带进场扫两次、悬停再扫一次；设置页里的云不做漂浮。
 - 交互插画离开视口时暂停全部动画。
+- 跨页共享元素过渡（`plugins/shared-element-transition.client.ts`）：链接写 `data-vt-link="kind"`，起点与落点都写 `data-vt="kind"`；只有点中这类链接才启动 View Transition，时长 360ms + `--ylf-ease-standard`，不支持或减少动态效果时直接跳转。现有 kind：`blog-cover`（博客卡片封面 → 文章头图）、`avatar`（个人中心头像 → 设置页横幅头像）、`page-header`（SkyHero / 帮助页页头，抽屉明信片与个人中心头图都落到这里）。
 
 ### 可交互插画
 

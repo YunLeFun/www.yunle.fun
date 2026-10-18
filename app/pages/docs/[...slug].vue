@@ -81,7 +81,7 @@ useSeoMeta({
         <span aria-current="page">{{ page.title }}</span>
       </nav>
 
-      <header class="docs-header">
+      <header class="docs-header" data-vt="page-header">
         <div class="docs-header__copy">
           <p>
             <Icon name="i-lucide-circle-help" aria-hidden="true" />

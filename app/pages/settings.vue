@@ -114,6 +114,7 @@ function clearProfileEditRequest() {
             :is-member="isMember"
             ring-class="ring-white/60"
             class="max-sm:hidden"
+            data-vt="avatar"
           />
         </template>
       </SubpageHero>

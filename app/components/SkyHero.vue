@@ -162,6 +162,7 @@ function poke(cloud: HeroCloud, event: MouseEvent) {
     ref="root"
     class="ylf-sky-hero relative isolate overflow-hidden rounded-[var(--ylf-radius-xl)]"
     :data-clouds="clouds"
+    data-vt="page-header"
   >
     <SkyScene :sun="false" clouds="none" class="pointer-events-none" />
     <span class="ylf-sky-hero__stars pointer-events-none" aria-hidden="true" />

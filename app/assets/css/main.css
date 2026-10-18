@@ -1095,6 +1095,38 @@ html.ylf-appearance-reveal *::after {
   }
 }
 
+/* 共享元素页面过渡（见 plugins/shared-element-transition.client.ts）：博客封面、头像、明信片 → 页头。
+   只在被点中的那一次跳转里挂 ylf-vt-route，与上面的明暗切换互不影响；减少动态效果时插件根本不启动。 */
+html.ylf-vt-route::view-transition-group(*),
+html.ylf-vt-route::view-transition-old(*),
+html.ylf-vt-route::view-transition-new(*) {
+  animation-duration: 360ms;
+  animation-timing-function: var(--ylf-ease-standard);
+}
+
+/* 封面是图片：卡片 16:10 → 头图 16:9 按落点裁切，不拉伸。
+   页头带文字：保持默认的等宽、顶端对齐，只由圆角框裁掉多出的高度，标题不会被横向裁掉。 */
+html.ylf-vt-route::view-transition-old(ylf-vt-blog-cover),
+html.ylf-vt-route::view-transition-new(ylf-vt-blog-cover) {
+  height: 100%;
+  object-fit: cover;
+}
+
+html.ylf-vt-route::view-transition-image-pair(ylf-vt-blog-cover) {
+  overflow: clip;
+  border-radius: var(--ylf-radius-lg);
+}
+
+html.ylf-vt-route::view-transition-image-pair(ylf-vt-page-header) {
+  overflow: clip;
+  border-radius: var(--ylf-radius-xl);
+}
+
+/* 落点由过渡「飞」进来，不再叠 .ylf-rise 的淡入位移。 */
+[data-vt-landed] {
+  animation: none !important;
+}
+
 /* ------------------------------------------------------------------ *
  * 阅读排版 —— 博客正文、更新日志共用。正文 15/16px、行高 1.85，
  * 标题与段落按 8px 节奏留白；链接用晴空蓝细下划线，引用块像一朵安静的云。

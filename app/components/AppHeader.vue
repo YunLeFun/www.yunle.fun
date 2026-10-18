@@ -165,6 +165,8 @@ const items = computed(() => [
                   :style="{ '--i': index + 1, '--sky': item.sky, '--ink': item.tone }"
                   :data-active="item.active ? '' : undefined"
                   :aria-current="item.active ? 'page' : undefined"
+                  data-vt="page-header"
+                  data-vt-link="page-header"
                   @click="mobileOpen = false"
                 >
                   <span class="ylf-postcard__no" aria-hidden="true">{{ String(index + 1).padStart(2, '0') }}</span>
