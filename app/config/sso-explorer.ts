@@ -136,7 +136,7 @@ const presentationByAppId: Record<string, SsoPresentation> = {
 }
 
 /** 安全控制面与原生伴生客户端可参与 SSO，但不单独展示为公开 Web 应用。 */
-const nonDiscoverableSsoClientIds = new Set(['admin-web', 'cook-mobile', 'life-ios', 'studio-web'])
+const nonDiscoverableSsoClientIds = new Set(['admin-web', 'advjs-studio-ios', 'cook-mobile', 'life-ios', 'studio-web'])
 const discoverableAppOrderIndex = new Map(
   Object.keys(presentationByAppId).map((appId, index) => [appId, index]),
 )

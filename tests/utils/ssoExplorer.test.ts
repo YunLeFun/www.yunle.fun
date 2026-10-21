@@ -9,7 +9,7 @@ import { productionRegistry } from '../../packages/authorization-core/src/regist
 
 describe('sso explorer configuration', () => {
   it('derives only active Web SSO clients from the authorization registry', () => {
-    const controlPlaneClients = new Set(['admin-web', 'cook-mobile', 'life-ios', 'studio-web'])
+    const controlPlaneClients = new Set(['admin-web', 'advjs-studio-ios', 'cook-mobile', 'life-ios', 'studio-web'])
     const expectedAppIds = productionRegistry.clients
       .filter(client => client.status === 'active')
       .filter(client => !controlPlaneClients.has(client.clientId))
@@ -90,6 +90,33 @@ describe('sso explorer configuration', () => {
     }
 
     expect(buildSsoExplorerApps(nextRegistry).some(app => app.appId === 'life')).toBe(false)
+    expect(buildSsoExplorerApps(nextRegistry)).toEqual(ssoExplorerApps)
+  })
+
+  it('accepts ADV.JS Studio iOS registration without duplicating the Studio Web app', () => {
+    const nextRegistry = {
+      ...productionRegistry,
+      clients: [
+        ...productionRegistry.clients.filter(client => client.clientId !== 'advjs-studio-ios'),
+        {
+          clientId: 'advjs-studio-ios',
+          appId: 'advjs-studio',
+          displayName: 'ADV.JS Studio',
+          iconUrl: 'https://studio.advjs.org/favicon.png',
+          status: 'active' as const,
+          adapters: [{
+            kind: 'web-sso' as const,
+            consent: 'explicit' as const,
+            allowedScopes: ['identity:bootstrap'],
+            origins: ['https://studio.advjs.org'],
+            redirectUris: ['https://studio.advjs.org/auth/callback'],
+          }],
+        },
+      ],
+    }
+
+    expect(buildSsoExplorerApps(nextRegistry).filter(app => app.appId === 'advjs-studio')
+      .map(app => app.clientId)).toEqual(['advjs-studio-web'])
     expect(buildSsoExplorerApps(nextRegistry)).toEqual(ssoExplorerApps)
   })
 
