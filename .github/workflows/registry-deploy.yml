@@ -7,6 +7,16 @@ on:
     paths:
       - packages/authorization-core/src/generated/*-registry.json
       - packages/authorization-core/src/generated/*-release.json
+  # Retries a release whose consumer deployment failed (`deployment_failed`), from the
+  # same merge commit as the design requires. The management plane only accepts
+  # deployment_failed -> deploying for the recorded merge commit, and the inspect job
+  # refuses any release that is not the latest generated artifact on main.
+  workflow_dispatch:
+    inputs:
+      merge_commit:
+        description: Full 40-character merge commit of the generated release to redeploy
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -17,11 +27,30 @@ jobs:
     outputs:
       environment: ${{ steps.release.outputs.environment }}
       release-intent-id: ${{ steps.release.outputs.release-intent-id }}
+      merge-commit: ${{ steps.commit.outputs.merge-commit }}
     steps:
       - name: Checkout exact merge commit
         uses: actions/checkout@v5
         with:
-          fetch-depth: 2
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.merge_commit || github.sha }}
+          fetch-depth: ${{ github.event_name == 'workflow_dispatch' && 0 || 2 }}
+
+      - name: Resolve exact merge commit
+        id: commit
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REQUESTED_COMMIT: ${{ inputs.merge_commit }}
+        run: |
+          merge_commit="$(git rev-parse HEAD)"
+          if [ "$EVENT_NAME" = workflow_dispatch ]; then
+            [[ "$REQUESTED_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+            test "$merge_commit" = "$REQUESTED_COMMIT"
+            git fetch --no-tags origin main
+            git merge-base --is-ancestor "$merge_commit" origin/main
+            # A newer generated artifact on main supersedes this release; never redeploy an older one.
+            test -z "$(git diff --name-only "$merge_commit" origin/main -- packages/authorization-core/src/generated/)"
+          fi
+          echo "merge-commit=$merge_commit" >> "$GITHUB_OUTPUT"
 
       - name: Install pnpm
         uses: pnpm/action-setup@v6
@@ -63,7 +92,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ needs.inspect.outputs.merge-commit }}
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
         with:
@@ -73,16 +102,18 @@ jobs:
       - name: Authenticate CloudBase CLI
         run: node scripts/authenticate-cloudbase-ci.mjs
       - name: Record exact merged commit
+        # A retry starts from deployment_failed, which already recorded this merge.
+        if: ${{ github.event_name == 'push' }}
         run: >-
           pnpm sso:registry record-ci --environment development
           --release-intent "${{ needs.inspect.outputs.release-intent-id }}"
-          --status merged --merge-commit "${{ github.sha }}"
+          --status merged --merge-commit "${{ needs.inspect.outputs.merge-commit }}"
           --operator github-actions --reason "generated release merged"
       - name: Record deployment start
         run: >-
           pnpm sso:registry record-deployment --environment development
           --release-intent "${{ needs.inspect.outputs.release-intent-id }}"
-          --status deploying --merge-commit "${{ github.sha }}"
+          --status deploying --merge-commit "${{ needs.inspect.outputs.merge-commit }}"
           --consumers '{}'
           --operator github-actions --reason "development deployment started"
       - name: Build and deploy exact development consumers
@@ -94,8 +125,8 @@ jobs:
         run: >-
           pnpm sso:registry record-deployment --environment development
           --release-intent "${{ needs.inspect.outputs.release-intent-id }}"
-          --status deployed --merge-commit "${{ github.sha }}"
-          --consumers '{"sso-registry-admin":"${{ github.sha }}","sso-ticket":"${{ github.sha }}"}'
+          --status deployed --merge-commit "${{ needs.inspect.outputs.merge-commit }}"
+          --consumers '{"sso-registry-admin":"${{ needs.inspect.outputs.merge-commit }}","sso-ticket":"${{ needs.inspect.outputs.merge-commit }}"}'
           --operator github-actions --reason "development deployment smoke passed"
       - name: Record development failure
         if: ${{ failure() }}
@@ -103,7 +134,7 @@ jobs:
         run: >-
           pnpm sso:registry record-deployment --environment development
           --release-intent "${{ needs.inspect.outputs.release-intent-id }}"
-          --status deployment_failed --merge-commit "${{ github.sha }}"
+          --status deployment_failed --merge-commit "${{ needs.inspect.outputs.merge-commit }}"
           --consumers '{}'
           --failure registry_development_deployment_failed
           --operator github-actions --reason "development deployment failed"
@@ -125,7 +156,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ needs.inspect.outputs.merge-commit }}
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
         with:
@@ -135,16 +166,18 @@ jobs:
       - name: Authenticate CloudBase CLI
         run: node scripts/authenticate-cloudbase-ci.mjs
       - name: Record exact merged commit
+        # A retry starts from deployment_failed, which already recorded this merge.
+        if: ${{ github.event_name == 'push' }}
         run: >-
           pnpm sso:registry record-ci --environment production
           --release-intent "${{ needs.inspect.outputs.release-intent-id }}"
-          --status merged --merge-commit "${{ github.sha }}"
+          --status merged --merge-commit "${{ needs.inspect.outputs.merge-commit }}"
           --operator github-actions --reason "generated release merged"
       - name: Record deployment start
         run: >-
           pnpm sso:registry record-deployment --environment production
           --release-intent "${{ needs.inspect.outputs.release-intent-id }}"
-          --status deploying --merge-commit "${{ github.sha }}"
+          --status deploying --merge-commit "${{ needs.inspect.outputs.merge-commit }}"
           --consumers '{}'
           --operator github-actions --reason "production deployment started"
       - name: Build and deploy exact production consumers
@@ -156,8 +189,8 @@ jobs:
         run: >-
           pnpm sso:registry record-deployment --environment production
           --release-intent "${{ needs.inspect.outputs.release-intent-id }}"
-          --status deployed --merge-commit "${{ github.sha }}"
-          --consumers '{"desktop-auth":"${{ github.sha }}","sso-registry-admin":"${{ github.sha }}","sso-ticket":"${{ github.sha }}"}'
+          --status deployed --merge-commit "${{ needs.inspect.outputs.merge-commit }}"
+          --consumers '{"desktop-auth":"${{ needs.inspect.outputs.merge-commit }}","sso-registry-admin":"${{ needs.inspect.outputs.merge-commit }}","sso-ticket":"${{ needs.inspect.outputs.merge-commit }}"}'
           --operator github-actions --reason "production deployment smoke passed"
       - name: Record production failure
         if: ${{ failure() }}
@@ -165,7 +198,7 @@ jobs:
         run: >-
           pnpm sso:registry record-deployment --environment production
           --release-intent "${{ needs.inspect.outputs.release-intent-id }}"
-          --status deployment_failed --merge-commit "${{ github.sha }}"
+          --status deployment_failed --merge-commit "${{ needs.inspect.outputs.merge-commit }}"
           --consumers '{}'
           --failure registry_production_deployment_failed
           --operator github-actions --reason "production deployment failed"

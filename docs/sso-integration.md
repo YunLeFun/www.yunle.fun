@@ -260,6 +260,11 @@ pnpm dev:sso
    签名密钥或其他 GitHub App 的私钥复用到该 Secret。
 9. 如发布因 CI 修复导致 `main` 前移而进入 `superseded`，需对新的完整 commit SHA 重新请求审批，并重新走当前首选通道。
    管理函数只会在原 intent 已 `superseded`、原草稿仍是当前活动快照，generation、内容哈希和安全哈希全部相同时复用该快照并创建新 intent；旧卡片决定或邮件审批码不可复用，任何 Registry 内容变化都仍需新草稿。
+10. 消费者部署失败（intent 为 `deployment_failed`，例如函数代码上传超时）时，从相同 merge commit 重试：
+    在 Actions 中手动运行 `registry-deploy.yml`，`merge_commit` 填该发布的完整 merge commit。重试不再记录 `merged`，
+    直接按 `deployment_failed → deploying → deployed` 推进；inspect 会确认该 commit 在 `main` 上、且之后没有更新的
+    generated 产物，管理函数也只接受与 intent 记录一致的 commit。已 `deployed` 的发布不能被重试改写。重跑旧的失败运行
+    无效：它会先尝试记录 `merged` 并因 `release_status_conflict` 停止。
 
 ## 运维资源
 

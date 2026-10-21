@@ -100,10 +100,25 @@ describe('registry protected workflows', () => {
     expect(source.match(/node scripts\/authenticate-cloudbase-ci\.mjs/g)).toHaveLength(2)
     expect(source).toContain('group: sso-registry-production')
     expect(source).toContain('record-deployment')
-    expect(source).toContain('"sso-registry-admin":"$' + '{{ github.sha }}"')
+    expect(source).toContain('"sso-registry-admin":"$' + '{{ needs.inspect.outputs.merge-commit }}"')
     expect(source).not.toContain('SSO_IDENTITY_SIGNING_KEY: $' + '{{ secrets.SSO_IDENTITY_SIGNING_KEY }}')
     expect(source).not.toContain('SSO_TICKET_PRIVATE_KEY: $' + '{{ secrets.SSO_TICKET_PRIVATE_KEY }}')
     expect(source).toContain('vars.SSO_REGISTRY_PRODUCTION_DEPLOY_ENABLED == \'true\'')
     expect(source.indexOf('verify-release')).toBeLessThan(source.indexOf('environment: production'))
+  })
+
+  it('retries a failed consumer deployment only from the latest exact merge commit', () => {
+    const source = workflow('registry-deploy.yml')
+
+    expect(source).toContain('workflow_dispatch:')
+    expect(source).toContain('merge_commit:')
+    // The input reaches the shell through env, never by expression interpolation.
+    expect(source).toContain('REQUESTED_COMMIT: $' + '{{ inputs.merge_commit }}')
+    expect(source).toContain('[[ "$REQUESTED_COMMIT" =~ ^[0-9a-f]{40}$ ]]')
+    expect(source).toContain('git merge-base --is-ancestor "$merge_commit" origin/main')
+    expect(source).toContain('test -z "$(git diff --name-only "$merge_commit" origin/main -- packages/authorization-core/src/generated/)"')
+    expect(source.match(/if: \$\{\{ github\.event_name == 'push' \}\}/g)).toHaveLength(2)
+    expect(source.match(/ref: \$\{\{ needs\.inspect\.outputs\.merge-commit \}\}/g)).toHaveLength(2)
+    expect(source).not.toMatch(/--merge-commit "\$\{\{ github\.sha \}\}"/)
   })
 })
