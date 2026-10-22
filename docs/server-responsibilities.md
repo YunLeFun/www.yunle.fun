@@ -12,6 +12,11 @@
 秘密边界保持单一：CloudBase 的管理密钥、支付私钥（微信商户私钥、App Store 私钥）
 只存在于 CloudBase 云函数环境变量中，**不要**下发到 EdgeOne。
 
+业务数据库已选定未来采用普通腾讯云 PostgreSQL，目前尚未采购或迁移。
+该计划保留 CloudBase Auth、业务 API 与文件存储边界，已迁移数据域由业务服务端
+经私网访问 PostgreSQL；数据库凭据不下发到浏览器或 EdgeOne 展示层。
+具体配置、费用和分阶段切换约束见 [PostgreSQL 选型与迁移规划](./postgresql-adoption-plan.md)。
+
 ## 存储边界
 
 - CloudBase 默认桶只承载头像等公开资产，权限采用所有用户可读、管理员写。

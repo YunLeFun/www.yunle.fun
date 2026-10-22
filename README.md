@@ -23,6 +23,8 @@
 - EdgeOne Pages：正式网站；Cloudflare Pages：兼容性构建与预览
 - Vitest、ESLint 和 Nuxt TypeScript 检查
 
+业务数据库已选定未来采用 PostgreSQL，当前仍运行在 CloudBase NoSQL，尚未启动迁移。腾讯云配置、费用基线和跨仓库分阶段迁移约束见 [PostgreSQL 选型与迁移规划](./docs/postgresql-adoption-plan.md)。
+
 主站通过 [YunLeFun Design](https://github.com/YunLeFun/design) 统一外观：`@yunlefun/ui@0.0.6` 提供共享明暗主题，`design-tokens.css` 将其映射到 Nuxt UI 与本地控件，`@yunlefun/vue@0.4.2` 提供徽标和分隔线。`App*` 封装保留路由、表单与业务接口；可选的 `tone` 使用 `blue | sun | cyan | coral | pink | green`，成功、提醒、错误等状态色不受 `tone` 覆盖。接入范围和业务样式例外见 [设计系统迁移说明](./docs/design-system.md)。
 
 ## 本地开发
