@@ -1,9 +1,12 @@
 <script setup lang="ts">
 const colorMode = useColorMode()
 const route = useRoute()
+const config = useRuntimeConfig()
 
 const color = computed(() => colorMode.value === 'dark' ? '#020618' : 'white')
-const canonicalUrl = computed(() => `https://www.yunle.fun${route.path}`)
+const siteUrl = config.public.siteUrl.replace(/\/$/, '')
+const canonicalUrl = computed(() => `${siteUrl}${route.path}`)
+const socialImageUrl = `${siteUrl}/yunlefun-logo-1024.png`
 
 useHead({
   meta: [
@@ -22,9 +25,16 @@ useHead({
 
 useSeoMeta({
   titleTemplate: '%s - 云乐坊',
-  ogImage: 'https://ui.nuxt.com/assets/templates/nuxt/saas-light.png',
-  twitterImage: 'https://ui.nuxt.com/assets/templates/nuxt/saas-light.png',
-  twitterCard: 'summary_large_image',
+  ogSiteName: '云乐坊',
+  ogUrl: canonicalUrl,
+  ogImage: socialImageUrl,
+  ogImageType: 'image/png',
+  ogImageWidth: 1024,
+  ogImageHeight: 1024,
+  ogImageAlt: '云乐坊 YunLeFun Logo',
+  twitterImage: socialImageUrl,
+  twitterImageAlt: '云乐坊 YunLeFun Logo',
+  twitterCard: 'summary',
 })
 
 // 方案 B：登录态就绪后自动领取每日签到云币（替代手动签到），到账时以 toast 呈现。

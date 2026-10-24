@@ -31,8 +31,6 @@ useSeoMeta({
   ogDescription: description,
 })
 
-// defineOgImageComponent('Saas') // Disabled: SSR is required for OG images
-
 // 特性列表
 const features = ref([
   {
