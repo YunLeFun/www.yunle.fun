@@ -1,15 +1,7 @@
 <script setup lang="ts">
 import type { OAuthIdentityLike } from '~/utils/authProviders'
-import { ShieldCheckIcon } from '@lucide/vue'
+import { CheckIcon, CircleDashedIcon, ShieldCheckIcon } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -18,7 +10,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Separator } from '@/components/ui/separator'
 import { Spinner } from '@/components/ui/spinner'
 import {
   getBoundOAuthProviderIds,
@@ -46,21 +37,11 @@ const userProviders = computed(() =>
   (user.value?.providers || []).map(normalizeOAuthProviderId).filter(Boolean),
 )
 const allBoundProviders = computed(() => [...userProviders.value, ...boundProviders.value])
-const configuredCredentialCount = computed(() =>
-  Number(!!user.value?.email)
-  + Number(!!user.value?.phone)
-  + Number(!!user.value?.hasPassword),
-)
-
-// 凭证越多越安心：0–1 需加强，2 还不错，3 很安心
-const securityLevel = computed(() => {
-  const count = configuredCredentialCount.value
-  if (count >= 3)
-    return { key: 'great', label: '很安心' }
-  if (count === 2)
-    return { key: 'good', label: '还不错' }
-  return { key: 'weak', label: '需加强' }
-})
+const credentials = computed(() => [
+  { key: 'email', ready: !!user.value?.email, label: user.value?.email ? '邮箱已绑定' : '邮箱未绑定' },
+  { key: 'phone', ready: !!user.value?.phone, label: user.value?.phone ? '手机已绑定' : '手机未绑定' },
+  { key: 'password', ready: !!user.value?.hasPassword, label: user.value?.hasPassword == null ? '密码状态待确认' : user.value.hasPassword ? '密码已设置' : '密码未设置' },
+])
 
 const isGitHubBound = computed(() =>
   hasOAuthProvider(allBoundProviders.value, GITHUB_PROVIDER_ID),
@@ -164,105 +145,73 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="space-y-6">
-    <!-- 登录凭证 -->
-    <Card class="security-credentials">
-      <CardHeader class="security-credentials__header">
-        <div class="flex min-w-0 items-start gap-3">
-          <span class="security-credentials__mark" aria-hidden="true">
-            <ShieldCheckIcon />
-          </span>
-          <div class="flex min-w-0 flex-1 flex-col gap-1">
-            <CardTitle>登录凭证</CardTitle>
-            <CardDescription>
-              管理可用于登录和找回账号的验证方式
-            </CardDescription>
-          </div>
-          <div
-            class="security-meter shrink-0"
-            :data-level="securityLevel.key"
-            role="img"
-            :aria-label="`已配置 ${configuredCredentialCount}/3 种登录凭证，${securityLevel.label}`"
-          >
-            <svg viewBox="0 0 36 36" aria-hidden="true">
-              <circle class="security-meter__track" cx="18" cy="18" r="15" pathLength="100" />
-              <circle
-                class="security-meter__value"
-                cx="18"
-                cy="18"
-                r="15"
-                pathLength="100"
-                :style="{ '--p': configuredCredentialCount / 3 }"
-              />
-            </svg>
-            <span class="security-meter__count" aria-hidden="true">{{ configuredCredentialCount }}/3</span>
-            <span class="security-meter__label" aria-hidden="true">{{ securityLevel.label }}</span>
-          </div>
+  <div class="security-settings">
+    <SettingsPageHeader title="安全设置" description="为你的云端生活，多一份安心。" security>
+      <ul class="security-summary" aria-label="登录凭证状态" aria-live="polite">
+        <li v-for="credential in credentials" :key="credential.key" class="security-summary__item" :class="{ 'security-summary__item--ready': credential.ready }">
+          <CheckIcon v-if="credential.ready" aria-hidden="true" />
+          <CircleDashedIcon v-else aria-hidden="true" />
+          {{ credential.label }}
+        </li>
+      </ul>
+    </SettingsPageHeader>
+    <div class="security-body">
+      <section class="security-credentials" aria-labelledby="credentials-title">
+        <header class="security-section-heading">
+          <h2 id="credentials-title">
+            登录凭证
+          </h2>
+          <p>管理登录和找回账号的验证方式</p>
+        </header>
+        <div class="security-credentials__list">
+          <SettingsSecurityBindEmail />
+          <SettingsSecurityBindPhone />
+          <SettingsSecurityPassword />
         </div>
-      </CardHeader>
+        <p class="security-tip">
+          <ShieldCheckIcon aria-hidden="true" />
+          建议保留两种可用凭证，换设备或忘记密码时仍能找回账号。
+        </p>
+      </section>
+      <section v-if="isGitHubEnabled || isWeChatEnabled" class="security-providers" aria-labelledby="providers-title">
+        <header class="security-section-heading">
+          <h2 id="providers-title">
+            第三方账号
+          </h2>
+          <p>绑定后可一键登录，无需输入密码</p>
+        </header>
+        <div class="divide-y divide-default border-t border-default">
+          <!-- GitHub -->
+          <SettingsSecurityOAuthProvider
+            v-if="isGitHubEnabled"
+            provider="github"
+            label="GitHub"
+            icon="i-ri-github-fill"
+            :bound="isGitHubBound"
+            :account-login="githubLogin"
+            :loading="githubLoading || (unbindLoading && unbindTarget?.provider === 'github')"
+            :providers-loading="providersLoading"
+            @bind="handleBindGitHub"
+            @unbind="confirmUnbind('github', 'GitHub')"
+          />
 
-      <CardContent class="security-credentials__content">
-        <!-- 邮箱 -->
-        <SettingsSecurityBindEmail />
-        <Separator />
-
-        <!-- 手机号 -->
-        <SettingsSecurityBindPhone />
-        <Separator />
-
-        <!-- 密码 -->
-        <SettingsSecurityPassword />
-      </CardContent>
-
-      <CardFooter class="security-credentials__footer">
-        <ShieldCheckIcon aria-hidden="true" />
-        <p>建议保留两种可用凭证，换设备或忘记密码时仍能找回账号。</p>
-      </CardFooter>
-    </Card>
-
-    <!-- 第三方账号 -->
-    <Card v-if="isGitHubEnabled || isWeChatEnabled" class="p-4 sm:p-6">
-      <h3 class="mb-1 text-lg font-semibold">
-        第三方账号
-      </h3>
-      <p class="mb-3 text-xs text-muted">
-        绑定后可一键登录，无需输入密码
-      </p>
-
-      <div class="divide-y divide-default">
-        <!-- GitHub -->
-        <SettingsSecurityOAuthProvider
-          v-if="isGitHubEnabled"
-          provider="github"
-          label="GitHub"
-          icon="i-ri-github-fill"
-          :bound="isGitHubBound"
-          :account-login="githubLogin"
-          :loading="githubLoading || (unbindLoading && unbindTarget?.provider === 'github')"
-          :providers-loading="providersLoading"
-          @bind="handleBindGitHub"
-          @unbind="confirmUnbind('github', 'GitHub')"
-        />
-
-        <!-- 微信 -->
-        <SettingsSecurityOAuthProvider
-          v-if="isWeChatEnabled"
-          provider="wx_open"
-          label="微信"
-          icon="i-ri-wechat-fill"
-          icon-class="text-green-500"
-          :bound="isWeChatBound"
-          :loading="wechatLoading || (unbindLoading && unbindTarget?.provider === 'wx_open')"
-          :providers-loading="providersLoading"
-          @bind="handleBindWeChat"
-          @unbind="confirmUnbind('wx_open', '微信')"
-        />
-      </div>
-    </Card>
-
-    <!-- 登录设备（已授权桌面 / 本地应用） -->
-    <SettingsSecurityDevices />
-
+          <!-- 微信 -->
+          <SettingsSecurityOAuthProvider
+            v-if="isWeChatEnabled"
+            provider="wx_open"
+            label="微信"
+            icon="i-ri-wechat-fill"
+            icon-class="text-green-500"
+            :bound="isWeChatBound"
+            :loading="wechatLoading || (unbindLoading && unbindTarget?.provider === 'wx_open')"
+            :providers-loading="providersLoading"
+            @bind="handleBindWeChat"
+            @unbind="confirmUnbind('wx_open', '微信')"
+          />
+        </div>
+      </section>
+      <SettingsSecurityDevices class="security-devices" />
+    </div>
     <!-- 解绑确认弹窗 -->
     <Dialog v-model:open="showUnbindConfirm">
       <DialogContent>
@@ -282,11 +231,11 @@ onMounted(async () => {
           </div>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="outline" :disabled="authLoading" @click="showUnbindConfirm = false">
+          <Button variant="outline" :disabled="authLoading || unbindLoading" @click="showUnbindConfirm = false">
             取消
           </Button>
-          <Button variant="destructive" :disabled="authLoading" @click="handleUnbind">
-            <Spinner v-if="authLoading" />
+          <Button variant="destructive" :disabled="authLoading || unbindLoading" @click="handleUnbind">
+            <Spinner v-if="authLoading || unbindLoading" />
             确认解绑
           </Button>
         </DialogFooter>
@@ -296,142 +245,99 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.security-meter {
-  --meter: var(--ylf-status-warning-text);
-
-  position: relative;
-  display: grid;
-  width: 3.25rem;
-  justify-items: center;
-  gap: 0.125rem;
+.security-settings {
+  min-width: 0;
 }
-
-.security-meter[data-level='good'] {
-  --meter: var(--primary);
-}
-
-.security-meter[data-level='great'] {
-  --meter: var(--ylf-status-success-text);
-}
-
-.security-meter svg {
-  width: 2.75rem;
-  height: 2.75rem;
-  rotate: -90deg;
-}
-
-.security-meter circle {
-  fill: none;
-  stroke-width: 3.5;
-  stroke-linecap: round;
-}
-
-.security-meter__track {
-  stroke: color-mix(in srgb, var(--meter) 14%, var(--muted));
-}
-
-/* 进度环从零画到当前凭证数，颜色随安全程度从暖黄过渡到晴空蓝、再到草地绿。 */
-.security-meter__value {
-  stroke: var(--meter);
-  stroke-dasharray: 100;
-  stroke-dashoffset: calc(100 - var(--p) * 100);
-  transition:
-    stroke-dashoffset var(--ylf-duration-slow) var(--ylf-ease-spring),
-    stroke var(--ylf-duration-normal) var(--ylf-ease-standard);
-  animation: security-meter-draw 1100ms var(--ylf-ease-spring) 200ms backwards;
-}
-
-@keyframes security-meter-draw {
-  from {
-    stroke-dashoffset: 100;
-  }
-}
-
-.security-meter__count {
-  position: absolute;
-  top: 1.375rem;
-  left: 50%;
-  translate: -50% -50%;
-  color: var(--foreground);
-  font-size: 0.6875rem;
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-}
-
-.security-meter__label {
-  color: var(--meter);
-  font-size: 0.6875rem;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .security-meter__value {
-    animation: none;
-  }
-}
-
-.security-credentials {
-  position: relative;
-  gap: 0;
-  padding-block: 0;
-  overflow: hidden;
-  box-shadow: 0 22px 60px -48px color-mix(in srgb, var(--ylf-shadow-color) 34%, transparent);
-}
-
-.security-credentials::before {
-  position: absolute;
-  inset: 0 0 auto;
-  height: 0.1875rem;
-  content: '';
-  background: var(--ylf-gradient-brand);
-}
-
-.security-credentials__header {
-  padding: 1.25rem;
-  border-bottom: 1px solid var(--ylf-border-subtle);
-  background:
-    radial-gradient(circle at 3.25rem 1rem, color-mix(in srgb, var(--primary) 9%, transparent), transparent 8rem),
-    var(--card);
-}
-
-.security-credentials__mark {
+.security-summary {
   display: flex;
-  width: 2.5rem;
-  height: 2.5rem;
-  flex: none;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.125rem;
+  margin-top: 1.25rem;
+  padding: 0;
+  list-style: none;
+}
+.security-summary__item {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  color: var(--primary);
-  background: color-mix(in srgb, var(--primary) 11%, var(--card));
-  border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border));
-  border-radius: var(--radius-lg);
-}
-
-.security-credentials__mark svg {
-  width: 1.125rem;
-  height: 1.125rem;
-}
-
-.security-credentials__content {
-  padding-inline: 0;
-}
-
-.security-credentials__content :deep([data-slot='separator']) {
-  margin-left: 5rem;
-  width: calc(100% - 5rem);
-}
-
-.security-credentials__footer {
-  gap: 0.5rem;
-  color: var(--muted-foreground);
+  gap: 0.3125rem;
   font-size: 0.75rem;
-  line-height: 1.25rem;
+  line-height: 1.75;
+  color: var(--ylf-c-text-2);
 }
-
-.security-credentials__footer svg {
-  width: 0.875rem;
-  height: 0.875rem;
+.security-summary__item--ready {
+  color: var(--ylf-status-success-text);
+}
+.security-summary__item svg {
+  width: 0.9375rem;
+  height: 0.9375rem;
   flex: none;
+}
+.security-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 18rem;
+  gap: 2rem;
+  margin-top: 1.875rem;
+  align-items: start;
+}
+.security-section-heading {
+  margin-bottom: 0.9375rem;
+}
+.security-section-heading h2 {
+  font-family: var(--ylf-font-heading);
+  font-size: 1.125rem;
+  font-weight: 650;
+  line-height: 1.5;
+}
+.security-section-heading p {
+  margin-top: 0.3125rem;
+  font-size: 0.8125rem;
+  line-height: 1.7;
+  color: var(--ylf-c-text-3);
+}
+.security-credentials__list {
+  border-top: 1px solid var(--ylf-c-border);
+}
+.security-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  font-size: 0.75rem;
+  line-height: 1.8;
+  color: var(--ylf-c-text-3);
+}
+.security-tip svg {
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.1875rem;
+}
+.security-providers {
+  grid-column: 1;
+}
+.security-devices {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+@media (max-width: 1100px) {
+  .security-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .security-devices {
+    grid-column: auto;
+    grid-row: auto;
+  }
+}
+@media (max-width: 640px) {
+  .security-summary {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.375rem;
+    margin-top: 1rem;
+  }
+  .security-body {
+    margin-top: 1.5rem;
+    gap: 1.75rem;
+  }
 }
 </style>

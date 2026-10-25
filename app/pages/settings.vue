@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import {
+  ArrowLeftIcon,
   EyeOffIcon,
   SettingsIcon,
   ShieldIcon,
   UserIcon,
 } from '@lucide/vue'
-import { TabsIndicator } from 'reka-ui'
 import {
   Tabs,
   TabsContent,
@@ -26,8 +26,6 @@ useSeoMeta({
 })
 
 const { user, isAuthenticated, loading } = useTcbAuth()
-const { isActive: isMember } = useMembership()
-const displayName = computed(() => user.value?.nickname || user.value?.login || '')
 const router = useRouter()
 
 watch(isAuthenticated, (value) => {
@@ -53,14 +51,10 @@ function isSettingsTab(value: unknown): value is SettingsTab {
 const initialTab: SettingsTab = editProfileRequested.value
   ? 'profile'
   : isSettingsTab(route.query.tab) ? route.query.tab : 'profile'
-const activeTab = ref<SettingsTab>(initialTab)
+const activeTab = shallowRef<SettingsTab>(initialTab)
+const isDesktop = useMediaQuery('(min-width: 768px)')
 
-// 面板切换方向：切到右侧标签时内容从右侧滑入，反之从左侧滑入
-const tabDirection = ref<1 | -1>(1)
-const tabIndex = (value: SettingsTab) => tabs.findIndex(tab => tab.value === value)
-
-watch(activeTab, (val, old) => {
-  tabDirection.value = tabIndex(val) >= tabIndex(old) ? 1 : -1
+watch(activeTab, (val) => {
   router.replace({ query: val === 'profile' ? {} : { tab: val } })
 })
 
@@ -84,199 +78,223 @@ function clearProfileEditRequest() {
 </script>
 
 <template>
-  <div class="px-4 py-8 sm:px-6 sm:py-12">
-    <div
-      v-if="loading"
-      class="mx-auto flex max-w-2xl flex-col gap-6"
-      aria-busy="true"
-      aria-label="正在加载设置"
-    >
-      <div class="ylf-shimmer h-[5.5rem] rounded-[var(--ylf-radius-xl)]" />
-      <div class="ylf-shimmer h-11 rounded-xl" />
+  <div class="settings-page px-4 py-6 sm:px-6 sm:py-10">
+    <div v-if="loading" class="mx-auto flex max-w-5xl flex-col gap-6" aria-busy="true" aria-label="正在加载设置">
+      <div class="ylf-shimmer h-48 rounded-[var(--ylf-radius-xl)]" />
       <div class="ylf-shimmer h-72 rounded-[var(--ylf-radius-lg)]" />
     </div>
 
-    <div
-      v-else-if="user"
-      class="mx-auto flex flex-col gap-6"
-      :class="editProfileRequested ? 'max-w-4xl' : 'max-w-2xl'"
-    >
-      <!-- 页面标题：与个人中心同款的晴空横幅，缩成一条 -->
-      <SubpageHero
-        :title="editProfileRequested ? '编辑资料' : '设置'"
-        :description="editProfileRequested ? '调整其他人看到的头像、昵称和个人介绍' : '管理个人资料、隐私和账户安全'"
-      >
-        <template #trailing>
-          <MemberAvatar
-            :src="user.avatar"
-            :alt="displayName"
-            size="xl"
-            :is-member="isMember"
-            ring-class="ring-white/60"
-            class="max-sm:hidden"
-            data-vt="avatar"
-          />
-        </template>
-      </SubpageHero>
-
-      <SettingsProfileTab
-        v-if="editProfileRequested"
-        class="ylf-rise"
-        style="--i: 1"
-        :start-editing="true"
-        @edit-finished="clearProfileEditRequest"
-      />
-
-      <Tabs
-        v-else
-        v-model="activeTab"
-        class="settings-tabs flex-col gap-6"
-        :style="{ '--settings-dir': tabDirection }"
-      >
-        <!-- Tab 切换：滑动的晴空药丸指示当前页；滚动时吸附在导航栏下方 -->
-        <div class="settings-tabs__bar ylf-rise sticky top-16 z-20" style="--i: 1">
-          <TabsList class="settings-tabs__list relative h-auto w-full rounded-xl p-1">
-            <TabsIndicator class="settings-tabs__indicator" aria-hidden="true">
-              <span class="settings-tabs__pill" />
-            </TabsIndicator>
-            <TabsTrigger
-              v-for="tab in tabs"
-              :key="tab.value"
-              :value="tab.value"
-              :aria-label="tab.label"
-              class="settings-tabs__trigger relative z-[1] min-w-0 py-2 sm:px-3"
-            >
-              <component :is="tab.icon" data-icon="inline-start" aria-hidden="true" />
-              <span class="sm:hidden">{{ tab.short }}</span>
-              <span class="hidden sm:inline">{{ tab.label }}</span>
-            </TabsTrigger>
-          </TabsList>
-        </div>
-
-        <!-- Tab 内容 -->
-        <TabsContent value="profile" class="settings-panel">
-          <SettingsProfileTab
-            :start-editing="false"
-            @edit-finished="clearProfileEditRequest"
-          />
-        </TabsContent>
-        <TabsContent value="privacy" class="settings-panel">
-          <SettingsPrivacyTab />
-        </TabsContent>
-        <TabsContent value="security" class="settings-panel">
-          <SettingsSecurityTab />
-        </TabsContent>
-        <TabsContent value="account" class="settings-panel">
-          <SettingsAccountTab />
-        </TabsContent>
-      </Tabs>
+    <div v-else-if="user && editProfileRequested" class="settings-editor mx-auto flex max-w-4xl flex-col gap-7">
+      <NuxtLink to="/settings" class="settings-back">
+        <ArrowLeftIcon class="size-4" aria-hidden="true" /> 返回设置
+      </NuxtLink>
+      <SettingsPageHeader title="编辑资料" description="调整其他人看到的头像、昵称和个人介绍" />
+      <SettingsProfileTab :start-editing="true" @edit-finished="clearProfileEditRequest" />
     </div>
+
+    <Tabs v-else-if="user" v-model="activeTab" class="settings-layout" :orientation="isDesktop ? 'vertical' : 'horizontal'">
+      <aside class="settings-nav">
+        <NuxtLink to="/profile" class="settings-back">
+          <ArrowLeftIcon class="size-4" aria-hidden="true" /> 返回个人中心
+        </NuxtLink>
+        <h2 class="settings-nav__title">
+          设置
+        </h2>
+        <p class="settings-nav__description">
+          让这里，更像你的空间。
+        </p>
+        <TabsList class="settings-nav__list" aria-label="设置分类">
+          <TabsTrigger v-for="tab in tabs" :key="tab.value" :value="tab.value" :aria-label="tab.label" class="settings-nav__tab">
+            <component :is="tab.icon" class="size-4" aria-hidden="true" />
+            <span class="md:hidden">{{ tab.short }}</span>
+            <span class="hidden md:inline">{{ tab.label }}</span>
+          </TabsTrigger>
+        </TabsList>
+        <p class="settings-nav__footer">
+          你的云端小天地<br>资料、偏好与安全，都在这里。
+        </p>
+      </aside>
+      <TabsContent value="profile" class="settings-panel">
+        <SettingsPageHeader title="个人资料" description="让大家认识独一无二的你。" />
+        <SettingsProfileTab :start-editing="false" @edit-finished="clearProfileEditRequest" />
+      </TabsContent>
+      <TabsContent value="privacy" class="settings-panel">
+        <SettingsPageHeader title="隐私与通知" description="留一点空间，也不错。由你决定分享与接收。" />
+        <SettingsPrivacyTab />
+      </TabsContent>
+      <TabsContent value="security" class="settings-panel">
+        <SettingsSecurityTab />
+      </TabsContent>
+      <TabsContent value="account" class="settings-panel">
+        <SettingsPageHeader title="账户管理" description="账户的每一步，都由你掌握。" />
+        <SettingsAccountTab />
+      </TabsContent>
+    </Tabs>
   </div>
 </template>
 
 <style scoped>
-/* 吸附时用页面底色垫住标签栏上方，滚动的内容不会从导航栏与标签栏的缝隙里露出来 */
-.settings-tabs__bar {
-  margin-block: -0.5rem;
-  padding-block: 0.5rem;
-  background: linear-gradient(var(--ui-bg) 70%, transparent);
+.settings-layout {
+  display: grid;
+  grid-template-columns: 11.25rem minmax(0, 1fr);
+  gap: 2.625rem;
+  max-width: 77rem;
+  margin-inline: auto;
+  align-items: start;
 }
-
-.settings-tabs__list {
-  background: var(--ylf-glass-bg);
-  -webkit-backdrop-filter: var(--ylf-glass-blur);
-  backdrop-filter: var(--ylf-glass-blur);
-  box-shadow:
-    0 0 0 1px var(--ui-border-muted),
-    0 12px 28px -22px color-mix(in srgb, #0b82c4 60%, transparent);
+.settings-nav {
+  position: sticky;
+  top: 6rem;
 }
-
-/* 滑动药丸：位置与宽度由 Reka 实时给出，用 spring 跟随，像云朵一样软着陆。 */
-.settings-tabs__indicator {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  width: var(--reka-tabs-indicator-size);
-  height: var(--reka-tabs-indicator-thickness);
-  translate: var(--reka-tabs-indicator-position) -50%;
-  transition:
-    translate var(--ylf-duration-slow) var(--ylf-ease-spring),
-    width var(--ylf-duration-slow) var(--ylf-ease-spring);
+.settings-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  font-size: 0.8125rem;
+  color: var(--ylf-c-text-2);
 }
-
-.settings-tabs__pill {
-  display: block;
+.settings-back:hover {
+  color: var(--ylf-c-brand);
+}
+.settings-nav__title {
+  margin-top: 1.125rem;
+  font: 700 1.5625rem/1.4 var(--ylf-font-heading);
+}
+.settings-nav__description {
+  margin-top: 0.375rem;
+  font-size: 0.75rem;
+  color: var(--ylf-c-text-3);
+}
+.settings-nav__list {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.4375rem;
   width: 100%;
-  height: 100%;
-  border-radius: calc(var(--radius) - 0.25rem);
-  background: var(--ylf-surface);
-  box-shadow:
-    inset 0 1px 0 var(--ylf-glass-highlight),
-    0 0 0 1px color-mix(in srgb, var(--ui-primary) 22%, transparent),
-    0 6px 16px -8px color-mix(in srgb, var(--ui-primary) 55%, transparent);
+  height: auto;
+  padding: 0;
+  margin-top: 1.75rem;
+  background: none;
+  border-radius: 0;
 }
-
-.settings-tabs__trigger[data-state='active'] {
-  border-color: transparent;
-  background: transparent;
+.settings-nav__tab {
+  justify-content: flex-start;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 3rem;
+  flex: none;
+  border: 0;
+  border-radius: var(--ylf-radius);
+  padding: 0.75rem 0.9375rem;
+  color: var(--ylf-c-text-2);
   box-shadow: none;
-  color: var(--ui-primary);
+  font-size: 0.875rem;
 }
-
-.settings-tabs__trigger :deep(svg) {
-  transition:
-    rotate var(--ylf-duration-slow) var(--ylf-ease-spring),
-    scale var(--ylf-duration-slow) var(--ylf-ease-spring);
+.settings-nav__tab:hover {
+  background: var(--ylf-c-bg-soft);
 }
-
-.settings-tabs__trigger[data-state='active'] :deep(svg) {
-  scale: 1.12;
+.settings-nav__tab[data-state='active'] {
+  background: var(--ylf-c-brand-soft);
+  color: var(--ylf-c-brand);
+  box-shadow: none;
 }
-
-.settings-tabs__trigger:hover:not([data-state='active']) :deep(svg) {
-  rotate: -10deg;
+.settings-nav__tab[data-state='active']::after {
+  content: '';
+  position: static;
+  opacity: 1;
+  width: 0.3125rem;
+  height: 0.3125rem;
+  border-radius: 50%;
+  margin-left: auto;
+  background: currentColor;
 }
-
-/* 面板按切换方向横向滑入，内部卡片再依次浮起。 */
+.settings-nav__footer {
+  border-top: 1px solid var(--ylf-c-border);
+  margin: 2.25rem 0.875rem 0;
+  padding-top: 1.25rem;
+  color: var(--ylf-c-text-3);
+  font-size: 0.75rem;
+  line-height: 1.9;
+}
+.settings-panel {
+  min-width: 0;
+  margin: 0;
+}
 .settings-panel[data-state='active'] {
-  animation: settings-panel-in 560ms var(--ylf-ease-spring);
+  display: flex;
+  flex-direction: column;
+  gap: 1.875rem;
+  animation: settings-enter var(--ylf-duration-fast) var(--ylf-ease-standard);
 }
-
-@keyframes settings-panel-in {
+.settings-panel :deep([data-slot='card']),
+.settings-editor :deep([data-slot='card']) {
+  border-color: var(--ylf-c-border);
+  border-radius: var(--ylf-radius-lg);
+  box-shadow: none;
+}
+.settings-page :deep([data-slot='button']) {
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+}
+@keyframes settings-enter {
   from {
     opacity: 0;
-    translate: calc(var(--settings-dir, 1) * 28px) 0;
+    transform: translateY(4px);
   }
-  45% {
+  to {
     opacity: 1;
+    transform: translateY(0);
   }
 }
-
-.settings-panel > :deep(* > *) {
-  animation: ylf-rise 760ms var(--ylf-ease-spring) backwards;
+@media (max-width: 1100px) {
+  .settings-layout {
+    grid-template-columns: 10rem minmax(0, 1fr);
+    gap: 1.75rem;
+  }
 }
-
-.settings-panel > :deep(* > *:nth-child(2)) {
-  animation-delay: 70ms;
+@media (max-width: 767px) {
+  .settings-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.25rem;
+  }
+  .settings-nav {
+    position: static;
+  }
+  .settings-nav__title {
+    margin-top: 0.5rem;
+    font-size: 1.375rem;
+  }
+  .settings-nav__description,
+  .settings-nav__footer {
+    display: none;
+  }
+  .settings-nav__list {
+    flex-direction: row;
+    gap: 0.375rem;
+    margin-top: 1rem;
+  }
+  .settings-nav__tab {
+    width: auto;
+    flex: 1;
+    justify-content: center;
+    padding: 0.625rem;
+    min-height: 2.75rem;
+    gap: 0.375rem;
+  }
+  .settings-nav__tab[data-state='active']::after {
+    display: none;
+  }
+  .settings-panel[data-state='active'] {
+    gap: 1.5rem;
+  }
 }
-
-.settings-panel > :deep(* > *:nth-child(3)) {
-  animation-delay: 140ms;
-}
-
-.settings-panel > :deep(* > *:nth-child(n + 4)) {
-  animation-delay: 210ms;
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .settings-tabs__indicator,
-  .settings-tabs__trigger :deep(svg) {
-    transition: none;
-  }
-
-  .settings-panel[data-state='active'],
-  .settings-panel > :deep(* > *) {
+  .settings-panel[data-state='active'] {
     animation: none;
+  }
+  .settings-page :deep(*) {
+    transition-duration: 0.01ms !important;
   }
 }
 </style>

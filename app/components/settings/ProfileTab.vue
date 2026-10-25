@@ -768,7 +768,7 @@ async function save() {
   background: var(--card);
   color: var(--card-foreground);
   border: 1px solid var(--border);
-  box-shadow: 0 20px 55px -42px color-mix(in srgb, var(--ylf-shadow-color) 32%, transparent);
+  box-shadow: none;
 }
 
 .ylf-profile-editor__divider {
@@ -784,9 +784,7 @@ async function save() {
 }
 
 .ylf-profile-editor__avatar {
-  background:
-    radial-gradient(circle at 50% 18%, color-mix(in srgb, var(--primary) 9%, transparent), transparent 11rem),
-    color-mix(in srgb, var(--muted) 72%, var(--card));
+  background: var(--ylf-c-bg-soft);
 }
 
 .profile-card-preview {
@@ -794,7 +792,7 @@ async function save() {
   isolation: isolate;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--primary) 16%, var(--border));
-  border-radius: 1.25rem;
+  border-radius: var(--ylf-radius-lg);
   padding: 1.25rem;
 }
 
@@ -802,9 +800,7 @@ async function save() {
   position: absolute;
   z-index: -1;
   inset: 0;
-  background:
-    radial-gradient(120% 140% at 100% 0%, color-mix(in srgb, var(--primary) 16%, transparent), transparent 60%),
-    linear-gradient(160deg, color-mix(in srgb, var(--primary) 6%, var(--card)), var(--card));
+  background: var(--ylf-accent-pink-soft);
 }
 
 .profile-card-preview__cloud {
@@ -814,7 +810,6 @@ async function save() {
   right: -0.75rem;
   width: 6.5rem;
   opacity: 0.95;
-  filter: drop-shadow(0 6px 10px color-mix(in srgb, var(--primary) 18%, transparent));
 }
 
 .profile-card-preview__arrow,
@@ -825,14 +820,6 @@ async function save() {
 .profile-card-preview__link:hover .profile-card-preview__arrow,
 .ylf-profile-editor__secondary-row:hover .profile-security-arrow {
   translate: 3px 0;
-}
-
-.profile-security-icon {
-  transition: rotate var(--ylf-duration-slow) var(--ylf-ease-spring);
-}
-
-.ylf-profile-editor__secondary-row:hover .profile-security-icon {
-  rotate: -10deg;
 }
 
 @media (prefers-reduced-motion: reduce) {

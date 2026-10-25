@@ -31,22 +31,23 @@ const emit = defineEmits<{
 
     <div class="flex min-w-0 flex-1 flex-col gap-1">
       <div class="flex flex-wrap items-center gap-2">
-        <h4 class="font-heading text-sm font-medium text-foreground">
+        <h3 class="font-heading text-[0.9375rem] font-semibold text-foreground">
           {{ props.label }}
-        </h4>
-        <Badge :variant="props.ready ? 'secondary' : 'outline'">
+        </h3>
+        <Badge class="credential-status" :class="{ 'credential-status--ready': props.ready }" :variant="props.ready ? 'secondary' : 'outline'">
           <CheckIcon v-if="props.ready" data-icon="inline-start" />
           {{ props.status }}
         </Badge>
       </div>
-      <p class="text-sm leading-5 text-muted-foreground">
+      <p class="credential-description text-[0.8125rem] leading-5 text-muted-foreground">
         {{ props.description }}
       </p>
     </div>
 
     <Button
       :data-testid="props.actionTestId"
-      variant="outline"
+      class="credential-action"
+      variant="secondary"
       size="sm"
       :aria-label="`${props.action}${props.label}`"
       @click="emit('action')"
@@ -59,80 +60,70 @@ const emit = defineEmits<{
 
 <style scoped>
 .security-credential-row {
-  --credential-accent: var(--primary);
-
-  position: relative;
+  --credential-soft: var(--ylf-accent-blue-soft);
+  --credential-text: var(--ylf-accent-blue-text);
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: 3rem minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.875rem;
-  padding: 1rem;
+  padding: 1.375rem 0;
+  border-bottom: 1px solid var(--ylf-c-border);
 }
-
-.security-credential-row[data-accent='mail'] {
-  --credential-accent: var(--ylf-dopa-blue);
-}
-
 .security-credential-row[data-accent='phone'] {
-  --credential-accent: var(--ylf-dopa-cyan);
+  --credential-soft: var(--ylf-accent-cyan-soft);
+  --credential-text: var(--ylf-accent-cyan-text);
 }
-
 .security-credential-row[data-accent='password'] {
-  --credential-accent: var(--ylf-dopa-amber);
+  --credential-soft: var(--ylf-accent-sun-soft);
+  --credential-text: var(--ylf-accent-sun-text);
 }
-
 .security-credential-row__icon {
-  display: flex;
-  width: 2.75rem;
-  height: 2.75rem;
-  align-items: center;
-  justify-content: center;
-  align-self: start;
-  color: var(--credential-accent);
-  background: color-mix(in srgb, var(--credential-accent) 11%, var(--card));
-  border: 1px solid color-mix(in srgb, var(--credential-accent) 22%, var(--border));
-  border-radius: var(--radius-lg);
-  box-shadow: 0 8px 22px -18px color-mix(in srgb, var(--credential-accent) 70%, transparent);
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: var(--ylf-radius);
+  background: var(--credential-soft);
+  color: var(--credential-text);
 }
-
 .security-credential-row__icon :deep(svg) {
-  width: 1.125rem;
-  height: 1.125rem;
+  width: 1.375rem;
+  height: 1.375rem;
+  stroke-width: 1.75;
 }
-
-.security-credential-row :deep([data-slot='button']) {
-  grid-column: 2;
-  justify-self: start;
+.credential-description {
+  overflow-wrap: anywhere;
 }
-
-.security-credential-row :deep([data-slot='button'] svg) {
-  transition: transform 150ms ease;
+.credential-status {
+  border: 0;
+  border-radius: var(--ylf-radius-sm);
+  font-size: 0.6875rem;
+  font-weight: 500;
 }
-
-.security-credential-row :deep([data-slot='button']:hover svg) {
-  transform: translateX(0.125rem);
+.credential-status--ready {
+  color: var(--ylf-status-success-text);
+  background: var(--ylf-status-success-soft);
 }
-
-@media (min-width: 640px) {
+.credential-action {
+  min-height: 2.75rem;
+  background: var(--ylf-c-brand-soft);
+  color: var(--ylf-c-brand);
+  border-radius: var(--ylf-radius-sm);
+}
+.credential-action:hover {
+  background: color-mix(in srgb, var(--ylf-c-brand) 15%, var(--ylf-c-brand-soft));
+}
+@media (max-width: 380px) {
   .security-credential-row {
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    gap: 1rem;
-    padding: 1.125rem 1.25rem;
+    grid-template-columns: 2.75rem minmax(0, 1fr) auto;
+    gap: 0.625rem;
   }
-
   .security-credential-row__icon {
-    align-self: center;
+    width: 2.75rem;
+    height: 2.75rem;
   }
-
-  .security-credential-row :deep([data-slot='button']) {
-    grid-column: 3;
-    justify-self: end;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .security-credential-row :deep([data-slot='button'] svg) {
-    transition: none;
+  .credential-action :deep(svg) {
+    display: none;
   }
 }
 </style>

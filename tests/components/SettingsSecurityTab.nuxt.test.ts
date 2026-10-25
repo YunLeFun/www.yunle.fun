@@ -2,7 +2,7 @@
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import { DOMWrapper, flushPromises } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ref } from 'vue'
+import { nextTick, ref } from 'vue'
 import SecurityTab from '../../app/components/settings/SecurityTab.vue'
 
 const h = vi.hoisted(() => ({ s: {} as Record<string, any> }))
@@ -51,6 +51,55 @@ describe('settings security credentials', () => {
     const action = wrapper.get('[data-testid="phone-bind-action"]')
     expect(action.text()).toBe('绑定')
 
+    wrapper.unmount()
+  })
+
+  it('shows actual credential states and reacts to binding changes without a security score', async () => {
+    h.s.user.value.hasPassword = false
+    const wrapper = await mountSuspended(SecurityTab, { global: { stubs } })
+    await flushPromises()
+
+    const overview = wrapper.get('[aria-label="登录凭证状态"]')
+    expect(overview.text()).toContain('邮箱已绑定')
+    expect(overview.text()).toContain('手机未绑定')
+    expect(overview.text()).toContain('密码未设置')
+    expect(wrapper.find('.security-meter').exists()).toBe(false)
+
+    h.s.user.value = { ...h.s.user.value, phone: '13800138000', hasPassword: true }
+    await nextTick()
+    expect(overview.text()).toContain('手机已绑定')
+    expect(overview.text()).toContain('密码已设置')
+    expect(overview.text()).not.toContain('未绑定')
+    wrapper.unmount()
+  })
+
+  it('does not report an unset password before its status is available', async () => {
+    const wrapper = await mountSuspended(SecurityTab, { global: { stubs } })
+    expect(wrapper.get('[aria-label="登录凭证状态"]').text()).toContain('密码状态待确认')
+    wrapper.unmount()
+  })
+
+  it('requires confirmation to unbind an identity and prevents duplicate submission', async () => {
+    h.s.user.value.providers = ['email', 'github']
+    let finish: () => void = () => {}
+    h.s.unbindIdentity.mockImplementation(() => new Promise<void>((resolve) => {
+      finish = resolve
+    }))
+    const wrapper = await mountSuspended(SecurityTab, { attachTo: document.body, global: { stubs } })
+    await flushPromises()
+    const unbind = wrapper.findAll('button').find(button => button.text() === '解绑')!
+    await unbind.trigger('click')
+    await flushPromises()
+    expect(h.s.unbindIdentity).not.toHaveBeenCalled()
+    const dialog = new DOMWrapper(document.querySelector('[role="dialog"]')!)
+    const confirm = dialog.findAll('button').find(button => button.text() === '确认解绑')!
+    await confirm.trigger('click')
+    await flushPromises()
+    expect(h.s.unbindIdentity).toHaveBeenCalledExactlyOnceWith('github')
+    expect(confirm.attributes('disabled')).toBeDefined()
+    finish()
+    await flushPromises()
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
     wrapper.unmount()
   })
 

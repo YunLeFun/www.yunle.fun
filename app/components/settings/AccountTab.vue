@@ -256,7 +256,7 @@ async function handleLogout() {
 
           <div v-if="isAdmin" class="flex items-center justify-between gap-3 py-4">
             <span class="shrink-0 text-sm text-muted">管理权限</span>
-            <Badge variant="destructive">
+            <Badge variant="secondary">
               <Icon name="i-lucide-shield-check" />
               管理员
             </Badge>
@@ -492,11 +492,8 @@ async function handleLogout() {
 </template>
 
 <style scoped>
-/* 账户状态抬头：晴空蓝向暖黄的淡彩，与设置页其他卡片同源 */
 .account-status-header {
-  background:
-    radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--ui-primary) 10%, transparent), transparent 60%),
-    linear-gradient(120deg, var(--ylf-surface), color-mix(in srgb, var(--ylf-palette-sun) 8%, var(--ylf-surface)));
+  background: var(--ylf-c-surface);
 }
 
 .uid-copy-enter-active {
@@ -516,5 +513,11 @@ async function handleLogout() {
 
 .uid-copy-leave-to {
   opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .uid-copy-enter-active,
+  .uid-copy-leave-active {
+    transition: none;
+  }
 }
 </style>

@@ -68,14 +68,14 @@ onMounted(refresh)
 </script>
 
 <template>
-  <Card class="p-4 sm:p-6">
+  <Card class="device-panel" role="region" aria-labelledby="devices-title" :aria-busy="loading">
     <div class="mb-1 flex items-center justify-between gap-3">
-      <h3 class="text-lg font-semibold">
+      <h2 id="devices-title" class="font-heading text-lg font-semibold">
         登录设备
-      </h3>
+      </h2>
       <Button
         variant="ghost"
-        size="icon-xs"
+        size="icon-lg"
         :disabled="loading"
         aria-label="刷新设备列表"
         @click="refresh"
@@ -84,7 +84,7 @@ onMounted(refresh)
         <Icon v-else name="i-lucide-refresh-cw" />
       </Button>
     </div>
-    <p class="mb-3 text-xs text-muted">
+    <p class="text-[0.8125rem] leading-6 text-muted">
       已通过账号授权登录的桌面 / 本地应用，移除后该设备需重新登录
     </p>
 
@@ -117,25 +117,26 @@ onMounted(refresh)
       <div
         v-for="device in devices"
         :key="`${device.appId}:${device.deviceId}`"
-        class="flex items-center justify-between gap-3 py-4"
+        class="device-row"
       >
         <div class="flex min-w-0 flex-1 items-center gap-3">
-          <div class="size-9 flex shrink-0 items-center justify-center rounded-lg bg-elevated">
+          <div class="device-icon">
             <Icon name="i-lucide-monitor" class="size-5" />
           </div>
           <div class="min-w-0 space-y-1">
             <p class="truncate text-sm font-medium">
               {{ device.deviceName || '未命名设备' }}
             </p>
-            <p class="truncate text-xs text-muted">
+            <p class="text-xs leading-5 text-muted">
               {{ desktopAppLabel(device.appId) }} · {{ formatLastSeen(device.lastSeenAt) }}
             </p>
           </div>
         </div>
         <Button
-          variant="destructive"
-          size="xs"
-          class="shrink-0"
+          variant="ghost"
+          size="sm"
+          class="device-remove shrink-0"
+          :aria-label="`移除 ${device.deviceName || '未命名设备'} 的授权`"
           @click="confirmRevoke(device)"
         >
           移除
@@ -174,3 +175,34 @@ onMounted(refresh)
     </Dialog>
   </Card>
 </template>
+
+<style scoped>
+.device-panel {
+  display: block;
+  padding: 1.375rem;
+  border: 1px solid var(--ylf-c-border);
+  border-radius: var(--ylf-radius-lg);
+  background: var(--ylf-c-surface);
+  box-shadow: none;
+}
+.device-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.375rem;
+  padding-block: 1.125rem;
+}
+.device-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 2rem;
+  color: var(--ylf-c-text-3);
+}
+.device-remove {
+  min-height: 2.75rem;
+  padding-inline: 0.5rem;
+  color: var(--ylf-c-text-2);
+}
+</style>

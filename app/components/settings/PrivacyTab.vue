@@ -24,15 +24,15 @@ interface SwitchRow {
   label: string
   hint: string
   icon: string
-  tone: string
+  tone: 'pink' | 'cyan' | 'sun'
 }
 
 const LIST_ROWS: SwitchRow[] = [
-  { field: 'hideFollowers', label: '隐藏粉丝列表', hint: '开启后，仅你本人可查看粉丝列表', icon: 'i-lucide-users', tone: 'var(--ylf-dopa-pink)' },
-  { field: 'hideFollowing', label: '隐藏关注列表', hint: '开启后，仅你本人可查看关注列表', icon: 'i-lucide-user-check', tone: 'var(--ylf-dopa-cyan)' },
+  { field: 'hideFollowers', label: '隐藏粉丝列表', hint: '开启后，仅你本人可查看粉丝列表', icon: 'i-lucide-users', tone: 'pink' },
+  { field: 'hideFollowing', label: '隐藏关注列表', hint: '开启后，仅你本人可查看关注列表', icon: 'i-lucide-user-check', tone: 'cyan' },
 ]
 const NOTIFY_ROWS: SwitchRow[] = [
-  { field: 'notifyOnFollow', label: '新增粉丝通知', hint: '有人关注你时收到站内通知', icon: 'i-lucide-bell-ring', tone: 'var(--ylf-dopa-amber)' },
+  { field: 'notifyOnFollow', label: '新增粉丝通知', hint: '有人关注你时收到站内通知', icon: 'i-lucide-bell-ring', tone: 'sun' },
 ]
 
 // 保存成功后在对应开关旁短暂亮起「已保存」，比全局提示更贴近操作位置
@@ -103,14 +103,14 @@ async function save(field: SwitchField, value: boolean) {
         </div>
         <div v-else class="divide-y divide-border">
           <div v-for="row in LIST_ROWS" :key="row.field" class="privacy-row">
-            <span class="ylf-dopa-tile privacy-row__icon" :style="{ '--tile': row.tone }" aria-hidden="true">
-              <Icon :name="row.icon" class="size-4" />
+            <span class="privacy-row__icon" :data-ylf-tone="row.tone" aria-hidden="true">
+              <Icon :name="row.icon" class="size-5" />
             </span>
-            <div class="min-w-0 flex-1">
+            <div class="min-w-0 flex-1 basis-32">
               <p class="text-sm font-medium">
                 {{ row.label }}
               </p>
-              <p class="text-xs text-muted-foreground">
+              <p class="text-[0.8125rem] leading-6 text-muted-foreground">
                 {{ row.hint }}
               </p>
             </div>
@@ -122,7 +122,7 @@ async function save(field: SwitchField, value: boolean) {
             </Transition>
             <Switch
               v-model="SWITCHES[row.field].value"
-              class="shrink-0"
+              class="relative shrink-0 before:absolute before:-inset-y-3 before:inset-x-0"
               :disabled="saving || syncRestricted"
               :aria-label="row.label"
               @update:model-value="save(row.field, $event)"
@@ -145,14 +145,14 @@ async function save(field: SwitchField, value: boolean) {
         </div>
         <div v-else class="divide-y divide-border">
           <div v-for="row in NOTIFY_ROWS" :key="row.field" class="privacy-row">
-            <span class="ylf-dopa-tile privacy-row__icon" :style="{ '--tile': row.tone }" aria-hidden="true">
-              <Icon :name="row.icon" class="size-4" />
+            <span class="privacy-row__icon" :data-ylf-tone="row.tone" aria-hidden="true">
+              <Icon :name="row.icon" class="size-5" />
             </span>
-            <div class="min-w-0 flex-1">
+            <div class="min-w-0 flex-1 basis-32">
               <p class="text-sm font-medium">
                 {{ row.label }}
               </p>
-              <p class="text-xs text-muted-foreground">
+              <p class="text-[0.8125rem] leading-6 text-muted-foreground">
                 {{ row.hint }}
               </p>
             </div>
@@ -164,7 +164,7 @@ async function save(field: SwitchField, value: boolean) {
             </Transition>
             <Switch
               v-model="SWITCHES[row.field].value"
-              class="shrink-0"
+              class="relative shrink-0 before:absolute before:-inset-y-3 before:inset-x-0"
               :disabled="saving || syncRestricted"
               :aria-label="row.label"
               @update:model-value="save(row.field, $event)"
@@ -180,23 +180,21 @@ async function save(field: SwitchField, value: boolean) {
 .privacy-row {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding-block: 1rem;
+  gap: 0.875rem;
+  padding-block: 1.25rem;
+  flex-wrap: wrap;
 }
 
 .privacy-row__icon {
   display: inline-flex;
-  width: 2.25rem;
-  height: 2.25rem;
+  width: 3rem;
+  height: 3rem;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  border-radius: 0.65rem;
-  transition: rotate var(--ylf-duration-slow) var(--ylf-ease-spring);
-}
-
-.privacy-row:hover .privacy-row__icon {
-  rotate: -8deg;
+  border-radius: var(--ylf-radius);
+  color: var(--ylf-accent-text);
+  background: var(--ylf-accent-soft);
 }
 
 .privacy-saved {
@@ -234,8 +232,9 @@ async function save(field: SwitchField, value: boolean) {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .privacy-row:hover .privacy-row__icon {
-    rotate: none;
+  .privacy-saved-enter-active,
+  .privacy-saved-leave-active {
+    transition: none;
   }
 }
 </style>

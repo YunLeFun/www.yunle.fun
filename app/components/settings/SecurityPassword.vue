@@ -139,7 +139,7 @@ async function handleChangePassword() {
     :icon="KeyRoundIcon"
     label="登录密码"
     :description="hasPassword ? '已设置密码，可配合邮箱或手机号登录' : '设置密码后，可在验证码之外多一种登录方式'"
-    :status="hasPassword ? '已设置' : '未设置'"
+    :status="hasPassword == null ? '状态待确认' : hasPassword ? '已设置' : '未设置'"
     :action="hasPassword ? '修改' : '设置'"
     accent="password"
     :ready="!!hasPassword"

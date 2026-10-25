@@ -29,35 +29,35 @@ const description = computed(() => {
 </script>
 
 <template>
-  <div class="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+  <div class="oauth-provider">
     <div class="flex min-w-0 flex-1 items-center gap-3">
-      <div class="size-9 flex shrink-0 items-center justify-center rounded-lg bg-elevated">
+      <div class="size-12 flex shrink-0 items-center justify-center rounded-2xl bg-elevated">
         <Icon :name="props.icon" class="text-lg" :class="props.iconClass" />
       </div>
       <div class="min-w-0 space-y-1">
-        <p class="text-sm font-medium">
+        <p class="text-[0.9375rem] font-semibold">
           {{ props.label }}
         </p>
-        <p v-if="props.providersLoading" class="truncate text-xs text-muted">
+        <p v-if="props.providersLoading" class="text-[0.8125rem] text-muted break-words">
           正在查询绑定状态...
         </p>
-        <p v-else class="truncate text-xs text-muted">
+        <p v-else class="text-[0.8125rem] text-muted break-words">
           {{ description }}
         </p>
       </div>
     </div>
-    <div class="flex shrink-0 items-center gap-2 ps-12 sm:ps-0">
+    <div class="oauth-provider__actions">
       <Badge v-if="props.providersLoading" variant="outline">
         查询中
       </Badge>
       <template v-else>
-        <Badge :variant="props.bound ? 'secondary' : 'outline'">
+        <Badge class="provider-status" :class="{ 'provider-status--bound': props.bound }" :variant="props.bound ? 'secondary' : 'outline'">
           {{ props.bound ? '已绑定' : '未绑定' }}
         </Badge>
         <Button
           v-if="props.bound"
-          variant="destructive"
-          size="xs"
+          variant="ghost"
+          size="sm"
           :disabled="props.loading"
           @click="emit('unbind')"
         >
@@ -68,7 +68,7 @@ const description = computed(() => {
         <Button
           v-else
           variant="outline"
-          size="xs"
+          size="sm"
           :disabled="props.loading"
           @click="emit('bind')"
         >
@@ -80,3 +80,31 @@ const description = computed(() => {
     </div>
   </div>
 </template>
+
+<style scoped>
+.oauth-provider {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding-block: 1.25rem;
+}
+.oauth-provider__actions {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+}
+.oauth-provider__actions :deep([data-slot='button']) {
+  min-height: 2.75rem;
+}
+.provider-status {
+  border: 0;
+  border-radius: var(--ylf-radius-sm);
+  font-size: 0.6875rem;
+}
+.provider-status--bound {
+  color: var(--ylf-status-success-text);
+  background: var(--ylf-status-success-soft);
+}
+</style>
