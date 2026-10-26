@@ -800,7 +800,7 @@ async function save() {
   position: absolute;
   z-index: -1;
   inset: 0;
-  background: var(--ylf-accent-pink-soft);
+  background: var(--ylf-accent-blue-soft);
 }
 
 .profile-card-preview__cloud {
