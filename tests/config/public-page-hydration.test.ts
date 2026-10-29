@@ -6,7 +6,7 @@ describe('public page hydration', () => {
     const source = readFileSync(new URL('../../app/app.vue', import.meta.url), 'utf8')
 
     expect(source).toMatch(
-      /<ClientOnly>\s*<LazyOnboardingModal\s+v-if="hasUser"\s*\/>\s*<\/ClientOnly>/,
+      /<ClientOnly>\s*<LazyOnboardingModal\s+v-if="showAccountExtras"\s*\/>\s*<\/ClientOnly>/,
     )
   })
 })

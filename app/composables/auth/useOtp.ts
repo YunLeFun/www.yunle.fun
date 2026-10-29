@@ -2,6 +2,7 @@
  * OTP 认证（手机号可登录/注册，邮箱仅允许已绑定账号登录）
  */
 import type { TcbOtpData, TcbSignUpData } from './types'
+import { getSafeLoginRedirect } from '~/utils/authRoutes'
 import { getAuthErrorPresentation, getEmailLoginErrorPresentation } from './types'
 import { useAuthAcquisition } from './useAcquisition'
 
@@ -54,6 +55,8 @@ export function useTcbOtp(core: ReturnType<typeof import('./useAuthCore').useTcb
   }
 
   const verifyPhoneOtp = async (otpData: TcbOtpData, token: string) => {
+    const loginRoute = router.currentRoute.value.fullPath
+    const redirect = getSafeLoginRedirect(router.currentRoute.value.query.redirect)
     try {
       loading.value = true
       error.value = null
@@ -65,8 +68,8 @@ export function useTcbOtp(core: ReturnType<typeof import('./useAuthCore').useTcb
       await fetchUser()
       await recordAfterAuthentication('phone_otp', core.user.value?.id)
       toast.add({ title: '登录成功', description: '欢迎回来！', color: 'success' })
-      const redirect = router.currentRoute.value.query.redirect as string
-      await router.push(redirect || '/')
+      if (router.currentRoute.value.fullPath === loginRoute)
+        await router.push(redirect)
       return data
     }
     catch (err: unknown) {
@@ -105,6 +108,8 @@ export function useTcbOtp(core: ReturnType<typeof import('./useAuthCore').useTcb
   }
 
   const verifySignUpOtp = async (signUpData: TcbSignUpData, token: string) => {
+    const loginRoute = router.currentRoute.value.fullPath
+    const redirect = getSafeLoginRedirect(router.currentRoute.value.query.redirect)
     try {
       loading.value = true
       error.value = null
@@ -116,8 +121,8 @@ export function useTcbOtp(core: ReturnType<typeof import('./useAuthCore').useTcb
       await fetchUser()
       await recordAfterAuthentication('phone_otp', core.user.value?.id)
       toast.add({ title: '注册成功', description: '欢迎加入！', color: 'success' })
-      const redirect = router.currentRoute.value.query.redirect as string
-      await router.push(redirect || '/')
+      if (router.currentRoute.value.fullPath === loginRoute)
+        await router.push(redirect)
       return data
     }
     catch (err: unknown) {
@@ -159,6 +164,8 @@ export function useTcbOtp(core: ReturnType<typeof import('./useAuthCore').useTcb
   }
 
   const verifyEmailOtp = async (otpData: TcbOtpData, token: string) => {
+    const loginRoute = router.currentRoute.value.fullPath
+    const redirect = getSafeLoginRedirect(router.currentRoute.value.query.redirect)
     try {
       loading.value = true
       error.value = null
@@ -170,8 +177,8 @@ export function useTcbOtp(core: ReturnType<typeof import('./useAuthCore').useTcb
       await fetchUser()
       await recordAfterAuthentication('email_otp', core.user.value?.id)
       toast.add({ title: '登录成功', description: '欢迎回来！', color: 'success' })
-      const redirect = router.currentRoute.value.query.redirect as string
-      await router.push(redirect || '/')
+      if (router.currentRoute.value.fullPath === loginRoute)
+        await router.push(redirect)
       return data
     }
     catch (err: unknown) {

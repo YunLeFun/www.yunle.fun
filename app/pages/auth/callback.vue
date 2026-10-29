@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import YlfProgress from '@yunlefun/vue/components/YlfProgress.vue'
 import { useAuthAcquisition } from '~/composables/auth/useAcquisition'
 
 /**
@@ -177,7 +178,7 @@ onMounted(async () => {
         })
         const redirect = localStorage.getItem('auth_redirect') || '/settings?tab=security'
         localStorage.removeItem('auth_redirect')
-        setTimeout(() => router.push(redirect), 1000)
+        await router.push(redirect)
       }
     }
     else {
@@ -202,9 +203,7 @@ onMounted(async () => {
       const redirect = localStorage.getItem('auth_redirect') || '/profile'
       localStorage.removeItem('auth_redirect')
 
-      setTimeout(() => {
-        router.push(redirect)
-      }, 1000)
+      await router.push(redirect)
     }
   }
   catch (err: unknown) {
@@ -239,36 +238,35 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="text-center space-y-6">
-    <div class="flex justify-center">
+  <div class="text-center space-y-4" role="status" aria-live="polite">
+    <div v-if="status !== 'checking'" class="flex justify-center">
       <Icon
-        v-if="status === 'checking'"
-        name="i-lucide-loader-circle"
-        class="w-16 h-16 text-primary animate-spin"
-      />
-      <Icon
-        v-else-if="status === 'success'"
+        v-if="status === 'success'"
         name="i-lucide-check-circle"
-        class="w-16 h-16 text-green-500"
+        class="size-6 text-[var(--ylf-status-success-text)]"
+        aria-hidden="true"
       />
       <Icon
         v-else
         name="i-lucide-x-circle"
-        class="w-16 h-16 text-red-500"
+        class="size-6 text-[var(--ylf-status-danger-text)]"
+        aria-hidden="true"
       />
     </div>
 
     <div class="space-y-2">
-      <h1 class="text-2xl font-bold">
+      <h1 class="ylf-title">
         <span v-if="status === 'checking'">处理中</span>
         <span v-else-if="isNativeApp">授权成功</span>
         <span v-else-if="status === 'success'">{{ isBinding ? '绑定成功' : '登录成功' }}</span>
         <span v-else>{{ isBinding ? '绑定失败' : '登录失败' }}</span>
       </h1>
-      <p class="text-muted">
+      <p class="text-sm leading-6 text-muted">
         {{ message }}
       </p>
     </div>
+
+    <YlfProgress v-if="status === 'checking'" :value="null" aria-label="处理中" class="!h-1" />
 
     <div v-if="status === 'error' && !isNativeApp" class="flex justify-center gap-3">
       <AppButton

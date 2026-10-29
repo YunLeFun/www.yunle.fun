@@ -23,7 +23,6 @@ const {
 } = useTcbAuth()
 const router = useRouter()
 const { entry, ssoClient } = useAuthEntry()
-const hasJourney = computed(() => entry.value.kind === 'sso' || entry.value.kind === 'device')
 const loginLink = computed(() => withAuthRedirect('/login', entry.value))
 const appName = computed(() => ssoClient.value?.name ?? null)
 
@@ -62,13 +61,6 @@ const formValid = computed(() => phoneValid.value)
 
 // 输入合法性提示（已输入但格式错误时才提示）
 const phoneInvalid = computed(() => phone.value.length > 0 && !phoneValid.value)
-
-// 航线小云：提交验证码完成注册时起飞，注册成功后降落
-const routeState = computed(() => {
-  if (isAuthenticated.value)
-    return 'arrived' as const
-  return loading.value && step.value === 'verify' ? 'flying' as const : 'idle' as const
-})
 
 // 验证码仅允许数字，自动剔除非数字并限制 6 位
 watch(otpCode, (v) => {
@@ -123,19 +115,9 @@ function goBackToInfo() {
 
 <template>
   <div class="w-full space-y-5">
-    <!-- 标题区域 -->
-    <div class="text-center space-y-2">
-      <AuthEntryBanner v-if="hasJourney" class="mb-3 sm:mb-4" :route-state="routeState" />
-      <div v-else class="flex justify-center">
-        <div class="ylf-auth-mark ylf-gradient-tile flex h-12 w-14 items-center justify-center rounded-2xl">
-          <Icon
-            name="i-lucide-user-plus"
-            class="size-6 text-primary-foreground"
-          />
-        </div>
-      </div>
-      <h1 class="font-heading font-semibold tracking-tight text-balance [word-break:keep-all]" :class="hasJourney ? 'text-2xl sm:text-3xl' : 'text-3xl'">
-        注册 <span class="ylf-gradient-text">云乐坊</span>
+    <div class="space-y-2">
+      <h1 class="ylf-title">
+        创建云乐坊账号
       </h1>
       <p class="text-sm text-muted">
         <template v-if="step === 'verify'">
@@ -145,10 +127,10 @@ function goBackToInfo() {
           注册后即可直接使用 {{ appName }}
         </template>
         <template v-else>
-          一个账号，畅游云乐坊全部应用
+          使用手机号注册
         </template>
       </p>
-      <AuthEntryBanner v-if="entry.kind === 'page'" class="!mt-3" />
+      <AuthEntryBanner v-if="entry.kind !== 'direct'" />
     </div>
 
     <!-- 步骤 1: 填写信息 -->

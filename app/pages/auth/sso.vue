@@ -11,6 +11,7 @@ import {
   readSsoScope,
   SSO_REDIRECT_HASH_KEY,
 } from '@yunlefun/sso/protocol'
+import YlfProgress from '@yunlefun/vue/components/YlfProgress.vue'
 import AppProductIcon from '~/components/apps/AppProductIcon.vue'
 import { useAuthAcquisition } from '~/composables/auth/useAcquisition'
 import { useTcbAuthSession } from '~/composables/auth/useAuthSession'
@@ -125,7 +126,7 @@ function redirectBack(redirectUri: string, nonce: string, code: string): void {
     code,
   })}`
   status.value = 'success'
-  message.value = '登录成功，正在乘云返回…'
+  message.value = '登录成功，即将返回应用。'
   window.location.replace(resultDestination(url.toString()))
 }
 
@@ -273,7 +274,7 @@ onMounted(async () => {
     if (prompt === 'consent' || prompt === 'select_account') {
       accountSwitchAllowed.value = prompt === 'select_account'
       status.value = 'confirmation'
-      message.value = `${clientName} 请求使用你的云乐坊账号登录。`
+      message.value = '确认使用以下账号继续。'
       return
     }
     await authorize(request)
@@ -285,218 +286,136 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="mx-auto flex w-full max-w-[21rem] min-w-0 flex-col items-center text-center space-y-5">
-    <AuthRoute
-      v-if="status !== 'error'"
-      class="w-full"
-      :from-label="user ? currentAccountName : '云乐坊账号'"
-      :to-label="clientName"
-      :to-hint="clientHost"
-      :to-hint-tone="client ? 'safe' : 'warning'"
-      :accent="client?.accent"
-      :state="status === 'checking' ? 'flying' : status === 'success' ? 'arrived' : 'idle'"
-    >
-      <template #from>
-        <MemberAvatar
-          v-if="user"
-          :src="user.avatar"
-          :alt="currentAccountName"
-          size="xl"
-          class="sso-avatar"
+  <section class="min-w-0 space-y-5" aria-labelledby="sso-heading">
+    <div class="flex min-w-0 items-start gap-3">
+      <span class="sso-app shrink-0" aria-hidden="true">
+        <Icon v-if="status === 'error'" name="i-lucide-circle-alert" class="size-6 text-error" />
+        <AppProductIcon
+          v-else-if="client?.logoUrl"
+          :app="{ appId: client.appId, logoUrl: client.logoUrl, fallbackMark: client.fallbackMark }"
         />
-        <span v-else class="sso-brand ylf-gradient-tile">
-          <YlfLogo class="h-5 w-7 text-primary-foreground" aria-hidden="true" />
-        </span>
-      </template>
-      <template #to>
-        <span class="relative">
-          <AppProductIcon
-            v-if="client?.logoUrl"
-            :app="{ appId: client.appId, logoUrl: client.logoUrl, fallbackMark: client.fallbackMark }"
-          />
-          <span v-else class="sso-mark" :style="{ color: client?.accent }">
-            {{ client?.fallbackMark ?? '' }}
-            <Icon v-if="!client" name="i-lucide-globe" class="size-6" />
-          </span>
-          <Transition name="sso-pop">
-            <span v-if="status === 'success'" class="sso-check">
-              <Icon name="i-lucide-check" class="size-3.5" />
-            </span>
-          </Transition>
-        </span>
-      </template>
-    </AuthRoute>
-
-    <div v-else class="sso-error">
-      <Icon name="i-lucide-cloud-off" class="size-9" />
-    </div>
-
-    <div class="w-full min-w-0 space-y-2">
-      <h1 class="font-heading text-2xl font-semibold tracking-tight text-balance [overflow-wrap:anywhere] [word-break:keep-all]">
-        {{ heading }}
-      </h1>
-      <p class="mx-auto max-w-full whitespace-normal break-words text-center text-sm leading-6 text-muted text-balance [overflow-wrap:anywhere] [word-break:keep-all]">
-        {{ message }}
-      </p>
-    </div>
-
-    <div v-if="status === 'confirmation'" class="w-full space-y-4 text-left">
-      <div class="sso-account">
-        <Icon name="i-lucide-user-round-check" class="size-4 shrink-0 text-primary" />
-        <span class="min-w-0 flex-1 truncate">
-          以 <strong>{{ currentAccountName }}</strong>
-          <span v-if="user?.login" class="text-muted"> @{{ user.login }}</span>
-          的身份继续
-        </span>
+        <span v-else-if="client" class="text-lg font-semibold text-primary">{{ client.fallbackMark }}</span>
+        <Icon v-else name="i-lucide-globe" class="size-6 text-muted" />
+      </span>
+      <div class="min-w-0 space-y-1">
+        <h1 id="sso-heading" class="ylf-title [overflow-wrap:anywhere]">
+          {{ heading }}
+        </h1>
+        <p v-if="clientHost" class="text-xs leading-5 [overflow-wrap:anywhere]" :class="client ? 'text-muted' : 'text-warning'">
+          {{ clientHost }}
+        </p>
       </div>
+    </div>
 
-      <ul class="sso-grants">
-        <li>
-          <Icon name="i-lucide-badge-check" class="size-4 shrink-0 text-primary" />
-          确认你的云乐坊身份（昵称与头像）
-        </li>
-        <li>
-          <Icon name="i-lucide-key-round" class="size-4 shrink-0 text-primary" />
-          应用只会获得用于建立独立会话的一次性身份授权，不会获得密码或云乐坊长期令牌。
-        </li>
-      </ul>
+    <div v-if="status === 'checking' || status === 'success'" class="sso-progress-scene">
+      <CuteCloud shape="small" :animated="false" class="sso-traveler" :class="{ 'sso-traveler--arrived': status === 'success' }" />
+      <YlfProgress :value="null" class="sso-progress" :aria-label="heading" />
+    </div>
+    <p class="text-sm leading-6 text-muted" role="status" aria-live="polite">
+      {{ message }}
+    </p>
 
+    <template v-if="status === 'confirmation'">
+      <div class="sso-account flex min-w-0 items-center gap-3">
+        <MemberAvatar v-if="user" :src="user.avatar" :alt="currentAccountName" size="md" />
+        <Icon v-else name="i-lucide-user-round" class="size-6 shrink-0 text-muted" />
+        <div class="min-w-0">
+          <p class="text-sm font-medium [overflow-wrap:anywhere]">
+            {{ currentAccountName }}
+          </p>
+          <p v-if="user?.login" class="text-xs text-muted [overflow-wrap:anywhere]">
+            @{{ user.login }}
+          </p>
+        </div>
+      </div>
+      <p class="text-sm leading-6 text-muted">
+        {{ clientName }} 将获得你的昵称和头像，用于登录。不会共享你的密码。
+      </p>
+      <p v-if="!client" class="text-sm leading-6 text-warning" role="note">
+        未能核验来源，请确认你信任此应用。
+      </p>
       <div class="grid gap-2">
-        <AppButton
-          block
-          size="lg"
-          data-testid="sso-continue-current-account"
-          @click="continueWithCurrentAccount"
-        >
-          继续使用此账号
+        <AppButton block size="lg" data-testid="sso-continue-current-account" @click="continueWithCurrentAccount">
+          继续
         </AppButton>
         <AppButton
           v-if="accountSwitchAllowed"
           block
           size="lg"
           color="neutral"
-          variant="soft"
+          variant="outline"
           data-testid="sso-use-other-account"
           @click="loginWithOtherAccount"
         >
           使用其他账号
         </AppButton>
-        <AppButton
-          block
-          size="lg"
-          color="neutral"
-          variant="ghost"
-          data-testid="sso-deny-authorization"
-          @click="denyAuthorization"
-        >
+        <AppButton block size="lg" color="neutral" variant="ghost" data-testid="sso-deny-authorization" @click="denyAuthorization">
           取消
         </AppButton>
       </div>
-    </div>
-
-    <div v-else-if="status === 'error'" class="grid w-full gap-2">
-      <AppButton block size="lg" icon="i-lucide-rotate-cw" @click="retry">
+    </template>
+    <div v-else-if="status === 'error'" class="grid gap-2">
+      <AppButton block size="lg" @click="retry">
         重试
       </AppButton>
       <AppButton block size="lg" color="neutral" variant="ghost" to="/">
         返回云乐坊首页
       </AppButton>
     </div>
-  </div>
+  </section>
 </template>
 
 <style scoped>
-.sso-brand,
-.sso-mark {
+.sso-app {
+  --app-icon-size: 2.5rem;
+
   display: grid;
-  width: 3rem;
-  height: 3rem;
+  width: 2.5rem;
+  height: 2.5rem;
   place-items: center;
 }
 
-.sso-avatar {
-  border-radius: 9999px;
-  box-shadow:
-    0 0 0 3px var(--ylf-surface),
-    0 8px 18px -12px var(--ylf-shadow-color);
+.sso-progress {
+  height: 4px;
 }
 
-.sso-brand,
-.sso-mark {
-  border-radius: 22%;
+.sso-progress-scene {
+  position: relative;
+  padding-top: 0.5rem;
 }
 
-.sso-mark {
-  background: color-mix(in srgb, currentColor 14%, var(--ylf-surface));
-  font-size: 1.125rem;
-  font-weight: 700;
-}
-
-.sso-check {
+.sso-traveler {
   position: absolute;
-  right: -0.375rem;
-  bottom: -0.375rem;
-  display: grid;
-  width: 1.375rem;
-  height: 1.375rem;
-  place-items: center;
-  border-radius: 9999px;
-  background: var(--ylf-status-success, #16a34a);
-  box-shadow: 0 0 0 2px var(--ylf-surface);
-  color: #fff;
+  z-index: 1;
+  top: -0.125rem;
+  left: calc(50% - 0.75rem);
+  width: 1.5rem;
+  filter: drop-shadow(0 1px 2px color-mix(in srgb, var(--ylf-c-brand) 24%, transparent));
+  animation: sso-cloud-glide calc(var(--ylf-duration-slow) * 5) var(--ylf-ease-standard) infinite alternate;
 }
 
-.sso-pop-enter-active {
-  transition:
-    opacity 160ms ease,
-    scale 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+.sso-traveler--arrived {
+  animation: none;
+  transform: translateX(2rem);
 }
 
-.sso-pop-enter-from {
-  opacity: 0;
-  scale: 0.4;
-}
-
-.sso-error {
-  display: grid;
-  width: 4rem;
-  height: 4rem;
-  place-items: center;
-  border-radius: 1.25rem;
-  background: color-mix(in srgb, var(--ylf-status-danger, #dc2626) 10%, var(--ylf-surface));
-  color: var(--ylf-status-danger-text, #dc2626);
-}
-
-.sso-account {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.625rem 0.875rem;
-  border: 1px solid var(--ui-border-muted);
-  border-radius: 0.875rem;
-  background: color-mix(in srgb, var(--ylf-surface-muted) 60%, var(--ylf-surface));
-  font-size: 0.875rem;
-}
-
-.sso-grants {
-  display: grid;
-  gap: 0.5rem;
-  padding: 0 0.25rem;
-  color: var(--ui-text-muted);
-  font-size: var(--ylf-type-caption);
-  line-height: 1.5;
-  text-wrap: pretty;
-}
-
-.sso-grants li {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
+@keyframes sso-cloud-glide {
+  from {
+    transform: translateX(-2rem);
+  }
+  to {
+    transform: translateX(2rem);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sso-pop-enter-active {
-    transition: none;
+  .sso-traveler {
+    animation: none;
   }
+}
+
+.sso-account {
+  padding-block: var(--ylf-space-3);
+  border-block: 1px solid var(--ylf-c-border);
 }
 </style>

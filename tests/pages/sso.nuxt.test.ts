@@ -157,6 +157,38 @@ describe('sSO v3 Provider page', () => {
     expect(h.state.cloudbase.app.callFunction).toHaveBeenCalledTimes(1)
   })
 
+  it('announces pending authorization without keeping confirmation actions or issuing duplicate codes', async () => {
+    let resolveAuthorization: ((result: { ok: true, code: string }) => void) | undefined
+    h.state.cloudbase.app.callFunction.mockReturnValueOnce(new Promise((resolve) => {
+      resolveAuthorization = resolve
+    }))
+    const wrapper = await mount(requestRoute({ prompt: 'select_account' }))
+    const continueButton = wrapper.get('[data-testid="sso-continue-current-account"]')
+
+    await Promise.all([continueButton.trigger('click'), continueButton.trigger('click')])
+    await flushPromises()
+
+    const progress = wrapper.get('[role="progressbar"]')
+    expect(progress.attributes('aria-label')).toBe(wrapper.get('h1').text())
+    expect(progress.attributes('aria-label')).toContain('正在登录')
+    expect(progress.attributes('data-state')).toBe('indeterminate')
+    expect(progress.attributes('aria-valuenow')).toBeUndefined()
+    expect(wrapper.get('[role="status"]').text()).toBe('正在获取一次性授权…')
+    expect(wrapper.find('[role="status"]').element.closest('[aria-busy="true"]')).toBeNull()
+    expect(wrapper.find('[data-testid="sso-continue-current-account"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="sso-use-other-account"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="sso-deny-authorization"]').exists()).toBe(false)
+    expect(h.state.cloudbase.app.callFunction).toHaveBeenCalledTimes(1)
+
+    resolveAuthorization?.({ ok: true, code: 'd'.repeat(43) })
+    await flushPromises()
+
+    expect(wrapper.get('[role="status"]').text()).toBe('登录成功，即将返回应用。')
+    expect(wrapper.get('[role="progressbar"]').attributes('aria-label')).toBe(wrapper.get('h1').text())
+    expect(wrapper.get('[role="progressbar"]').attributes('aria-label')).toContain('正在返回')
+    expect(h.state.cloudbase.app.callFunction).toHaveBeenCalledTimes(1)
+  })
+
   it('honors consent without offering a Provider account switch', async () => {
     const wrapper = await mount(requestRoute({ prompt: 'consent' }))
 
@@ -265,6 +297,10 @@ describe('sSO v3 Provider page', () => {
 
     expect(h.state.cloudbase.app.callFunction).toHaveBeenCalledTimes(1)
     expect(wrapper.text()).toContain('SSO 请求未获授权')
+    expect(wrapper.get('[role="status"]').text()).toContain('SSO 请求未获授权')
+    expect(wrapper.find('[role="status"]').element.closest('[aria-busy="true"]')).toBeNull()
+    expect(wrapper.find('[role="progressbar"]').exists()).toBe(false)
+    expect(wrapper.findAll('button').some(button => button.text() === '重试')).toBe(true)
     expect(h.state.navigateTo).not.toHaveBeenCalled()
     expect(errorSpy).toHaveBeenCalledTimes(1)
   })

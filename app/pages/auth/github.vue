@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import YlfProgress from '@yunlefun/vue/components/YlfProgress.vue'
+
 /**
  * 旧版 GitHub OAuth 回调页面（兼容保留）
  *
@@ -17,21 +19,13 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="text-center space-y-6">
-    <div class="flex justify-center">
-      <Icon
-        name="i-lucide-loader-circle"
-        class="w-16 h-16 text-primary animate-spin"
-      />
-    </div>
-
-    <div class="space-y-2">
-      <h1 class="text-2xl font-bold">
-        处理中
-      </h1>
-      <p class="text-muted">
-        正在跳转到登录回调...
-      </p>
-    </div>
+  <div class="space-y-4">
+    <h1 class="ylf-title">
+      正在登录
+    </h1>
+    <YlfProgress :value="null" aria-label="正在转到登录回调" />
+    <p class="text-sm leading-6 text-muted" role="status" aria-live="polite">
+      正在转到登录回调…
+    </p>
   </div>
 </template>

@@ -11,12 +11,15 @@ const props = withDefaults(defineProps<{
   shape?: 'round' | 'long' | 'small'
   face?: boolean
   mood?: 'calm' | 'happy'
+  /** 装饰性眨眼；表单等专注操作的场景可关闭。 */
+  animated?: boolean
   /** 视线方向，x / y 取 -1~1 */
   look?: { x: number, y: number }
 }>(), {
   shape: 'round',
   face: false,
   mood: 'calm',
+  animated: true,
 })
 
 interface Bump { cx: number, cy: number, r: number }
@@ -63,7 +66,7 @@ const id = `cute-cloud-${useId()}`
 <template>
   <svg
     class="cute-cloud"
-    :class="{ 'cute-cloud--happy': mood === 'happy' }"
+    :class="{ 'cute-cloud--happy': mood === 'happy', 'cute-cloud--still': !animated }"
     :viewBox="`0 0 ${shapeDef.width} ${shapeDef.height}`"
     fill="none"
     focusable="false"
@@ -153,6 +156,10 @@ const id = `cute-cloud-${useId()}`
   transform-box: fill-box;
   transform-origin: center;
   animation: cute-cloud-blink 5.2s ease-in-out infinite;
+}
+
+.cute-cloud--still .cute-cloud__eye {
+  animation: none;
 }
 
 .cute-cloud__happy-eyes path,

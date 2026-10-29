@@ -42,16 +42,18 @@ useSeoMeta({
 const toast = useAppToast()
 const user = useState<{ id?: string } | null>('auth_user', () => null)
 const hasUser = computed(() => Boolean(user.value?.id))
+const isAuthLayout = computed(() => route.meta.layout === 'auth')
+const showAccountExtras = computed(() => hasUser.value && !isAuthLayout.value)
 // 戳云满 10 / 50 / 100 下时的小徽章，到点才懒加载
 const { milestone: cloudMilestone } = useCloudCollection()
 
 async function claimDailyReward(userId: string) {
   const { useSignIn } = await import('~/composables/useSignIn')
-  if (user.value?.id !== userId)
+  if (user.value?.id !== userId || isAuthLayout.value)
     return
   const { autoClaim } = useSignIn()
   const res = await autoClaim()
-  if (!res || res.alreadySigned)
+  if (user.value?.id !== userId || isAuthLayout.value || !res || res.alreadySigned)
     return
   toast.add({
     title: `每日 +${res.reward} 云币已到账`,
@@ -70,15 +72,12 @@ async function claimDailyReward(userId: string) {
   }
 }
 
-// 已登录直接领；登录态在中间件恢复后由 watch 接住（首次访问 / 刚登录）
+// 授权期间专注登录；离开认证布局后再处理签到与新用户引导。
 onMounted(() => {
-  const id = user.value?.id
-  if (id)
-    void claimDailyReward(id)
-})
-watch(() => user.value?.id, (id) => {
-  if (id)
-    void claimDailyReward(id)
+  watch([() => user.value?.id, isAuthLayout], ([id, authLayout]) => {
+    if (id && !authLayout)
+      void claimDailyReward(id)
+  }, { immediate: true })
 })
 </script>
 
@@ -96,7 +95,7 @@ watch(() => user.value?.id, (id) => {
     将登录后才需要的引导弹窗移出服务端渲染树，确保两端首帧结构一致。
   -->
   <ClientOnly>
-    <LazyOnboardingModal v-if="hasUser" />
+    <LazyOnboardingModal v-if="showAccountExtras" />
   </ClientOnly>
 
   <!-- 戳云满 10 / 50 / 100 下时的「云朵收藏家」小徽章 -->
