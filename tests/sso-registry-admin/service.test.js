@@ -60,7 +60,7 @@ function memoryStore() {
       listExpiredApprovals: async (environment, timestamp, limit = 10) => [...target().approvals.entries()]
         .map(([approvalId, value]) => ({ approvalId, ...structuredClone(value) }))
         .filter(value => value.environment === environment
-          && ['delivery_pending', 'pending', 'decision_pending'].includes(value.status)
+          && ['delivery_pending', 'pending'].includes(value.status)
           && value.expiresAt <= timestamp)
         .sort((left, right) => left.expiresAt - right.expiresAt)
         .slice(0, limit),
@@ -763,9 +763,108 @@ describe('sso-registry-admin service', () => {
   })
 
   it.each([
-    ['expired', 'approval_expired'],
-    ['canceled', 'approval_stale'],
-  ])('closes a card when decision submission becomes %s before registration', async (status, errorCode) => {
+    { scenario: 'the next minute timer', decision: 'approve' },
+    { scenario: 'the last millisecond before expiry', decision: 'approve', leadMs: 1 },
+    { scenario: 'a delay beyond the proof lifetime', decision: 'approve', delayMs: 10 * 60_000 },
+    { scenario: 'an expired worker lease', decision: 'approve', delayMs: 3 * 60_000, recoverLease: true },
+    { scenario: 'a stale expiry scan candidate', decision: 'approve', staleExpiryCandidate: true },
+    { scenario: 'a timely rejection', decision: 'reject', expectedStatus: 'rejected' },
+    { scenario: 'a draft changed while queued', decision: 'approve', editDraft: true, expectedStatus: 'canceled' },
+    { scenario: 'email fallback after expiry', decision: 'email_fallback', expectedStatus: 'expired' },
+  ])('uses the received decision deadline with $scenario', async ({
+    decision,
+    leadMs = 19_595,
+    delayMs = 30_417,
+    recoverLease = false,
+    staleExpiryCandidate = false,
+    editDraft = false,
+    expectedStatus = 'consumed',
+  }) => {
+    let clock = 1_793_365_892_082
+    let decisionClaims
+    const cardUpdates = []
+    const emails = []
+    const { memory, service } = setup({
+      now: () => clock,
+      approvalPepper: 'registry-approval-pepper-with-32-bytes',
+      approverUids: ['admin-uid'],
+      feishuApprovalEnabled: true,
+      resolveApproverEmail: async () => 'admin@example.com',
+      sendApprovalEmail: async (message) => {
+        emails.push(message)
+        return { id: 'unused-email' }
+      },
+      sendApprovalCard: async () => ({ id: 'om_delayed', externalIdentityHash: 'a'.repeat(64) }),
+      notifyApprovalCard: async (message) => { cardUpdates.push(message) },
+      verifyAdminDecisionProof: () => decisionClaims,
+    })
+    const draft = await service.saveDraft(request({ registry: registry() }))
+    const approval = await service.requestPublishApproval(request({
+      draftId: draft.draftId,
+      baseCommitSha: '9'.repeat(40),
+    }))
+    const persisted = memory.snapshot().approvals.get(approval.approvalId)
+    decisionClaims = {
+      ...persisted,
+      approvalId: approval.approvalId,
+      sub: 'admin-uid',
+      login: 'owner',
+      decision,
+      messageId: persisted.feishuMessageId,
+      jti: 'decision-delayed-approval',
+    }
+
+    // Production accepted the decision 19.595 seconds before the deadline,
+    // then the next minute's timer scanned it 30.417 seconds after expiry.
+    clock = approval.expiresAt - leadMs
+    await service.submitAdminApprovalDecision({ approvalProof: 'proof-delayed-approval' })
+    const submittedAt = clock
+    if (recoverLease) {
+      // Persisted state left by a worker that stopped after claiming the decision.
+      const accepted = memory.snapshot().approvals.get(approval.approvalId)
+      await memory.store.updateApproval(approval.approvalId, {
+        channelStatus: 'processing',
+        status: 'processing',
+        decision: {
+          ...accepted.decision,
+          leaseOwner: 'interrupted-worker',
+          leaseExpiresAt: clock + 2 * 60_000,
+        },
+      })
+    }
+    if (staleExpiryCandidate)
+      memory.store.listExpiredApprovals = async () => [{ approvalId: approval.approvalId }]
+    if (editDraft)
+      await service.saveDraft(request({ draftId: draft.draftId, registry: registry('2026-08-03.9') }))
+    clock = approval.expiresAt + delayMs
+    const processed = await service.processPendingAdminApprovalDecisions()
+
+    expect(processed).toMatchObject({
+      processed: 1,
+      approvalsExpired: 0,
+      results: [expect.objectContaining({ approvalId: approval.approvalId, status: expectedStatus })],
+    })
+    expect(memory.snapshot().approvals.get(approval.approvalId)).toMatchObject({
+      status: expectedStatus,
+      decision: { action: decision, submittedAt },
+    })
+    const releaseCount = expectedStatus === 'consumed' ? 1 : 0
+    expect(memory.snapshot().intents.size).toBe(releaseCount)
+    expect(memory.snapshot().outbox.size).toBe(releaseCount)
+    expect(cardUpdates).toEqual([expect.objectContaining({ status: expectedStatus })])
+    expect(emails).toEqual([])
+
+    await service.processPendingAdminApprovalDecisions()
+    expect(memory.snapshot().intents.size).toBe(releaseCount)
+    expect(memory.snapshot().outbox.size).toBe(releaseCount)
+    expect(cardUpdates).toHaveLength(1)
+  })
+
+  it.each([
+    { scenario: 'at the deadline', status: 'expired', errorCode: 'approval_expired', delayMs: 0 },
+    { scenario: 'after the deadline', status: 'expired', errorCode: 'approval_expired', delayMs: 1 },
+    { scenario: 'after the draft changes', status: 'canceled', errorCode: 'approval_stale' },
+  ])('closes a card when decision submission arrives $scenario', async ({ status, errorCode, delayMs }) => {
     let clock = 1_785_700_000_000
     let decisionClaims
     const cardUpdates = []
@@ -791,12 +890,12 @@ describe('sso-registry-admin service', () => {
       approvalId: approval.approvalId,
       sub: 'admin-uid',
       login: 'owner',
-      decision: 'reject',
+      decision: 'approve',
       messageId: persisted.feishuMessageId,
       jti: `decision-terminal-${status}`,
     }
     if (status === 'expired')
-      clock = approval.expiresAt + 1
+      clock = approval.expiresAt + delayMs
     else
       await service.saveDraft(request({ draftId: draft.draftId, registry: registry('2026-08-03.9') }))
 
