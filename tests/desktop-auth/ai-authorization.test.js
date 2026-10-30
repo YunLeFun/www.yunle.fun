@@ -13,22 +13,22 @@ const PATH = '/ai/v1/desktop/writing'
 const SECRET = 'dedicated-runtime-identity-secret-12345'
 const hash = value => createHash('sha256').update(value).digest('base64url')
 
-async function fixture(scopes = ['membership:read', 'ai:writing']) {
+async function fixture(scopes = ['membership:read', 'ai:writing'], clientId = 'cms-desktop') {
   const db = makeFakeDb({}, { rejectDocumentIdWrites: true })
   const signing = generateKeyPairSync('ed25519')
   const installation = generateKeyPairSync('ec', { namedCurve: 'P-256' })
   const jwk = installation.publicKey.export({ format: 'jwk' })
   const jkt = deviceJwkThumbprint(jwk)
   const keyring = createEntitlementKeyring({ issuer: 'https://www.yunle.fun', active: { kid: 'test', privateKey: signing.privateKey }, verificationKeys: [], generateJti: randomUUID })
-  const grant = { subject: 'user_1', issuer: 'https://www.yunle.fun', clientId: 'cms-desktop', appId: 'cms', scopes, deviceId: jkt, deviceJkt: jkt, registrationFingerprint: 'registry-1' }
+  const grant = { subject: 'user_1', issuer: 'https://www.yunle.fun', clientId, appId: 'cms', scopes, deviceId: jkt, deviceJkt: jkt, registrationFingerprint: 'registry-1' }
   await issueDeviceGrant(db, grant, { now: NOW, generateGrantId: () => 'grant-1' })
   const entitlement = keyring.signMembershipEntitlement({ ...grant, grantId: 'grant-1', now: NOW, ttlSeconds: 3600 })
   function input(overrides = {}, claims = {}, key = installation, token = entitlement) {
     const requestHash = hash('{"action":"catalog"}')
     const header = Buffer.from(JSON.stringify({ alg: 'ES256', typ: 'dpop+jwt', jwk: key.publicKey.export({ format: 'jwk' }) })).toString('base64url')
-    const body = Buffer.from(JSON.stringify({ htm: 'POST', htu: ORIGIN + PATH, ath: hash(token), request_hash: requestHash, iat: NOW / 1000, jti: randomUUID(), ...claims })).toString('base64url')
+    const body = Buffer.from(JSON.stringify({ htm: 'POST', htu: ORIGIN + (clientId === 'cms-ios' ? '/ai/v1/mobile/writing' : PATH), ath: hash(token), request_hash: requestHash, iat: NOW / 1000, jti: randomUUID(), ...claims })).toString('base64url')
     const signature = sign('sha256', Buffer.from(`${header}.${body}`), { key: key.privateKey, dsaEncoding: 'ieee-p1363' }).toString('base64url')
-    return { serviceToken: SECRET, method: 'POST', path: PATH, entitlement: token, proof: `${header}.${body}.${signature}`, requestHash, ...overrides }
+    return { serviceToken: SECRET, method: 'POST', path: clientId === 'cms-ios' ? '/ai/v1/mobile/writing' : PATH, entitlement: token, proof: `${header}.${body}.${signature}`, requestHash, ...overrides }
   }
   const options = { now: NOW, serviceToken: SECRET, canonicalOrigin: ORIGIN, keyring, proofVerifier: createProofOfPossessionVerifier(), registry: { reauthorize: vi.fn() }, assertActiveAccount: vi.fn() }
   return { db, grant, input, options }
@@ -83,5 +83,20 @@ describe('online writing device authorization', () => {
       throw new Error('client policy changed')
     })
     await expect(authorizeAiRequest(f.db, f.input(), f.options)).rejects.toThrow('client policy changed')
+  })
+})
+
+describe('iOS AI grants', () => {
+  it('accepts a separately registered iOS device and rejects cross-client targets', async () => {
+    const f = await fixture(['membership:read', 'ai:writing'], 'cms-ios')
+    expect(await authorizeAiRequest(f.db, f.input(), f.options)).toMatchObject({ clientId: 'cms-ios', uid: 'user_1', scope: 'ai:writing' })
+    await expect(authorizeAiRequest(f.db, f.input({ path: PATH }, { htu: ORIGIN + PATH }), f.options)).rejects.toThrow()
+    const desktop = await fixture()
+    await expect(authorizeAiRequest(desktop.db, desktop.input({ path: '/ai/v1/mobile/writing' }, { htu: `${ORIGIN}/ai/v1/mobile/writing` }), desktop.options)).rejects.toThrow()
+  })
+
+  it('does not upgrade membership-only iOS consent', async () => {
+    const f = await fixture(['membership:read'], 'cms-ios')
+    await expect(authorizeAiRequest(f.db, f.input(), f.options)).rejects.toMatchObject({ code: 'ai_scope_required' })
   })
 })

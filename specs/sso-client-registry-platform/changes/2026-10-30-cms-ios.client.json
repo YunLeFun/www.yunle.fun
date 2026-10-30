@@ -1,0 +1,13 @@
+{
+  "clientId": "cms-ios",
+  "appId": "cms",
+  "displayName": "云栈 iOS",
+  "status": "active",
+  "adapters": [
+    {
+      "kind": "device",
+      "allowedScopes": ["membership:read", "ai:writing"],
+      "consent": "explicit"
+    }
+  ]
+}

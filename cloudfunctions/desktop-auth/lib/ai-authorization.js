@@ -24,7 +24,8 @@ async function authorizeAiRequest(db, input, options) {
   if (origin.protocol !== 'https:' || origin.origin !== options.canonicalOrigin)
     throw new AuthorizationError('runtime_unavailable')
   // POST-only RPC keeps the signed request envelope independent of JSON key order.
-  if (input.method !== 'POST' || input.path !== '/ai/v1/desktop/writing'
+  const clientId = input.path === '/ai/v1/mobile/writing' ? 'cms-ios' : input.path === '/ai/v1/desktop/writing' ? 'cms-desktop' : undefined
+  if (input.method !== 'POST' || !clientId
     || typeof input.entitlement !== 'string' || input.entitlement.length > 32_000
     || typeof input.proof !== 'string' || input.proof.length > 8_000
     || typeof input.requestHash !== 'string' || !/^[\w-]{43}$/.test(input.requestHash)) {
@@ -38,7 +39,7 @@ async function authorizeAiRequest(db, input, options) {
     now,
   })
   const claims = options.keyring.verifyEntitlement(input.entitlement, {
-    audience: 'cms-desktop',
+    audience: clientId,
     deviceJkt: proof.jkt,
     now,
     clockSkewSeconds: 0,
@@ -50,12 +51,12 @@ async function authorizeAiRequest(db, input, options) {
     || !Number.isSafeInteger(claims.exp) || claims.exp <= claims.iat || claims.exp - claims.iat > 7 * 24 * 3600) {
     throw new AuthorizationError('ai_scope_required')
   }
-  const id = hash(`${claims.sub}\u0000cms-desktop\u0000${proof.jkt}`, 'hex')
+  const id = hash(`${claims.sub}\u0000${clientId}\u0000${proof.jkt}`, 'hex')
   const { data } = await db.collection(DEVICES_COLLECTION).doc(id).get()
   const device = Array.isArray(data) ? data[0] : data
   if (!device || device.status !== 'active' || device.revokedAt
     || device.uid !== claims.sub || device.issuer !== claims.iss
-    || device.clientId !== 'cms-desktop' || device.appId !== 'cms'
+    || device.clientId !== clientId || device.appId !== 'cms'
     || device.deviceId !== proof.jkt || device.deviceJkt !== proof.jkt
     || device.grantId !== claims.grant_id
     || !Array.isArray(device.scopes) || !device.scopes.includes(AI_SCOPE)
@@ -65,7 +66,7 @@ async function authorizeAiRequest(db, input, options) {
   options.registry.reauthorize(device)
   await options.assertActiveAccount(claims.sub)
   await reserveProof(db, proof, { now })
-  return { uid: claims.sub, clientId: 'cms-desktop', appId: 'cms', deviceJkt: proof.jkt, grantId: device.grantId, scope: AI_SCOPE }
+  return { uid: claims.sub, clientId, appId: 'cms', deviceJkt: proof.jkt, grantId: device.grantId, scope: AI_SCOPE }
 }
 
 module.exports = { AI_SCOPE, authorizeAiRequest }
