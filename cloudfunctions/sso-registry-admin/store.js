@@ -259,7 +259,7 @@ function createRegistryStore(database, source = database) {
       const result = await source.collection(COLLECTIONS.approvals)
         .where({
           environment,
-          status: database.command.in(['delivery_pending', 'pending', 'decision_pending']),
+          status: database.command.in(['delivery_pending', 'pending']),
           expiresAt: database.command.lte(timestamp),
         })
         .orderBy('expiresAt', 'asc')

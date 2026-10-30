@@ -1500,9 +1500,9 @@ function createRegistryAdminService(options) {
         const expired = await store.transaction(async (transaction) => {
           const approval = await transaction.getApproval(candidate.approvalId)
           if (!approval
-            || !['delivery_pending', 'pending', 'decision_pending'].includes(approval.status)
+            || !['delivery_pending', 'pending'].includes(approval.status)
             || approval.expiresAt > scanAt) {
-            return false
+            return null
           }
           await transaction.updateApproval(candidate.approvalId, {
             channelStatus: 'terminal',
@@ -1531,6 +1531,8 @@ function createRegistryAdminService(options) {
           })
           return Boolean(approval.feishuMessageId)
         })
+        if (expired === null)
+          continue
         approvalsExpired++
         if (expired)
           await syncApprovalCard(candidate.approvalId, { status: 'expired' })
@@ -1548,7 +1550,12 @@ function createRegistryAdminService(options) {
               && Number(approval.decision.leaseExpiresAt || 0) <= scanAt)
           if (!claimable)
             return null
-          if (approval.expiresAt <= scanAt) {
+          // Final decisions retain their submission deadline across timer delays
+          // and lease recovery. Email fallback still requires an unexpired approval.
+          const receivedAt = ['approve', 'reject'].includes(approval.decision.action)
+            ? approval.decision.submittedAt
+            : scanAt
+          if (!Number.isSafeInteger(receivedAt) || approval.expiresAt <= receivedAt) {
             await transaction.updateApproval(candidate.approvalId, {
               channelStatus: 'terminal',
               status: 'expired',
