@@ -8,6 +8,7 @@
 import type { AppRecord } from '~/types/app'
 import type { FollowRelation, UserProfile } from '~/types/social'
 import { Button } from '@/components/ui/button'
+import CloudAchievementCollection from '~/components/achievements/CloudAchievementCollection.vue'
 import AppSurfaceList from '~/components/apps/AppSurfaceList.vue'
 import { displayUserName } from '~/utils/mask'
 
@@ -205,6 +206,8 @@ function openList(type: 'following' | 'followers') {
           </div>
         </div>
       </SkyHero>
+
+      <CloudAchievementCollection v-if="profile.cloudAchievements" :collection="profile.cloudAchievements" :title="isSelf ? '我的天空' : 'Ta 的天空'" />
 
       <!-- 简介 -->
       <AppSection v-if="profile.description" title="简介" :rise="1">

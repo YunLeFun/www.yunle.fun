@@ -14,6 +14,11 @@ const loading = ref(true)
 const deleting = ref(false)
 const showDeleteConfirm = ref(false)
 
+watch([() => appData.value?._id, () => user.value?.id], ([appId, uid]) => {
+  if (appId && uid)
+    trackCloudAchievement({ kind: 'explore', appId })
+})
+
 const isOwner = computed(() => {
   if (!user.value || !appData.value)
     return false

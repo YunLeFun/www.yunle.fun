@@ -105,6 +105,23 @@ describe('public user profile page', () => {
     expect(wrapper.text()).not.toContain('暂时无法加载用户资料')
   })
 
+  it('passes the persisted public cloud collection to the visitor display', async () => {
+    const cloudAchievements = {
+      items: [{ id: 'first-cloud', name: '初见云', description: '初见', condition: '首次登录', effect: 'first' as const, progress: 1, goal: 1, unlockedAt: 100 }],
+      equippedId: 'first-cloud',
+    }
+    h.fetchData.value = { ...profile, cloudAchievements }
+    h.fetchStatus.value = 'success'
+    h.fetchError.value = null
+    const wrapper = await mountPage()
+    const collection = wrapper.findComponent({ name: 'CloudAchievementCollection' })
+    expect(collection.exists()).toBe(true)
+    expect(collection.props('collection')).toEqual(cloudAchievements)
+    expect(collection.props('title')).toBe('Ta 的天空')
+    expect(collection.props('editable')).toBe(false)
+    wrapper.unmount()
+  })
+
   it('renders a uid-based profile without requiring a CloudBase browser session', async () => {
     h.fetchData.value = profile
     h.fetchStatus.value = 'success'

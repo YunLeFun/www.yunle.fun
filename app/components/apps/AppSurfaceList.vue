@@ -40,6 +40,7 @@ function audienceIcon(app: AppRecord) {
       target="_blank"
       rel="noopener noreferrer"
       class="app-surface-item group"
+      @click="trackCloudAchievement({ kind: 'explore', appId: item._id })"
     >
       <span
         class="app-surface-item__icon"

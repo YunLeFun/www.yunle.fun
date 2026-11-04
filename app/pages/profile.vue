@@ -2,6 +2,7 @@
 import type { AppRecord, MyWorkshopOverview, WorkshopSurface } from '~/types/app'
 import type { UserProfile } from '~/types/social'
 import type { SkyGreeting } from '~/utils/skyGreeting'
+import MyCloudAchievements from '~/components/achievements/MyCloudAchievements.vue'
 import AppSurfaceList from '~/components/apps/AppSurfaceList.vue'
 import { isOfficialUser } from '~/config'
 import { getPublicProfilePath } from '~/utils/publicProfilePath'
@@ -195,8 +196,8 @@ function workshopInitial(name?: string) {
                 >
                   <Icon :name="greeting.icon" class="size-3.5" aria-hidden="true" />
                   {{ greeting.text }}
-                  <span v-if="cloudPokes" class="inline-flex items-center gap-1 text-white/75" title="在本浏览器里戳过的云朵">
-                    · <Icon name="i-lucide-cloud" class="size-3" aria-hidden="true" /> 已收集 {{ cloudPokes }} 朵云
+                  <span v-if="cloudPokes" class="inline-flex items-center gap-1 text-white/75" title="当前浏览器的趣味计数，账号成就见我的天空">
+                    · <Icon name="i-lucide-cloud" class="size-3" aria-hidden="true" /> 本机戳云 {{ cloudPokes }} 次
                   </span>
                 </p>
                 <h1 class="ylf-hero-shadow truncate text-xl font-bold sm:text-2xl">
@@ -267,6 +268,8 @@ function workshopInitial(name?: string) {
       </SkyHero>
 
       <TestAccountNotice v-if="syncRestricted" feature="profile-sync" />
+
+      <MyCloudAchievements />
 
       <!-- 未开通会员引导 -->
       <NuxtLink
