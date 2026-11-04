@@ -96,6 +96,9 @@ onMounted(() => {
   -->
   <ClientOnly>
     <LazyOnboardingModal v-if="showAccountExtras" />
+  </ClientOnly>
+
+  <ClientOnly>
     <LazyAchievementsCloudAchievementSession v-if="showAccountExtras" />
   </ClientOnly>
 
