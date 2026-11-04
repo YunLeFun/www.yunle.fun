@@ -18,6 +18,7 @@ export function useCloudCollection() {
     writeCloudPokes(next)
     count.value = next
     milestone.value = cloudMilestone(next) ?? milestone.value
+    trackCloudAchievement({ kind: 'poke' })
 
     if (el && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
       (el as HTMLElement).style.transformOrigin = '50% 85%'

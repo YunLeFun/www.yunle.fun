@@ -1,3 +1,5 @@
+import type { CloudAchievementCollection } from './cloud-achievements'
+
 /** 用户公开资料 - 对应 CloudBase NoSQL 集合 `user_profiles` */
 export interface UserProfile {
   /** 用户 ID（CloudBase uid，即文档 _id） */
@@ -22,6 +24,8 @@ export interface UserProfile {
   notifyOnFollow: boolean
   /** 当前是否为有效会员（公开身份标记，不包含等级或到期时间） */
   isMember: boolean
+  /** Unlocked public cosmetics; event history stays private. */
+  cloudAchievements?: CloudAchievementCollection
 }
 
 /** 本人可同步的资料字段（白名单，不含计数） */
