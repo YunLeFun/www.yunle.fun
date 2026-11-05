@@ -26,7 +26,7 @@ const PAGE_LABELS: ReadonlyArray<[prefix: string, label: string]> = [
   ['/developer', '开发者中心'],
   ['/app-edit', '应用编辑'],
   ['/apps', '应用'],
-  ['/explore', '应用星图'],
+  ['/explore', '浏览应用'],
 ]
 
 const NATIVE_CLIENT_ID_RE = /-(?:ios|android|mobile)$/

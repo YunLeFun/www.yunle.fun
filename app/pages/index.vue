@@ -134,7 +134,7 @@ onMounted(() => {
   <div class="home-page">
     <div class="home-progress" aria-hidden="true" />
 
-    <section ref="hero" class="ylf-home-hero relative isolate overflow-hidden">
+    <section ref="hero" data-cloud-journey="/" class="ylf-home-hero relative isolate overflow-hidden">
       <HomeHeroSky />
       <HomeHeroBalloons :balloons="page.hero.balloons" />
       <div class="ylf-home-hero__fade pointer-events-none absolute inset-x-0 bottom-0 z-[5]" aria-hidden="true" />
@@ -172,6 +172,7 @@ onMounted(() => {
               :label="page.hero.links[0]?.label"
               :icon="page.hero.links[0]?.icon"
               :trailing="page.hero.links[0]?.trailing"
+              data-cloud-link
               size="lg"
               variant="hero"
               class="rounded-[var(--ylf-radius)] font-semibold"
@@ -280,17 +281,12 @@ onMounted(() => {
 }
 
 .home-hero__badge,
-.home-hero__lead,
-.home-hero__actions {
+.home-hero__lead {
   animation: home-rise 900ms var(--ylf-ease-spring) backwards;
 }
 
 .home-hero__lead {
   animation-delay: 650ms;
-}
-
-.home-hero__actions {
-  animation-delay: 800ms;
 }
 
 .home-hero__pulse {
