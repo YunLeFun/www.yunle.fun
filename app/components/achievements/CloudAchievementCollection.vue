@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { CloudAchievementCollection } from '~/types/cloud-achievements'
+import { getEquippedCloud } from '~/utils/cloud-achievements'
 import AchievementCloud from './AchievementCloud.vue'
 
 const props = withDefaults(defineProps<{
@@ -19,7 +20,7 @@ defineEmits<{
   refresh: []
 }>()
 
-const equipped = computed(() => props.collection?.items.find(item => item.id === props.collection?.equippedId))
+const equipped = computed(() => getEquippedCloud(props.collection))
 const collectedCount = computed(() => props.collection?.items.filter(item => item.unlockedAt !== null).length ?? 0)
 const previewId = shallowRef<string | null>(null)
 let previewTimer: ReturnType<typeof setTimeout> | undefined

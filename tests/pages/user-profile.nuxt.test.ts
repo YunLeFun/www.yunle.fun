@@ -5,6 +5,7 @@ import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import { flushPromises } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
+import { clearNuxtState, useState } from '#app'
 import UserProfilePage from '../../app/pages/u/[login].vue'
 
 const h = vi.hoisted(() => ({
@@ -47,7 +48,7 @@ function mountPage() {
     global: {
       stubs: {
         AppContainer: { template: '<div><slot /></div>' },
-        SkyHero: { template: '<section><slot /></section>' },
+        SkyHero: { name: 'SkyHero', props: ['cloudEffect'], template: '<section><slot /></section>' },
         AppSection: { props: ['title'], template: '<section><h2>{{ title }}</h2><slot name="actions" /><slot /></section>' },
         AppButton: {
           props: ['label'],
@@ -55,7 +56,8 @@ function mountPage() {
           template: '<button type="button" @click="$emit(\'click\')">{{ label }}</button>',
         },
         MemberAvatar: {
-          props: ['isMember'],
+          name: 'MemberAvatar',
+          props: ['isMember', 'equippedCloud'],
           template: '<span data-testid="member-avatar" :data-member="isMember ? \'true\' : \'false\'" />',
         },
         AppSurfaceList: {
@@ -69,6 +71,7 @@ function mountPage() {
 
 describe('public user profile page', () => {
   beforeEach(() => {
+    clearNuxtState()
     h.useFetch.mockReset()
     h.getProfile.mockReset().mockResolvedValue(null)
     h.getRelation.mockReset().mockResolvedValue(null)
@@ -111,6 +114,13 @@ describe('public user profile page', () => {
       equippedId: 'first-cloud',
     }
     h.fetchData.value = { ...profile, cloudAchievements }
+    h.user.value = { id: 'viewer' }
+    useState('auth_user').value = { id: 'viewer' }
+    useState('cloud-achievements-owner').value = 'viewer'
+    useState('cloud-achievements').value = {
+      items: [{ ...cloudAchievements.items[0]!, id: 'cotton-cloud', name: '棉花云', effect: 'cotton' }],
+      equippedId: 'cotton-cloud',
+    }
     h.fetchStatus.value = 'success'
     h.fetchError.value = null
     const wrapper = await mountPage()
@@ -119,6 +129,8 @@ describe('public user profile page', () => {
     expect(collection.props('collection')).toEqual(cloudAchievements)
     expect(collection.props('title')).toBe('Ta 的天空')
     expect(collection.props('editable')).toBe(false)
+    expect(wrapper.findComponent({ name: 'MemberAvatar' }).props('equippedCloud')).toEqual(cloudAchievements.items[0])
+    expect(wrapper.findComponent({ name: 'SkyHero' }).props('cloudEffect')).toBe('first')
     wrapper.unmount()
   })
 

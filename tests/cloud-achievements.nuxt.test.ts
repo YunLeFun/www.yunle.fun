@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent } from 'vue'
 import { clearNuxtState, useState } from '#app'
 import Collection from '../app/components/achievements/CloudAchievementCollection.vue'
+import { useCloudAchievementDisplay } from '../app/composables/useCloudAchievementDisplay'
 import { useCloudAchievements } from '../app/composables/useCloudAchievements'
 import { isCloudAchievementCollection } from '../app/utils/cloud-achievements'
 
@@ -52,6 +53,33 @@ describe('cloud collection client', () => {
     expect(await client.equip(null)).toBe(true)
     expect(client.collection.value?.equippedId).toBeNull()
     expect(client.error.value).toBeNull()
+    wrapper.unmount()
+  })
+
+  it('updates lightweight displays only for their active account and saved equipment', async () => {
+    let display!: ReturnType<typeof useCloudAchievementDisplay>
+    const wrapper = await mountSuspended(defineComponent({
+      setup() {
+        display = useCloudAchievementDisplay()
+        return () => null
+      },
+    }))
+    const user = useState<User | null>('auth_user')
+    const owner = useState<string | null>('cloud-achievements-owner')
+    const collection = useState<CloudAchievementCollection | null>('cloud-achievements')
+    user.value = account('alice')
+    owner.value = 'alice'
+    collection.value = structuredClone(first)
+    expect(display.equipped.value?.id).toBe('first-cloud')
+    collection.value = { ...first, equippedId: null }
+    expect(display.equipped.value).toBeNull()
+    collection.value = structuredClone(first)
+    user.value = account('bob')
+    expect(display.collection.value).toBeNull()
+    expect(display.equipped.value).toBeNull()
+    user.value = null
+    expect(display.equipped.value).toBeNull()
+    expect(h.callFunction).not.toHaveBeenCalled()
     wrapper.unmount()
   })
 

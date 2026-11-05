@@ -17,6 +17,7 @@ useSeoMeta({
 })
 
 const { user, isAuthenticated, loading } = useTcbAuth()
+const { equipped: equippedCloud } = useCloudAchievementDisplay()
 const { getMyApps, getMyWorkshops } = useApps()
 const { isActive: isMember, state: membershipState, refresh: refreshMembership } = useMembership()
 const { balance: coinBalance, refresh: refreshAccount } = useCoin()
@@ -168,7 +169,7 @@ function workshopInitial(name?: string) {
 
     <div v-else-if="user" class="mx-auto max-w-3xl space-y-6">
       <!-- 晴空 hero：身份 + 数据条 -->
-      <SkyHero class="ylf-rise">
+      <SkyHero class="ylf-rise" :cloud-effect="equippedCloud?.effect">
         <div class="p-5 sm:p-7">
           <div class="flex items-start justify-between gap-3 sm:gap-5">
             <div class="flex min-w-0 items-center gap-4 sm:gap-5">
@@ -186,6 +187,7 @@ function workshopInitial(name?: string) {
                   :alt="displayName"
                   size="3xl"
                   :is-member="isMember"
+                  :equipped-cloud="equippedCloud"
                   ring-class="ring-white/60"
                 />
               </div>
@@ -476,6 +478,7 @@ function workshopInitial(name?: string) {
 
 /* 头像光环：一圈缓慢旋转的晴空光晕，会员换成落日暖色。 */
 .profile-avatar {
+  --avatar-size: 5rem;
   position: relative;
   display: inline-flex;
   border-radius: 9999px;
@@ -485,7 +488,10 @@ function workshopInitial(name?: string) {
 
 .profile-avatar__halo {
   position: absolute;
-  inset: -6px;
+  top: -6px;
+  left: -6px;
+  width: calc(var(--avatar-size) + 12px);
+  height: calc(var(--avatar-size) + 12px);
   border-radius: inherit;
   background: conic-gradient(
     from 0deg,
@@ -514,9 +520,8 @@ function workshopInitial(name?: string) {
 
 /* 手机上头像缩到 64px，给昵称和会员徽章留出宽度 */
 @media (max-width: 639px) {
-  .profile-avatar :deep([data-slot='avatar']) {
-    width: 4rem;
-    height: 4rem;
+  .profile-avatar {
+    --avatar-size: 4rem;
   }
 }
 
