@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import type { CloudTrainBounds } from '~/utils/cloud-sea'
+import { getCloudJourneyPath } from '~/utils/cloud-journey'
 import CloudSeaCanvas from './CloudSeaCanvas.vue'
 
 // 位于默认布局内，两个页面只更新边界；Canvas、相机时间和远处列车始终是同一份。
 const route = useRoute()
-const enabled = computed(() => route.path === '/' || route.path === '/explore')
+const journeyPath = computed(() => getCloudJourneyPath(route.path))
+const enabled = computed(() => journeyPath.value !== null)
 const root = useTemplateRef('root')
 const anchor = shallowRef<HTMLElement | null>(null)
 const coachAnchor = shallowRef<HTMLElement | null>(null)
@@ -34,23 +36,23 @@ function measure() {
 
 async function locate() {
   await nextTick()
-  anchor.value = enabled.value ? document.querySelector<HTMLElement>(`[data-cloud-journey="${route.path}"]`) : null
+  anchor.value = enabled.value ? document.querySelector<HTMLElement>(`[data-cloud-journey="${journeyPath.value}"]`) : null
   coachAnchor.value = anchor.value?.querySelector<HTMLElement>('[data-cloud-coaches]') ?? null
   measure()
-  if (ready.value && route.path === '/')
+  if (ready.value && journeyPath.value === '/')
     begin()
-  else if (route.path !== '/')
+  else if (journeyPath.value !== '/')
     finish()
 }
 
 function onReady() {
   ready.value = true
-  if (route.path === '/')
+  if (journeyPath.value === '/')
     begin()
 }
 
 onMounted(locate)
-watch(() => route.path, locate, { flush: 'post' })
+watch(journeyPath, locate, { flush: 'post' })
 useResizeObserver([anchor, coachAnchor], measure)
 useEventListener('resize', measure, { passive: true })
 const removePageHook = nuxtApp.hook('page:finish', locate)

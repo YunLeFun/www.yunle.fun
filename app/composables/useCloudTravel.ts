@@ -1,3 +1,5 @@
+import { getCloudJourneyPath } from '~/utils/cloud-journey'
+
 export const CLOUD_TRAVEL_DURATION = 450
 
 /** 给持续运行的风景一个轻微推进，不接管路由，也不等待动画。 */
@@ -18,7 +20,7 @@ export function useCloudTravel() {
     if (!link || (link.target && link.target !== '_self') || link.hasAttribute('download'))
       return
     const target = new URL(link.href, location.href)
-    if (target.origin !== location.origin || target.pathname !== '/explore' || location.pathname !== '/')
+    if (target.origin !== location.origin || getCloudJourneyPath(target.pathname) !== '/explore' || getCloudJourneyPath(location.pathname) !== '/')
       return
     finish()
     traveling.value = true

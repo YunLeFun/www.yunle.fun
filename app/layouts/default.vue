@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import CloudJourneySky from '~/components/clouds/CloudJourneySky.vue'
+import { getCloudJourneyPath } from '~/utils/cloud-journey'
 
 const route = useRoute()
-const hasSky = computed(() => route.path === '/' || route.path === '/explore')
+const hasSky = computed(() => getCloudJourneyPath(route.path) !== null)
 </script>
 
 <template>

@@ -17,6 +17,8 @@ const links: HTMLAnchorElement[] = []
 async function setup() {
   const wrapper = await mountSuspended(TravelHarness, { route: '/' })
   wrappers.push(wrapper)
+  // Native anchor navigation in happy-dom can outlive the previous mounted router.
+  window.history.replaceState(null, '', '/')
   const link = document.createElement('a')
   link.href = '/explore'
   link.dataset.cloudLink = ''
@@ -34,8 +36,9 @@ afterEach(() => {
 })
 
 describe('cloud navigation enhancement', () => {
-  it('starts alongside the ordinary click without preventing navigation, then cleans up', async () => {
+  it.each(['/explore', '/explore/'])('starts alongside an ordinary click to %s without preventing navigation, then cleans up', async (to) => {
     const { wrapper, link } = await setup()
+    link.href = to
     vi.useFakeTimers()
     const click = new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 })
     expect(link.dispatchEvent(click)).toBe(true)
