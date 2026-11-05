@@ -10,6 +10,7 @@ import type { FollowRelation, UserProfile } from '~/types/social'
 import { Button } from '@/components/ui/button'
 import CloudAchievementCollection from '~/components/achievements/CloudAchievementCollection.vue'
 import AppSurfaceList from '~/components/apps/AppSurfaceList.vue'
+import { getEquippedCloud } from '~/utils/cloud-achievements'
 import { displayUserName } from '~/utils/mask'
 
 definePageMeta({ layout: 'default' })
@@ -53,6 +54,14 @@ async function retryProfile() {
 }
 
 const isSelf = computed(() => !!user.value && !!profile.value && user.value.id === profile.value.userId)
+const ownClouds = useCloudAchievementDisplay()
+const profileClouds = computed(() => {
+  const current = isSelf.value ? ownClouds.collection.value : null
+  return current
+    ? { ...current, items: current.items.filter(cloud => cloud.unlockedAt !== null) }
+    : profile.value?.cloudAchievements
+})
+const equippedCloud = computed(() => getEquippedCloud(profileClouds.value))
 const displayName = computed(() => displayUserName(profile.value?.nickname, profile.value?.login || '云乐坊用户'))
 const developerProfileUrl = computed(() => {
   const login = profile.value?.login
@@ -160,7 +169,7 @@ function openList(type: 'following' | 'followers') {
 
     <div v-else-if="profile" class="mx-auto max-w-3xl space-y-6">
       <!-- 晴空 hero -->
-      <SkyHero class="ylf-rise">
+      <SkyHero class="ylf-rise" :cloud-effect="equippedCloud?.effect">
         <div class="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-7">
           <div class="flex items-center gap-4 sm:gap-5">
             <MemberAvatar
@@ -168,6 +177,7 @@ function openList(type: 'following' | 'followers') {
               :alt="displayName"
               size="3xl"
               :is-member="profile.isMember"
+              :equipped-cloud="equippedCloud"
               ring-class="ring-white/60"
             />
             <div class="min-w-0 text-white">
@@ -207,7 +217,7 @@ function openList(type: 'following' | 'followers') {
         </div>
       </SkyHero>
 
-      <CloudAchievementCollection v-if="profile.cloudAchievements" :collection="profile.cloudAchievements" :title="isSelf ? '我的天空' : 'Ta 的天空'" />
+      <CloudAchievementCollection v-if="profileClouds" :collection="profileClouds" :title="isSelf ? '我的天空' : 'Ta 的天空'" />
 
       <!-- 简介 -->
       <AppSection v-if="profile.description" title="简介" :rise="1">

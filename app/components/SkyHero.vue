@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import type { CloudEffect } from '~/types/cloud-achievements'
+import AchievementCloud from '~/components/achievements/AchievementCloud.vue'
+import CloudAchievementSky from '~/components/achievements/CloudAchievementSky.vue'
 import { useSkyParallax } from '~/composables/useSkyParallax'
 
 /**
@@ -17,6 +20,8 @@ const props = withDefaults(defineProps<{
   scrim?: boolean
   /** 云量：大头图用 full，窄横幅用 mini */
   clouds?: 'full' | 'mini' | 'none'
+  /** Optional profile-owner cosmetic; other hero surfaces keep the default sky. */
+  cloudEffect?: CloudEffect | null
 }>(), {
   scrim: true,
   clouds: 'full',
@@ -162,9 +167,11 @@ function poke(cloud: HeroCloud, event: MouseEvent) {
     ref="root"
     class="ylf-sky-hero relative isolate overflow-hidden rounded-[var(--ylf-radius-xl)]"
     :data-clouds="clouds"
+    :data-cloud-effect="cloudEffect || undefined"
     data-vt="page-header"
   >
     <SkyScene :sun="false" clouds="none" class="pointer-events-none" />
+    <CloudAchievementSky v-if="cloudEffect" :effect="cloudEffect" />
     <span class="ylf-sky-hero__stars pointer-events-none" aria-hidden="true" />
     <div v-if="scrim" class="ylf-sky-hero__scrim pointer-events-none absolute inset-0 z-[1]" />
 
@@ -184,7 +191,14 @@ function poke(cloud: HeroCloud, event: MouseEvent) {
           @pointerenter="hovered = cloud.name"
           @pointerleave="hovered = null"
         />
+        <AchievementCloud
+          v-if="cloud.face && cloudEffect"
+          :effect="cloudEffect"
+          :active="squished === cloud.name"
+          class="ylf-sky-hero__art ylf-sky-hero__achievement"
+        />
         <CuteCloud
+          v-else
           :shape="cloud.shape"
           :face="cloud.face"
           :mood="squished === cloud.name || hovered === cloud.name ? 'happy' : 'calm'"
@@ -314,6 +328,13 @@ function poke(cloud: HeroCloud, event: MouseEvent) {
   transform-origin: 50% 85%;
   filter: drop-shadow(0 8px 10px rgb(30 80 150 / 20%));
   transition: translate var(--ylf-duration-slow) var(--ylf-ease-spring);
+}
+
+.ylf-sky-hero__art.ylf-sky-hero__achievement {
+  display: block;
+  height: auto;
+  min-height: 0;
+  aspect-ratio: 1.45;
 }
 
 .dark .ylf-sky-hero__art {

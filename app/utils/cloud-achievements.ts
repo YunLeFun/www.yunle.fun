@@ -1,6 +1,15 @@
-import type { CloudAchievementCollection, CloudAchievementEvent } from '~/types/cloud-achievements'
+import type { CloudAchievement, CloudAchievementCollection, CloudAchievementEvent } from '~/types/cloud-achievements'
 
 const EFFECTS = ['first', 'cotton', 'rainbow', 'stars', 'dawn', 'sunset', 'aurora']
+
+/**
+ * Resolve only an unlocked equipped cloud from an owner or public collection.
+ * @param collection - Persisted collection, or null while unavailable.
+ * @returns The equipped cosmetic, or null after removal or for invalid equipment.
+ */
+export function getEquippedCloud(collection?: CloudAchievementCollection | null): CloudAchievement | null {
+  return collection?.items.find(item => item.id === collection.equippedId && item.unlockedAt !== null) ?? null
+}
 
 /**
  * Validate an account API response before showing a successful collection or save.

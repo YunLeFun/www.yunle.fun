@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { User } from '~/composables/auth/types'
+import type { CloudAchievement } from '~/types/cloud-achievements'
 import { Button } from '@/components/ui/button'
 import { maskPhone } from '~/utils/mask'
 
@@ -8,6 +9,8 @@ type AccountPanelUser = Pick<User, 'id' | 'login' | 'email' | 'phone' | 'nicknam
 const props = withDefaults(defineProps<{
   user: AccountPanelUser
   isMember?: boolean
+  /** The active account's persisted cosmetic, supplied by the menu. */
+  equippedCloud?: CloudAchievement | null
   coinBalance?: number
   coinLoading?: boolean
   variant?: 'popover' | 'drawer'
@@ -51,6 +54,7 @@ const secondaryIdentity = computed(() =>
         :alt="displayName"
         size="xl"
         :is-member="isMember"
+        :equipped-cloud="equippedCloud"
         ring-class="ring-(color:--ylf-surface)"
         class="relative z-1"
       />
