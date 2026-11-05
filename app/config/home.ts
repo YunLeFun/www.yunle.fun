@@ -40,10 +40,10 @@ export const homePage = {
     items: [
       {
         title: '浏览当前应用',
-        description: '在应用图谱中查看云乐坊已经公开的官方应用。',
+        description: '查看云乐坊已经公开的官方应用。',
         icon: 'i-lucide-compass',
         to: '/explore',
-        linkLabel: '前往应用市场',
+        linkLabel: '浏览应用',
       },
       {
         title: '打开并体验',

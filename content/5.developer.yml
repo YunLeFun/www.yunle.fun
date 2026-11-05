@@ -25,7 +25,7 @@ hero:
       target: _blank
 sections:
   - title: 当前阶段，先把第一方应用做好
-    description: 云乐坊正在验证应用图谱、统一账号、会员与云币等跨应用体验。第三方接入会在边界和流程稳定后再逐步开放。
+    description: 云乐坊正在验证应用发现、统一账号、会员与云币等跨应用体验。第三方接入会在边界和流程稳定后再逐步开放。
     headline: 当前重点
     orientation: vertical
     features:
@@ -63,7 +63,7 @@ resources:
   title: 从真实可用的入口开始
   description: 浏览已经上线的应用，或阅读公开文档与项目源码。
   items:
-    - title: 云端应用图谱
+    - title: 浏览应用
       description: 查看目前已经公开的云乐坊官方应用。
       icon: i-lucide-cloud-sun
       to: /explore

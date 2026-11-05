@@ -162,9 +162,6 @@ onMounted(() => {
 
 <template>
   <div ref="root" class="home-hero-sky">
-    <SkyScene clouds="none" :sun="false" />
-    <div class="home-hero-sky__atmosphere" aria-hidden="true" />
-
     <div class="home-hero-sky__stars" aria-hidden="true">
       <span
         v-for="(star, index) in stars"
@@ -245,20 +242,18 @@ onMounted(() => {
 
 <style scoped>
 .home-hero-sky {
+  --ylf-cloud-highlight: var(--cloud-light);
+  --ylf-cloud-body: color-mix(in srgb, var(--cloud-light) 78%, var(--cloud-shade));
+  --ylf-cloud-shade: var(--cloud-shade);
+  --ylf-cloud-shadow: var(--cloud-deep);
+  --ylf-cloud-rim: var(--cloud-light);
+  --ylf-cloud-haze-color: var(--cloud-sky-horizon);
   --home-ray-color: rgb(255 250 226 / 26%);
   position: absolute;
   inset: 0;
   overflow: hidden;
   isolation: isolate;
   pointer-events: none;
-}
-
-.home-hero-sky__atmosphere {
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(ellipse at 84% 24%, rgb(255 252 236 / 24%), transparent 48%),
-    linear-gradient(100deg, rgb(15 55 114 / 44%), rgb(25 76 132 / 12%) 48%, transparent 72%);
 }
 
 /* ---- stars (dusk only) ---- */
