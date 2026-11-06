@@ -45,7 +45,7 @@ function getCallerUid() {
     const auth = app.auth()
     const info = auth.getUserInfo()
     const uid = info?.uid || ''
-    return ANON_UIDS.has(uid) ? '' : uid
+    return info?.isAnonymous === true || ANON_UIDS.has(uid) ? '' : uid
   }
   catch {
     return ''
