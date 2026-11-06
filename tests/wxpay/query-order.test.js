@@ -181,6 +181,26 @@ describe('wxpay-order queryOrder', () => {
     expect(h.db._store[MEMBERSHIPS_COLLECTION]).toHaveLength(0)
   })
 
+  it.each(['paid', 'pending'])('refuses to settle an IAP %s order through WeChat polling', async (status) => {
+    const order = h.db._store[ORDERS_COLLECTION][0]
+    order.payType = 'iap'
+    order.status = status
+    await expect(main({ action: 'queryOrder', outTradeNo: order.outTradeNo }))
+      .rejects
+      .toThrow('App Store 恢复购买')
+    expect(h.db._store[MEMBERSHIPS_COLLECTION]).toHaveLength(0)
+    expect(order).not.toHaveProperty('grantedAt')
+  })
+
+  it('excludes IAP pending and paid orders from WeChat reconciliation', async () => {
+    const paid = { ...h.db._store[ORDERS_COLLECTION][0], payType: 'iap' }
+    const pending = { ...paid, _id: 'iap-pending', outTradeNo: 'iap_20002', status: 'pending' }
+    h.db = makeFakeDb({ [ORDERS_COLLECTION]: [paid, pending], [MEMBERSHIPS_COLLECTION]: [] })
+    expect(await main({ action: 'reconcileOrders' })).toEqual({ reconciled: 0, paid: 0, regranted: 0 })
+    expect(h.db._store[MEMBERSHIPS_COLLECTION]).toHaveLength(0)
+    expect(h.db._store[ORDERS_COLLECTION]).toEqual([paid, pending])
+  })
+
   it('creates a fixed-account synthetic order before loading WeChat payment configuration', async () => {
     delete process.env.WX_APPID
     delete process.env.WX_MCH_ID

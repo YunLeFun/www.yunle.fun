@@ -3,19 +3,19 @@
  *
  * 复用微信支付的订单状态机与钱包账本：
  *   - 每笔 IAP 交易写一条 orders 记录（payType: 'iap'，outTradeNo: `iap_<transactionId>`）
- *   - markOrderPaid 的 conditional update 保证单交易只发放一次
- *   - creditCoin 的 refId 去重是二次保险
+ *   - 校验 Apple appAccountToken 与已认证 uid 的一致性
+ *   - 订单、会员 / 云币及发放凭据在同一事务中提交
  *
  * SYNCED FILE: 修改此文件后，请执行 `pnpm sync:wxpay-lib`。
  */
 
 'use strict'
 
+const { assertIapAccount, assertIapEnvironment } = require('./iap-sandbox')
+const { assertPurchaseOwner, settleIapOrder } = require('./iap-settlement')
 const { resolveBillingAnchor } = require('./membership')
 const {
   findOrderByOutTradeNo,
-  grantOrderEntitlement,
-  markOrderPaid,
   MEMBERSHIPS_COLLECTION,
   ORDERS_COLLECTION,
   readMembership,
@@ -55,71 +55,56 @@ function priceToFen(payload) {
  * @throws 商品未知 / 交易归属其他账号
  */
 async function grantIapTransaction(db, { userId, payload, environment, now }) {
-  if (!userId)
+  if (typeof userId !== 'string' || !userId)
     throw new Error('grantIapTransaction: 缺少 userId')
-  const transactionId = String(payload.transactionId)
+  if (typeof payload.transactionId !== 'string' || !/^\d{1,32}$/.test(payload.transactionId))
+    throw new Error('Apple transactionId 非法')
+  assertIapEnvironment(db, payload, environment)
+  if (typeof payload.bundleId !== 'string' || !payload.bundleId || !Number.isFinite(now))
+    throw new Error('Apple 交易应用标识或处理时间非法')
+  const accountToken = assertPurchaseOwner(userId, payload)
+  assertIapAccount(db, userId, accountToken)
+  const transactionId = payload.transactionId
   const outTradeNo = `${IAP_OUT_TRADE_NO_PREFIX}${transactionId}`
   const product = getIapProduct(payload.productId)
   const providerPurchasedAt = product.orderType === 'membership' ? payload.purchaseDate : null
   if (product.orderType === 'membership' && !Number.isFinite(providerPurchasedAt))
     throw new Error('Apple 会员交易缺少 purchaseDate')
 
-  let order = await findOrderByOutTradeNo(db, outTradeNo)
-  // 防串号：同一笔 Apple 交易只能由首个绑定的账号领取
-  if (order && order.userId !== userId)
-    throw new Error('该交易已绑定其他账号')
-
-  if (!order) {
-    const base = {
-      userId,
-      appId: IAP_APP_ID,
-      orderType: product.orderType,
-      amount: priceToFen(payload),
-      payType: 'iap',
-      status: 'pending',
-      outTradeNo,
-      transactionId,
-      meta: {
-        productId: payload.productId,
-        environment,
-        price: payload.price ?? null,
-        currency: payload.currency || '',
-        originalTransactionId: String(payload.originalTransactionId || transactionId),
-        purchaseDate: Number.isFinite(payload.purchaseDate) ? payload.purchaseDate : null,
-      },
-      createdAt: now,
-      updatedAt: now,
-    }
-    if (product.orderType === 'membership') {
-      base.level = product.level
-      base.planId = product.level
-      base.billingCycle = product.billingCycle
-      base.providerPurchasedAt = providerPurchasedAt
-    }
-    else {
-      base.packId = product.packId
-      base.coinAmount = COIN_PACKS[product.packId].coin
-    }
-    // 并发双写风险：同一交易并发两次首调可能 add 两条 pending 订单。
-    // markOrderPaid 的 conditional update 会一次置 paid，grantOrderEntitlement
-    // 只执行一次；creditCoin 的 refId 去重兜底，权益不会重复发放。
-    await db.collection(ORDERS_COLLECTION).add(base)
-    order = await findOrderByOutTradeNo(db, outTradeNo)
+  const base = {
+    userId,
+    appId: IAP_APP_ID,
+    orderType: product.orderType,
+    amount: priceToFen(payload),
+    payType: 'iap',
+    status: 'pending',
+    outTradeNo,
+    transactionId,
+    meta: {
+      productId: payload.productId,
+      environment,
+      bundleId: payload.bundleId,
+      appAccountToken: accountToken,
+      ownershipProof: accountToken ? 'app-account-token-v1' : 'legacy-first-claim',
+      price: payload.price ?? null,
+      currency: payload.currency || '',
+      originalTransactionId: String(payload.originalTransactionId || transactionId),
+      purchaseDate: Number.isFinite(payload.purchaseDate) ? payload.purchaseDate : null,
+    },
+    createdAt: now,
+    updatedAt: now,
   }
-
-  if (order.status === 'paid' || order.status === 'refunded')
-    return { granted: false, alreadyProcessed: true, outTradeNo }
-
-  const { updated } = await markOrderPaid(db, { outTradeNo, transactionId, now })
-  if (updated === 0)
-    return { granted: false, alreadyProcessed: true, outTradeNo }
-
-  const grant = await grantOrderEntitlement(db, {
-    order: { ...order, status: 'paid' },
-    now,
-    entitlementAt: providerPurchasedAt || now,
-  })
-  return { granted: true, grant, outTradeNo }
+  if (product.orderType === 'membership') {
+    base.level = product.level
+    base.planId = product.level
+    base.billingCycle = product.billingCycle
+    base.providerPurchasedAt = providerPurchasedAt
+  }
+  else {
+    base.packId = product.packId
+    base.coinAmount = COIN_PACKS[product.packId].coin
+  }
+  return settleIapOrder(db, base, now)
 }
 
 /**
@@ -139,6 +124,7 @@ async function grantIapTransaction(db, { userId, payload, environment, now }) {
  * @returns {Promise<{ handled: boolean, orderType?: string, outTradeNo: string, clawed?: number, entitlementReverted?: boolean, manualReviewRequired?: boolean }>}
  */
 async function handleIapRefund(db, { payload, now }) {
+  assertIapEnvironment(db, payload)
   const transactionId = String(payload.transactionId)
   const outTradeNo = `${IAP_OUT_TRADE_NO_PREFIX}${transactionId}`
 
@@ -147,6 +133,14 @@ async function handleIapRefund(db, { payload, now }) {
     console.warn(`[iap] 退款通知对应订单不存在: ${outTradeNo}`)
     return { handled: false, outTradeNo }
   }
+
+  // 不能仅靠交易 ID 将测试通知、其他 App 或环境不明的旧单关联到正式权益。
+  if (order.payType !== 'iap'
+    || order.meta?.environment !== payload.environment
+    || order.meta?.bundleId !== payload.bundleId) {
+    throw new Error('Apple 退款交易与订单应用或环境不一致，需人工核对')
+  }
+  assertIapAccount(db, order.userId, payload.appAccountToken)
 
   const result = await db
     .collection(ORDERS_COLLECTION)

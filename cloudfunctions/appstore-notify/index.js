@@ -131,8 +131,13 @@ exports.main = async (event) => {
     }
 
     // 2. 本地验签交易内容（环境取通知 payload 中声明的环境）
-    const environment = notification.data?.environment || 'Production'
+    const environment = notification.data?.environment
+    if (!['Production', 'Sandbox'].includes(environment))
+      throw new Error('Apple 通知环境缺失或非法')
     const payload = await service.verifyTransactionInfo(signedTx, environment)
+
+    if (payload.environment !== environment)
+      throw new Error('Apple 通知与交易环境不一致')
 
     if (payload.bundleId !== config.bundleId) {
       console.warn(`[appstore-notify] bundleId 不匹配: ${payload.bundleId}`)
@@ -150,6 +155,9 @@ exports.main = async (event) => {
     return httpResponse(200, { ok: true })
   }
   catch (err) {
+    // 已验签的 Sandbox 通知无法修改当前正式权益，也无需让 Apple 反复重试。
+    if (err.code === 'IAP_ENVIRONMENT_UNSUPPORTED')
+      return httpResponse(200, { ok: true, ignored: 'sandbox-entitlements-disabled' })
     // 返回非 2xx 让 Apple 重试（瞬时错误自愈）
     console.error('[appstore-notify] 处理失败:', err.message)
     return httpResponse(500, { message: '处理失败' })
