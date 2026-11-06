@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { purchaseAccountToken } from '../../cloudfunctions/wxpay-order/lib/iap-settlement.js'
-import { grantIapTransaction } from '../../cloudfunctions/wxpay-order/lib/iap.js'
+import { grantIapTransaction, handleIapRefund } from '../../cloudfunctions/wxpay-order/lib/iap.js'
 import { computeNewExpireAt } from '../../cloudfunctions/wxpay-order/lib/membership.js'
 import { makeFakeDb } from '../_fixtures/wxpay.mjs'
 
@@ -218,6 +218,99 @@ describe('iAP atomic settlement and recovery', () => {
     expect(db._store.orders[0]).toMatchObject({ _id: 'old-random-order-id', grantedAt: NOW, status: 'paid' })
   })
 
+  it.each(['coin', 'member'])('refunds a legacy pending %s order after verified settlement', async (kind) => {
+    const old = legacyOrder(kind)
+    old.meta.auditNote = 'preserve historical metadata'
+    const db = makeFakeDb({ orders: [old] }, { rejectDocumentIdWrites: true })
+    const request = input(kind)
+    await grantIapTransaction(db, request)
+    const settled = db._store.orders[0]
+    expect(settled.meta).toEqual({ ...old.meta, bundleId: request.payload.bundleId })
+
+    const refund = { payload: { ...request.payload, revocationDate: NOW + 1000 }, now: NOW + 1000 }
+    const result = await handleIapRefund(db, refund)
+    expect(result.handled).toBe(true)
+    expect(db._store.orders[0]).toMatchObject({ _id: old._id, status: 'refunded' })
+    if (kind === 'coin') {
+      expect(result.clawed).toBe(100)
+      expect(db._store.user_wallet[0].balance).toBe(0)
+    }
+    else {
+      expect(result.entitlementReverted).toBe(true)
+      expect(db._store.user_memberships[0].expireAt).toBe(refund.now)
+    }
+    const after = structuredClone(db._store)
+    await handleIapRefund(db, refund)
+    expect(db._store).toEqual(after)
+  })
+
+  it.each(['coin', 'member'])('repairs a verified paid %s order without regranting and permits refund', async (kind) => {
+    const db = makeFakeDb({}, { rejectDocumentIdWrites: true })
+    const request = input(kind)
+    await grantIapTransaction(db, request)
+    const order = db._store.orders[0]
+    order._id = 'old-random-order-id'
+    delete order.meta.bundleId
+    const before = structuredClone(db._store)
+    const result = await grantIapTransaction(db, { ...request, now: NOW + 1000 })
+    expect(result).toMatchObject({ granted: false, alreadyProcessed: true })
+    expect(db._store).toEqual({
+      ...before,
+      orders: [{ ...before.orders[0], meta: { ...before.orders[0].meta, bundleId: request.payload.bundleId }, updatedAt: NOW + 1000 }],
+    })
+    const repaired = structuredClone(db._store)
+    await grantIapTransaction(db, { ...request, now: NOW + 2000 })
+    expect(db._store).toEqual(repaired)
+    expect((await handleIapRefund(db, {
+      payload: { ...request.payload, revocationDate: NOW + 3000 },
+      now: NOW + 3000,
+    })).handled).toBe(true)
+  })
+
+  it('rolls back a failed paid order metadata repair before acknowledging it', async () => {
+    const db = makeFakeDb()
+    await grantIapTransaction(db, input())
+    delete db._store.orders[0].meta.bundleId
+    const before = structuredClone(db._store)
+    const restore = interceptTransactionWrites(db, name => name === 'orders' ? { code: 'DATABASE_ERROR' } : undefined)
+    await expect(grantIapTransaction(db, input())).rejects.toThrow('数据库操作失败')
+    expect(db._store).toEqual(before)
+    restore()
+    expect((await grantIapTransaction(db, input())).alreadyProcessed).toBe(true)
+    expect(db._store.orders[0].meta.bundleId).toBe(input().payload.bundleId)
+    expect(db._store.user_wallet[0].balance).toBe(100)
+  })
+
+  it.each(['owner', 'bundle', 'product', 'environment'])('does not backfill a legacy order with mismatched %s', async (mismatch) => {
+    const old = legacyOrder('coin')
+    if (mismatch === 'owner')
+      old.userId = 'bob'
+    else if (mismatch === 'bundle')
+      old.meta.bundleId = 'other.app'
+    else if (mismatch === 'product')
+      old.meta.productId = 'fun.yunle.apps.member_month'
+    else
+      old.meta.environment = 'Sandbox'
+    const db = makeFakeDb({ orders: [old] })
+    const before = structuredClone(db._store)
+    await expect(grantIapTransaction(db, input())).rejects.toThrow()
+    expect(db._store).toEqual(before)
+  })
+
+  it('rechecks the legacy bundle inside the transaction before backfilling it', async () => {
+    const db = makeFakeDb({ orders: [legacyOrder('coin')] })
+    const original = db.runTransaction
+    db.runTransaction = (callback) => {
+      db._store.orders[0].meta.bundleId = 'other.app'
+      return original(callback)
+    }
+    await expect(grantIapTransaction(db, input())).rejects.toThrow('不一致')
+    expect(db._store.orders[0].meta.bundleId).toBe('other.app')
+    expect(db._store.orders[0].status).toBe('pending')
+    expect(db._store.user_wallet).toHaveLength(0)
+    expect(db._store.coin_transactions).toHaveLength(0)
+  })
+
   it('refuses to acknowledge an old paid membership with no durable grant proof', async () => {
     const db = makeFakeDb({
       orders: [legacyOrder('member', 'paid')],
@@ -234,7 +327,14 @@ describe('iAP atomic settlement and recovery', () => {
     await grantIapTransaction(db, input('member'))
     expect(db._store.user_memberships).toEqual([current])
     expect(db._store.orders[0].grantedAt).toBe(NOW)
+    expect(db._store.orders[0].meta.bundleId).toBe(input('member').payload.bundleId)
     expect(db._store.orders[0]).not.toHaveProperty('membershipGrant')
+    const refund = await handleIapRefund(db, {
+      payload: { ...input('member').payload, revocationDate: NOW + 1000 },
+      now: NOW + 1000,
+    })
+    expect(refund.manualReviewRequired).toBe(true)
+    expect(db._store.user_memberships).toEqual([current])
   })
 
   it.each(['orders', 'user_memberships', 'user_wallet', 'coin_transactions'])('does not treat a failed %s lookup as an empty collection', async (collectionName) => {
@@ -293,6 +393,7 @@ describe('iAP atomic settlement and recovery', () => {
     await grantIapTransaction(db, first)
     delete db._store.orders[0].grantedAt
     delete db._store.orders[0].iapSettlementVersion
+    delete db._store.orders[0].meta.bundleId
     const second = input()
     second.payload.transactionId = '10002'
     await grantIapTransaction(db, second)
@@ -300,5 +401,11 @@ describe('iAP atomic settlement and recovery', () => {
     expect(db._store.user_wallet[0].balance).toBe(200)
     expect(db._store.coin_transactions).toHaveLength(2)
     expect(db._store.orders.every(order => order.grantedAt === NOW)).toBe(true)
+    expect(db._store.orders[0].meta.bundleId).toBe(first.payload.bundleId)
+    expect((await handleIapRefund(db, {
+      payload: { ...first.payload, revocationDate: NOW + 1000 },
+      now: NOW + 1000,
+    })).clawed).toBe(100)
+    expect(db._store.user_wallet[0].balance).toBe(100)
   })
 })

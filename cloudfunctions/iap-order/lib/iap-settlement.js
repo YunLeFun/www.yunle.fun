@@ -171,8 +171,15 @@ async function settleIapOrder(db, base, now) {
       throw new Error('IAP 历史订单发生变化，需重新核对')
     const existing = canonical || legacy
     assertOrderMatch(existing, base)
-    const order = existing || base
+    // 旧订单仅在重新验签并核对一致后补齐应用标识，保留其余历史字段。
+    const order = existing
+      ? { ...existing, meta: { ...existing.meta, bundleId: base.meta.bundleId } }
+      : base
+    const orderRef = legacy ? transaction.collection(ORDERS_COLLECTION).doc(knownOrder._id) : canonicalRef
     if (order.status === 'refunded' || (order.status === 'paid' && Number.isFinite(order.grantedAt))) {
+      // 已发放订单也需修复退款所需的应用标识，但不能重放权益或改写发放凭据。
+      if (order.status === 'paid' && !existing.meta.bundleId)
+        await setDoc(orderRef, { ...order, updatedAt: now })
       outcome = { granted: false, alreadyProcessed: true, outTradeNo: base.outTradeNo }
       return outcome
     }
@@ -187,7 +194,6 @@ async function settleIapOrder(db, base, now) {
     else {
       grant = await creditCoinInTransaction(transaction, coinInput, preparedCoin)
     }
-    const orderRef = legacy ? transaction.collection(ORDERS_COLLECTION).doc(knownOrder._id) : canonicalRef
     await setDoc(orderRef, {
       ...order,
       status: 'paid',
