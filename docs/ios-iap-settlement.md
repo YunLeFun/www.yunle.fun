@@ -76,9 +76,9 @@
 
 部署包 SHA-256（包含云端安装的依赖）：
 
-| 函数 | SHA-256 |
-| --- | --- |
-| `iap-order` | `ca24f9f65dbae8fd1693cf7ebe7a7a2c1fd7d7018cbe79977c83bc5e52cb2c03` |
+| 函数              | SHA-256                                                            |
+| ----------------- | ------------------------------------------------------------------ |
+| `iap-order`       | `ca24f9f65dbae8fd1693cf7ebe7a7a2c1fd7d7018cbe79977c83bc5e52cb2c03` |
 | `appstore-notify` | `317e2b51cafec985b5634f4f00ff5b8b9291175fb88eec56828e488f9a64a10c` |
-| `wxpay-order` | `6daaf633428761f0c6f8df621e5ae831fec058d23b33fe242cdfc448c3312025` |
-| `wxpay-notify` | `a9447b47c1a36d090df2f8c0b36bb89917ab47776461fc6128b9cb73cd9bec66` |
+| `wxpay-order`     | `6daaf633428761f0c6f8df621e5ae831fec058d23b33fe242cdfc448c3312025` |
+| `wxpay-notify`    | `a9447b47c1a36d090df2f8c0b36bb89917ab47776461fc6128b9cb73cd9bec66` |
