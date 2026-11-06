@@ -81,6 +81,17 @@ describe('iAP entry point environment isolation', () => {
   })
   afterEach(() => vi.unstubAllEnvs())
 
+  it('returns Cook capabilities after account checks without requesting an Apple transaction', async () => {
+    vi.stubEnv('APPSTORE_BUNDLE_ID', 'fun.yunle.cook')
+    const result = await order({ action: 'getCapabilities', userId: 'bob', environment: 'Sandbox' })
+    expect(result).toMatchObject({ application: 'cook', bundleId: 'fun.yunle.cook', ledgerEnvironment: 'Production' })
+    expect(result.products).toHaveLength(2)
+    expect(result.products.every(product => product.kind === 'nonRenewing')).toBe(true)
+    expect(service.getVerifiedTransaction).not.toHaveBeenCalled()
+    h.db._store.test_identities = [{ _id: 'fixed-test', uid: 'alice', synthetic: true }]
+    await expect(order({ action: 'getCapabilities' })).rejects.toThrow('测试账号')
+  })
+
   it('rejects verifyPurchase Sandbox even when the client claims Production', async () => {
     h.environment = 'Sandbox'
     const before = structuredClone(h.db._store)

@@ -2,6 +2,7 @@
  * 云函数 iap-order —— iOS App Store 内购的服务端校验与权益发放。
  *
  * 路由 action：
+ *   - getCapabilities  返回当前服务支持的应用、商品与账本环境（需登录）
  *   - verifyPurchase  校验单笔交易并发放权益（需登录；幂等）
  *   - restore         批量补单（恢复购买 / 杀进程后的 unfinished 交易，需登录）
  *
@@ -25,8 +26,8 @@ const process = require('node:process')
 const cloudbase = require('@cloudbase/node-sdk')
 const { assertActiveAccountForUid } = require('./account-access')
 
-const { assertGrantablePayload, createAppStoreService } = require('./lib/appstore')
-const { grantIapTransaction } = require('./lib/iap')
+const { createAppStoreService } = require('./lib/appstore')
+const { getIapCapabilities, reconcileIapTransaction } = require('./lib/iap-client')
 const { classifySyntheticOrderAccount } = require('./lib/synthetic-order')
 
 const app = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV })
@@ -91,9 +92,10 @@ function getAppStoreService(config) {
 async function verifyAndGrant(uid, transactionId, config) {
   const service = getAppStoreService(config)
   const { payload, environment } = await service.getVerifiedTransaction(transactionId)
-  assertGrantablePayload(payload, { bundleId: config.bundleId })
-  return grantIapTransaction(db, {
+  return reconcileIapTransaction(db, {
     userId: uid,
+    transactionId,
+    bundleId: config.bundleId,
     payload,
     environment,
     now: Date.now(),
@@ -102,7 +104,7 @@ async function verifyAndGrant(uid, transactionId, config) {
 
 async function handleVerifyPurchase(uid, event, config) {
   const transactionId = String(event.transactionId || '')
-  if (!/^\d+$/.test(transactionId))
+  if (!/^\d{1,32}$/.test(transactionId))
     throw new Error('transactionId 非法')
   return verifyAndGrant(uid, transactionId, config)
 }
@@ -141,6 +143,8 @@ exports.main = async (event) => {
     const config = loadConfig()
 
     switch (action) {
+      case 'getCapabilities':
+        return getIapCapabilities(config.bundleId, 'Production')
       case 'verifyPurchase':
         return await handleVerifyPurchase(uid, event, config)
       case 'restore':

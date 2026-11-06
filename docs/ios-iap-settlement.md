@@ -92,3 +92,9 @@ Cook 单次商品同时要求 Apple 签名交易类型为 `Non-Renewing Subscrip
 | `appstore-notify` | `317e2b51cafec985b5634f4f00ff5b8b9291175fb88eec56828e488f9a64a10c` |
 | `wxpay-order`     | `6daaf633428761f0c6f8df621e5ae831fec058d23b33fe242cdfc448c3312025` |
 | `wxpay-notify`    | `a9447b47c1a36d090df2f8c0b36bb89917ab47776461fc6128b9cb73cd9bec66` |
+
+### Cook 客户端购买前协商（候选，未部署）
+
+`getCapabilities` 在现有认证、账号状态和账本隔离检查后返回 `application`、`bundleId`、`ledgerEnvironment` 与明确的 `products[{id,kind}]`。Cook 原生付款前重新核对该响应；当前只声明已实现的两个非续期商品，自动续费仍须完成独立生命周期后才能加入清单。客户端不会把现有 Apps 服务或错误环境当作 Cook 服务。
+
+Cook 的 `verifyPurchase` 返回匹配订单号与应用／账本标记；签名交易 ID 必须与请求相同。已入账的 Cook 撤销可经同一入口补交，核对原账号／商品／环境后沿用保守退款处理；无订单或 pending 原单继续等待，不发放、认领或确认完成。此改动不部署新入口、不变更环境变量和现网账本。测试使用内存事务夹具，不能代替真实云端并发与回滚验收。

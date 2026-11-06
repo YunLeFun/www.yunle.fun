@@ -4,8 +4,8 @@
 const process = require('node:process')
 const cloudbase = require('@cloudbase/node-sdk')
 const { assertActiveAccountForUid } = require('./account-access')
-const { assertGrantablePayload, createAppStoreService } = require('./lib/appstore')
-const { grantIapTransaction } = require('./lib/iap')
+const { createAppStoreService } = require('./lib/appstore')
+const { getIapCapabilities, reconcileIapTransaction } = require('./lib/iap-client')
 const { assertSandboxUser, createSandboxIapDatabase, parseSandboxUsers } = require('./lib/iap-sandbox')
 
 const app = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV })
@@ -43,15 +43,14 @@ exports.main = async (event) => {
     userId: uid,
   })
   const settings = config()
+  if (event?.action === 'getCapabilities')
+    return getIapCapabilities(settings.bundleId, 'Sandbox')
   const service = createAppStoreService(settings)
   async function verify(transactionId) {
     if (typeof transactionId !== 'string' || !/^\d{1,32}$/.test(transactionId))
       throw new Error('transactionId 非法')
     const { payload, environment } = await service.getVerifiedTransaction(transactionId)
-    if (payload.transactionId !== transactionId)
-      throw new Error('Apple 返回交易与请求不一致')
-    assertGrantablePayload(payload, { bundleId: settings.bundleId })
-    return { ...await grantIapTransaction(db, { userId: uid, payload, environment, now: Date.now() }), ledgerEnvironment: 'Sandbox' }
+    return { ...await reconcileIapTransaction(db, { userId: uid, transactionId, bundleId: settings.bundleId, payload, environment, now: Date.now() }), ledgerEnvironment: 'Sandbox' }
   }
   if (event?.action === 'verifyPurchase')
     return verify(event.transactionId)
