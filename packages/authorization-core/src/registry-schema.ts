@@ -23,6 +23,7 @@ const ALLOWED_SCOPES = new Set([
   'membership:read',
   'ai:writing',
   'ai:agent',
+  'ai:usage',
 ])
 
 const ISSUERS: Record<RegistryEnvironment, string> = {
@@ -137,6 +138,8 @@ function parseAdapter(value: unknown, environment: RegistryEnvironment, path: st
     fail('registry_writing_consent_invalid', path)
   if (allowedScopes.includes('ai:agent') && (kind !== 'device' || consent !== 'explicit'))
     fail('registry_agent_consent_invalid', path)
+  if (allowedScopes.includes('ai:usage') && (kind !== 'device' || consent !== 'explicit'))
+    fail('registry_usage_consent_invalid', path)
   const origins = input.origins === undefined
     ? undefined
     : stringArray(input.origins, `${path}.origins`).map((origin, index) => exactUrl(origin, `${path}.origins[${index}]`, { environment, originOnly: true }))

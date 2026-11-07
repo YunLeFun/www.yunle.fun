@@ -20,8 +20,8 @@ async function fixture(scopes = ['membership:read', 'ai:writing'], clientId = 'c
   const jwk = installation.publicKey.export({ format: 'jwk' })
   const jkt = deviceJwkThumbprint(jwk)
   const keyring = createEntitlementKeyring({ issuer: 'https://www.yunle.fun', active: { kid: 'test', privateKey: signing.privateKey }, verificationKeys: [], generateJti: randomUUID })
-  const path = clientId === 'el-bot-cloud' ? '/ai/v1/el-bot/agent' : clientId === 'cms-ios' ? '/ai/v1/mobile/writing' : PATH
-  const grant = { subject: 'user_1', issuer: 'https://www.yunle.fun', clientId, appId: clientId === 'el-bot-cloud' ? 'el-bot' : 'cms', scopes, deviceId: jkt, deviceJkt: jkt, registrationFingerprint: 'registry-1' }
+  const path = clientId === 'el-bot-ios' ? '/ai/v1/mobile/el-bot-account' : clientId === 'el-bot-cloud' ? '/ai/v1/el-bot/agent' : clientId === 'cms-ios' ? '/ai/v1/mobile/writing' : PATH
+  const grant = { subject: 'user_1', issuer: 'https://www.yunle.fun', clientId, appId: clientId.startsWith('el-bot-') ? 'el-bot' : 'cms', scopes, deviceId: jkt, deviceJkt: jkt, registrationFingerprint: 'registry-1' }
   await issueDeviceGrant(db, grant, { now: NOW, generateGrantId: () => 'grant-1' })
   const entitlement = keyring.signMembershipEntitlement({ ...grant, grantId: 'grant-1', now: NOW, ttlSeconds: 3600 })
   function input(overrides = {}, claims = {}, key = installation, token = entitlement) {
@@ -36,6 +36,16 @@ async function fixture(scopes = ['membership:read', 'ai:writing'], clientId = 'c
 }
 
 describe('online writing device authorization', () => {
+  it('isolates read-only iOS usage consent from model execution and proof replay', async () => {
+    const f = await fixture(['membership:read', 'ai:usage'], 'el-bot-ios')
+    const request = f.input()
+    expect(await authorizeAiRequest(f.db, request, f.options)).toMatchObject({ clientId: 'el-bot-ios', appId: 'el-bot', scope: 'ai:usage' })
+    await expect(authorizeAiRequest(f.db, request, f.options)).rejects.toThrow()
+    await expect(authorizeAiRequest(f.db, f.input({ path: '/ai/v1/el-bot/agent' }, { htu: `${ORIGIN}/ai/v1/el-bot/agent` }), f.options)).rejects.toThrow()
+    const membership = await fixture(['membership:read'], 'el-bot-ios')
+    await expect(authorizeAiRequest(membership.db, membership.input(), membership.options)).rejects.toMatchObject({ code: 'ai_scope_required' })
+  })
+
   it('isolates el-bot consent, audience and billing attribution from CMS', async () => {
     const f = await fixture(['membership:read', 'ai:agent'], 'el-bot-cloud')
     expect(await authorizeAiRequest(f.db, f.input(), f.options)).toMatchObject({ uid: 'user_1', clientId: 'el-bot-cloud', appId: 'el-bot', scope: 'ai:agent' })
