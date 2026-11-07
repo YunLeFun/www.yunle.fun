@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { DeviceAuthorizationError, deviceAuthorizationResult } from '~/utils/device-authorization'
+
 /**
  * 设备授权页（/link）—— 桌面 / 本地应用登录的「浏览器授权」环节。
  *
@@ -44,8 +46,8 @@ const displayName = computed(() => user.value?.nickname || user.value?.login || 
 
 /** 调用 desktop-auth 云函数（携带浏览器登录态） */
 async function callDesktopAuth<T>(action: string, data: Record<string, unknown> = {}): Promise<T> {
-  const { result } = await app.callFunction({ name: 'desktop-auth', data: { action, ...data } })
-  return result as T
+  const { result } = await app.callFunction({ name: 'desktop-auth', data: { action, ...data, errorFormat: 'result' } })
+  return deviceAuthorizationResult<T>(result)
 }
 
 /** 拉取设备码对应的应用信息用于展示 */
@@ -71,6 +73,11 @@ async function approve() {
     status.value = 'approved'
   }
   catch (err: unknown) {
+    if (err instanceof DeviceAuthorizationError) {
+      status.value = 'error'
+      message.value = err.message
+      return
+    }
     status.value = 'ready'
     toast.add({ title: '授权失败', description: err instanceof Error ? err.message : '请重试', color: 'error' })
   }
@@ -80,7 +87,11 @@ async function deny() {
   try {
     await callDesktopAuth('denyDevice', { userCode: codeInput.value })
   }
-  catch {}
+  catch (err: unknown) {
+    status.value = 'error'
+    message.value = err instanceof Error ? err.message : '拒绝授权失败，请重试。'
+    return
+  }
   status.value = 'denied'
 }
 
