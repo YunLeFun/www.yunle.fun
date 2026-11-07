@@ -66,6 +66,7 @@ jobs:
         run: node scripts/authenticate-cloudbase-ci.mjs
 
       - name: Record workflow dispatch
+        id: dispatch
         run: >-
           pnpm sso:registry record-ci
           --environment "${{ steps.intent.outputs.environment }}"
@@ -178,8 +179,9 @@ jobs:
           --operator github-actions
           --reason "generated registry pull request opened"
 
+      # A delayed duplicate that failed to claim the intent must not supersede its owner.
       - name: Record CI failure
-        if: ${{ failure() && steps.intent.outputs.environment != '' }}
+        if: ${{ failure() && steps.dispatch.outcome == 'success' }}
         continue-on-error: true
         run: >-
           pnpm sso:registry record-ci
@@ -191,7 +193,7 @@ jobs:
           --reason "registry release workflow failed"
 
       - name: Supersede failed release for fresh approval
-        if: ${{ failure() && steps.intent.outputs.environment != '' }}
+        if: ${{ failure() && steps.dispatch.outcome == 'success' }}
         continue-on-error: true
         run: >-
           pnpm sso:registry record-ci
