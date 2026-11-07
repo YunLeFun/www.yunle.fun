@@ -34,7 +34,7 @@ const dbProxy = new Proxy({}, {
 const cloudbaseStub = {
   SYMBOL_CURRENT_ENV: Symbol.for('test-env'),
   init: () => ({
-    auth: () => ({ getUserInfo: () => ({ uid: 'alice' }) }),
+    auth: () => ({ getUserInfo: () => ({ uid: 'alice', isAnonymous: h.isAnonymous }) }),
     callFunction: async () => ({ result: { restricted: false, state: 'active' } }),
     database: () => dbProxy,
   }),
@@ -77,9 +77,30 @@ describe('iAP entry point environment isolation', () => {
     vi.stubEnv('ACCOUNT_API_INTERNAL_TOKEN', 'test-internal-token')
     h.db = makeFakeDb({ test_identities: [] })
     h.environment = 'Production'
+    h.isAnonymous = false
     h.notificationEnvironment = 'Production'
   })
   afterEach(() => vi.unstubAllEnvs())
+
+  it('rejects an authenticated anonymous session before capability or purchase handling', async () => {
+    h.isAnonymous = true
+    const before = structuredClone(h.db._store)
+    for (const action of ['getCapabilities', 'verifyPurchase'])
+      await expect(order({ action, transactionId: '20001' })).rejects.toThrow('请先登录')
+    expect(service.getVerifiedTransaction).not.toHaveBeenCalled()
+    expect(h.db._store).toEqual(before)
+  })
+
+  it('returns Cook capabilities after account checks without requesting an Apple transaction', async () => {
+    vi.stubEnv('APPSTORE_BUNDLE_ID', 'fun.yunle.cook')
+    const result = await order({ action: 'getCapabilities', userId: 'bob', environment: 'Sandbox' })
+    expect(result).toMatchObject({ application: 'cook', bundleId: 'fun.yunle.cook', ledgerEnvironment: 'Production' })
+    expect(result.products).toHaveLength(2)
+    expect(result.products.every(product => product.kind === 'nonRenewing')).toBe(true)
+    expect(service.getVerifiedTransaction).not.toHaveBeenCalled()
+    h.db._store.test_identities = [{ _id: 'fixed-test', uid: 'alice', synthetic: true }]
+    await expect(order({ action: 'getCapabilities' })).rejects.toThrow('测试账号')
+  })
 
   it('rejects verifyPurchase Sandbox even when the client claims Production', async () => {
     h.environment = 'Sandbox'

@@ -1,5 +1,11 @@
 # 原生 IAP 账号归属与原子发放
 
+## Cook 代码收尾与上线边界 · 2026-11-07
+
+维护者已授权合并本轮 Cook 商品隔离和购买前协商代码。代码合并不部署支付函数、不覆盖既有 Apps 的 bundle 配置，不创建 ASC 商品、修改价格或变更现网账本。Cook 仍须使用独立入口；当前仅声明已实现的非续期商品，自动续费生命周期和买断永久权益未由本轮实现。
+
+支付实现的验证基线为 `456210f`：25 个测试文件／401 项内存事务测试、lint 和镜像一致性检查通过。本次收尾只更新说明，不把这些结果当作真实 Apple Sandbox、CloudBase SDK 事务／并发或支付上线验收；既有只读回读证据与后续验收边界继续保留。
+
 ## Cook 独立应用候选 · 2026-11-06
 
 本分支按验签后的 `bundleId` 精确匹配应用及商品白名单，Cook 的单次月／年候选商品分别为 `fun.yunle.cook.member_month`、`fun.yunle.cook.member_year`，订单 `appId` 为 `cook`。`fun.yunle.apps` 继续使用原商品和历史首次认领规则；Cook 必须提供与可信调用 UID 一致的 `appAccountToken`，不能走无标记历史认领。未知 bundle、跨 App SKU、原型链属性、错误账号和错误交易类型均在入账前拒绝。
@@ -92,3 +98,9 @@ Cook 单次商品同时要求 Apple 签名交易类型为 `Non-Renewing Subscrip
 | `appstore-notify` | `317e2b51cafec985b5634f4f00ff5b8b9291175fb88eec56828e488f9a64a10c` |
 | `wxpay-order`     | `6daaf633428761f0c6f8df621e5ae831fec058d23b33fe242cdfc448c3312025` |
 | `wxpay-notify`    | `a9447b47c1a36d090df2f8c0b36bb89917ab47776461fc6128b9cb73cd9bec66` |
+
+### Cook 客户端购买前协商（候选，未部署）
+
+`getCapabilities` 在现有认证、账号状态和账本隔离检查后返回 `application`、`bundleId`、`ledgerEnvironment` 与明确的 `products[{id,kind}]`。Cook 原生付款前重新核对该响应；当前只声明已实现的两个非续期商品，自动续费仍须完成独立生命周期后才能加入清单。客户端不会把现有 Apps 服务或错误环境当作 Cook 服务。
+
+Cook 的 `verifyPurchase` 返回匹配订单号与应用／账本标记；签名交易 ID 必须与请求相同。已入账的 Cook 撤销可经同一入口补交，核对原账号／商品／环境后沿用保守退款处理；无订单或 pending 原单继续等待，不发放、认领或确认完成。此改动不部署新入口、不变更环境变量和现网账本。测试使用内存事务夹具，不能代替真实云端并发与回滚验收。

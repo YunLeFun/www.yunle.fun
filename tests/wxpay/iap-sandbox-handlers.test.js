@@ -106,6 +106,20 @@ describe('sandbox function entry points', () => {
     vi.unstubAllEnvs()
   })
 
+  it('returns Cook Sandbox capabilities only to an allowlisted active account', async () => {
+    vi.stubEnv('APPSTORE_BUNDLE_ID', 'fun.yunle.cook')
+    expect(await order({ action: 'getCapabilities', environment: 'Production' })).toMatchObject({
+      application: 'cook',
+      bundleId: 'fun.yunle.cook',
+      ledgerEnvironment: 'Sandbox',
+      products: [{ id: 'fun.yunle.cook.member_month', kind: 'nonRenewing' }, { id: 'fun.yunle.cook.member_year', kind: 'nonRenewing' }],
+    })
+    expect(service.getVerifiedTransaction).not.toHaveBeenCalled()
+    expect(h.accesses).toHaveLength(0)
+    h.uid = 'bob'
+    await expect(order({ action: 'getCapabilities' })).rejects.toThrow('账号')
+  })
+
   it('verifies, deduplicates restore and refunds only the Sandbox same-ID order', async () => {
     expect(await order({ action: 'verifyPurchase', transactionId: '20001', environment: 'Production', userId: 'bob', collection: 'orders' }))
       .toMatchObject({ granted: true, ledgerEnvironment: 'Sandbox' })
