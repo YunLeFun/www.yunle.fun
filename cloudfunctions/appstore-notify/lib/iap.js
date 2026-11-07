@@ -20,7 +20,7 @@ const {
   ORDERS_COLLECTION,
   readMembership,
 } = require('./orders')
-const { COIN_PACKS, getIapProduct } = require('./plans')
+const { COIN_PACKS, getIapApplication, getIapProduct } = require('./plans')
 const { clawbackCoin } = require('./wallet')
 
 /** IAP 订单归属的应用标识（apps.yunle.fun 的 appId） */
@@ -62,18 +62,23 @@ async function grantIapTransaction(db, { userId, payload, environment, now }) {
   assertIapEnvironment(db, payload, environment)
   if (typeof payload.bundleId !== 'string' || !payload.bundleId || !Number.isFinite(now))
     throw new Error('Apple 交易应用标识或处理时间非法')
+  const application = getIapApplication(payload.bundleId)
   const accountToken = assertPurchaseOwner(userId, payload)
+  if (!application.allowLegacyOwner && !accountToken)
+    throw new Error('该应用的 Apple 交易必须包含购买账号标记')
   assertIapAccount(db, userId, accountToken)
   const transactionId = payload.transactionId
   const outTradeNo = `${IAP_OUT_TRADE_NO_PREFIX}${transactionId}`
-  const product = getIapProduct(payload.productId)
+  const product = getIapProduct(payload.productId, payload.bundleId)
+  if (application.appId === 'cook' && payload.type !== 'Non-Renewing Subscription')
+    throw new Error('Cook 单次会员交易类型不匹配')
   const providerPurchasedAt = product.orderType === 'membership' ? payload.purchaseDate : null
   if (product.orderType === 'membership' && !Number.isFinite(providerPurchasedAt))
     throw new Error('Apple 会员交易缺少 purchaseDate')
 
   const base = {
     userId,
-    appId: IAP_APP_ID,
+    appId: application.appId,
     orderType: product.orderType,
     amount: priceToFen(payload),
     payType: 'iap',

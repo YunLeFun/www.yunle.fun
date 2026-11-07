@@ -153,7 +153,8 @@ describe('iAP account ownership', () => {
     const db = makeFakeDb()
     await grantIapTransaction(db, input())
     const before = structuredClone(db._store)
-    await expect(grantIapTransaction(db, input('coin', override))).rejects.toThrow('不一致')
+    const message = override.payload?.bundleId === 'other.app' ? '未登记的 IAP 应用' : '不一致'
+    await expect(grantIapTransaction(db, input('coin', override))).rejects.toThrow(message)
     expect(db._store).toEqual(before)
   })
 })
