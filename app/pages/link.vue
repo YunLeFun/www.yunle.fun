@@ -160,16 +160,39 @@ onMounted(() => {
           该应用将获得以下权限：
         </p>
         <ul class="space-y-2">
-          <li v-for="s in device?.scope || []" :key="s" class="flex items-center gap-2 text-sm">
-            <Icon name="i-lucide-check" class="h-4 w-4 text-green-500" />
-            <span>{{ SCOPE_LABELS[s] || s }}</span>
+          <li v-for="s in device?.scope || []" :key="s" class="flex items-start gap-2 text-sm">
+            <Icon name="i-lucide-check" class="mt-0.5 h-4 w-4 shrink-0 text-green-500" />
+            <span class="min-w-0 leading-relaxed">{{ SCOPE_LABELS[s] || s }}</span>
           </li>
         </ul>
-        <p class="text-xs text-dimmed">
-          授权码：{{ codeInput.toUpperCase() }} · 设备：{{ device?.deviceName || '未命名设备' }}
-          · 客户端：{{ device?.clientId }}
-        </p>
       </div>
+
+      <dl class="divide-y divide-border/60 rounded-xl border border-border/60 bg-muted/40 px-3 text-left">
+        <div class="grid grid-cols-[4.5rem_minmax(0,1fr)] items-start gap-3 py-3">
+          <dt class="text-xs leading-6 text-muted-foreground">
+            授权码
+          </dt>
+          <dd class="min-w-0">
+            <code class="font-mono text-base font-semibold leading-6 tracking-widest text-foreground">{{ codeInput.toUpperCase() }}</code>
+          </dd>
+        </div>
+        <div class="grid grid-cols-[4.5rem_minmax(0,1fr)] items-start gap-3 py-3">
+          <dt class="text-xs leading-6 text-muted-foreground">
+            设备
+          </dt>
+          <dd class="min-w-0 text-sm leading-6 text-foreground [overflow-wrap:anywhere]">
+            {{ device?.deviceName || '未命名设备' }}
+          </dd>
+        </div>
+        <div class="grid grid-cols-[4.5rem_minmax(0,1fr)] items-start gap-3 py-3">
+          <dt class="text-xs leading-6 text-muted-foreground">
+            客户端 ID
+          </dt>
+          <dd class="min-w-0 font-mono text-xs leading-6 text-muted-foreground [overflow-wrap:anywhere]">
+            {{ device?.clientId }}
+          </dd>
+        </div>
+      </dl>
 
       <div class="grid grid-cols-2 gap-3">
         <AppButton color="neutral" variant="subtle" size="lg" block :disabled="status === 'approving'" @click="deny">
