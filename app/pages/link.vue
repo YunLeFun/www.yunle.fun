@@ -21,6 +21,7 @@ const toast = useAppToast()
 const SCOPE_LABELS: Record<string, string> = {
   'membership:read': '读取你的会员等级与到期时间',
   'ai:writing': '在你主动使用写作助手时发送文章给模型，并按实际用量扣除你的 AI 点数',
+  'ai:agent': '允许此小云云端实例将对话和工具结果发送给模型，按实际用量扣除你的 AI 点数；连接此实例的手机、Mac 和 QQ 共用此授权，可在设备管理撤销',
 }
 
 type Status = 'input' | 'loading' | 'ready' | 'approving' | 'approved' | 'denied' | 'error'

@@ -20,21 +20,31 @@ async function fixture(scopes = ['membership:read', 'ai:writing'], clientId = 'c
   const jwk = installation.publicKey.export({ format: 'jwk' })
   const jkt = deviceJwkThumbprint(jwk)
   const keyring = createEntitlementKeyring({ issuer: 'https://www.yunle.fun', active: { kid: 'test', privateKey: signing.privateKey }, verificationKeys: [], generateJti: randomUUID })
-  const grant = { subject: 'user_1', issuer: 'https://www.yunle.fun', clientId, appId: 'cms', scopes, deviceId: jkt, deviceJkt: jkt, registrationFingerprint: 'registry-1' }
+  const path = clientId === 'el-bot-cloud' ? '/ai/v1/el-bot/agent' : clientId === 'cms-ios' ? '/ai/v1/mobile/writing' : PATH
+  const grant = { subject: 'user_1', issuer: 'https://www.yunle.fun', clientId, appId: clientId === 'el-bot-cloud' ? 'el-bot' : 'cms', scopes, deviceId: jkt, deviceJkt: jkt, registrationFingerprint: 'registry-1' }
   await issueDeviceGrant(db, grant, { now: NOW, generateGrantId: () => 'grant-1' })
   const entitlement = keyring.signMembershipEntitlement({ ...grant, grantId: 'grant-1', now: NOW, ttlSeconds: 3600 })
   function input(overrides = {}, claims = {}, key = installation, token = entitlement) {
     const requestHash = hash('{"action":"catalog"}')
     const header = Buffer.from(JSON.stringify({ alg: 'ES256', typ: 'dpop+jwt', jwk: key.publicKey.export({ format: 'jwk' }) })).toString('base64url')
-    const body = Buffer.from(JSON.stringify({ htm: 'POST', htu: ORIGIN + (clientId === 'cms-ios' ? '/ai/v1/mobile/writing' : PATH), ath: hash(token), request_hash: requestHash, iat: NOW / 1000, jti: randomUUID(), ...claims })).toString('base64url')
+    const body = Buffer.from(JSON.stringify({ htm: 'POST', htu: ORIGIN + path, ath: hash(token), request_hash: requestHash, iat: NOW / 1000, jti: randomUUID(), ...claims })).toString('base64url')
     const signature = sign('sha256', Buffer.from(`${header}.${body}`), { key: key.privateKey, dsaEncoding: 'ieee-p1363' }).toString('base64url')
-    return { serviceToken: SECRET, method: 'POST', path: clientId === 'cms-ios' ? '/ai/v1/mobile/writing' : PATH, entitlement: token, proof: `${header}.${body}.${signature}`, requestHash, ...overrides }
+    return { serviceToken: SECRET, method: 'POST', path, entitlement: token, proof: `${header}.${body}.${signature}`, requestHash, ...overrides }
   }
   const options = { now: NOW, serviceToken: SECRET, canonicalOrigin: ORIGIN, keyring, proofVerifier: createProofOfPossessionVerifier(), registry: { reauthorize: vi.fn() }, assertActiveAccount: vi.fn() }
   return { db, grant, input, options }
 }
 
 describe('online writing device authorization', () => {
+  it('isolates el-bot consent, audience and billing attribution from CMS', async () => {
+    const f = await fixture(['membership:read', 'ai:agent'], 'el-bot-cloud')
+    expect(await authorizeAiRequest(f.db, f.input(), f.options)).toMatchObject({ uid: 'user_1', clientId: 'el-bot-cloud', appId: 'el-bot', scope: 'ai:agent' })
+    await expect(authorizeAiRequest(f.db, f.input({ path: PATH }, { htu: ORIGIN + PATH }), f.options)).rejects.toThrow()
+    const membership = await fixture(['membership:read'], 'el-bot-cloud')
+    await expect(authorizeAiRequest(membership.db, membership.input(), membership.options)).rejects.toMatchObject({ code: 'ai_scope_required' })
+    const writing = await fixture(['membership:read', 'ai:writing'], 'el-bot-cloud')
+    await expect(authorizeAiRequest(writing.db, writing.input(), writing.options)).rejects.toMatchObject({ code: 'ai_scope_required' })
+  })
   it('returns the same issuer UID after active account, registry and proof checks', async () => {
     const f = await fixture()
     expect(await authorizeAiRequest(f.db, f.input(), f.options)).toMatchObject({ uid: 'user_1', clientId: 'cms-desktop', appId: 'cms', grantId: 'grant-1', scope: 'ai:writing' })
