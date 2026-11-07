@@ -2,14 +2,14 @@
   "activeEnvelope": {
     "formatVersion": 1,
     "snapshot": {
-      "canonicalJson": "{\"clients\":[{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://admin.yunle.fun\"],\"redirectUris\":[\"https://admin.yunle.fun/\"]}],\"appId\":\"admin\",\"clientId\":\"admin-web\",\"displayName\":\"YunLeFun Admin\",\"iconUrl\":\"https://admin.yunle.fun/logo.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"explicit\",\"kind\":\"web-sso\",\"origins\":[\"https://studio.advjs.org\"],\"redirectUris\":[\"https://studio.advjs.org/auth/callback\"]}],\"appId\":\"advjs-studio\",\"clientId\":\"advjs-studio-ios\",\"displayName\":\"ADV.JS Studio\",\"iconUrl\":\"https://studio.advjs.org/favicon.png\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://advjs.yunle.fun\",\"https://studio.advjs.org\"],\"redirectUris\":[\"https://advjs.yunle.fun/\",\"https://studio.advjs.org/\"]}],\"appId\":\"advjs-studio\",\"clientId\":\"advjs-studio-web\",\"displayName\":\"ADV.JS Studio\",\"iconUrl\":\"https://studio.advjs.org/favicon.ico\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://ai-sfc.yunle.fun\"],\"redirectUris\":[\"https://ai-sfc.yunle.fun/\"]}],\"appId\":\"ai-sfc\",\"clientId\":\"ai-sfc-web\",\"displayName\":\"AI 春联\",\"iconUrl\":\"https://ai-sfc.yunle.fun/brand/ai-sfc-logo.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"ai:writing\",\"membership:read\"],\"consent\":\"explicit\",\"kind\":\"device\"}],\"appId\":\"cms\",\"clientId\":\"cms-desktop\",\"displayName\":\"云栈\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"ai:writing\",\"membership:read\"],\"consent\":\"explicit\",\"kind\":\"device\"}],\"appId\":\"cms\",\"clientId\":\"cms-ios\",\"displayName\":\"云栈 iOS\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://cms.yunle.fun\"],\"redirectUris\":[\"https://cms.yunle.fun/\"]}],\"appId\":\"cms\",\"clientId\":\"cms-web\",\"displayName\":\"Yunle CMS\",\"iconUrl\":\"https://cms.yunle.fun/icon.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"explicit\",\"kind\":\"web-sso\",\"origins\":[\"https://cook.yunle.fun\",\"https://cook.yunyoujun.cn\"],\"redirectUris\":[\"https://cook.yunle.fun/auth/callback?platform=native\",\"https://cook.yunyoujun.cn/auth/callback?platform=native\"]}],\"appId\":\"cook\",\"clientId\":\"cook-mobile\",\"displayName\":\"食用手册\",\"iconUrl\":\"https://cook.yunle.fun/pwa-512x512.png\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://cook.yunle.fun\",\"https://cook.yunyoujun.cn\"],\"redirectUris\":[\"https://cook.yunle.fun/auth/callback\",\"https://cook.yunyoujun.cn/auth/callback\"]}],\"appId\":\"cook\",\"clientId\":\"cook-web\",\"displayName\":\"食用手册\",\"iconUrl\":\"https://cook.yunle.fun/pwa-512x512.png\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://dayun-kicker.yunle.fun\"],\"redirectUris\":[\"https://dayun-kicker.yunle.fun/\"]}],\"appId\":\"dayun-kicker\",\"clientId\":\"dayun-kicker-web\",\"displayName\":\"暴力电驴\",\"iconUrl\":\"https://dayun-kicker.yunle.fun/favicon.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://drive.yunle.fun\"],\"redirectUris\":[\"https://drive.yunle.fun/\"]}],\"appId\":\"drive\",\"clientId\":\"drive-web\",\"displayName\":\"云乐盘\",\"iconUrl\":\"https://drive.yunle.fun/drive-mark.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"ai:agent\",\"membership:read\"],\"consent\":\"explicit\",\"kind\":\"device\"}],\"appId\":\"el-bot\",\"clientId\":\"el-bot-cloud\",\"displayName\":\"小云云端 AI\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://dao.yunle.fun\"],\"redirectUris\":[\"https://dao.yunle.fun/\"]}],\"appId\":\"everything-generator\",\"clientId\":\"everything-generator-web\",\"displayName\":\"万物生成器\",\"iconUrl\":\"https://dao.yunle.fun/favicon.ico\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://fc.elpsy.cn\",\"https://fc.yunle.fun\"],\"redirectUris\":[\"https://fc.elpsy.cn/\",\"https://fc.yunle.fun/\"]}],\"appId\":\"fc\",\"clientId\":\"fc-web\",\"displayName\":\"怀旧游戏机\",\"iconUrl\":\"https://fc.yunle.fun/favicon.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://home.yunle.fun\"],\"redirectUris\":[\"https://home.yunle.fun/\"]}],\"appId\":\"home\",\"clientId\":\"home-web\",\"displayName\":\"云之彼端\",\"iconUrl\":\"https://home.yunle.fun/brand-mark.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"explicit\",\"kind\":\"web-sso\",\"origins\":[\"https://life.yunle.fun\"],\"redirectUris\":[\"https://life.yunle.fun/auth/callback\"]}],\"appId\":\"life\",\"clientId\":\"life-ios\",\"displayName\":\"云生\",\"iconUrl\":\"https://life.yunle.fun/favicon.png\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://play.yunle.fun\"],\"redirectUris\":[\"https://play.yunle.fun/\"]}],\"appId\":\"play\",\"clientId\":\"play-web\",\"displayName\":\"云乐坊间\",\"iconUrl\":\"https://play.yunle.fun/favicon.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://saier.yunle.fun\"],\"redirectUris\":[\"https://saier.yunle.fun/\"]}],\"appId\":\"saier\",\"clientId\":\"saier-web\",\"displayName\":\"云绘 Saier\",\"iconUrl\":\"https://saier.yunle.fun/favicon.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"membership:read\"],\"consent\":\"explicit\",\"kind\":\"device\"}],\"appId\":\"skykeeper\",\"clientId\":\"skykeeper-desktop\",\"displayName\":\"Skykeeper\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://smap.yunle.fun\"],\"redirectUris\":[\"https://smap.yunle.fun/tabs/profile\"]}],\"appId\":\"smap\",\"clientId\":\"smap-web\",\"displayName\":\"SMAP 星际导航\",\"iconUrl\":\"https://smap.yunle.fun/smap-logo.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://studio.yunyoujun.cn\"],\"redirectUris\":[\"https://studio.yunyoujun.cn/\"]}],\"appId\":\"studio\",\"clientId\":\"studio-web\",\"displayName\":\"YunYouJun Studio\",\"iconUrl\":\"https://studio.yunyoujun.cn/icon.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://support.yunle.fun\"],\"redirectUris\":[\"https://support.yunle.fun/\"]}],\"appId\":\"support\",\"clientId\":\"support-web\",\"displayName\":\"云乐坊支持中心\",\"iconUrl\":\"https://support.yunle.fun/favicon.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://resume.yunle.fun\"],\"redirectUris\":[\"https://resume.yunle.fun/user\"]}],\"appId\":\"web-resume\",\"clientId\":\"web-resume-web\",\"displayName\":\"Web Resume\",\"iconUrl\":\"https://resume.yunle.fun/img/icons/web-resume-mark.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://wenta.yunle.fun\"],\"redirectUris\":[\"https://wenta.yunle.fun/\"]}],\"appId\":\"wenta\",\"clientId\":\"wenta-web\",\"displayName\":\"问 TA\",\"iconUrl\":\"https://wenta.yunle.fun/favicon.svg\",\"status\":\"active\"}],\"issuer\":\"https://www.yunle.fun\",\"policyVersion\":\"2026-11-07-el-bot-ai-v1\",\"schemaVersion\":1}",
-      "changeReason": "Owner supplied the approval code and authorized production publication for el-bot AI point accounting",
-      "contentHash": "cbf63e8ed54d04eaa7c6f6e69c890e3dfb143c73c7e106959ed22611c71fa92f",
+      "canonicalJson": "{\"clients\":[{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://admin.yunle.fun\"],\"redirectUris\":[\"https://admin.yunle.fun/\"]}],\"appId\":\"admin\",\"clientId\":\"admin-web\",\"displayName\":\"YunLeFun Admin\",\"iconUrl\":\"https://admin.yunle.fun/logo.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"explicit\",\"kind\":\"web-sso\",\"origins\":[\"https://studio.advjs.org\"],\"redirectUris\":[\"https://studio.advjs.org/auth/callback\"]}],\"appId\":\"advjs-studio\",\"clientId\":\"advjs-studio-ios\",\"displayName\":\"ADV.JS Studio\",\"iconUrl\":\"https://studio.advjs.org/favicon.png\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://advjs.yunle.fun\",\"https://studio.advjs.org\"],\"redirectUris\":[\"https://advjs.yunle.fun/\",\"https://studio.advjs.org/\"]}],\"appId\":\"advjs-studio\",\"clientId\":\"advjs-studio-web\",\"displayName\":\"ADV.JS Studio\",\"iconUrl\":\"https://studio.advjs.org/favicon.ico\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://ai-sfc.yunle.fun\"],\"redirectUris\":[\"https://ai-sfc.yunle.fun/\"]}],\"appId\":\"ai-sfc\",\"clientId\":\"ai-sfc-web\",\"displayName\":\"AI 春联\",\"iconUrl\":\"https://ai-sfc.yunle.fun/brand/ai-sfc-logo.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"ai:writing\",\"membership:read\"],\"consent\":\"explicit\",\"kind\":\"device\"}],\"appId\":\"cms\",\"clientId\":\"cms-desktop\",\"displayName\":\"云栈\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"ai:writing\",\"membership:read\"],\"consent\":\"explicit\",\"kind\":\"device\"}],\"appId\":\"cms\",\"clientId\":\"cms-ios\",\"displayName\":\"云栈 iOS\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://cms.yunle.fun\"],\"redirectUris\":[\"https://cms.yunle.fun/\"]}],\"appId\":\"cms\",\"clientId\":\"cms-web\",\"displayName\":\"Yunle CMS\",\"iconUrl\":\"https://cms.yunle.fun/icon.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"explicit\",\"kind\":\"web-sso\",\"origins\":[\"https://cook.yunle.fun\",\"https://cook.yunyoujun.cn\"],\"redirectUris\":[\"https://cook.yunle.fun/auth/callback?platform=native\",\"https://cook.yunyoujun.cn/auth/callback?platform=native\"]}],\"appId\":\"cook\",\"clientId\":\"cook-mobile\",\"displayName\":\"食用手册\",\"iconUrl\":\"https://cook.yunle.fun/pwa-512x512.png\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://cook.yunle.fun\",\"https://cook.yunyoujun.cn\"],\"redirectUris\":[\"https://cook.yunle.fun/auth/callback\",\"https://cook.yunyoujun.cn/auth/callback\"]}],\"appId\":\"cook\",\"clientId\":\"cook-web\",\"displayName\":\"食用手册\",\"iconUrl\":\"https://cook.yunle.fun/pwa-512x512.png\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://dayun-kicker.yunle.fun\"],\"redirectUris\":[\"https://dayun-kicker.yunle.fun/\"]}],\"appId\":\"dayun-kicker\",\"clientId\":\"dayun-kicker-web\",\"displayName\":\"暴力电驴\",\"iconUrl\":\"https://dayun-kicker.yunle.fun/favicon.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://drive.yunle.fun\"],\"redirectUris\":[\"https://drive.yunle.fun/\"]}],\"appId\":\"drive\",\"clientId\":\"drive-web\",\"displayName\":\"云乐盘\",\"iconUrl\":\"https://drive.yunle.fun/drive-mark.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"ai:agent\",\"membership:read\"],\"consent\":\"explicit\",\"kind\":\"device\"}],\"appId\":\"el-bot\",\"clientId\":\"el-bot-cloud\",\"displayName\":\"小云云端 AI\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"ai:usage\",\"membership:read\"],\"consent\":\"explicit\",\"kind\":\"device\"}],\"appId\":\"el-bot\",\"clientId\":\"el-bot-ios\",\"displayName\":\"小云 iOS\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://dao.yunle.fun\"],\"redirectUris\":[\"https://dao.yunle.fun/\"]}],\"appId\":\"everything-generator\",\"clientId\":\"everything-generator-web\",\"displayName\":\"万物生成器\",\"iconUrl\":\"https://dao.yunle.fun/favicon.ico\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://fc.elpsy.cn\",\"https://fc.yunle.fun\"],\"redirectUris\":[\"https://fc.elpsy.cn/\",\"https://fc.yunle.fun/\"]}],\"appId\":\"fc\",\"clientId\":\"fc-web\",\"displayName\":\"怀旧游戏机\",\"iconUrl\":\"https://fc.yunle.fun/favicon.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://home.yunle.fun\"],\"redirectUris\":[\"https://home.yunle.fun/\"]}],\"appId\":\"home\",\"clientId\":\"home-web\",\"displayName\":\"云之彼端\",\"iconUrl\":\"https://home.yunle.fun/brand-mark.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"explicit\",\"kind\":\"web-sso\",\"origins\":[\"https://life.yunle.fun\"],\"redirectUris\":[\"https://life.yunle.fun/auth/callback\"]}],\"appId\":\"life\",\"clientId\":\"life-ios\",\"displayName\":\"云生\",\"iconUrl\":\"https://life.yunle.fun/favicon.png\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://play.yunle.fun\"],\"redirectUris\":[\"https://play.yunle.fun/\"]}],\"appId\":\"play\",\"clientId\":\"play-web\",\"displayName\":\"云乐坊间\",\"iconUrl\":\"https://play.yunle.fun/favicon.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://saier.yunle.fun\"],\"redirectUris\":[\"https://saier.yunle.fun/\"]}],\"appId\":\"saier\",\"clientId\":\"saier-web\",\"displayName\":\"云绘 Saier\",\"iconUrl\":\"https://saier.yunle.fun/favicon.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"membership:read\"],\"consent\":\"explicit\",\"kind\":\"device\"}],\"appId\":\"skykeeper\",\"clientId\":\"skykeeper-desktop\",\"displayName\":\"Skykeeper\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://smap.yunle.fun\"],\"redirectUris\":[\"https://smap.yunle.fun/tabs/profile\"]}],\"appId\":\"smap\",\"clientId\":\"smap-web\",\"displayName\":\"SMAP 星际导航\",\"iconUrl\":\"https://smap.yunle.fun/smap-logo.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://studio.yunyoujun.cn\"],\"redirectUris\":[\"https://studio.yunyoujun.cn/\"]}],\"appId\":\"studio\",\"clientId\":\"studio-web\",\"displayName\":\"YunYouJun Studio\",\"iconUrl\":\"https://studio.yunyoujun.cn/icon.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://support.yunle.fun\"],\"redirectUris\":[\"https://support.yunle.fun/\"]}],\"appId\":\"support\",\"clientId\":\"support-web\",\"displayName\":\"云乐坊支持中心\",\"iconUrl\":\"https://support.yunle.fun/favicon.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://resume.yunle.fun\"],\"redirectUris\":[\"https://resume.yunle.fun/user\"]}],\"appId\":\"web-resume\",\"clientId\":\"web-resume-web\",\"displayName\":\"Web Resume\",\"iconUrl\":\"https://resume.yunle.fun/img/icons/web-resume-mark.svg\",\"status\":\"active\"},{\"adapters\":[{\"allowedScopes\":[\"identity:bootstrap\"],\"consent\":\"trusted\",\"kind\":\"web-sso\",\"origins\":[\"https://wenta.yunle.fun\"],\"redirectUris\":[\"https://wenta.yunle.fun/\"]}],\"appId\":\"wenta\",\"clientId\":\"wenta-web\",\"displayName\":\"问 TA\",\"iconUrl\":\"https://wenta.yunle.fun/favicon.svg\",\"status\":\"active\"}],\"issuer\":\"https://www.yunle.fun\",\"policyVersion\":\"2026-11-07-el-bot-ios-usage-v1\",\"schemaVersion\":1}",
+      "changeReason": "Publish read-only Xiaoyun iOS account and AI usage registration",
+      "contentHash": "f018c6dc74ca28c07cc0553d7c41dd9401e285661ed0c0ddf2a9bdd556c2e0ed",
       "environment": "production",
       "keyId": "production-registry-20260809",
-      "policyVersion": "2026-11-07-el-bot-ai-v1",
-      "publishedAt": 1794054195989,
-      "publishedBy": "yunyouyang",
+      "policyVersion": "2026-11-07-el-bot-ios-usage-v1",
+      "publishedAt": 1794067561380,
+      "publishedBy": "admin:1978032370372050944",
       "registry": {
         "clients": [
           {
@@ -262,6 +262,22 @@
             "appId": "el-bot",
             "clientId": "el-bot-cloud",
             "displayName": "小云云端 AI",
+            "status": "active"
+          },
+          {
+            "adapters": [
+              {
+                "allowedScopes": [
+                  "ai:usage",
+                  "membership:read"
+                ],
+                "consent": "explicit",
+                "kind": "device"
+              }
+            ],
+            "appId": "el-bot",
+            "clientId": "el-bot-ios",
+            "displayName": "小云 iOS",
             "status": "active"
           },
           {
@@ -525,31 +541,31 @@
           }
         ],
         "issuer": "https://www.yunle.fun",
-        "policyVersion": "2026-11-07-el-bot-ai-v1",
+        "policyVersion": "2026-11-07-el-bot-ios-usage-v1",
         "schemaVersion": 1
       },
       "schemaVersion": 1,
-      "securityHash": "b10fdbc5e0e2c5e1f94a8a3ecb8e9d963b6b246a1a59a7d09620cf13549da2d0",
-      "sequence": 18,
-      "signature": "7GEuLNmLnSIQ1gNe6OgSJGu8OLR54uQB76-P_GVMlOpJuyXeYMaUYE1uOrGrSBNGjVuh49Lfdkv_d6oLaG0xCw",
-      "snapshotId": "production:18:cbf63e8ed54d04eaa7c6",
-      "sourceDraftId": "draft:KvtgqczJb18GdvyC"
+      "securityHash": "98b1900aa0d4893f1aa5444cf10c3eeb5490089c6168b3ff257019e428ccac8a",
+      "sequence": 19,
+      "signature": "1qrkRcFB6MxwNWExxtSPVnLA7fz9oNhqS0xnQfcOAIO42pj0HG7Xts0GpXcTL_l3RFH81NhdHGi44yAGqyJdAw",
+      "snapshotId": "production:19:f018c6dc74ca28c07cc0",
+      "sourceDraftId": "draft:nLRQDfLA9Tg7hd_9"
     },
     "state": {
       "action": "publish",
-      "activatedAt": 1794054195989,
-      "activatedBy": "yunyouyang",
+      "activatedAt": 1794067561380,
+      "activatedBy": "admin:1978032370372050944",
       "activationKeyId": "production-registry-20260809",
-      "activationSignature": "65DALa0Zv0R1740HvRvh9p2nXdkwVph24GyXOkqEx8QgSaGqLsq23t1E_lpYm9AzDd6TB6x_BMrbGm7zNmPCDA",
-      "activeSnapshotId": "production:18:cbf63e8ed54d04eaa7c6",
+      "activationSignature": "khiNIMg4-jzwkZJh49Oq4Yn_OJfvl7Ns_e-DALIoAgAsMoBjNE57JK160RJfv5UsHgowvVpIVhkAiwQu_BoDBg",
+      "activeSnapshotId": "production:19:f018c6dc74ca28c07cc0",
       "environment": "production",
-      "generation": 18,
-      "previousSnapshotId": "production:17:9cea180c4ced770315e9"
+      "generation": 19,
+      "previousSnapshotId": "production:18:cbf63e8ed54d04eaa7c6"
     }
   },
   "environment": "production",
   "formatVersion": 1,
-  "minimumGeneration": 18,
+  "minimumGeneration": 19,
   "registry": {
     "clients": [
       {
@@ -802,6 +818,22 @@
         "appId": "el-bot",
         "clientId": "el-bot-cloud",
         "displayName": "小云云端 AI",
+        "status": "active"
+      },
+      {
+        "adapters": [
+          {
+            "allowedScopes": [
+              "ai:usage",
+              "membership:read"
+            ],
+            "consent": "explicit",
+            "kind": "device"
+          }
+        ],
+        "appId": "el-bot",
+        "clientId": "el-bot-ios",
+        "displayName": "小云 iOS",
         "status": "active"
       },
       {
@@ -1065,7 +1097,7 @@
       }
     ],
     "issuer": "https://www.yunle.fun",
-    "policyVersion": "2026-11-07-el-bot-ai-v1",
+    "policyVersion": "2026-11-07-el-bot-ios-usage-v1",
     "schemaVersion": 1
   }
 }
