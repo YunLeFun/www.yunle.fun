@@ -28,6 +28,7 @@ async function authorizeAiRequest(db, input, options) {
     '/ai/v1/mobile/writing': { clientId: 'cms-ios', appId: 'cms', scope: AI_SCOPE },
     '/ai/v1/desktop/writing': { clientId: 'cms-desktop', appId: 'cms', scope: AI_SCOPE },
     '/ai/v1/el-bot/agent': { clientId: 'el-bot-cloud', appId: 'el-bot', scope: 'ai:agent' },
+    '/ai/v1/mobile/el-bot-account': { clientId: 'el-bot-ios', appId: 'el-bot', scope: 'ai:usage' },
   }[input.path]
   const clientId = route?.clientId
   if (input.method !== 'POST' || !clientId

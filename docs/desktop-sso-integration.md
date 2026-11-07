@@ -129,3 +129,11 @@ ACCOUNT_API_INTERNAL_TOKEN=<shared secret>
 - 不得把 P-256 私钥、refresh token 写入普通文件、日志、前端状态或遥测。
 - 不得把 entitlement 当作通用账户 access token。
 - 不得回退到 Web SSO session 转发、密码模式、implicit flow 或动态客户端注册。
+
+## 小云 iOS 只读账号
+
+`el-bot-ios` 归属 `el-bot`，只请求 `membership:read` 与 `ai:usage`。它不具有云端实例的 `ai:agent` 扣点能力，也不能借用 `el-bot-cloud` 的凭据。生产登记提案位于 `specs/sso-client-registry-platform/changes/2026-11-07-el-bot-ios.client.json`，仍需签名 Registry 发布才能启用。
+
+原生 App 使用系统认证窗口完成上述设备授权，并将 P-256 私钥、entitlement 和轮换 refresh token 一并保存在 Keychain。`revokeEntitlement` HTTP action 接受当前安装的 DPoP 及 `deviceRefreshToken`，仅撤销同一安装密钥绑定的 grant family；重复退出幂等，不会影响云端实例的另一份授权。退出失败时客户端保留凭据，允许重试。
+
+用量入口为 AI Runtime 的 `POST /ai/v1/mobile/el-bot-account`。仅允许签名 envelope 内的 `account` 与 `transactions` action；后者可带 `offset:<n>` cursor。服务器从在线校验的 entitlement 派生用户，不接受客户端的用户 ID、应用 ID 或扣点金额。此传输只读，不注册模型调用、提交或取消任务的操作。

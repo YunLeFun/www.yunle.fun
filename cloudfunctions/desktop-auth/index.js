@@ -34,6 +34,7 @@ const {
   listDevices,
   refreshDeviceGrant,
   revokeDevice,
+  revokeRefreshGrant,
 } = require('./lib/devices')
 const { reserveProof } = require('./lib/proof-store')
 const {
@@ -222,6 +223,8 @@ async function handleHttp(payload, event, now) {
         ...entitlement,
       }
     }
+    case 'revokeEntitlement':
+      return revokeRefreshGrant(db, { deviceRefreshToken: payload.deviceRefreshToken, proofJkt: proof.jkt }, { now })
     case 'refreshEntitlement':
       return refreshDeviceGrant(db, {
         deviceRefreshToken: payload.deviceRefreshToken,
