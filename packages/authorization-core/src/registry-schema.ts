@@ -21,6 +21,7 @@ const ID_RE = /^[A-Z0-9][\w.:-]{0,191}$/i
 const ALLOWED_SCOPES = new Set([
   'identity:bootstrap',
   'membership:read',
+  'ai:theme',
   'ai:writing',
   'ai:agent',
   'ai:usage',
@@ -136,6 +137,8 @@ function parseAdapter(value: unknown, environment: RegistryEnvironment, path: st
   })
   if (allowedScopes.includes('ai:writing') && (kind !== 'device' || consent !== 'explicit'))
     fail('registry_writing_consent_invalid', path)
+  if (allowedScopes.includes('ai:theme') && (kind !== 'device' || consent !== 'explicit'))
+    fail('registry_theme_consent_invalid', path)
   if (allowedScopes.includes('ai:agent') && (kind !== 'device' || consent !== 'explicit'))
     fail('registry_agent_consent_invalid', path)
   if (allowedScopes.includes('ai:usage') && (kind !== 'device' || consent !== 'explicit'))
