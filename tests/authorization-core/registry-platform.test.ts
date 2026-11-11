@@ -94,6 +94,13 @@ function signedEnvelope(input: { generation?: number } = {}) {
 }
 
 describe('registry platform schema and canonicalization', () => {
+  it('allows usage reads only through an explicit native device adapter', () => {
+    const client = { clientId: 'el-bot-ios', appId: 'el-bot', displayName: '小云 iOS', status: 'active' as const, adapters: [{ kind: 'device' as const, consent: 'explicit' as const, allowedScopes: ['membership:read', 'ai:usage'] }] }
+    expect(parseClientRegistrySnapshot(registry({ clients: [client] }), { environment: 'production' }).clients[0].adapters[0].allowedScopes).toContain('ai:usage')
+    expect(() => parseClientRegistrySnapshot(registry({ clients: [{ ...client, adapters: [{ ...client.adapters[0], consent: 'trusted' }] }] }), { environment: 'production' })).toThrowError(expect.objectContaining({ code: 'registry_usage_consent_invalid' }))
+    expect(() => parseClientRegistrySnapshot(registry({ clients: [{ ...client, adapters: [{ ...registry().clients[0].adapters[0], allowedScopes: ['ai:usage'] }] }] }), { environment: 'production' })).toThrowError(expect.objectContaining({ code: 'registry_usage_consent_invalid' }))
+  })
+
   it('normalizes set-like values and produces byte-stable hashes', () => {
     const first = registry({
       clients: [

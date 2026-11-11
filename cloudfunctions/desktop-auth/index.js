@@ -34,6 +34,7 @@ const {
   listDevices,
   refreshDeviceGrant,
   revokeDevice,
+  revokeRefreshGrant,
 } = require('./lib/devices')
 const { reserveProof } = require('./lib/proof-store')
 const {
@@ -222,6 +223,8 @@ async function handleHttp(payload, event, now) {
         ...entitlement,
       }
     }
+    case 'revokeEntitlement':
+      return revokeRefreshGrant(db, { deviceRefreshToken: payload.deviceRefreshToken, proofJkt: proof.jkt }, { now })
     case 'refreshEntitlement':
       return refreshDeviceGrant(db, {
         deviceRefreshToken: payload.deviceRefreshToken,
@@ -340,6 +343,15 @@ exports.main = async (event) => {
     return isHttp ? httpResponse(200, result) : result
   }
   catch (error) {
+    // The consent page opts into business errors it can recover from. Legacy
+    // SDK callers and unexpected failures retain the existing throw contract.
+    if (!isHttp && payload.errorFormat === 'result'
+      && ['describeDevice', 'approveDevice', 'denyDevice'].includes(payload.action)
+      && error instanceof AuthorizationError
+      && ['device_code_expired', 'device_code_not_pending', 'device_code_used', 'login_required'].includes(error.code)) {
+      console.warn('[desktop-auth] device consent rejected:', payload.action, error.code)
+      return { ok: false, error: { code: error.code } }
+    }
     console.error('[desktop-auth] request failed:', payload.action, error?.code || error?.message)
     if (isHttp) {
       const code = error?.code || 'server_error'

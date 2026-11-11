@@ -98,6 +98,10 @@ onMounted(() => {
     <LazyOnboardingModal v-if="showAccountExtras" />
   </ClientOnly>
 
+  <ClientOnly>
+    <LazyAchievementsCloudAchievementSession v-if="showAccountExtras" />
+  </ClientOnly>
+
   <!-- 戳云满 10 / 50 / 100 下时的「云朵收藏家」小徽章 -->
   <ClientOnly>
     <LazyCloudCollectorBadge

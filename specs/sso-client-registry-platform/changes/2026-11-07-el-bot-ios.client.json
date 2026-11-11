@@ -1,0 +1,13 @@
+{
+  "clientId": "el-bot-ios",
+  "appId": "el-bot",
+  "displayName": "小云 iOS",
+  "status": "active",
+  "adapters": [
+    {
+      "kind": "device",
+      "consent": "explicit",
+      "allowedScopes": ["membership:read", "ai:usage"]
+    }
+  ]
+}

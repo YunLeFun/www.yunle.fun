@@ -4,6 +4,7 @@ import {
   issueDeviceGrant,
   refreshDeviceGrant,
   revokeDevice,
+  revokeRefreshGrant,
 } from '../../cloudfunctions/desktop-auth/lib/devices.js'
 import {
   DEVICES_COLLECTION,
@@ -135,6 +136,16 @@ describe('device refresh grants', () => {
 })
 
 describe('device revocation', () => {
+  it('lets only the matching installation revoke its own refresh family', async () => {
+    const db = makeFakeDb({}, { rejectDocumentIdWrites: true })
+    const { deviceRefreshToken } = await issue(db)
+    await expect(revokeRefreshGrant(db, { deviceRefreshToken, proofJkt: 'another-key' }, { now: NOW + 1 })).rejects.toMatchObject({ code: 'invalid_grant' })
+    expect(db._store[DEVICES_COLLECTION][0].status).toBe('active')
+    await expect(revokeRefreshGrant(db, { deviceRefreshToken, proofJkt: GRANT.deviceJkt }, { now: NOW + 2 })).resolves.toEqual({ revoked: true })
+    await expect(revokeRefreshGrant(db, { deviceRefreshToken, proofJkt: GRANT.deviceJkt }, { now: NOW + 3 })).resolves.toEqual({ revoked: true })
+    expect(db._store[REFRESH_TOKENS_COLLECTION][0].status).toBe('revoked')
+  })
+
   it('revokes by server-known client and device identifiers', async () => {
     const db = makeFakeDb({}, { rejectDocumentIdWrites: true })
     await issue(db)

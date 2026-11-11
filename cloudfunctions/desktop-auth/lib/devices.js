@@ -164,6 +164,21 @@ async function refreshDeviceGrant(db, input, options = {}) {
   }
 }
 
+/** Revoke only the refresh family bound to this installation; no browser session is used. */
+async function revokeRefreshGrant(db, { deviceRefreshToken, proofJkt }, options = {}) {
+  if (typeof deviceRefreshToken !== 'string' || !deviceRefreshToken || deviceRefreshToken.length > 4096 || !proofJkt)
+    throw new AuthorizationError('invalid_request')
+  return db.runTransaction(async (transaction) => {
+    const record = recordFromResult(await transaction.collection(REFRESH_TOKENS_COLLECTION).doc(hash(deviceRefreshToken)).get())
+    if (!record)
+      return { revoked: true }
+    if (record.deviceJkt !== proofJkt)
+      throw new AuthorizationError('invalid_grant')
+    await revokeFamily(transaction, record.grantId, options.now ?? Date.now())
+    return { revoked: true }
+  })
+}
+
 async function revokeDevice(db, { uid, clientId, deviceId }, options = {}) {
   const now = options.now ?? Date.now()
   return db.runTransaction(async (transaction) => {
@@ -197,5 +212,6 @@ module.exports = {
   issueDeviceGrant,
   refreshDeviceGrant,
   revokeDevice,
+  revokeRefreshGrant,
   listDevices,
 }

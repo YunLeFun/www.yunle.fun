@@ -313,6 +313,9 @@ async function activateMembership(db, { userId, planId, cycle, now, outTradeNo }
  * @throws orderType 未知或发放失败
  */
 async function grantOrderEntitlement(db, { order, now, entitlementAt }) {
+  // IAP 必须重新核对 Apple 交易，并以订单、权益和凭据的单事务路径发放。
+  if (order.payType === 'iap')
+    throw new Error('IAP 订单请通过 App Store 恢复购买核对')
   // 幂等：订单已发放过（grantedAt 命中）→ 跳过。与底层发放幂等（会员 lastOrderId /
   // 云币 refId）构成双保险，让回调重放、对账补发都能安全重入。
   if (order.grantedAt)

@@ -151,8 +151,8 @@ catalogs:
       specifier: ^3.3.12
       version: 3.3.12
     zod:
-      specifier: ^4.6.5
-      version: 4.6.5
+      specifier: ^4.6.6
+      version: 4.6.7
 
 overrides:
   '@bomb.sh/tab': 0.0.22
@@ -203,7 +203,7 @@ importers:
         version: 1.50.0(vue@3.5.43(typescript@6.0.3))
       '@nuxt/ui':
         specifier: 'catalog:'
-        version: 4.11.3(f4844fd8e41eedab5a47cc7096b975c4)
+        version: 4.11.3(aa872a4278eac3bbcfa701e0f52b00ab)
       '@nuxtjs/mdc':
         specifier: 'catalog:'
         version: 0.23.2(magic-string@1.1.0)(magicast@0.5.3)(oxc-parser@0.152.0)(rolldown@1.2.12)(supports-color@10.2.2)(unplugin@3.3.0(esbuild@0.28.1)(rolldown@1.2.12)(rollup@4.62.2)(vite@8.3.2(@types/node@26.6.2)(esbuild@0.28.1)(jiti@2.7.0)(sass@1.105.1)(terser@5.49.0)(yaml@2.9.0)))
@@ -266,7 +266,7 @@ importers:
         version: 0.4.0(typescript@6.0.3)(vue@3.5.43(typescript@6.0.3))
       zod:
         specifier: 'catalog:'
-        version: 4.6.5
+        version: 4.6.7
     devDependencies:
       '@antfu/eslint-config':
         specifier: 'catalog:'
@@ -8024,6 +8024,9 @@ packages:
   zod@4.6.5:
     resolution: {integrity: sha512-v5l/aFXZQeai4awLbOpSoHecE9UiMrnfx75tEXLjNonXVARxQ5mOeipTjROUchszUNCqnE+hqAMujRsRHsut2Q==}
 
+  zod@4.6.7:
+    resolution: {integrity: sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==}
+
   zwitch@2.0.4:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
 
@@ -9692,7 +9695,7 @@ snapshots:
       - vite
       - webpack
 
-  '@nuxt/ui@4.11.3(f4844fd8e41eedab5a47cc7096b975c4)':
+  '@nuxt/ui@4.11.3(aa872a4278eac3bbcfa701e0f52b00ab)':
     dependencies:
       '@floating-ui/dom': 1.8.0
       '@iconify/vue': 5.0.3(vue@3.5.43(typescript@6.0.3))
@@ -9763,7 +9766,7 @@ snapshots:
       '@internationalized/number': 3.6.7
       valibot: 1.4.2(typescript@6.0.3)
       vue-router: 5.2.0(@vue/compiler-sfc@3.5.43)(esbuild@0.28.1)(rolldown@1.2.12)(rollup@4.62.2)(vite@8.3.2(@types/node@26.6.2)(esbuild@0.28.1)(jiti@2.7.0)(sass@1.105.1)(terser@5.49.0)(yaml@2.9.0))(vue@3.5.43(typescript@6.0.3))
-      zod: 4.6.5
+      zod: 4.6.7
     transitivePeerDependencies:
       - '@azure/app-configuration'
       - '@azure/cosmos'
@@ -16936,6 +16939,9 @@ snapshots:
       compress-commons: 6.0.2
       readable-stream: 4.7.0
 
-  zod@4.6.5: {}
+  zod@4.6.5:
+    optional: true
+
+  zod@4.6.7: {}
 
   zwitch@2.0.4: {}

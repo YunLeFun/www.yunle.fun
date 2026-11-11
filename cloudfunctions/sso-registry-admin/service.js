@@ -50,7 +50,8 @@ function auditId(now, randomId) {
 }
 
 const APPROVAL_CODE_ALPHABET = '23456789ABCDEFGHJKMNPQRSTVWXYZ'
-const APPROVAL_TTL_MS = 30 * 60 * 1000
+const FEISHU_APPROVAL_TTL_MS = 24 * 60 * 60 * 1000
+const EMAIL_APPROVAL_TTL_MS = 30 * 60 * 1000
 
 function defaultApprovalCode(randomIndex = randomInt) {
   return Array.from(
@@ -626,21 +627,26 @@ function createRegistryAdminService(options) {
     const recipientHash = hmacHex(approvalPepper, `recipient\0${email.toLowerCase()}`)
     const codeMac = hmacHex(approvalPepper, `${approvalId}\0${code}`)
 
-    await store.transaction(async (transaction) => {
+    const expiresAt = await store.transaction(async (transaction) => {
       const current = await transaction.getApproval(approvalId)
       if (!current || !['delivery_pending', 'decision_pending', 'processing'].includes(current.status))
         throw new RegistryAdminError('approval_state_conflict')
+      const updatedAt = now()
+      // Downgrading to an emailed code cannot extend the existing approval.
+      const emailExpiresAt = Math.min(current.expiresAt, updatedAt + EMAIL_APPROVAL_TTL_MS)
       await transaction.updateApproval(approvalId, {
         channel: 'email',
         channelStatus: 'delivery_pending',
         status: 'delivery_pending',
+        expiresAt: emailExpiresAt,
         recipientHash,
         recipientMasked,
         codeMac,
         attempts: 0,
         maxAttempts: 5,
-        updatedAt: now(),
+        updatedAt,
       })
+      return emailExpiresAt
     })
 
     let delivery
@@ -659,7 +665,7 @@ function createRegistryAdminService(options) {
           securityHash: approval.securityHash,
           requester: meta.operator,
           changeReason: meta.changeReason,
-          expiresAt: approval.expiresAt,
+          expiresAt,
         })
         delivery = {
           ...candidate,
@@ -695,7 +701,7 @@ function createRegistryAdminService(options) {
           channel: 'email',
           deliveryFailed: true,
           status: 'delivery_failed',
-          expiresAt: approval.expiresAt,
+          expiresAt,
         }
       }
       throw new RegistryAdminError('approval_delivery_failed')
@@ -726,11 +732,11 @@ function createRegistryAdminService(options) {
           approverUid: approval.approverUid,
           channel: 'email',
           recipientHash,
-          expiresAt: approval.expiresAt,
+          expiresAt,
         },
       })
     })
-    return { approvalId, status: 'pending', channel: 'email', recipientMasked, expiresAt: approval.expiresAt }
+    return { approvalId, status: 'pending', channel: 'email', recipientMasked, expiresAt }
   }
 
   async function consumeAdminDecisionTransaction(transaction, approvalId, approval, checkedAt) {
@@ -1127,8 +1133,8 @@ function createRegistryAdminService(options) {
 
       const approvalId = `approval:${randomId()}`
       const createdAt = now()
-      const expiresAt = createdAt + APPROVAL_TTL_MS
       const preferFeishu = feishuApprovalEnabled && typeof sendApprovalCard === 'function'
+      const expiresAt = createdAt + (preferFeishu ? FEISHU_APPROVAL_TTL_MS : EMAIL_APPROVAL_TTL_MS)
       const approval = await store.transaction(async (transaction) => {
         const draft = await transaction.getDraft(id)
         if (!draft)
@@ -1500,9 +1506,9 @@ function createRegistryAdminService(options) {
         const expired = await store.transaction(async (transaction) => {
           const approval = await transaction.getApproval(candidate.approvalId)
           if (!approval
-            || !['delivery_pending', 'pending', 'decision_pending'].includes(approval.status)
+            || !['delivery_pending', 'pending'].includes(approval.status)
             || approval.expiresAt > scanAt) {
-            return false
+            return null
           }
           await transaction.updateApproval(candidate.approvalId, {
             channelStatus: 'terminal',
@@ -1531,6 +1537,8 @@ function createRegistryAdminService(options) {
           })
           return Boolean(approval.feishuMessageId)
         })
+        if (expired === null)
+          continue
         approvalsExpired++
         if (expired)
           await syncApprovalCard(candidate.approvalId, { status: 'expired' })
@@ -1548,7 +1556,12 @@ function createRegistryAdminService(options) {
               && Number(approval.decision.leaseExpiresAt || 0) <= scanAt)
           if (!claimable)
             return null
-          if (approval.expiresAt <= scanAt) {
+          // Final decisions retain their submission deadline across timer delays
+          // and lease recovery. Email fallback still requires an unexpired approval.
+          const receivedAt = ['approve', 'reject'].includes(approval.decision.action)
+            ? approval.decision.submittedAt
+            : scanAt
+          if (!Number.isSafeInteger(receivedAt) || approval.expiresAt <= receivedAt) {
             await transaction.updateApproval(candidate.approvalId, {
               channelStatus: 'terminal',
               status: 'expired',

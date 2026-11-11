@@ -1,0 +1,13 @@
+{
+  "clientId": "el-bot-cloud",
+  "appId": "el-bot",
+  "displayName": "小云云端 AI",
+  "status": "active",
+  "adapters": [
+    {
+      "kind": "device",
+      "allowedScopes": ["membership:read", "ai:agent"],
+      "consent": "explicit"
+    }
+  ]
+}

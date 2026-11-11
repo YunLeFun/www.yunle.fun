@@ -24,6 +24,7 @@ import { useTcbAuthSession } from '~/composables/auth/useAuthSession'
  */
 const { user, authStatus, authReady, logout, checkAuthStatus } = useTcbAuthSession()
 const coin = useCoin()
+const { equipped: equippedCloud } = useCloudAchievementDisplay()
 const route = useRoute()
 
 const isDesktop = useMediaQuery('(min-width: 768px)')
@@ -174,6 +175,7 @@ onBeforeUnmount(() => {
               :alt="user.nickname || user.login || 'User'"
               size="xs"
               :is-member="coin.isMember.value"
+              :equipped-cloud="equippedCloud"
               class="ylf-user-menu-trigger__avatar"
             />
             <span class="hidden w-16 truncate text-sm lg:inline-block">
@@ -206,6 +208,7 @@ onBeforeUnmount(() => {
           <UserAccountPanel
             :user="user"
             :is-member="coin.isMember.value"
+            :equipped-cloud="equippedCloud"
             :coin-balance="coin.balance.value"
             :coin-loading="coin.loading.value && !coin.account.value"
             @close="closeSurfaces"
@@ -233,6 +236,7 @@ onBeforeUnmount(() => {
             :alt="user.nickname || user.login || 'User'"
             size="xs"
             :is-member="coin.isMember.value"
+            :equipped-cloud="equippedCloud"
             class="ylf-user-menu-trigger__avatar"
           />
         </Button>
@@ -251,6 +255,7 @@ onBeforeUnmount(() => {
         <UserAccountPanel
           :user="user"
           :is-member="coin.isMember.value"
+          :equipped-cloud="equippedCloud"
           :coin-balance="coin.balance.value"
           :coin-loading="coin.loading.value && !coin.account.value"
           variant="drawer"

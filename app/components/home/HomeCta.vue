@@ -216,6 +216,7 @@ function release(event: PointerEvent) {
         >
           <AppButton
             :to="link.to"
+            :data-cloud-link="link.to === '/explore' ? '' : undefined"
             :label="link.label"
             :icon="link.icon"
             :trailing-icon="link.trailingIcon"

@@ -307,6 +307,85 @@ async function creditCoin(db, { userId, appId, amount, type = 'recharge', refId,
 }
 
 /**
+ * 为 IAP 外层事务定位历史钱包 / 流水。只查询文档 ID，不据事务外快照发放。
+ * creditCoinInTransaction 必须在同一个外层事务内重新读取这些文档。
+ */
+async function prepareCoinCredit(db, { userId, refId, type = 'recharge' }) {
+  async function findOne(collection, query) {
+    const result = await db.collection(collection).where(query).limit(2).get()
+    assertDatabaseResult(result)
+    const matches = Array.isArray(result?.data) ? result.data : []
+    if (matches.length > 1)
+      throw new Error('IAP 云币文档重复，需人工核对')
+    return matches[0] || null
+  }
+  const knownWallet = await findOne(WALLET_COLLECTION, { userId })
+  const knownTx = await findOne(COIN_TX_COLLECTION, { userId, refId, type })
+  return {
+    walletId: walletDocId(userId, knownWallet),
+    transactionId: coinTxDocId({ userId, type, refId }),
+    legacyTransactionId: knownTx?._id || null,
+  }
+}
+
+/** 与调用方的订单凭据同事务提交；不启动嵌套事务，也不吞掉数据库错误。 */
+async function creditCoinInTransaction(transaction, input, prepared) {
+  const { userId, appId, amount, type = 'recharge', refId, meta, now } = input
+  if (!userId || !refId || !Number.isInteger(amount) || amount <= 0)
+    throw new Error('IAP 云币发放参数非法')
+  const txRef = transaction.collection(COIN_TX_COLLECTION).doc(prepared.transactionId)
+  const existing = await readTransactionDoc(txRef)
+  const legacy = prepared.legacyTransactionId && prepared.legacyTransactionId !== prepared.transactionId
+    ? await readTransactionDoc(transaction.collection(COIN_TX_COLLECTION).doc(prepared.legacyTransactionId))
+    : null
+  if (prepared.legacyTransactionId && !existing && !legacy)
+    throw new Error('IAP 历史云币流水发生变化，需重新核对')
+  if (existing && legacy)
+    throw new Error('IAP 云币流水存在重复记录，需人工核对')
+  const previous = existing || legacy
+  assertCoinTxMatch(previous, { userId, type, refId })
+  if (previous) {
+    if (previous.amount !== amount || previous.appId !== appId)
+      throw new Error('IAP 云币流水与订单不一致')
+    return { balance: previous.balanceAfter, deduped: true }
+  }
+  const walletRef = transaction.collection(WALLET_COLLECTION).doc(prepared.walletId)
+  const current = await readTransactionDoc(walletRef)
+  assertWalletOwner(current, userId)
+  const balance = walletBalance(current) + amount
+  if (!Number.isSafeInteger(balance))
+    throw new Error('IAP 云币余额超出安全范围')
+  if (current) {
+    await updateTransactionDoc(walletRef, {
+      balance,
+      version: walletVersion(current) + 1,
+      updatedAt: now,
+    })
+  }
+  else {
+    await setTransactionDoc(walletRef, {
+      userId,
+      balance,
+      reserved: 0,
+      version: 1,
+      createdAt: now,
+      updatedAt: now,
+    })
+  }
+  await setTransactionDoc(txRef, coinTxData({
+    userId,
+    appId,
+    type,
+    amount,
+    balanceAfter: balance,
+    refId,
+    meta,
+    now,
+  }))
+  return { balance }
+}
+
+/**
  * 云币扣减（按次/按量消费）。
  *
  * 幂等：传入 bizId 时，重复调用只扣一次（按 (userId, bizId, 'consume') 查重）。
@@ -716,6 +795,8 @@ module.exports = {
   getBalance,
   findTxByRef,
   creditCoin,
+  prepareCoinCredit,
+  creditCoinInTransaction,
   deductCoin,
   reserveCoin,
   commitCoinReservation,

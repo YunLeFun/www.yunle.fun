@@ -1,0 +1,62 @@
+/* 天空、云海、薄雾和铁轨共用的色板。Shader 从这些变量读取 RGB。 */
+:root {
+  --cloud-sky-top: #2f82e0;
+  --cloud-sky-horizon: #b7ddf6;
+  --cloud-light: #f5faff;
+  --cloud-shade: #a9cde9;
+  --cloud-deep: #638eaf;
+  --cloud-rail: #405a74;
+}
+
+:root[data-sky-phase='dawn'] {
+  --cloud-sky-top: #768ec7;
+  --cloud-sky-horizon: #efcfdd;
+  --cloud-light: #fff0ed;
+  --cloud-shade: #c6b7d7;
+  --cloud-deep: #8d87ac;
+}
+
+:root[data-sky-phase='golden'] {
+  --cloud-sky-top: #607eb6;
+  --cloud-sky-horizon: #f1c8aa;
+  --cloud-light: #ffe6c1;
+  --cloud-shade: #e78f68;
+  --cloud-deep: #a05d60;
+  --cloud-rail: #644757;
+}
+
+:root[data-sky-phase='night'] {
+  --cloud-sky-top: #334c7e;
+  --cloud-sky-horizon: #b1c1dc;
+  --cloud-light: #e0e9f5;
+  --cloud-shade: #9eafcc;
+  --cloud-deep: #6b7c9e;
+  --cloud-rail: #485873;
+}
+
+:root.dark {
+  --cloud-sky-top: #30375e;
+  --cloud-sky-horizon: #9a91b5;
+  --cloud-light: #d3cadf;
+  --cloud-shade: #8985a5;
+  --cloud-deep: #565d7f;
+  --cloud-rail: #373e5b;
+}
+
+:root.dark[data-sky-phase='golden'] {
+  --cloud-sky-top: #42466e;
+  --cloud-sky-horizon: #ca9aa2;
+  --cloud-light: #f2d0b9;
+  --cloud-shade: #ba8e96;
+  --cloud-deep: #726981;
+  --cloud-rail: #4e455e;
+}
+
+:root.dark[data-sky-phase='night'] {
+  --cloud-sky-top: #202b51;
+  --cloud-sky-horizon: #66789c;
+  --cloud-light: #abbcd6;
+  --cloud-shade: #6e80a2;
+  --cloud-deep: #465779;
+  --cloud-rail: #303d5d;
+}

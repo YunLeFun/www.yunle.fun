@@ -122,4 +122,4 @@ catalog:
   vue: ^3.5.43
   vue-input-otp: ^0.4.0
   vue-tsc: ^3.3.12
-  zod: ^4.6.5
+  zod: ^4.6.6

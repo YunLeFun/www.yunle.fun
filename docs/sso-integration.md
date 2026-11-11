@@ -188,7 +188,7 @@ if (authorization?.ok) {
 
 `studio-web` 是 YunYouJun 的个人创作运营控制面，仅接受
 `https://studio.yunyoujun.cn/` 精确回跳。Provider 只完成身份引导；Studio BFF 继续用
-CloudBase UID 白名单限制唯一 owner。该客户端不出现在公开应用探索图谱中。其 development
+CloudBase UID 白名单限制唯一 owner。该客户端不出现在公开应用列表中。其 development
 Origin 与 redirect URI 为 `https://studio.yunle.localhost:3454` 和
 `https://studio.yunle.localhost:3454/`。
 
@@ -198,7 +198,7 @@ CloudBase session；治理成员与 scope 由 Support 服务端独立授权。
 
 `admin-web` 只完成 CloudBase UID 身份引导；管理员角色和权限继续由 Admin 的
 `admin_users.userId` 准入表即时判定。GitHub numeric ID 仅用于备用登录和高风险
-step-up。该控制面客户端不会出现在公开应用探索图谱或 Apps 工坊市场。
+step-up。该控制面客户端不会出现在公开应用列表或 Apps 工坊市场。
 
 `saier-web` 通过 Apps 宿主取得一次性 PKCE 授权码，或在独立浏览器中使用顶层回跳。
 Saier 直接调用 CloudBase storage、database 和 `saier-room-api`，因此采用授权码后建立

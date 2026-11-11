@@ -3,6 +3,7 @@
 @import 'tw-animate-css';
 @import '@yunlefun/ui/css';
 @import './design-tokens.css';
+@import './cloud-scene.css';
 
 @font-face {
   font-family: 'ZCOOL XiaoWei';
