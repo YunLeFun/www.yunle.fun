@@ -1,11 +1,7 @@
 minimumReleaseAgeExcludePrune: true
 minimumReleaseAgeExclude:
-  - '@yunlefun/sso@0.6.2'
   - nanoid@3.3.18
   - '@yunlefun/ui@0.0.7'
-  - '@lucide/vue@1.50.0'
-  - '@nuxt/test-utils@4.3.3'
-  - '@nuxt/ui@4.11.3'
   - '@nuxtjs/mdc@0.23.2'
   - '@types/node@24.19.1'
   - '@vue/language-core@3.3.12'
@@ -31,8 +27,8 @@ packages:
 # 将传递依赖固定到已修复版本，避免上游范围继续解析到有漏洞的版本。
 overrides:
   '@bomb.sh/tab': 0.0.22
-  '@nuxt/devtools': 3.3.1
   '@nuxt/test-utils': 'catalog:'
+  '@rollup/plugin-terser>serialize-javascript': 7.1.4
   '@tiptap/core': 3.30.5
   '@tiptap/extension-bubble-menu': 3.30.5
   '@tiptap/extension-code': 3.30.5
@@ -50,15 +46,16 @@ overrides:
   '@tiptap/starter-kit': 3.30.5
   '@tiptap/suggestion': 3.30.5
   '@tiptap/vue-3': 3.30.5
-  devalue: 5.9.2
+  devalue: 5.9.4
   fontless>esbuild: ^0.28.1
   js-yaml: 4.3.2
-  minimatch>brace-expansion: 5.0.9
+  minimatch>brace-expansion: 5.0.12
   nanoid: 3.3.18
   postcss: 8.5.23
-  qs: 6.16.0
+  prosemirror-view: 1.42.9
+  qs: 6.17.1
   svgo: 4.1.0
-  undici: 8.9.0
+  undici: 8.12.4
 
 allowBuilds:
   '@parcel/watcher': false
@@ -72,16 +69,16 @@ allowBuilds:
 catalog:
   '@antfu/eslint-config': ^9.5.1
   '@apple/app-store-server-library': ^3.1.0
-  '@cloudbase/js-sdk': ^3.10.1
-  '@cloudbase/node-sdk': ^3.18.3
-  '@cloudbase/signature-nodejs': ^2.0.0
-  '@iconify-json/lucide': ^1.2.138
+  '@cloudbase/js-sdk': ^3.11.0
+  '@cloudbase/node-sdk': ^3.18.7
+  '@cloudbase/signature-nodejs': ^2.2.2
+  '@iconify-json/lucide': ^1.2.153
   '@iconify-json/ri': ^1.2.10
-  '@lucide/vue': ^1.50.0
+  '@lucide/vue': ^1.71.0
   '@nuxt/eslint': ^1.17.0
-  '@nuxt/icon': ^2.5.1
-  '@nuxt/test-utils': ^4.3.3
-  '@nuxt/ui': ^4.11.3
+  '@nuxt/icon': ^2.6.2
+  '@nuxt/test-utils': ^4.4.0
+  '@nuxt/ui': ^4.12.0
   '@nuxtjs/i18n': ^10.6.0
   '@nuxtjs/mdc': ^0.23.2
   '@oxc-minify/binding-linux-x64-gnu': 0.152.0
@@ -94,7 +91,7 @@ catalog:
   '@vueuse/core': ^15.0.0
   '@vueuse/nuxt': ^15.0.0
   '@yunlefun/icons': ^0.3.1
-  '@yunlefun/sso': ^0.6.2
+  '@yunlefun/sso': ^0.7.0
   '@yunlefun/types': ^0.2.1
   '@yunlefun/ui': ^0.0.7
   '@yunlefun/vue': ^0.6.0
@@ -106,20 +103,20 @@ catalog:
   eslint-plugin-format: ^2.0.1
   h3: ^1.15.11
   happy-dom: ^21.0.4
-  nuxt: ^4.5.2
-  nuxt-auth-utils: ^0.5.30
+  nuxt: ^4.6.4
+  nuxt-auth-utils: ^0.6.2
   oxc-parser: 0.152.0
   qrcode: ^1.5.4
-  reka-ui: 2.10.5
+  reka-ui: 2.11.0
   sass: ^1.105.1
   tailwind-merge: ^3.7.0
-  tailwindcss: ^4.3.3
+  tailwindcss: ^4.3.5
   tw-animate-css: ^1.4.0
   # vue-tsc still loads typescript/lib/tsc, which TypeScript 7 no longer exports.
   typescript: ^6.0.3
-  vite: ^8.3.2
+  vite: ^8.3.7
   vitest: ^5.0.3
-  vue: ^3.5.43
+  vue: ^3.5.45
   vue-input-otp: ^0.4.0
   vue-tsc: ^3.3.12
-  zod: ^4.6.6
+  zod: ^4.6.7

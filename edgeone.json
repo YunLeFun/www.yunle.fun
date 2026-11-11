@@ -1,6 +1,6 @@
 {
   "buildCommand": "pnpm build",
-  "nodeVersion": "22.17.1",
+  "nodeVersion": "24.18.0",
   "redirects": [
     {
       "source": "$host",
