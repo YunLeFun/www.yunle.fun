@@ -44,3 +44,34 @@ describe('cms-desktop writing registration proposal', () => {
     expect(() => parseClientRegistrySnapshot(invalid, { environment: 'production' })).toThrow('registry_writing_consent_invalid')
   })
 })
+
+describe('cms-desktop theme registration proposal', () => {
+  const themeClient = JSON.parse(readFileSync(new URL('../../specs/sso-client-registry-platform/changes/2026-11-11-cms-theme-ai.client.json', import.meta.url), 'utf8'))
+  const snapshot = { schemaVersion: 1, issuer: 'https://www.yunle.fun', policyVersion: '2026-11-11-cms-theme-ai-v1', clients: [themeClient] }
+
+  it('allows writing and theme independently on the same explicitly consented device', () => {
+    const registry = parseClientRegistrySnapshot(snapshot, { environment: 'production' })
+    const core = createAuthorizationCore({ registry })
+    expect(core.authorize({ issuer: registry.issuer, clientId: 'cms-desktop', adapter: 'device', requestedScopes: ['membership:read', 'ai:theme'] }))
+      .toMatchObject({ appId: 'cms', consent: 'explicit', scopes: ['membership:read', 'ai:theme'] })
+    expect(core.authorize({ issuer: registry.issuer, clientId: 'cms-desktop', adapter: 'device', requestedScopes: ['membership:read', 'ai:writing'] }))
+      .toMatchObject({ scopes: ['membership:read', 'ai:writing'] })
+  })
+
+  it('does not infer theme permission from a writing-only registration', () => {
+    const writingOnly = structuredClone(themeClient)
+    writingOnly.adapters[0].allowedScopes = ['membership:read', 'ai:writing']
+    const registry = parseClientRegistrySnapshot({ ...snapshot, clients: [writingOnly] }, { environment: 'production' })
+    const core = createAuthorizationCore({ registry })
+    expect(() => core.authorize({ issuer: registry.issuer, clientId: 'cms-desktop', adapter: 'device', requestedScopes: ['ai:theme'] }))
+      .toThrow()
+  })
+
+  it.each(['trusted-device', 'explicit-oidc'])('rejects theme scope with %s', (variant) => {
+    const invalid = structuredClone(snapshot)
+    invalid.clients[0].adapters[0].allowedScopes = ['membership:read', 'ai:theme']
+    invalid.clients[0].adapters[0].consent = variant === 'trusted-device' ? 'trusted' : 'explicit'
+    invalid.clients[0].adapters[0].kind = variant === 'trusted-device' ? 'device' : 'oidc'
+    expect(() => parseClientRegistrySnapshot(invalid, { environment: 'production' })).toThrow('registry_theme_consent_invalid')
+  })
+})

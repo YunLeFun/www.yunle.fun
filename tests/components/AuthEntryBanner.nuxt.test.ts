@@ -1,10 +1,12 @@
 // @vitest-environment nuxt
 import type { VueWrapper } from '@vue/test-utils'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import AuthEntryBanner from '../../app/components/auth/AuthEntryBanner.vue'
 
 const wrappers: VueWrapper[] = []
+// Keep real routing and source verification without loading the login form.
+vi.mock('~/pages/login.vue', () => ({ default: { render: () => null } }))
 
 async function mount(redirect: string) {
   const wrapper = await mountSuspended(AuthEntryBanner, {

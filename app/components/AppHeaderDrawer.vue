@@ -27,6 +27,7 @@ const emit = defineEmits<{
 const { collect } = useCloudCollection()
 // 只读登录态展示账号卡片；登录恢复由全局中间件负责
 const user = useState<User | null>('auth_user', () => null)
+const { equipped: equippedCloud } = useCloudAchievementDisplay()
 </script>
 
 <template>
@@ -55,6 +56,7 @@ const user = useState<User | null>('auth_user', () => null)
           :src="user.avatar"
           :alt="user.nickname || user.login || '我'"
           size="lg"
+          :equipped-cloud="equippedCloud"
         />
         <span class="min-w-0 flex-1">
           <span class="block truncate text-sm font-semibold text-foreground">{{ user.nickname || user.login || '我的账号' }}</span>

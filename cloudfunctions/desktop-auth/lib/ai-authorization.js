@@ -6,6 +6,14 @@ const { reserveProof } = require('./proof-store')
 const { DEVICES_COLLECTION, isAnonUid } = require('./validation')
 
 const AI_SCOPE = 'ai:writing'
+const AI_SCOPES = Object.freeze({ writing: AI_SCOPE, theme: 'ai:theme' })
+const AI_ROUTES = Object.freeze({
+  '/ai/v1/desktop/writing': { clientId: 'cms-desktop', appId: 'cms', scope: AI_SCOPES.writing },
+  '/ai/v1/mobile/writing': { clientId: 'cms-ios', appId: 'cms', scope: AI_SCOPES.writing },
+  '/ai/v1/desktop/theme': { clientId: 'cms-desktop', appId: 'cms', scope: AI_SCOPES.theme },
+  '/ai/v1/el-bot/agent': { clientId: 'el-bot-cloud', appId: 'el-bot', scope: 'ai:agent' },
+  '/ai/v1/mobile/el-bot-account': { clientId: 'el-bot-ios', appId: 'el-bot', scope: 'ai:usage' },
+})
 
 function hash(value, encoding = 'base64url') {
   return createHash('sha256').update(value).digest(encoding)
@@ -24,8 +32,10 @@ async function authorizeAiRequest(db, input, options) {
   if (origin.protocol !== 'https:' || origin.origin !== options.canonicalOrigin)
     throw new AuthorizationError('runtime_unavailable')
   // POST-only RPC keeps the signed request envelope independent of JSON key order.
-  const clientId = input.path === '/ai/v1/mobile/writing' ? 'cms-ios' : input.path === '/ai/v1/desktop/writing' ? 'cms-desktop' : undefined
-  if (input.method !== 'POST' || !clientId
+  const route = typeof input.path === 'string' ? AI_ROUTES[input.path] : undefined
+  const clientId = route?.clientId
+  const requiredScope = route?.scope
+  if (input.method !== 'POST' || !clientId || !requiredScope
     || typeof input.entitlement !== 'string' || input.entitlement.length > 32_000
     || typeof input.proof !== 'string' || input.proof.length > 8_000
     || typeof input.requestHash !== 'string' || !/^[\w-]{43}$/.test(input.requestHash)) {
@@ -44,8 +54,8 @@ async function authorizeAiRequest(db, input, options) {
     now,
     clockSkewSeconds: 0,
   })
-  if (claims.app_id !== 'cms' || isAnonUid(claims.sub) || claims.sub.length > 256
-    || !Array.isArray(claims.scope) || !claims.scope.includes(AI_SCOPE)
+  if (claims.app_id !== route.appId || isAnonUid(claims.sub) || claims.sub.length > 256
+    || !Array.isArray(claims.scope) || !claims.scope.includes(requiredScope)
     || typeof claims.grant_id !== 'string' || !claims.grant_id || claims.grant_id.length > 128
     || !Number.isSafeInteger(claims.iat) || claims.iat > Math.floor(now / 1000)
     || !Number.isSafeInteger(claims.exp) || claims.exp <= claims.iat || claims.exp - claims.iat > 7 * 24 * 3600) {
@@ -56,17 +66,17 @@ async function authorizeAiRequest(db, input, options) {
   const device = Array.isArray(data) ? data[0] : data
   if (!device || device.status !== 'active' || device.revokedAt
     || device.uid !== claims.sub || device.issuer !== claims.iss
-    || device.clientId !== clientId || device.appId !== 'cms'
+    || device.clientId !== clientId || device.appId !== route.appId
     || device.deviceId !== proof.jkt || device.deviceJkt !== proof.jkt
     || device.grantId !== claims.grant_id
-    || !Array.isArray(device.scopes) || !device.scopes.includes(AI_SCOPE)
+    || !Array.isArray(device.scopes) || !device.scopes.includes(requiredScope)
     || claims.scope.some(scope => !device.scopes.includes(scope))) {
     throw new AuthorizationError('grant_revoked')
   }
   options.registry.reauthorize(device)
   await options.assertActiveAccount(claims.sub)
   await reserveProof(db, proof, { now })
-  return { uid: claims.sub, clientId, appId: 'cms', deviceJkt: proof.jkt, grantId: device.grantId, scope: AI_SCOPE }
+  return { uid: claims.sub, clientId, appId: route.appId, deviceJkt: proof.jkt, grantId: device.grantId, scope: requiredScope }
 }
 
-module.exports = { AI_SCOPE, authorizeAiRequest }
+module.exports = { AI_SCOPE, AI_SCOPES, authorizeAiRequest }

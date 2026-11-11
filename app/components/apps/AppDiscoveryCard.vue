@@ -77,6 +77,7 @@ function updateSpotlight(event: PointerEvent) {
           target="_blank"
           rel="noopener noreferrer"
           class="app-discovery-card__external-link"
+          @click="trackCloudAchievement({ kind: 'explore', appId: app._id })"
         >
           打开应用
           <Icon name="i-lucide-external-link" aria-hidden="true" />

@@ -1,3 +1,4 @@
+import type { CloudAchievement } from '../../app/types/cloud-achievements'
 // @vitest-environment nuxt
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { describe, expect, it } from 'vitest'
@@ -7,6 +8,19 @@ const envId = 'yunlefun-8g7ybcxc7345c490'
 const bucket = `7975-${envId}-1325586649`
 
 describe('memberAvatar', () => {
+  it('shows the supplied owner cosmetic alongside membership and removes it reactively', async () => {
+    const cloud: CloudAchievement = { id: 'rainbow-cloud', name: '彩虹云', description: '', effect: 'rainbow', condition: '', goal: 50, progress: 50, unlockedAt: 100 }
+    const wrapper = await mountSuspended(MemberAvatar, { props: { alt: 'Alice', isMember: true, equippedCloud: cloud } })
+    expect(wrapper.get('[aria-label="佩戴云朵：彩虹云"]').attributes('data-cloud-effect')).toBe('rainbow')
+    expect(wrapper.find('[aria-label="云乐坊会员"]').exists()).toBe(true)
+    await wrapper.setProps({ equippedCloud: null })
+    expect(wrapper.find('.member-avatar__cloud').exists()).toBe(false)
+    expect(wrapper.find('[aria-label="云乐坊会员"]').exists()).toBe(true)
+    await wrapper.setProps({ equippedCloud: { ...cloud, unlockedAt: null } })
+    expect(wrapper.find('.member-avatar__cloud').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
   it('renders a persistent CloudBase avatar reference as a public URL', async () => {
     const fileID = `cloud://${envId}.${bucket}/avatars/user-1.jpg`
     const wrapper = await mountSuspended(MemberAvatar, {

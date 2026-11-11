@@ -1,3 +1,11 @@
+<script setup lang="ts">
+import CloudJourneySky from '~/components/clouds/CloudJourneySky.vue'
+import { getCloudJourneyPath } from '~/utils/cloud-journey'
+
+const route = useRoute()
+const hasSky = computed(() => getCloudJourneyPath(route.path) !== null)
+</script>
+
 <template>
   <div>
     <a
@@ -10,10 +18,24 @@
     <AppHeader />
     <SiteAnnouncement />
 
-    <main id="main-content" tabindex="-1">
-      <slot />
+    <main id="main-content" :class="{ 'site-main--sky': hasSky }" tabindex="-1">
+      <CloudJourneySky />
+      <div class="site-main__content">
+        <slot />
+      </div>
     </main>
 
     <AppFooter />
   </div>
 </template>
+
+<style scoped>
+.site-main--sky {
+  position: relative;
+  isolation: isolate;
+}
+.site-main--sky > .site-main__content {
+  position: relative;
+  z-index: 1;
+}
+</style>

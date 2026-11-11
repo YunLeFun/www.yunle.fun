@@ -10,31 +10,53 @@ import { makeFakeDb } from '../_fixtures/wxpay.mjs'
 const NOW = 1_700_000_000_000
 const ORIGIN = 'https://runtime.example.test'
 const PATH = '/ai/v1/desktop/writing'
+const THEME_PATH = '/ai/v1/desktop/theme'
 const SECRET = 'dedicated-runtime-identity-secret-12345'
 const hash = value => createHash('sha256').update(value).digest('base64url')
 
-async function fixture(scopes = ['membership:read', 'ai:writing'], clientId = 'cms-desktop') {
+async function fixture(scopes = ['membership:read', 'ai:writing'], clientId = 'cms-desktop', path) {
   const db = makeFakeDb({}, { rejectDocumentIdWrites: true })
   const signing = generateKeyPairSync('ed25519')
   const installation = generateKeyPairSync('ec', { namedCurve: 'P-256' })
   const jwk = installation.publicKey.export({ format: 'jwk' })
   const jkt = deviceJwkThumbprint(jwk)
   const keyring = createEntitlementKeyring({ issuer: 'https://www.yunle.fun', active: { kid: 'test', privateKey: signing.privateKey }, verificationKeys: [], generateJti: randomUUID })
-  const grant = { subject: 'user_1', issuer: 'https://www.yunle.fun', clientId, appId: 'cms', scopes, deviceId: jkt, deviceJkt: jkt, registrationFingerprint: 'registry-1' }
+  const defaultPath = clientId === 'el-bot-ios' ? '/ai/v1/mobile/el-bot-account' : clientId === 'el-bot-cloud' ? '/ai/v1/el-bot/agent' : clientId === 'cms-ios' ? '/ai/v1/mobile/writing' : PATH
+  const grant = { subject: 'user_1', issuer: 'https://www.yunle.fun', clientId, appId: clientId.startsWith('el-bot-') ? 'el-bot' : 'cms', scopes, deviceId: jkt, deviceJkt: jkt, registrationFingerprint: 'registry-1' }
   await issueDeviceGrant(db, grant, { now: NOW, generateGrantId: () => 'grant-1' })
   const entitlement = keyring.signMembershipEntitlement({ ...grant, grantId: 'grant-1', now: NOW, ttlSeconds: 3600 })
+  const requestPath = path ?? defaultPath
   function input(overrides = {}, claims = {}, key = installation, token = entitlement) {
     const requestHash = hash('{"action":"catalog"}')
     const header = Buffer.from(JSON.stringify({ alg: 'ES256', typ: 'dpop+jwt', jwk: key.publicKey.export({ format: 'jwk' }) })).toString('base64url')
-    const body = Buffer.from(JSON.stringify({ htm: 'POST', htu: ORIGIN + (clientId === 'cms-ios' ? '/ai/v1/mobile/writing' : PATH), ath: hash(token), request_hash: requestHash, iat: NOW / 1000, jti: randomUUID(), ...claims })).toString('base64url')
+    const body = Buffer.from(JSON.stringify({ htm: 'POST', htu: ORIGIN + requestPath, ath: hash(token), request_hash: requestHash, iat: NOW / 1000, jti: randomUUID(), ...claims })).toString('base64url')
     const signature = sign('sha256', Buffer.from(`${header}.${body}`), { key: key.privateKey, dsaEncoding: 'ieee-p1363' }).toString('base64url')
-    return { serviceToken: SECRET, method: 'POST', path: clientId === 'cms-ios' ? '/ai/v1/mobile/writing' : PATH, entitlement: token, proof: `${header}.${body}.${signature}`, requestHash, ...overrides }
+    return { serviceToken: SECRET, method: 'POST', path: requestPath, entitlement: token, proof: `${header}.${body}.${signature}`, requestHash, ...overrides }
   }
   const options = { now: NOW, serviceToken: SECRET, canonicalOrigin: ORIGIN, keyring, proofVerifier: createProofOfPossessionVerifier(), registry: { reauthorize: vi.fn() }, assertActiveAccount: vi.fn() }
   return { db, grant, input, options }
 }
 
 describe('online writing device authorization', () => {
+  it('isolates read-only iOS usage consent from model execution and proof replay', async () => {
+    const f = await fixture(['membership:read', 'ai:usage'], 'el-bot-ios')
+    const request = f.input()
+    expect(await authorizeAiRequest(f.db, request, f.options)).toMatchObject({ clientId: 'el-bot-ios', appId: 'el-bot', scope: 'ai:usage' })
+    await expect(authorizeAiRequest(f.db, request, f.options)).rejects.toThrow()
+    await expect(authorizeAiRequest(f.db, f.input({ path: '/ai/v1/el-bot/agent' }, { htu: `${ORIGIN}/ai/v1/el-bot/agent` }), f.options)).rejects.toThrow()
+    const membership = await fixture(['membership:read'], 'el-bot-ios')
+    await expect(authorizeAiRequest(membership.db, membership.input(), membership.options)).rejects.toMatchObject({ code: 'ai_scope_required' })
+  })
+
+  it('isolates el-bot consent, audience and billing attribution from CMS', async () => {
+    const f = await fixture(['membership:read', 'ai:agent'], 'el-bot-cloud')
+    expect(await authorizeAiRequest(f.db, f.input(), f.options)).toMatchObject({ uid: 'user_1', clientId: 'el-bot-cloud', appId: 'el-bot', scope: 'ai:agent' })
+    await expect(authorizeAiRequest(f.db, f.input({ path: PATH }, { htu: ORIGIN + PATH }), f.options)).rejects.toThrow()
+    const membership = await fixture(['membership:read'], 'el-bot-cloud')
+    await expect(authorizeAiRequest(membership.db, membership.input(), membership.options)).rejects.toMatchObject({ code: 'ai_scope_required' })
+    const writing = await fixture(['membership:read', 'ai:writing'], 'el-bot-cloud')
+    await expect(authorizeAiRequest(writing.db, writing.input(), writing.options)).rejects.toMatchObject({ code: 'ai_scope_required' })
+  })
   it('returns the same issuer UID after active account, registry and proof checks', async () => {
     const f = await fixture()
     expect(await authorizeAiRequest(f.db, f.input(), f.options)).toMatchObject({ uid: 'user_1', clientId: 'cms-desktop', appId: 'cms', grantId: 'grant-1', scope: 'ai:writing' })
@@ -98,5 +120,46 @@ describe('iOS AI grants', () => {
   it('does not upgrade membership-only iOS consent', async () => {
     const f = await fixture(['membership:read'], 'cms-ios')
     await expect(authorizeAiRequest(f.db, f.input(), f.options)).rejects.toMatchObject({ code: 'ai_scope_required' })
+  })
+})
+
+describe('desktop theme device authorization', () => {
+  it('requires the explicit ai:theme scope on the route, entitlement and device grant', async () => {
+    const f = await fixture(['membership:read', 'ai:theme'], 'cms-desktop', THEME_PATH)
+    expect(await authorizeAiRequest(f.db, f.input(), f.options)).toMatchObject({
+      uid: 'user_1',
+      clientId: 'cms-desktop',
+      scope: 'ai:theme',
+      grantId: 'grant-1',
+    })
+    expect(f.options.assertActiveAccount).toHaveBeenCalledWith('user_1')
+    expect(f.options.registry.reauthorize).toHaveBeenCalledOnce()
+  })
+
+  it('does not upgrade writing-only desktop or iOS grants into theme access', async () => {
+    const writing = await fixture(['membership:read', 'ai:writing'])
+    await expect(authorizeAiRequest(writing.db, writing.input({ path: THEME_PATH }, { htu: ORIGIN + THEME_PATH }), writing.options))
+      .rejects
+      .toMatchObject({ code: 'ai_scope_required' })
+    const ios = await fixture(['membership:read', 'ai:theme'], 'cms-ios')
+    await expect(authorizeAiRequest(ios.db, ios.input({ path: THEME_PATH }, { htu: ORIGIN + THEME_PATH }), ios.options))
+      .rejects
+      .toThrow()
+  })
+
+  it('rejects a theme claim when the device was granted only writing permission', async () => {
+    const f = await fixture(['membership:read', 'ai:theme'], 'cms-desktop', THEME_PATH)
+    f.db._store[DEVICES_COLLECTION][0].scopes = ['membership:read', 'ai:writing']
+    await expect(authorizeAiRequest(f.db, f.input(), f.options)).rejects.toMatchObject({ code: 'grant_revoked' })
+  })
+
+  it('keeps proof body, token and target binding on the theme route', async () => {
+    const f = await fixture(['membership:read', 'ai:theme'], 'cms-desktop', THEME_PATH)
+    await expect(authorizeAiRequest(f.db, f.input({ requestHash: hash('changed theme source') }), f.options))
+      .rejects
+      .toMatchObject({ code: 'proof_binding_invalid' })
+    await expect(authorizeAiRequest(f.db, f.input({}, { htu: ORIGIN + PATH }), f.options))
+      .rejects
+      .toMatchObject({ code: 'proof_target_invalid' })
   })
 })

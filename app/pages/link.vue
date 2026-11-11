@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { DeviceAuthorizationError, deviceAuthorizationResult } from '~/utils/device-authorization'
+
 /**
  * 设备授权页（/link）—— 桌面 / 本地应用登录的「浏览器授权」环节。
  *
@@ -20,7 +22,10 @@ const toast = useAppToast()
 /** scope → 人话权限描述 */
 const SCOPE_LABELS: Record<string, string> = {
   'membership:read': '读取你的会员等级与到期时间',
+  'ai:usage': '读取你的 AI 点数余额、累计消耗及小云的模型用量记录。此权限不能调用模型或扣除点数。',
   'ai:writing': '在你主动使用写作助手时发送文章给模型，并按实际用量扣除你的 AI 点数',
+  'ai:theme': '在你主动生成或调整主题时发送必要的主题源码与演示内容给模型，并按实际用量扣除你的 AI 点数',
+  'ai:agent': '允许此小云云端实例将对话和工具结果发送给模型，按实际用量扣除你的 AI 点数；连接此实例的手机、Mac 和 QQ 共用此授权，可在设备管理撤销',
 }
 
 type Status = 'input' | 'loading' | 'ready' | 'approving' | 'approved' | 'denied' | 'error'
@@ -43,8 +48,8 @@ const displayName = computed(() => user.value?.nickname || user.value?.login || 
 
 /** 调用 desktop-auth 云函数（携带浏览器登录态） */
 async function callDesktopAuth<T>(action: string, data: Record<string, unknown> = {}): Promise<T> {
-  const { result } = await app.callFunction({ name: 'desktop-auth', data: { action, ...data } })
-  return result as T
+  const { result } = await app.callFunction({ name: 'desktop-auth', data: { action, ...data, errorFormat: 'result' } })
+  return deviceAuthorizationResult<T>(result)
 }
 
 /** 拉取设备码对应的应用信息用于展示 */
@@ -70,6 +75,11 @@ async function approve() {
     status.value = 'approved'
   }
   catch (err: unknown) {
+    if (err instanceof DeviceAuthorizationError) {
+      status.value = 'error'
+      message.value = err.message
+      return
+    }
     status.value = 'ready'
     toast.add({ title: '授权失败', description: err instanceof Error ? err.message : '请重试', color: 'error' })
   }
@@ -79,7 +89,11 @@ async function deny() {
   try {
     await callDesktopAuth('denyDevice', { userCode: codeInput.value })
   }
-  catch {}
+  catch (err: unknown) {
+    status.value = 'error'
+    message.value = err instanceof Error ? err.message : '拒绝授权失败，请重试。'
+    return
+  }
   status.value = 'denied'
 }
 
@@ -148,16 +162,39 @@ onMounted(() => {
           该应用将获得以下权限：
         </p>
         <ul class="space-y-2">
-          <li v-for="s in device?.scope || []" :key="s" class="flex items-center gap-2 text-sm">
-            <Icon name="i-lucide-check" class="h-4 w-4 text-green-500" />
-            <span>{{ SCOPE_LABELS[s] || s }}</span>
+          <li v-for="s in device?.scope || []" :key="s" class="flex items-start gap-2 text-sm">
+            <Icon name="i-lucide-check" class="mt-0.5 h-4 w-4 shrink-0 text-green-500" />
+            <span class="min-w-0 leading-relaxed">{{ SCOPE_LABELS[s] || s }}</span>
           </li>
         </ul>
-        <p class="text-xs text-dimmed">
-          授权码：{{ codeInput.toUpperCase() }} · 设备：{{ device?.deviceName || '未命名设备' }}
-          · 客户端：{{ device?.clientId }}
-        </p>
       </div>
+
+      <dl class="divide-y divide-border/60 rounded-xl border border-border/60 bg-muted/40 px-3 text-left">
+        <div class="grid grid-cols-[4.5rem_minmax(0,1fr)] items-start gap-3 py-3">
+          <dt class="text-xs leading-6 text-muted-foreground">
+            授权码
+          </dt>
+          <dd class="min-w-0">
+            <code class="font-mono text-base font-semibold leading-6 tracking-widest text-foreground">{{ codeInput.toUpperCase() }}</code>
+          </dd>
+        </div>
+        <div class="grid grid-cols-[4.5rem_minmax(0,1fr)] items-start gap-3 py-3">
+          <dt class="text-xs leading-6 text-muted-foreground">
+            设备
+          </dt>
+          <dd class="min-w-0 text-sm leading-6 text-foreground [overflow-wrap:anywhere]">
+            {{ device?.deviceName || '未命名设备' }}
+          </dd>
+        </div>
+        <div class="grid grid-cols-[4.5rem_minmax(0,1fr)] items-start gap-3 py-3">
+          <dt class="text-xs leading-6 text-muted-foreground">
+            客户端 ID
+          </dt>
+          <dd class="min-w-0 font-mono text-xs leading-6 text-muted-foreground [overflow-wrap:anywhere]">
+            {{ device?.clientId }}
+          </dd>
+        </div>
+      </dl>
 
       <div class="grid grid-cols-2 gap-3">
         <AppButton color="neutral" variant="subtle" size="lg" block :disabled="status === 'approving'" @click="deny">

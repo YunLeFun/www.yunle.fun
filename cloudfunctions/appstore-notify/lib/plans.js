@@ -48,6 +48,24 @@ const IAP_PRODUCTS = Object.freeze({
   'fun.yunle.apps.member_year': Object.freeze({ orderType: 'membership', level: 'basic', billingCycle: 'year' }),
 })
 
+// Cook is a separate App Store application. These are proposed identifiers;
+// adding the catalog does not create ASC products or deploy a Cook function.
+const COOK_IAP_PRODUCTS = Object.freeze({
+  'fun.yunle.cook.member_month': Object.freeze({ orderType: 'membership', level: 'basic', billingCycle: 'month' }),
+  'fun.yunle.cook.member_year': Object.freeze({ orderType: 'membership', level: 'basic', billingCycle: 'year' }),
+})
+
+const IAP_APPLICATIONS = Object.freeze({
+  'fun.yunle.apps': Object.freeze({ appId: 'apps', products: IAP_PRODUCTS, allowLegacyOwner: true }),
+  'fun.yunle.cook': Object.freeze({ appId: 'cook', products: COOK_IAP_PRODUCTS, allowLegacyOwner: false }),
+})
+
+function getIapApplication(bundleId) {
+  if (typeof bundleId !== 'string' || !Object.hasOwn(IAP_APPLICATIONS, bundleId))
+    throw new Error('未登记的 IAP 应用')
+  return IAP_APPLICATIONS[bundleId]
+}
+
 const DAY_MS = 86_400_000
 
 /**
@@ -117,14 +135,17 @@ function getCustomCoinPlan(coin) {
  * @returns {{ orderType: string, packId?: string, level?: string, billingCycle?: string }}
  * @throws 未知商品时抛错
  */
-function getIapProduct(productId) {
-  const product = IAP_PRODUCTS[productId]
-  if (!product)
+function getIapProduct(productId, bundleId = 'fun.yunle.apps') {
+  const products = getIapApplication(bundleId).products
+  if (typeof productId !== 'string' || !Object.hasOwn(products, productId))
     throw new Error(`无效 IAP 商品: ${productId}`)
-  return product
+  return products[productId]
 }
 
 module.exports = {
+  COOK_IAP_PRODUCTS,
+  IAP_APPLICATIONS,
+  getIapApplication,
   PLAN_PRICES,
   MEMBERSHIP_PRICES,
   COIN_PACKS,

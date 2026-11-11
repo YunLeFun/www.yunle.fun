@@ -455,6 +455,7 @@ describe('sso-registry-admin service', () => {
       approvalId: approval.approvalId,
     })])
     const persisted = memory.snapshot().approvals.get(approval.approvalId)
+    expect(approval.expiresAt - persisted.createdAt).toBe(30 * 60_000)
     expect(persisted).toMatchObject({
       status: 'pending',
       approverUid: 'admin-uid',
@@ -501,12 +502,15 @@ describe('sso-registry-admin service', () => {
     }))
 
     expect(approval).toMatchObject({ channel: 'feishu', status: 'pending' })
+    const persisted = memory.snapshot().approvals.get(approval.approvalId)
+    expect(approval.expiresAt - persisted.createdAt).toBe(24 * 60 * 60_000)
     expect(emailResolved).toBe(false)
     expect(codeGenerated).toBe(false)
     expect(cards).toEqual([expect.objectContaining({
       approvalId: approval.approvalId,
       approverUid: 'admin-uid',
       baseCommitSha: '1'.repeat(40),
+      expiresAt: approval.expiresAt,
     })])
     expect(memory.snapshot().approvals.get(approval.approvalId)).toMatchObject({
       channel: 'feishu',
@@ -519,8 +523,10 @@ describe('sso-registry-admin service', () => {
   })
 
   it('activates email only after Feishu delivery definitively fails', async () => {
+    const clock = 1_785_700_000_000
     const emails = []
     const { memory, service } = setup({
+      now: () => clock,
       approvalPepper: 'registry-approval-pepper-with-32-bytes',
       approverUids: ['admin-uid'],
       feishuApprovalEnabled: true,
@@ -539,8 +545,8 @@ describe('sso-registry-admin service', () => {
       baseCommitSha: '2'.repeat(40),
     }))
 
-    expect(approval).toMatchObject({ channel: 'email', status: 'pending' })
-    expect(emails).toEqual([expect.objectContaining({ code: '23456789ABCD' })])
+    expect(approval).toMatchObject({ channel: 'email', status: 'pending', expiresAt: clock + 30 * 60_000 })
+    expect(emails).toEqual([expect.objectContaining({ code: '23456789ABCD', expiresAt: approval.expiresAt })])
     expect(memory.snapshot().approvals.get(approval.approvalId)).toMatchObject({
       channel: 'email',
       channelStatus: 'pending',
@@ -685,14 +691,17 @@ describe('sso-registry-admin service', () => {
   })
 
   it.each([
-    ['approve', 'consumed'],
-    ['reject', 'rejected'],
-    ['email_fallback', 'pending'],
-  ])('processes the %s decision asynchronously into %s', async (decision, expectedStatus) => {
+    { decision: 'approve', expectedStatus: 'consumed' },
+    { decision: 'reject', expectedStatus: 'rejected' },
+    { decision: 'email_fallback', expectedStatus: 'pending' },
+    { decision: 'email_fallback', expectedStatus: 'pending', remainingMs: 10 * 60_000 },
+  ])('processes $decision into $expectedStatus (remaining: $remainingMs)', async ({ decision, expectedStatus, remainingMs }) => {
+    let clock = 1_785_700_000_000
     let decisionClaims
     const emails = []
     const cardUpdates = []
     const { memory, service } = setup({
+      now: () => clock,
       approvalPepper: 'registry-approval-pepper-with-32-bytes',
       approverUids: ['admin-uid'],
       feishuApprovalEnabled: true,
@@ -730,6 +739,8 @@ describe('sso-registry-admin service', () => {
       externalIdentityHash: persisted.externalIdentityHash,
       jti: `decision-${decision}`,
     }
+    if (remainingMs !== undefined)
+      clock = approval.expiresAt - remainingMs
     await service.submitAdminApprovalDecision({ approvalProof: `proof-${decision}` })
 
     const processed = await service.processPendingAdminApprovalDecisions()
@@ -751,9 +762,11 @@ describe('sso-registry-admin service', () => {
       expect(memory.snapshot().intents.size).toBe(0)
     }
     if (decision === 'email_fallback') {
-      expect(emails).toEqual([expect.objectContaining({ code: '23456789ABCD' })])
+      const expiresAt = clock + (remainingMs ?? 30 * 60_000)
+      expect(emails).toEqual([expect.objectContaining({ code: '23456789ABCD', expiresAt })])
       expect(memory.snapshot().approvals.get(approval.approvalId)).toMatchObject({
         channel: 'email',
+        expiresAt,
         codeMac: expect.stringMatching(/^[a-f0-9]{64}$/),
       })
     }

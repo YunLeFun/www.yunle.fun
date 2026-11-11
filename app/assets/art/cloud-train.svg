@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="56" viewBox="0 0 256 56">
+  <!-- Two 128 × 56 tiles, with the rail at y=56. The lower coach panel carries the app name. -->
+  <defs>
+    <linearGradient id="body" x2="0" y2="1" gradientUnits="objectBoundingBox">
+      <stop stop-color="#54797d"/><stop offset=".46" stop-color="#325963"/><stop offset="1" stop-color="#244552"/>
+    </linearGradient>
+    <linearGradient id="roof" x2="0" y2="1">
+      <stop stop-color="#93a3a2"/><stop offset=".45" stop-color="#5f727a"/><stop offset="1" stop-color="#384d58"/>
+    </linearGradient>
+    <linearGradient id="glass" x2="1" y2="1">
+      <stop stop-color="#fff2bf"/><stop offset=".55" stop-color="#f7d29a"/><stop offset="1" stop-color="#c89b6e"/>
+    </linearGradient>
+    <linearGradient id="boiler" x2="0" y2="1">
+      <stop stop-color="#899d9c"/><stop offset=".22" stop-color="#4e7377"/><stop offset="1" stop-color="#243e49"/>
+    </linearGradient>
+    <g id="wheel">
+      <circle r="5" fill="#354954"/><circle r="3.3" fill="#87908c"/><circle r="1.5" fill="#425563"/>
+    </g>
+    <g id="driver">
+      <circle r="8.5" fill="#314653"/><circle r="6.3" fill="#b08a72"/>
+      <path d="M-6 0H6M0-6V6M-4.2-4.2l8.4 8.4M4.2-4.2l-8.4 8.4" stroke="#576773" stroke-width="1.6"/>
+      <circle r="2.4" fill="#d7c7a6"/>
+    </g>
+    <g id="pane">
+      <rect width="11" height="10.5" rx="1.7" fill="url(#glass)"/>
+      <path d="M.6 1h9.8" stroke="#fff1c9" stroke-opacity=".8"/>
+    </g>
+  </defs>
+  <path d="M0 45h128" stroke="#586878" stroke-width="2.5"/>
+  <path d="M8 45h111l-4 5H13z" fill="#4b5862"/>
+  <use href="#wheel" x="16" y="50"/><use href="#wheel" x="27" y="50"/>
+  <use href="#wheel" x="101" y="50"/><use href="#wheel" x="112" y="50"/>
+  <rect x="4" y="12" width="120" height="34" rx="2" fill="url(#body)"/>
+  <path d="M2 13q0-6 8-6h108q7 0 8 6l-1 2H3z" fill="url(#roof)"/>
+  <path d="M6 15.5h116M6 30h116M6 44h116" stroke="#c8ba92" stroke-width=".8"/>
+  <g transform="translate(9 17)">
+    <use href="#pane"/><use href="#pane" x="14"/><use href="#pane" x="28"/><use href="#pane" x="42"/>
+    <use href="#pane" x="56"/><use href="#pane" x="70"/><use href="#pane" x="84"/><use href="#pane" x="98"/>
+  </g>
+  <g transform="translate(128)">
+    <path d="M0 45h105l9 6H6z" fill="#334955"/>
+    <path d="M6 15h31v29H6z" fill="url(#body)"/>
+    <path d="M2 14q2-5 8-5h25q5 0 6 5v2H2z" fill="url(#roof)"/>
+    <path d="M10 19h8v11h-8zm12 0h9v11h-9z" fill="url(#glass)"/>
+    <path d="M7 34h28m-28 6h28" stroke="#caaf82"/>
+    <path d="M36 23q33-3 61-1 8 2 7 13 0 7-6 8H36z" fill="url(#boiler)"/>
+    <path d="M45 23v18m24-19v20m25-20v20" stroke="#c4ad83" stroke-width="2"/>
+    <path d="M49 21v-4a5 5 0 0 1 10 0v4zM78 21l-1-13h10l-1 13z" fill="#526673"/>
+    <path d="M75 7h14l-1.5 4h-11z" fill="#937f73"/><path d="M75 6h14v2H75z" fill="#c7b08a"/>
+    <rect x="99" y="21" width="7" height="7" rx="2" fill="#eacc99"/>
+    <path d="M5 44h104l-2 3H5z" fill="#b39277"/>
+    <use href="#driver" x="22" y="46"/><use href="#driver" x="44" y="46"/><use href="#driver" x="66" y="46"/>
+    <use href="#wheel" x="88" y="50"/><use href="#wheel" x="100" y="50"/>
+    <path d="M20 48l23-4 23 4" stroke="#d1bda0" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <path d="M103 39h7l12 13h-16z" fill="#596d72"/>
+    <path d="M109 43l6 7m-10-7 4 7" stroke="#b8ab96" stroke-width="1.5"/>
+  </g>
+</svg>

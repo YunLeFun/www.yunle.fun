@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import type { CloudAchievement } from '~/types/cloud-achievements'
 import { CloudIcon } from '@lucide/vue'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import AchievementCloud from '~/components/achievements/AchievementCloud.vue'
 
 /**
  * 带会员角标的头像。
@@ -15,6 +17,8 @@ const props = withDefaults(defineProps<{
   alt?: string
   size?: AvatarSize
   isMember?: boolean
+  /** Explicit owner cosmetic; never inferred from the viewer's account. */
+  equippedCloud?: CloudAchievement | null
   /** 角标描边色，应与所在背景一致（默认页面背景） */
   ringClass?: string
 }>(), {
@@ -30,16 +34,17 @@ const fallbackText = computed(() => {
 })
 
 const AVATAR: Record<AvatarSize, string> = {
-  '3xs': 'size-5',
-  '2xs': 'size-6',
-  'xs': 'size-7',
-  'sm': 'size-8',
-  'md': 'size-9',
-  'lg': 'size-10',
-  'xl': 'size-12',
-  '2xl': 'size-16',
-  '3xl': 'size-20',
+  '3xs': '1.25rem',
+  '2xs': '1.5rem',
+  'xs': '1.75rem',
+  'sm': '2rem',
+  'md': '2.25rem',
+  'lg': '2.5rem',
+  'xl': '3rem',
+  '2xl': '4rem',
+  '3xl': '5rem',
 }
+const visibleCloud = computed(() => props.equippedCloud?.unlockedAt != null ? props.equippedCloud : null)
 
 const CORNER: Record<AvatarSize, string> = {
   '3xs': 'size-2 -right-0.5 -bottom-0.5',
@@ -66,27 +71,60 @@ const ICON: Record<AvatarSize, string> = {
 </script>
 
 <template>
-  <div class="relative inline-flex shrink-0">
-    <Avatar :class="AVATAR[size]">
-      <AvatarImage
-        v-if="resolvedSrc"
-        :src="resolvedSrc"
-        :alt="alt || ''"
-      />
-      <AvatarFallback class="bg-secondary font-heading font-semibold text-primary">
-        {{ fallbackText }}
-      </AvatarFallback>
-    </Avatar>
+  <div class="member-avatar relative inline-flex shrink-0" :class="{ 'member-avatar--cloud': visibleCloud }" :style="{ '--avatar-base-size': AVATAR[size] }">
+    <span class="relative inline-flex">
+      <Avatar :style="{ width: 'var(--avatar-render-size)', height: 'var(--avatar-render-size)' }">
+        <AvatarImage
+          v-if="resolvedSrc"
+          :src="resolvedSrc"
+          :alt="alt || ''"
+        />
+        <AvatarFallback class="bg-secondary font-heading font-semibold text-primary">
+          {{ fallbackText }}
+        </AvatarFallback>
+      </Avatar>
+      <span
+        v-if="isMember"
+        class="ylf-member-mark absolute flex items-center justify-center rounded-full ring-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        :class="[CORNER[size], ringClass]"
+        title="云乐坊会员"
+        aria-label="云乐坊会员"
+        role="img"
+        tabindex="0"
+      >
+        <CloudIcon :class="ICON[size]" />
+      </span>
+    </span>
     <span
-      v-if="isMember"
-      class="ylf-member-mark absolute flex items-center justify-center rounded-full ring-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-      :class="[CORNER[size], ringClass]"
-      title="云乐坊会员"
-      aria-label="云乐坊会员"
+      v-if="visibleCloud"
+      class="member-avatar__cloud"
       role="img"
-      tabindex="0"
+      :title="`佩戴云朵：${visibleCloud.name}`"
+      :aria-label="`佩戴云朵：${visibleCloud.name}`"
+      :data-cloud-effect="visibleCloud.effect"
     >
-      <CloudIcon :class="ICON[size]" />
+      <AchievementCloud :effect="visibleCloud.effect" />
     </span>
   </div>
 </template>
+
+<style scoped>
+.member-avatar {
+  --avatar-render-size: var(--avatar-size, var(--avatar-base-size));
+}
+.member-avatar--cloud {
+  padding-inline-end: calc(var(--avatar-render-size) * 0.28);
+}
+.member-avatar__cloud {
+  position: absolute;
+  z-index: 1;
+  top: calc(var(--avatar-render-size) * -0.2);
+  left: calc(var(--avatar-render-size) * 0.64);
+  width: calc(var(--avatar-render-size) * 0.66);
+  height: calc(var(--avatar-render-size) * 0.66);
+  pointer-events: none;
+}
+.member-avatar__cloud :deep(.achievement-cloud) {
+  min-height: 0;
+}
+</style>

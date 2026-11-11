@@ -9,7 +9,8 @@
  *     无需回查 API 即可杜绝伪造回调。
  *
  * 环境分流（Apple 官方推荐）：先查生产环境，TransactionIdNotFound 再回退沙盒——
- * 审核期间 Apple 用沙盒账号测试生产包，服务端必须同时接受两个环境。
+ * 审核期间 Apple 用沙盒账号测试生产包，需识别两个环境；验签成功并不代表
+ * 可以向当前数据库发放权益。正式权益库拒绝 Sandbox，见 lib/iap.js。
  *
  * 依赖注入：clientFactory / verifierFactory 可在测试中替换，避免真实网络与证书链。
  *
