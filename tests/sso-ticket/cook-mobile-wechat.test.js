@@ -12,12 +12,8 @@ const appSecret = 'a'.repeat(32)
 const request = { origin: 'https://cook.yunyoujun.cn', authorization: '', ip: '192.0.2.1' }
 const bindingRequest = { ...request, authorization: 'Bearer current-session', deviceId: 'device-1' }
 const payload = (action = 'exchangeCookWeChatCode', code = 'wechat-one-time-code') => ({ action, clientId: 'cook-mobile', code })
-function websiteProfile(subject = unionId) {
-  return {
-    sub: uid,
-    status: 'ACTIVE',
-    providers: [{ id: 'wx_open', provider_user_id: subject }],
-  }
+function profile() {
+  return { sub: uid, status: 'ACTIVE' }
 }
 
 class FakeDatabase {
@@ -69,8 +65,8 @@ function setup() {
         throw new SsoRateLimitError()
       codes.add(key)
     }),
-    currentAccount: vi.fn(async () => websiteProfile()),
-    loadAccount: vi.fn(async () => ({ ...websiteProfile(), uid })),
+    currentAccount: vi.fn(async () => profile()),
+    loadAccount: vi.fn(async () => ({ ...profile(), uid })),
     requireAdmission: vi.fn(async () => {}),
     exchangeCode: vi.fn(async () => unionId),
     bindings: createCookWeChatBindingStore(db),
@@ -89,7 +85,7 @@ describe('cook native WeChat through Yunlefun SSO', () => {
     expect(() => cookWeChatAccountUrl({ TCB_ENV: 'bad.example/path' })).toThrow(expect.objectContaining({ reason: 'identity_unavailable' }))
   })
 
-  it('binds the authenticated website UID and mints for exactly that UID', async () => {
+  it('binds in the app without a website identity and mints for the original session UID', async () => {
     const { db, deps } = setup()
     expect(await handleCookWeChat(payload(), request, deps)).toEqual({
       status: 404,
@@ -112,13 +108,22 @@ describe('cook native WeChat through Yunlefun SSO', () => {
     expect(deps.mintTicket).toHaveBeenCalledExactlyOnceWith(uid)
   })
 
-  it('rejects a different website identity and a binding changed mid-authorization', async () => {
+  it('rejects a changed CloudBase session subject before writing the binding', async () => {
     const { db, deps } = setup()
-    deps.currentAccount.mockResolvedValueOnce(websiteProfile()).mockResolvedValueOnce(websiteProfile('other-wechat'))
+    deps.currentAccount.mockResolvedValueOnce(profile()).mockResolvedValueOnce({ ...profile(), sub: 'another-uid' })
     const result = await handleCookWeChat(payload('bindCookWeChat'), bindingRequest, deps)
-    expect(result).toEqual({ status: 403, body: { ok: false, reason: 'wechat_website_binding_required' } })
+    expect(result).toEqual({ status: 503, body: { ok: false, reason: 'identity_unavailable' } })
     expect(db.records.size).toBe(0)
     expect(deps.mintTicket).not.toHaveBeenCalled()
+  })
+
+  it('keeps the app binding independent of website WeChat changes', async () => {
+    const { deps } = setup()
+    deps.currentAccount.mockResolvedValue({ ...profile(), providers: [{ id: 'wx_open', provider_user_id: 'other-wechat' }] })
+    expect((await handleCookWeChat(payload('bindCookWeChat'), bindingRequest, deps)).status).toBe(200)
+    deps.loadAccount.mockResolvedValue({ ...profile(), uid, providers: [] })
+    expect((await handleCookWeChat(payload(undefined, 'login-code'), request, deps)).body.subject).toBe(uid)
+    expect(deps.mintTicket).toHaveBeenCalledExactlyOnceWith(uid)
   })
 
   it('does not allow another account to claim the same identity or overwrite its own', async () => {
@@ -137,12 +142,12 @@ describe('cook native WeChat through Yunlefun SSO', () => {
     expect(db.records.size).toBe(2)
   })
 
-  it('does not sign when the website binding is removed, the UID changes, or admission fails', async () => {
+  it('does not sign when the UID changes, the account is restricted, or admission fails', async () => {
     const { deps } = setup()
     expect((await handleCookWeChat(payload('bindCookWeChat'), bindingRequest, deps)).status).toBe(200)
-    deps.loadAccount.mockResolvedValueOnce({ ...websiteProfile(), providers: [] })
-    expect((await handleCookWeChat(payload(undefined, 'one'), request, deps)).body.reason).toBe('wechat_website_binding_required')
-    deps.loadAccount.mockResolvedValueOnce({ ...websiteProfile(), sub: 'another-uid' })
+    deps.loadAccount.mockResolvedValueOnce({ ...profile(), status: 'BLOCKED' })
+    expect((await handleCookWeChat(payload(undefined, 'one'), request, deps)).body.reason).toBe('account_restricted')
+    deps.loadAccount.mockResolvedValueOnce({ ...profile(), sub: 'another-uid' })
     expect((await handleCookWeChat(payload(undefined, 'two'), request, deps)).body.reason).toBe('identity_unavailable')
     deps.requireAdmission.mockRejectedValueOnce(Object.assign(new Error('restricted'), { code: 'account_banned' }))
     expect((await handleCookWeChat(payload(undefined, 'three'), request, deps)).body.reason).toBe('account_restricted')

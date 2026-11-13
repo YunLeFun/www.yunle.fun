@@ -24,14 +24,6 @@ function fail(reason, status) {
   throw new WeChatSsoError(reason, status)
 }
 
-// Compare only a provider-owned subject from an authenticated CloudBase response.
-function hasMatchingWebsiteWeChat(profile, unionId) {
-  if (!Array.isArray(profile?.providers))
-    fail('identity_unavailable', 503)
-  const bindings = profile.providers.filter(binding => binding?.id === 'wx_open')
-  return bindings.length === 1 && bindings[0].provider_user_id === unionId
-}
-
 function requireActiveProfile(profile, expectedUid) {
   if (!profile || profile.is_anonymous === true || profile.isAnonymous === true
     || profile.type === 'anonymous' || profile.user_type === 'anonymous'
@@ -199,10 +191,10 @@ async function handleCookWeChat(payload, request, deps) {
     const unionId = await deps.exchangeCode(payload.code, deps.appSecret)
     const identityKey = hashUnionId(unionId, deps.bindingKey)
     if (binding) {
+      // Both proofs are required: the active CloudBase session supplies the UID,
+      // and WeChat's exchange supplies the identity. The website provider is independent.
       const latest = await deps.currentAccount(request.authorization, request.deviceId)
       requireActiveProfile(latest, currentUid)
-      if (!hasMatchingWebsiteWeChat(latest, unionId))
-        fail('wechat_website_binding_required', 403)
       await deps.requireAdmission(currentUid)
       await deps.bindings.bind(currentUid, identityKey)
       return { status: 200, body: { ok: true } }
@@ -213,8 +205,6 @@ async function handleCookWeChat(payload, request, deps) {
       fail('wechat_binding_required', 404)
     const current = await deps.loadAccount(uid)
     requireActiveProfile(current, uid)
-    if (!hasMatchingWebsiteWeChat(current, unionId))
-      fail('wechat_website_binding_required', 403)
     await deps.requireAdmission(uid)
     const ticket = await deps.mintTicket(uid)
     if (!ticket?.ok || typeof ticket.ticket !== 'string' || !ticket.ticket)
