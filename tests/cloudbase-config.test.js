@@ -159,9 +159,10 @@ describe('cloudBase test identity deployment manifest', () => {
   it('publishes identity JWKS and admits a trusted phone fact before minting SSO credentials', () => {
     expect(ssoTicketSource).toContain('event.httpMethod === \'GET\'')
     expect(ssoTicketSource).toContain('identityRuntime.publicJwks()')
-    expect(ssoTicketSource).toContain('const phoneAdmission = await resolvePhoneVerificationAdmission({')
-    expect(ssoTicketSource.indexOf('const phoneAdmission = await resolvePhoneVerificationAdmission({'))
+    expect(ssoTicketSource).toContain('return resolvePhoneVerificationAdmission({')
+    expect(ssoTicketSource.indexOf('const phoneAdmission = await requireSsoAdmission(uid)'))
       .toBeLessThan(ssoTicketSource.indexOf('const ticketResult = mintTicket(uid)'))
+    expect(ssoTicketSource).toContain('requireAdmission: requireSsoAdmission')
     expect(ssoTicketSource).toContain('resolveFixedTestIdentityAdmission(db, {')
     expect(ssoTicketSource).not.toContain('createNativeTestSsoLeaseStore')
     expect(ssoTicketSource).not.toContain('issueSsoCodeForTestLease')

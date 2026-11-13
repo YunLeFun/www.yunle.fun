@@ -204,6 +204,8 @@ refresh token 固定为 30 天 idle / 180 天 absolute，轮换并做 grant-fami
 
 > 客户端用 `signInWithCustomTicket(() => ticket)` 换取自己独立、可同源续期的会话。设计详见 [`docs/cookie-session-migration.md`](../docs/cookie-session-migration.md)。
 
+云食册原生微信的 `bindCookWeChat` 和 `exchangeCookWeChatCode` 也是该函数的 HTTPS 动作，默认关闭；使用原有 UID 签票，不改网站微信身份源。私有环境变量和发布顺序见 [云食册原生微信登录](../docs/cook-native-wechat-sso.md)。
+
 ### sso-registry-admin 环境变量与权限
 
 | 变量名                           | 环境       | 说明                                                                                         |

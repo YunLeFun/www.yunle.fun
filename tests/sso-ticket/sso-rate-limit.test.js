@@ -43,6 +43,15 @@ class FakeDatabase {
 }
 
 describe('sso durable rate limits', () => {
+  it('claims a native WeChat code once across window boundaries', async () => {
+    const database = new FakeDatabase()
+    const digest = 'a'.repeat(64)
+    const beforeMidnight = createSsoRateLimiter(database, { now: () => 86_399_999 })
+    const afterMidnight = createSsoRateLimiter(database, { now: () => 86_400_001 })
+    await beforeMidnight.claimCookWeChatCode(digest)
+    await expect(afterMidnight.claimCookWeChatCode(digest)).rejects.toMatchObject({ reason: 'rate_limited' })
+    expect(JSON.stringify([...database.documents])).not.toContain(digest)
+  })
   it('enforces a concurrent fixed-window limit without persisting the raw key', async () => {
     const database = new FakeDatabase()
     const limiter = createSsoRateLimiter(database, { now: () => 10_000 })

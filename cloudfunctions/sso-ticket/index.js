@@ -1,13 +1,14 @@
 /**
  * 云函数 sso-ticket —— 一次性 SSO 授权码 + CloudBase custom ticket 同源兑换。
  *
- * 三条受限步骤：
+ * 受限入口：
  *  1) `issueSsoCode` 仅接受已认证 SDK 调用，从 CloudBase 调用上下文派生当前 uid，签发绑定
  *     origin/returnUrl/nonce 的 256-bit 一次性授权码；绝不接受调用者选择 uid。
  *  2) `exchangeSsoCode` 仅接受 HTTPS 网关 POST，原子消费授权码；普通账号从 CloudBase 服务端
  *     用户资料确认手机号，固定测试账号从受保护目录确认可用状态，再返回 ticket 与断言。
  *  3) 测试身份 Broker 路径（action='mintForTestLease'）：只接受独立服务令牌与已预留的 lease / issuance
  *     标识，自行读取受保护状态、原子认领、签发不超过租约截止时间的 ticket，并以 AES-GCM 托管。
+ *  4) 云食册原生微信：仅使用服务端验证的原 UID，详见 cook-mobile-wechat.js。
  *
  * 客户端用 `signInWithCustomTicket(() => ticket)` 换取自己独立、可同源续期的会话。
  *
@@ -38,6 +39,14 @@ const {
   buildSsoRequestRejectedAudit,
   emitSecurityAudit,
 } = require('./audit-log')
+const {
+  ACTIONS: COOK_WECHAT_ACTIONS,
+  COOK_ORIGIN,
+  createCookWeChatBindingStore,
+  exchangeWeChatCode,
+  fetchCurrentAccount,
+  handleCookWeChat,
+} = require('./cook-mobile-wechat')
 const { resolveFixedTestIdentityAdmission } = require('./fixed-test-identity-admission')
 const { IdentityAdmissionError, resolvePhoneVerificationAdmission } = require('./identity-admission')
 const { createIdentityAssertionRuntime } = require('./identity-assertion')
@@ -64,6 +73,8 @@ const contextApp = cloudbase.init({ env: ENV })
 const db = contextApp.database()
 const ssoCodeStore = createSsoCodeStore(db)
 const ssoRateLimiter = createSsoRateLimiter(db)
+const cookWeChatBindings = createCookWeChatBindingStore(db)
+const COOK_MOBILE_REDIRECT = `${COOK_ORIGIN}/auth/callback?platform=native`
 const callAccountApi = data => contextApp.callFunction({ name: 'account-api', data }).then(r => r.result)
 // Analytics gets its own short request budget; account access checks keep their existing policy.
 function callAcquisitionApi(data) {
@@ -253,17 +264,7 @@ async function exchangeSsoCode(payload, requestOrigin, clientAddress = 'unknown'
     ssoRateLimiter.consume({ scope: 'exchange-origin', key: requestOrigin, limit: limits.exchangePerOrigin, windowMs: 60_000 }),
   ])
   const { uid } = await ssoCodeStore.consume(request)
-  await assertActiveAccount(uid)
-  const phoneAdmission = await resolvePhoneVerificationAdmission({
-    auth: contextApp.auth(),
-    uid,
-    resolveFixedTestIdentity: input => resolveFixedTestIdentityAdmission(db, {
-      ...input,
-      issuerEnvironment: process.env.AUTH_ISSUER_ENVIRONMENT === 'development'
-        ? 'development'
-        : 'production',
-    }),
-  })
+  const phoneAdmission = await requireSsoAdmission(uid)
   emitSecurityAudit(buildSsoCodeConsumedAudit(uid, request, requestOrigin))
   const ticketResult = mintTicket(uid)
   if (!ticketResult.ok)
@@ -278,6 +279,55 @@ async function exchangeSsoCode(payload, requestOrigin, clientAddress = 'unknown'
       nonce: request.nonce,
       phoneNumberVerified: phoneAdmission.phoneNumberVerified,
     }),
+  }
+}
+
+async function requireSsoAdmission(uid) {
+  await assertActiveAccount(uid)
+  return resolvePhoneVerificationAdmission({
+    auth: contextApp.auth(),
+    uid,
+    resolveFixedTestIdentity: input => resolveFixedTestIdentityAdmission(db, {
+      ...input,
+      issuerEnvironment: process.env.AUTH_ISSUER_ENVIRONMENT === 'development'
+        ? 'development'
+        : 'production',
+    }),
+  })
+}
+
+function cookWeChatDependencies() {
+  const environment = process.env.AUTH_ISSUER_ENVIRONMENT === 'development' ? 'development' : 'production'
+  const envId = environment === 'development' ? 'yunlefun-dev-0ge03bdod37093d1' : 'yunlefun-8g7ybcxc7345c490'
+  return {
+    enabled: process.env.COOK_WECHAT_LOGIN_ENABLED === 'true',
+    appSecret: process.env.COOK_WECHAT_APP_SECRET,
+    // Separate the stored index from the rotatable WeChat secret. Deployment supplies
+    // a stable random key; a missing/malformed key must never open this path.
+    bindingKey: /^[a-f0-9]{64}$/i.test(process.env.COOK_WECHAT_BINDING_KEY || '')
+      ? Buffer.from(process.env.COOK_WECHAT_BINDING_KEY, 'hex')
+      : null,
+    authorizeClient() {
+      return getSsoClientRegistry().authorize({
+        clientId: 'cook-mobile',
+        origin: COOK_ORIGIN,
+        returnUrl: COOK_MOBILE_REDIRECT,
+        scopes: ['identity:bootstrap'],
+      })
+    },
+    signingReady: () => Boolean(getSignAuth()),
+    rateLimit: input => ssoRateLimiter.consume(input),
+    claimCode: key => ssoRateLimiter.claimCookWeChatCode(key),
+    exchangeCode: exchangeWeChatCode,
+    bindings: cookWeChatBindings,
+    currentAccount: (bearer, deviceId) => fetchCurrentAccount(
+      `https://${envId}.api.tcloudbasegateway.com/auth/v1/user/me`,
+      bearer,
+      deviceId,
+    ),
+    loadAccount: async uid => (await contextApp.auth().getEndUserInfo(uid))?.userInfo,
+    requireAdmission: requireSsoAdmission,
+    mintTicket,
   }
 }
 
@@ -429,6 +479,18 @@ exports.main = async function main(event) {
       const status = reason === 'payload_too_large' ? 413 : reason === 'invalid_content_type' ? 415 : reason === 'https_required' ? 403 : 400
       return httpJson(status, { ok: false, reason })
     }
+  }
+
+  if (COOK_WECHAT_ACTIONS.has(payload?.action)) {
+    if (!isHttp)
+      return { ok: false, reason: 'invalid_request' }
+    const result = await handleCookWeChat(payload, {
+      origin: requestOrigin,
+      authorization: header(event, 'authorization'),
+      deviceId: header(event, 'x-device-id'),
+      ip: clientAddress(event, true),
+    }, cookWeChatDependencies())
+    return httpJson(result.status, result.body)
   }
 
   let result
