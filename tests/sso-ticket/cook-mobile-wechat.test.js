@@ -3,7 +3,7 @@ import { createRequire } from 'node:module'
 import { describe, expect, it, vi } from 'vitest'
 
 const require = createRequire(import.meta.url)
-const { createCookWeChatBindingStore, exchangeWeChatCode, handleCookWeChat } = require('../../cloudfunctions/sso-ticket/cook-mobile-wechat.js')
+const { cookWeChatAccountUrl, createCookWeChatBindingStore, exchangeWeChatCode, handleCookWeChat } = require('../../cloudfunctions/sso-ticket/cook-mobile-wechat.js')
 const { SsoRateLimitError } = require('../../cloudfunctions/sso-ticket/sso-rate-limit.js')
 
 const uid = 'existing-uid'
@@ -80,6 +80,15 @@ function setup() {
 }
 
 describe('cook native WeChat through Yunlefun SSO', () => {
+  it('uses the deployed environment for the account lookup and fails closed without one', () => {
+    expect(cookWeChatAccountUrl({ TCB_ENV: 'cook-sso-staging-1a2b3c4d5e6f', SCF_NAMESPACE: 'wrong-env-654321' }))
+      .toBe('https://cook-sso-staging-1a2b3c4d5e6f.api.tcloudbasegateway.com/auth/v1/user/me')
+    expect(cookWeChatAccountUrl({ SCF_NAMESPACE: 'cook-sso-staging-1a2b3c4d5e6f' }))
+      .toBe('https://cook-sso-staging-1a2b3c4d5e6f.api.tcloudbasegateway.com/auth/v1/user/me')
+    expect(() => cookWeChatAccountUrl({})).toThrow(expect.objectContaining({ reason: 'identity_unavailable' }))
+    expect(() => cookWeChatAccountUrl({ TCB_ENV: 'bad.example/path' })).toThrow(expect.objectContaining({ reason: 'identity_unavailable' }))
+  })
+
   it('binds the authenticated website UID and mints for exactly that UID', async () => {
     const { db, deps } = setup()
     expect(await handleCookWeChat(payload(), request, deps)).toEqual({

@@ -9,8 +9,8 @@
 ## 配置与部署顺序
 
 1. 核对开放平台「微信登录」已开通、AppID/Bundle ID/Universal Links 一致、与网站 App 同一开放平台账号。
-2. 在对应 CloudBase 环境建立服务端专用 NoSQL 集合 `sso_cook_wechat_bindings`（客户端读写均关闭），为 `uid` 建非唯一索引供注销清理。先部署 [account-api](https://github.com/YunLeFun/api) 中删除该索引的清理，再部署 `sso-ticket` 新代码。原有 `sso_security_limits` 保存单次授权码摘要并由现有 sweeper 清理。使用现有保留生产配置的代码更新流程；不改函数路由、ACL 或其它变量。
-3. 在该环境的 **云函数 → sso-ticket → 配置 → 环境变量** 单独合并下列值。生产环境为 `yunlefun-8g7ybcxc7345c490`；联调环境为 `yunlefun-dev-0ge03bdod37093d1`，使用与该环境相符的测试构建/Registry。不要向 CloudBase「身份认证 → 登录方式」添加或覆盖微信身份源。
+2. 在对应 CloudBase 环境建立服务端专用文档集合 `sso_cook_wechat_bindings`（客户端读写均关闭），为 `uid` 建非唯一索引供注销清理。新建 PostgreSQL 环境先启用 Document（`pgdoc`）插件，并验证文档事务和集合权限。先部署 [account-api](https://github.com/YunLeFun/api) 中删除绑定记录的清理，再部署 `sso-ticket` 新代码。`sso_security_limits` 保存单次授权码摘要并由 `sso-security-sweeper` 清理。已有环境使用只更新代码的部署流程，保留函数路由、ACL 和其他变量。
+3. 在目标环境的 **云函数 → sso-ticket → 配置 → 环境变量** 单独合并下列值。联调须使用已核实的独立 CloudBase 环境、对应的 Registry 和测试构建。`sso-ticket` 从函数运行上下文读取实际环境 ID 来验证会话，不接受客户端指定环境。不要向生产环境的 CloudBase「身份认证 → 登录方式」添加或覆盖微信身份源。
 
 | 变量                        | 值                                                                                     |
 | --------------------------- | -------------------------------------------------------------------------------------- |

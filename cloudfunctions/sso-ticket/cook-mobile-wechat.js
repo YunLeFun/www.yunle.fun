@@ -138,6 +138,14 @@ async function exchangeWeChatCode(code, appSecret, fetcher = globalThis.fetch) {
   return identity.unionid
 }
 
+function cookWeChatAccountUrl(context) {
+  // Use the same trusted runtime environment as the ticket signer and database.
+  const envId = context?.TCB_ENV || context?.SCF_NAMESPACE
+  if (typeof envId !== 'string' || !/^[a-z][a-z\d-]{0,47}-[a-z\d]{6,20}$/.test(envId))
+    fail('identity_unavailable', 503)
+  return `https://${envId}.api.tcloudbasegateway.com/auth/v1/user/me`
+}
+
 async function fetchCurrentAccount(authUrl, bearer, deviceId, fetcher = globalThis.fetch) {
   let response
   try {
@@ -230,6 +238,7 @@ module.exports = {
   ACTIONS,
   COOK_ORIGIN,
   COLLECTION,
+  cookWeChatAccountUrl,
   createCookWeChatBindingStore,
   exchangeWeChatCode,
   fetchCurrentAccount,

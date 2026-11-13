@@ -42,6 +42,7 @@ const {
 const {
   ACTIONS: COOK_WECHAT_ACTIONS,
   COOK_ORIGIN,
+  cookWeChatAccountUrl,
   createCookWeChatBindingStore,
   exchangeWeChatCode,
   fetchCurrentAccount,
@@ -297,8 +298,6 @@ async function requireSsoAdmission(uid) {
 }
 
 function cookWeChatDependencies() {
-  const environment = process.env.AUTH_ISSUER_ENVIRONMENT === 'development' ? 'development' : 'production'
-  const envId = environment === 'development' ? 'yunlefun-dev-0ge03bdod37093d1' : 'yunlefun-8g7ybcxc7345c490'
   return {
     enabled: process.env.COOK_WECHAT_LOGIN_ENABLED === 'true',
     appSecret: process.env.COOK_WECHAT_APP_SECRET,
@@ -321,7 +320,7 @@ function cookWeChatDependencies() {
     exchangeCode: exchangeWeChatCode,
     bindings: cookWeChatBindings,
     currentAccount: (bearer, deviceId) => fetchCurrentAccount(
-      `https://${envId}.api.tcloudbasegateway.com/auth/v1/user/me`,
+      cookWeChatAccountUrl(cloudbase.getCloudbaseContext()),
       bearer,
       deviceId,
     ),
