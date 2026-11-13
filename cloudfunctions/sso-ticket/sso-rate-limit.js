@@ -66,6 +66,26 @@ function limitId(scope, key, windowStart) {
 function createSsoRateLimiter(database, options = {}) {
   const now = typeof options.now === 'function' ? options.now : () => Date.now()
   return {
+    async claimCookWeChatCode(key) {
+      if (typeof key !== 'string' || !/^[a-f0-9]{64}$/.test(key))
+        throw new TypeError('invalid Cook WeChat code digest')
+      // A claim spans clock-window boundaries; the ordinary sweeper owns expiry.
+      const scope = 'cook-wechat-code'
+      const id = limitId(scope, key, 0)
+      await database.runTransaction(async (transaction) => {
+        const ref = transaction.collection(SSO_RATE_LIMIT_COLLECTION).doc(id)
+        if (firstDocument(await ref.get()))
+          throw new SsoRateLimitError()
+        assertWrite(await ref.set({
+          recordType: 'sso_rate_limit',
+          schemaVersion: SSO_RATE_LIMIT_SCHEMA_VERSION,
+          scope,
+          count: 1,
+          expiresAt: now() + 86_400_000,
+        }))
+      })
+    },
+
     async consume(input) {
       if (!/^[a-z][\w:-]{0,63}$/i.test(input.scope || '') || typeof input.key !== 'string' || !input.key || input.key.length > 512)
         throw new TypeError('invalid rate limit key')
