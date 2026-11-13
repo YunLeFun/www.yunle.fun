@@ -2,7 +2,7 @@
 
 const { createHash, createHmac } = require('node:crypto')
 const { isValidTicketUid } = require('./mint')
-const { SsoRateLimitError } = require('./sso-rate-limit')
+const { SSO_RATE_LIMIT_COLLECTION, SsoRateLimitError } = require('./sso-rate-limit')
 
 const COOK_APP_ID = 'wxce6c7405dd756b9d'
 const COOK_ORIGIN = 'https://cook.yunyoujun.cn'
@@ -67,7 +67,32 @@ function checkedBinding(record, kind) {
 function createCookWeChatBindingStore(db) {
   const identityRef = (tx, key) => tx.collection(COLLECTION).doc(key)
   const accountRef = (tx, uid) => tx.collection(COLLECTION).doc(bindingKey('uid', uid))
+  const signupRef = (tx, key) => tx.collection(SSO_RATE_LIMIT_COLLECTION).doc(bindingKey('signup', key))
+  const activeSignup = record => record?.kind === 'signup' && record.lockUntil > Date.now()
   return {
+    async reserveSignup(identityKey, attempt, lockUntil) {
+      return db.runTransaction(async (tx) => {
+        const reservation = signupRef(tx, identityKey)
+        const existing = checkedBinding(checkedDocument(await identityRef(tx, identityKey).get()), 'identity')
+        const lock = checkedDocument(await reservation.get())
+        if (existing || activeSignup(lock))
+          fail('binding_conflict', 409)
+        const result = await reservation.set({ kind: 'signup', attempt, lockUntil, expiresAt: lockUntil + 86_400_000 })
+        if (!result || (result.code != null && result.code !== 0 && result.code !== '0'))
+          fail('identity_unavailable', 503)
+      })
+    },
+    async releaseSignup(identityKey, attempt) {
+      await db.runTransaction(async (tx) => {
+        const ref = signupRef(tx, identityKey)
+        const lock = checkedDocument(await ref.get())
+        if (lock?.kind !== 'signup' || lock.attempt !== attempt)
+          return
+        const result = await ref.set({ kind: 'signup-released', expiresAt: Date.now() + 86_400_000 })
+        if (!result || (result.code != null && result.code !== 0 && result.code !== '0'))
+          fail('identity_unavailable', 503)
+      })
+    },
     async lookup(identityKey) {
       return db.runTransaction(async (tx) => {
         const record = checkedBinding(checkedDocument(await identityRef(tx, identityKey).get()), 'identity')
@@ -79,10 +104,14 @@ function createCookWeChatBindingStore(db) {
         return record.uid
       })
     },
-    async bind(uid, identityKey) {
+    async bind(uid, identityKey, signupAttempt) {
       await db.runTransaction(async (tx) => {
         const identity = identityRef(tx, identityKey)
         const account = accountRef(tx, uid)
+        const reservation = signupRef(tx, identityKey)
+        const lock = checkedDocument(await reservation.get())
+        if (signupAttempt ? !activeSignup(lock) || lock.attempt !== signupAttempt : activeSignup(lock))
+          fail('binding_conflict', 409)
         const byIdentity = checkedBinding(checkedDocument(await identity.get()), 'identity')
         const byAccount = checkedBinding(checkedDocument(await account.get()), 'uid')
         if ((byIdentity && byIdentity.uid !== uid) || (byAccount && byAccount.identityKey !== identityKey))
@@ -98,6 +127,11 @@ function createCookWeChatBindingStore(db) {
           if (!result || (result.code != null && result.code !== 0 && result.code !== '0'))
             fail('identity_unavailable', 503)
         }
+        // A direct bind and signup reservation both write this document so they
+        // cannot commit from the same empty snapshot. The sweeper removes it.
+        const result = await reservation.set({ kind: 'signup-completed', expiresAt: Date.now() + 86_400_000 })
+        if (!result || (result.code != null && result.code !== 0 && result.code !== '0'))
+          fail('identity_unavailable', 503)
       })
     },
   }
@@ -233,4 +267,8 @@ module.exports = {
   exchangeWeChatCode,
   fetchCurrentAccount,
   handleCookWeChat,
+  WeChatSsoError,
+  bindingKey,
+  hashUnionId,
+  requireActiveProfile,
 }
