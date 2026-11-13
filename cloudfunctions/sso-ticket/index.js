@@ -48,6 +48,7 @@ const {
   fetchCurrentAccount,
   handleCookWeChat,
 } = require('./cook-mobile-wechat')
+const { ACTIONS: COOK_SIGNUP_ACTIONS, createCookSignupAuth, handleCookWeChatSignup, lookupCookSignupPhone } = require('./cook-wechat-signup')
 const { resolveFixedTestIdentityAdmission } = require('./fixed-test-identity-admission')
 const { IdentityAdmissionError, resolvePhoneVerificationAdmission } = require('./identity-admission')
 const { createIdentityAssertionRuntime } = require('./identity-assertion')
@@ -480,15 +481,26 @@ exports.main = async function main(event) {
     }
   }
 
-  if (COOK_WECHAT_ACTIONS.has(payload?.action)) {
+  const cookSignup = COOK_SIGNUP_ACTIONS.has(payload?.action)
+  if (cookSignup || COOK_WECHAT_ACTIONS.has(payload?.action)) {
     if (!isHttp)
       return { ok: false, reason: 'invalid_request' }
-    const result = await handleCookWeChat(payload, {
+    const request = {
       origin: requestOrigin,
       authorization: header(event, 'authorization'),
       deviceId: header(event, 'x-device-id'),
       ip: clientAddress(event, true),
-    }, cookWeChatDependencies())
+    }
+    const deps = cookWeChatDependencies()
+    const signupEnabled = process.env.COOK_WECHAT_SIGNUP_ENABLED === 'true'
+    const result = cookSignup
+      ? await handleCookWeChatSignup(payload, request, {
+          ...deps,
+          signupEnabled,
+          signupAuth: () => createCookSignupAuth(cookWeChatAccountUrl(cloudbase.getCloudbaseContext())),
+          phoneExists: phone => lookupCookSignupPhone(contextApp.auth(), phone),
+        })
+      : await handleCookWeChat(payload, request, deps)
     return httpJson(result.status, result.body)
   }
 

@@ -31,7 +31,7 @@ class FakeDatabase {
     try {
       const result = await operation({
         collection: (name) => {
-          expect(name).toBe('sso_cook_wechat_bindings')
+          expect(['sso_cook_wechat_bindings', 'sso_security_limits']).toContain(name)
           return { doc: id => ({
             get: async () => ({ data: staged.has(id) ? [staged.get(id)] : [] }),
             set: async (record) => {
@@ -97,7 +97,7 @@ describe('cook native WeChat through Yunlefun SSO', () => {
       body: { ok: true },
     })
     expect(deps.currentAccount).toHaveBeenCalledWith('Bearer current-session', 'device-1')
-    expect(db.records.size).toBe(2)
+    expect([...db.records.values()].filter(record => record.uid === uid)).toHaveLength(2)
     expect(JSON.stringify([...db.records])).not.toContain(unionId)
     expect(await handleCookWeChat(payload(undefined, 'new-login-code'), request, deps)).toEqual({
       status: 200,
@@ -139,7 +139,7 @@ describe('cook native WeChat through Yunlefun SSO', () => {
     await expect(deps.bindings.bind(uid, second)).rejects.toMatchObject({ reason: 'binding_conflict' })
     await expect(deps.bindings.bind(uid, first)).resolves.toBeUndefined()
     await expect(deps.bindings.lookup(first)).resolves.toBe(uid)
-    expect(db.records.size).toBe(2)
+    expect([...db.records.values()].filter(record => record.uid === uid)).toHaveLength(2)
   })
 
   it('does not sign when the UID changes, the account is restricted, or admission fails', async () => {
