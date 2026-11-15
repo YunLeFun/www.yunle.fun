@@ -447,4 +447,40 @@ describe('auth session persistence & dual-layer synchronization', () => {
     expect(core.isAuthenticated.value).toBe(true)
     expect(sessionState.value?.user).toEqual({ uid: 'uid-7', name: 'Henry' })
   })
+
+  it('bounds stalled /api/session/login requests with a timeout so SDK login and subsequent logout never hang indefinitely', async () => {
+    vi.useFakeTimers()
+    try {
+      const neverSettling = new Promise<never>(() => {})
+      h.auth.getSession.mockResolvedValue({
+        data: {
+          session: {
+            access_token: 'access-stalled',
+            refresh_token: 'refresh-stalled',
+            user: { id: 'uid-8', username: 'ivy', nickname: 'Ivy', is_anonymous: false },
+          },
+        },
+      })
+      h.auth.getUser.mockResolvedValue({
+        data: {
+          user: { id: 'uid-8', username: 'ivy', nickname: 'Ivy', is_anonymous: false },
+        },
+        error: null,
+      })
+      h.onLogin.mockImplementation(() => neverSettling)
+      h.onLogout.mockResolvedValue({ ok: true })
+
+      const core = useTcbAuthCore()
+      const fetchPromise = core.fetchUser()
+
+      await vi.advanceTimersByTimeAsync(5_100)
+      const user = await fetchPromise
+
+      expect(user?.id).toBe('uid-8')
+      expect(core.isAuthenticated.value).toBe(true)
+    }
+    finally {
+      vi.useRealTimers()
+    }
+  })
 })

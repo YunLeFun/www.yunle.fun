@@ -8,6 +8,30 @@
  *
  * 全部容错：服务端会话端点不可用（如 SSR 运行时未托管）时不抛错，调用方回退到既有登录态。
  */
+const SESSION_SYNC_TIMEOUT_MS = 5_000
+
+function withSessionTimeout<T>(
+  label: string,
+  request: (options: { signal: AbortSignal, timeout: number }) => Promise<T>,
+): Promise<T> {
+  const controller = new AbortController()
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort()
+      reject(new Error(`[session] ${label} timed out after ${SESSION_SYNC_TIMEOUT_MS}ms`))
+    }, SESSION_SYNC_TIMEOUT_MS)
+  })
+  const requestPromise = request({
+    timeout: SESSION_SYNC_TIMEOUT_MS,
+    signal: controller.signal,
+  })
+  return Promise.race([requestPromise, timeoutPromise]).finally(() => {
+    if (timer !== undefined)
+      clearTimeout(timer)
+  })
+}
+
 export function useServerSession() {
   const { auth } = useCloudbase()
   const nuxtApp = useNuxtApp()
@@ -40,10 +64,11 @@ export function useServerSession() {
     const pairKey = `${accessToken}:${refreshToken}`
     if (nuxtApp._serverSessionLastSealedPair === pairKey)
       return true
-    const res = await $fetch<{ ok?: boolean, user?: { uid: string, name?: string }, loggedInAt?: number }>(
-      '/api/session/login',
-      { method: 'POST', body: { accessToken, refreshToken } },
-    )
+    const res = await withSessionTimeout('/api/session/login', opts =>
+      $fetch<{ ok?: boolean, user?: { uid: string, name?: string }, loggedInAt?: number }>(
+        '/api/session/login',
+        { method: 'POST', body: { accessToken, refreshToken }, ...opts },
+      ))
     // 若封签期间已触发 clearServerSession / 登出，丢弃过期响应避免回填登录态
     if (getSessionEpoch() !== enqueuedEpoch)
       return false
@@ -89,10 +114,8 @@ export function useServerSession() {
     const run = (async () => {
       const startEpoch = getSessionEpoch()
       try {
-        const res = await $fetch<{ accessToken?: string, refreshToken?: string }>(
-          '/api/session/bootstrap',
-          { method: 'POST' },
-        )
+        const res = await withSessionTimeout('/api/session/bootstrap', opts =>
+          $fetch<{ accessToken?: string, refreshToken?: string }>('/api/session/bootstrap', { method: 'POST', ...opts }))
         if (getSessionEpoch() !== startEpoch || !res?.accessToken || !res?.refreshToken)
           return false
         // setSession 内部用 refresh_token 刷新并恢复会话
@@ -129,7 +152,8 @@ export function useServerSession() {
     // 纳入统一 FIFO 队列：等待在途封签结束后再发 logout，同时确保后续新登录在 logout 完成后再封 cookie
     await enqueueCookieMutation(async () => {
       try {
-        await $fetch('/api/session/logout', { method: 'POST' })
+        await withSessionTimeout('/api/session/logout', opts =>
+          $fetch<{ ok?: boolean }>('/api/session/logout', { method: 'POST', ...opts }))
       }
       catch {}
     })
