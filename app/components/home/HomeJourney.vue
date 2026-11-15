@@ -120,6 +120,7 @@ const artwork = ['browse', 'launch', 'account'] as const
   right: 1rem;
   left: 0;
   border-top: 2px dashed color-mix(in srgb, var(--ui-primary) 35%, transparent);
+  translate: 0 -50%;
 }
 
 .home-journey__stop {
@@ -149,21 +150,18 @@ const artwork = ['browse', 'launch', 'account'] as const
   box-shadow: 0 8px 18px -8px color-mix(in srgb, var(--ui-primary) 70%, transparent);
   color: var(--ylf-c-text-on-accent);
   translate: calc(100cqw - 2rem) 0;
-  animation: home-plane-bob 3.2s ease-in-out infinite;
 }
 
 .home-journey__plane > :deep(*) {
   width: 0.95rem;
   height: 0.95rem;
   rotate: 45deg;
-  translate: -1px 1px;
+  translate: -1px 0;
 }
 
 /* 只有被滚动揭示时才起飞；首屏可见或无脚本时直接停在终点。 */
 .home-journey__flight.ylf-reveal--in .home-journey__plane {
-  animation:
-    home-plane-fly 2400ms cubic-bezier(0.45, 0, 0.2, 1) 350ms backwards,
-    home-plane-bob 3.2s ease-in-out infinite;
+  animation: home-plane-fly 2400ms cubic-bezier(0.45, 0, 0.2, 1) 350ms backwards;
 }
 
 .home-journey__flight.ylf-reveal--in .home-journey__trail {
@@ -248,16 +246,6 @@ const artwork = ['browse', 'launch', 'account'] as const
 @keyframes home-plane-fly {
   from {
     translate: 0 0;
-  }
-}
-
-@keyframes home-plane-bob {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-4px);
   }
 }
 
@@ -466,7 +454,6 @@ const artwork = ['browse', 'launch', 'account'] as const
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .home-journey__plane,
   .home-journey__flight.ylf-reveal--in .home-journey__plane,
   .home-journey__flight.ylf-reveal--in .home-journey__trail,
   .home-journey__flight.ylf-reveal--in .home-journey__stop {
