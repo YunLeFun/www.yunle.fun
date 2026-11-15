@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { CloudEffect } from '~/types/cloud-achievements'
 import { ArrowLeftIcon } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 
@@ -17,6 +18,8 @@ withDefaults(defineProps<{
   backLabel?: string
   /** 不显示返回按钮时，左侧的图标 */
   icon?: string
+  /** 当前佩戴云朵的天空效果（如 /clouds 子页实时预览） */
+  cloudEffect?: CloudEffect | null
 }>(), {
   back: '/profile',
   backLabel: '返回个人中心',
@@ -24,7 +27,7 @@ withDefaults(defineProps<{
 </script>
 
 <template>
-  <SkyHero clouds="mini" class="ylf-rise">
+  <SkyHero clouds="mini" :cloud-effect="cloudEffect" class="ylf-rise">
     <div class="flex items-center gap-3 p-4 sm:gap-4 sm:p-5">
       <Button
         v-if="back"

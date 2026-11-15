@@ -9,6 +9,7 @@ import { clearNuxtState, useState } from '#app'
 import Collection from '../app/components/achievements/CloudAchievementCollection.vue'
 import { useCloudAchievementDisplay } from '../app/composables/useCloudAchievementDisplay'
 import { useCloudAchievements } from '../app/composables/useCloudAchievements'
+import CloudsPage from '../app/pages/clouds.vue'
 import { isCloudAchievementCollection } from '../app/utils/cloud-achievements'
 
 const h = vi.hoisted(() => ({ callFunction: vi.fn(), toast: vi.fn() }))
@@ -166,6 +167,39 @@ describe('cloud collection controls', () => {
     await wrapper.setProps({ error: '同步失败' })
     await wrapper.findAll('button').find(button => button.text() === '重新同步')!.trigger('click')
     expect(wrapper.emitted('refresh')).toHaveLength(1)
+    wrapper.unmount()
+  })
+
+  it('renders the dedicated /clouds subpage with equipped sky effect and achievements list', async () => {
+    useState<User | null>('auth_user').value = account('alice')
+    useState<boolean>('auth_ready').value = true
+    useState<string | null>('cloud-achievements-owner').value = 'alice'
+    useState<CloudAchievementCollection | null>('cloud-achievements').value = structuredClone(first)
+
+    const wrapper = await mountSuspended(CloudsPage, {
+      shallow: true,
+      global: {
+        stubs: {
+          AppContainer: { template: '<main><slot /></main>' },
+          SubpageHero: {
+            name: 'SubpageHero',
+            props: ['title', 'description', 'cloudEffect'],
+            template: '<header :data-effect="cloudEffect">{{ title }}</header>',
+          },
+          MyCloudAchievements: {
+            name: 'MyCloudAchievements',
+            template: '<section data-testid="my-cloud-achievements" />',
+          },
+        },
+      },
+    })
+    await flushPromises()
+
+    const hero = wrapper.findComponent({ name: 'SubpageHero' })
+    expect(hero.exists()).toBe(true)
+    expect(hero.props('title')).toBe('我的天空')
+    expect(hero.props('cloudEffect')).toBe('first')
+    expect(wrapper.find('[data-testid="my-cloud-achievements"]').exists()).toBe(true)
     wrapper.unmount()
   })
 })

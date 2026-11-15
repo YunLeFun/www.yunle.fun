@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { AppRecord } from '~/types/app'
+import { getAppDetailPath } from '~/utils/appRoutes'
 
 withDefaults(defineProps<{
   apps: AppRecord[]
@@ -11,7 +12,9 @@ withDefaults(defineProps<{
 })
 
 function appHref(app: AppRecord) {
-  return `https://apps.yunle.fun/app/${encodeURIComponent(app.slug)}`
+  return app.isPublic && (!app.audience || app.audience === 'public')
+    ? getAppDetailPath(app)
+    : `https://apps.yunle.fun/app/${encodeURIComponent(app.slug)}`
 }
 
 function audienceLabel(app: AppRecord) {
@@ -33,12 +36,10 @@ function audienceIcon(app: AppRecord) {
 
 <template>
   <div class="grid gap-2" :class="compact ? '' : 'sm:grid-cols-2'">
-    <a
+    <NuxtLink
       v-for="item in apps"
       :key="item._id"
-      :href="appHref(item)"
-      target="_blank"
-      rel="noopener noreferrer"
+      :to="appHref(item)"
       class="app-surface-item group"
       @click="trackCloudAchievement({ kind: 'explore', appId: item._id })"
     >
@@ -78,7 +79,7 @@ function audienceIcon(app: AppRecord) {
         class="size-4 shrink-0 text-dimmed transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-primary"
         aria-hidden="true"
       />
-    </a>
+    </NuxtLink>
   </div>
 </template>
 
@@ -88,20 +89,15 @@ function audienceIcon(app: AppRecord) {
   min-width: 0;
   align-items: center;
   gap: 0.75rem;
-  border: 1px solid var(--ui-border-muted);
-  border-radius: 1rem;
-  padding: 0.75rem;
-  background: color-mix(in srgb, var(--ylf-surface-muted) 56%, transparent);
-  transition:
-    border-color 160ms ease,
-    background-color 160ms ease,
-    transform 160ms ease;
+  border: 1px solid transparent;
+  border-radius: var(--ylf-radius);
+  padding: 0.625rem;
+  background: transparent;
+  transition: background-color 160ms ease;
 }
 
 .app-surface-item:hover {
-  border-color: color-mix(in srgb, var(--ui-primary) 32%, var(--ui-border));
-  background: color-mix(in srgb, var(--ui-primary) 5%, var(--ylf-surface));
-  transform: translateY(-1px);
+  background: var(--ylf-surface-muted);
 }
 
 .app-surface-item:focus-visible {

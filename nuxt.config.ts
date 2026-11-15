@@ -8,6 +8,7 @@ const DEFAULT_CLOUDBASE_STORAGE_PUBLIC_ORIGIN
   = 'https://7975-yunlefun-8g7ybcxc7345c490-1325586649.tcb.qcloud.la'
 const EDGEONE_ACCOUNT_CLIENT_SHELL_ROUTES = [
   '/profile',
+  '/clouds',
   '/wallet',
   '/settings',
   '/account-status',

@@ -2,7 +2,6 @@
 import type { AppRecord, MyWorkshopOverview, WorkshopSurface } from '~/types/app'
 import type { UserProfile } from '~/types/social'
 import type { SkyGreeting } from '~/utils/skyGreeting'
-import MyCloudAchievements from '~/components/achievements/MyCloudAchievements.vue'
 import AppSurfaceList from '~/components/apps/AppSurfaceList.vue'
 import { isOfficialUser } from '~/config'
 import { getPublicProfilePath } from '~/utils/publicProfilePath'
@@ -104,20 +103,36 @@ const stats = computed<Array<{ label: string, value: number, to?: string, onClic
   { label: '粉丝', value: myProfile.value?.followersCount ?? 0, onClick: () => openList('followers') },
 ])
 
-// 快捷入口宫格
-// 快捷入口做成「应用桌面」：每个入口一枚纯色圆角图标，sky 是图标底色，on 是图标前景色
-const entries = computed(() => {
+// 快捷入口列表
+const shortcuts = computed(() => {
   const list = [
-    { label: '关注动态', icon: 'i-lucide-rss', to: '/feed', sky: 'var(--ylf-palette-sun)', on: 'var(--ylf-accent-sun-on)' },
-    { label: '我的钱包', icon: 'i-lucide-wallet', to: '/wallet', sky: 'var(--ylf-palette-cyan)', on: '#fff' },
-    { label: '主页应用', icon: 'i-lucide-layout-grid', to: appsProfileUrl.value, sky: 'var(--ylf-palette-blue)', on: '#fff' },
-    { label: '私人工坊', icon: 'i-lucide-key-round', to: 'https://apps.yunle.fun/user/workshop', sky: 'var(--ylf-palette-coral)', on: '#fff' },
-    { label: '账户设置', icon: 'i-lucide-settings', to: '/settings', sky: '#7b8aa3', on: '#fff' },
-    { label: '安全设置', icon: 'i-lucide-shield-check', to: '/settings?tab=security', sky: 'var(--ylf-palette-green)', on: '#fff' },
+    {
+      label: '我的天空',
+      icon: 'i-lucide-cloud',
+      to: '/clouds',
+      hint: equippedCloud.value?.name
+        ? `正在佩戴 · ${equippedCloud.value.name}`
+        : cloudPokes.value
+          ? `本机戳云 ${cloudPokes.value} 次`
+          : '收集云朵，挑一朵佩戴',
+    },
+    {
+      label: '我的钱包',
+      icon: 'i-lucide-wallet',
+      to: '/wallet',
+      hint: `${coinBalance.value.toLocaleString('zh-CN')} 云币 · 签到与 AI 点数`,
+    },
+    { label: '关注动态', icon: 'i-lucide-rss', to: '/feed', hint: '看看关注的人在做什么' },
   ]
   // 未设置用户名的老账号使用不可变 uid，仍可访问自己的公开主页。
-  if (publicProfilePath.value)
-    list.unshift({ label: '我的主页', icon: 'i-lucide-id-card', to: publicProfilePath.value, sky: 'var(--ylf-palette-pink)', on: '#fff' })
+  if (publicProfilePath.value) {
+    list.unshift({
+      label: '我的主页',
+      icon: 'i-lucide-id-card',
+      to: publicProfilePath.value,
+      hint: user.value?.login ? `@${user.value.login}` : '看看别人眼中的你',
+    })
+  }
   return list
 })
 
@@ -162,14 +177,14 @@ function workshopInitial(name?: string) {
   <AppContainer class="py-8 sm:py-10">
     <!-- 登录态恢复中：与正式布局同形的晴空骨架，避免内容加载后跳动 -->
     <div v-if="loading" class="mx-auto max-w-3xl space-y-6" aria-busy="true" aria-label="正在加载个人中心">
-      <div class="ylf-shimmer h-52 rounded-[var(--ylf-radius-xl)] sm:h-56" />
-      <div class="ylf-shimmer h-16 rounded-[var(--ylf-radius-lg)]" />
+      <div class="ylf-shimmer h-44 rounded-[var(--ylf-radius-xl)] sm:h-48" />
+      <div class="ylf-shimmer h-60 rounded-[var(--ylf-radius-lg)] sm:h-32" />
       <div class="ylf-shimmer h-44 rounded-[var(--ylf-radius-lg)]" />
     </div>
 
     <div v-else-if="user" class="mx-auto max-w-3xl space-y-6">
       <!-- 晴空 hero：身份 + 数据条 -->
-      <SkyHero class="ylf-rise" :cloud-effect="equippedCloud?.effect">
+      <SkyHero class="ylf-rise" clouds="mini" :cloud-effect="equippedCloud?.effect">
         <div class="p-5 sm:p-7">
           <div class="flex items-start justify-between gap-3 sm:gap-5">
             <div class="flex min-w-0 items-center gap-4 sm:gap-5">
@@ -177,11 +192,10 @@ function workshopInitial(name?: string) {
                 class="profile-avatar shrink-0"
                 data-hero-interactive
                 data-vt="avatar"
-                :class="[{ 'ylf-squish': avatarPoked }, isMember ? 'profile-avatar--member' : '']"
+                :class="{ 'ylf-squish': avatarPoked }"
                 @click="pokeAvatar"
                 @animationend.self="avatarPoked = false"
               >
-                <span class="profile-avatar__halo" aria-hidden="true" />
                 <MemberAvatar
                   :src="user.avatar"
                   :alt="displayName"
@@ -194,13 +208,10 @@ function workshopInitial(name?: string) {
               <div class="min-w-0 text-white">
                 <p
                   v-if="greeting"
-                  class="profile-greeting ylf-hero-shadow mb-1 inline-flex items-center gap-1.5 text-xs font-medium text-white/90"
+                  class="profile-greeting ylf-hero-shadow mb-1 inline-flex items-center gap-1.5 text-xs font-medium text-white/85"
                 >
                   <Icon :name="greeting.icon" class="size-3.5" aria-hidden="true" />
                   {{ greeting.text }}
-                  <span v-if="cloudPokes" class="inline-flex items-center gap-1 text-white/75" title="当前浏览器的趣味计数，账号成就见我的天空">
-                    · <Icon name="i-lucide-cloud" class="size-3" aria-hidden="true" /> 本机戳云 {{ cloudPokes }} 次
-                  </span>
                 </p>
                 <h1 class="ylf-hero-shadow truncate text-xl font-bold sm:text-2xl">
                   {{ displayName }}
@@ -220,13 +231,19 @@ function workshopInitial(name?: string) {
                     <Icon name="i-lucide-shield-check" class="size-3" />
                     管理员
                   </span>
-                  <MemberBadge
+                  <NuxtLink
                     v-if="isMember"
-                    size="sm"
-                    variant="frost"
-                    :compact="narrowScreen"
-                    :expire-at="membershipState?.expireAt ?? null"
-                  />
+                    to="/pricing"
+                    class="inline-flex rounded-full transition hover:opacity-90"
+                    title="查看会员权益"
+                  >
+                    <MemberBadge
+                      size="sm"
+                      variant="frost"
+                      :compact="narrowScreen"
+                      :expire-at="membershipState?.expireAt ?? null"
+                    />
+                  </NuxtLink>
                   <span v-else class="ylf-glass rounded-full px-2.5 py-1 font-medium text-white">
                     {{ joinDate }} 加入
                   </span>
@@ -234,44 +251,53 @@ function workshopInitial(name?: string) {
               </div>
             </div>
             <!-- 窄屏只留图标按钮，和头像同一行，省出首屏高度 -->
-            <AppButton
-              to="/settings?edit=profile"
-              data-vt-link="avatar page-header"
-              label="编辑资料"
-              icon="i-lucide-pencil"
-              class="ylf-glass-btn shrink-0 rounded-full max-sm:hidden"
-            />
-            <AppButton
-              to="/settings?edit=profile"
-              data-vt-link="avatar page-header"
-              icon="i-lucide-pencil"
-              aria-label="编辑资料"
-              class="ylf-glass-btn size-10 shrink-0 rounded-full sm:hidden"
-            />
+            <div class="flex shrink-0 items-center gap-2">
+              <AppButton
+                to="/settings?edit=profile"
+                data-vt-link="avatar page-header"
+                label="编辑资料"
+                icon="i-lucide-pencil"
+                class="ylf-glass-btn shrink-0 rounded-full max-sm:hidden"
+              />
+              <AppButton
+                to="/settings?edit=profile"
+                data-vt-link="avatar page-header"
+                icon="i-lucide-pencil"
+                size="icon-lg"
+                aria-label="编辑资料"
+                class="ylf-glass-btn shrink-0 rounded-full sm:hidden"
+              />
+              <AppButton
+                to="/settings"
+                data-vt-link="avatar page-header"
+                icon="i-lucide-settings"
+                size="icon-lg"
+                aria-label="账户与安全"
+                title="账户与安全"
+                class="ylf-glass-btn shrink-0 rounded-full"
+              />
+            </div>
           </div>
 
-          <!-- 数据条（点击直达） -->
-          <div class="ylf-glass-deep ylf-hero-shadow mt-5 flex items-stretch rounded-2xl p-1.5 sm:mt-6">
+          <!-- 数据条（紧凑浅磨砂胶囊：晴空各时段均保底高对比度，点击直达 / 打开列表） -->
+          <div class="ylf-glass-deep ylf-hero-shadow mt-5 inline-flex flex-wrap items-center gap-1 rounded-2xl p-1 sm:mt-6">
             <component
               :is="s.to ? 'NuxtLink' : 'button'"
-              v-for="(s, i) in stats"
+              v-for="s in stats"
               :key="s.label"
               :to="s.to"
               :type="s.to ? undefined : 'button'"
-              class="profile-stat ylf-press relative flex flex-1 flex-col items-center gap-0.5 rounded-xl py-2 text-white"
-              :class="i > 0 ? 'profile-stat--divided' : ''"
+              class="profile-stat ylf-press inline-flex items-baseline gap-1 rounded-xl px-2.5 py-1.5 text-white"
               @click="s.onClick?.()"
             >
-              <AppCountUp :value="s.value" class="text-lg font-semibold leading-none" />
-              <span class="text-xs text-white/90">{{ s.label }}</span>
+              <AppCountUp :value="s.value" class="text-base font-semibold leading-none tabular-nums sm:text-lg" />
+              <span class="text-xs text-white/85">{{ s.label }}</span>
             </component>
           </div>
         </div>
       </SkyHero>
 
       <TestAccountNotice v-if="syncRestricted" feature="profile-sync" />
-
-      <MyCloudAchievements />
 
       <!-- 未开通会员引导 -->
       <NuxtLink
@@ -293,29 +319,30 @@ function workshopInitial(name?: string) {
       </NuxtLink>
 
       <!-- 快捷入口 -->
-      <AppSection title="快捷入口" :rise="2">
-        <template #actions>
-          <span class="ylf-caption">{{ entries.length }} 个服务</span>
-        </template>
-        <nav class="profile-launcher" aria-label="个人中心快捷入口">
-          <NuxtLink
-            v-for="(e, i) in entries"
-            :key="e.to"
-            :to="e.to"
-            class="profile-app ylf-rise"
-            :style="{ '--sky': e.sky, '--on': e.on, '--i': 3 + i * 0.5 }"
-            :data-vt-link="e.to.startsWith('/settings') ? 'avatar page-header' : undefined"
-          >
-            <span class="profile-app__icon">
-              <Icon :name="e.icon" class="size-[1.375rem]" aria-hidden="true" />
-            </span>
-            <span class="profile-app__label">{{ e.label }}</span>
-          </NuxtLink>
-        </nav>
-      </AppSection>
+      <nav class="profile-shortcuts ylf-card ylf-rise" style="--i: 2" aria-label="个人中心快捷入口">
+        <NuxtLink
+          v-for="s in shortcuts"
+          :key="s.to"
+          :to="s.to"
+          class="profile-shortcut group"
+        >
+          <span class="profile-shortcut__icon">
+            <Icon :name="s.icon" class="size-[1.125rem]" aria-hidden="true" />
+          </span>
+          <span class="min-w-0 flex-1">
+            <span class="block truncate text-sm font-medium text-highlighted">{{ s.label }}</span>
+            <span class="block truncate text-xs text-muted">{{ s.hint }}</span>
+          </span>
+          <Icon
+            name="i-lucide-chevron-right"
+            class="size-4 shrink-0 text-dimmed transition group-hover:translate-x-0.5 group-hover:text-primary"
+            aria-hidden="true"
+          />
+        </NuxtLink>
+      </nav>
 
       <!-- 主页应用 -->
-      <AppSection title="主页应用" description="已发布并展示在你的云乐坊个人主页" :rise="4">
+      <AppSection title="主页应用" description="已发布并展示在你的云乐坊个人主页" :rise="3">
         <template #actions>
           <AppButton
             :to="appsProfileUrl"
@@ -357,15 +384,27 @@ function workshopInitial(name?: string) {
             自助发布敬请期待 🚧
           </p>
         </div>
-        <AppSurfaceList v-else :apps="homeApps.slice(0, 6)" />
+        <template v-else>
+          <AppSurfaceList :apps="homeApps.slice(0, 6)" class="-mx-2.5" />
+          <AppButton
+            v-if="homeApps.length > 6"
+            :to="appsProfileUrl"
+            :label="`还有 ${homeApps.length - 6} 个应用`"
+            icon="i-lucide-arrow-right"
+            color="neutral"
+            variant="link"
+            size="xs"
+            trailing
+            class="mt-3"
+          />
+        </template>
       </AppSection>
 
       <!-- 私人工坊 -->
       <AppSection
         title="私人工坊"
-        icon="i-lucide-key-round"
         description="这里只展示你作为坊主或坊客有权查看的作品"
-        :rise="5"
+        :rise="4"
       >
         <template #actions>
           <AppButton
@@ -375,6 +414,7 @@ function workshopInitial(name?: string) {
             color="neutral"
             variant="ghost"
             size="xs"
+            trailing
           />
         </template>
 
@@ -396,16 +436,15 @@ function workshopInitial(name?: string) {
             trailing
           />
         </div>
-        <div v-else class="space-y-3">
+        <div v-else class="divide-y divide-[var(--ui-border-muted)]">
           <article
-            v-for="(surface, i) in workshopSurfaces"
+            v-for="surface in workshopSurfaces"
             :key="surface.workshop._id"
-            class="private-workshop ylf-rise"
+            class="private-workshop py-4 first:pt-0 last:pb-0"
             :class="[
               surface.access === 'owner' ? 'private-workshop--owner' : 'private-workshop--guest',
               { 'private-workshop--disabled': surface.workshop.status === 'disabled' },
             ]"
-            :style="{ '--i': i }"
           >
             <div class="flex items-start gap-3">
               <span class="workshop-mark" aria-hidden="true">
@@ -457,9 +496,9 @@ function workshopInitial(name?: string) {
               :apps="surface.apps.slice(0, 6)"
               :show-audience="true"
               compact
-              class="mt-3"
+              class="-mx-2.5 mt-2"
             />
-            <p v-else class="mt-3 rounded-xl bg-elevated/45 px-3 py-3 text-center text-xs text-muted">
+            <p v-else class="mt-2 text-xs text-muted">
               {{ surface.workshop.status === 'disabled' ? '工坊停用期间暂不展示作品' : '工坊里还没有可见作品' }}
             </p>
           </article>
@@ -476,53 +515,12 @@ function workshopInitial(name?: string) {
   text-shadow: 0 1px 10px rgba(0, 40, 90, 0.35);
 }
 
-/* 头像光环：一圈缓慢旋转的晴空光晕，会员换成落日暖色。 */
 .profile-avatar {
-  --avatar-size: 5rem;
   position: relative;
   display: inline-flex;
   border-radius: 9999px;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-}
-
-.profile-avatar__halo {
-  position: absolute;
-  top: -6px;
-  left: -6px;
-  width: calc(var(--avatar-size) + 12px);
-  height: calc(var(--avatar-size) + 12px);
-  border-radius: inherit;
-  background: conic-gradient(
-    from 0deg,
-    rgba(255, 255, 255, 0.85),
-    rgba(147, 214, 255, 0.2),
-    rgba(255, 255, 255, 0.75),
-    rgba(147, 214, 255, 0.2),
-    rgba(255, 255, 255, 0.85)
-  );
-  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
-  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
-  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.55));
-  /* 光环平时静止，只在悬停或被戳时转半圈，头图里不再有常驻的旋转 */
-  transition: rotate 1200ms var(--ylf-ease-standard);
-}
-
-.profile-avatar:hover .profile-avatar__halo,
-.profile-avatar.ylf-squish .profile-avatar__halo {
-  rotate: 0.5turn;
-}
-
-.profile-avatar--member .profile-avatar__halo {
-  background: conic-gradient(from 0deg, #ffd29a, #f4516a, #ffb38a, #ff7a9a, #ffd29a);
-  filter: drop-shadow(0 0 8px rgba(244, 81, 106, 0.45));
-}
-
-/* 手机上头像缩到 64px，给昵称和会员徽章留出宽度 */
-@media (max-width: 639px) {
-  .profile-avatar {
-    --avatar-size: 4rem;
-  }
 }
 
 .profile-greeting {
@@ -536,26 +534,14 @@ function workshopInitial(name?: string) {
   }
 }
 
-/* 数据条：每项是一块可按的玻璃，悬停时微微亮起并上浮。 */
 .profile-stat {
   transition:
     background-color var(--ylf-duration-fast) var(--ylf-ease-standard),
-    translate var(--ylf-duration-slow) var(--ylf-ease-spring),
     scale var(--ylf-duration-slow) var(--ylf-ease-spring);
 }
 
-.profile-stat--divided::before {
-  position: absolute;
-  inset-block: 0.75rem;
-  inset-inline-start: 0;
-  width: 1px;
-  background: rgba(255, 255, 255, 0.25);
-  content: '';
-}
-
 .profile-stat:hover {
-  background: rgba(255, 255, 255, 0.12);
-  translate: 0 -2px;
+  background: rgb(255 255 255 / 12%);
 }
 
 .profile-stat:focus-visible {
@@ -563,69 +549,76 @@ function workshopInitial(name?: string) {
   outline-offset: -2px;
 }
 
-/* 工坊卡片：坊主落日暖色、坊客晴空冷色，由首字图标块和左上角淡淡的色晕区分身份。 */
+/* 快捷入口列表：双列行卡片，统一使用晴空蓝主色点缀 */
+.profile-shortcuts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+  padding: 6px;
+}
+
+@media (min-width: 640px) {
+  .profile-shortcuts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.profile-shortcut {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 10px 12px;
+  border-radius: var(--ylf-radius);
+  transition: background-color var(--ylf-duration-fast) var(--ylf-ease-standard);
+}
+
+.profile-shortcut:hover {
+  background: var(--ylf-surface-muted);
+}
+
+.profile-shortcut:focus-visible {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: -2px;
+}
+
+.profile-shortcut__icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--ylf-radius-sm);
+  background: color-mix(in srgb, var(--ui-primary) 10%, transparent);
+  color: var(--ui-primary);
+}
+
+/* 工坊行：坊主落日暖色、坊客晴空蓝，由首字图标块区分身份。 */
 .private-workshop {
   --workshop-tone: var(--ylf-palette-coral);
-  --workshop-mark: linear-gradient(
-    135deg,
-    var(--ylf-palette-sun),
-    var(--ylf-palette-coral) 55%,
-    var(--ylf-palette-pink)
-  );
-
-  position: relative;
-  overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--workshop-tone) 18%, var(--ui-border));
-  border-radius: 1.1rem;
-  padding: 1rem;
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--workshop-tone) 9%, transparent), transparent 55%),
-    var(--ylf-surface);
-  transition:
-    border-color var(--ylf-duration-fast) var(--ylf-ease-standard),
-    box-shadow var(--ylf-duration-normal) var(--ylf-ease-standard);
 }
 
 .private-workshop--guest {
-  --workshop-tone: var(--ylf-palette-cyan);
-  --workshop-mark: linear-gradient(135deg, var(--ylf-palette-cyan), var(--ylf-palette-blue));
-}
-
-.private-workshop:hover {
-  border-color: color-mix(in srgb, var(--workshop-tone) 36%, var(--ui-border));
-  box-shadow: 0 14px 30px -24px color-mix(in srgb, var(--workshop-tone) 70%, transparent);
+  --workshop-tone: var(--ylf-palette-blue);
 }
 
 .workshop-mark {
   display: grid;
   flex: none;
   place-items: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 0.75rem;
-  background: var(--workshop-mark);
-  box-shadow: 0 8px 16px -10px color-mix(in srgb, var(--workshop-tone) 80%, transparent);
+  width: 40px;
+  height: 40px;
+  border-radius: var(--ylf-radius-sm);
+  background: var(--workshop-tone);
   color: #fff;
-  font-size: 0.95rem;
+  font-size: 15px;
   font-weight: 700;
   line-height: 1;
-  text-shadow: 0 1px 2px rgb(0 0 0 / 18%);
-  transition: rotate var(--ylf-duration-slow) var(--ylf-ease-spring);
-}
-
-.private-workshop:hover .workshop-mark {
-  rotate: -6deg;
 }
 
 .private-workshop--disabled .workshop-mark {
   filter: grayscale(1);
   opacity: 0.6;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .private-workshop:hover .workshop-mark {
-    rotate: none;
-  }
 }
 
 .workshop-open :deep(svg),
@@ -660,82 +653,15 @@ function workshopInitial(name?: string) {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
 }
 
-/* 应用桌面：手机 4 列、桌面 7 列；图标像真正的 App 一样有高光和投影，悬停 Q 弹、按下回缩 */
-.profile-launcher {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1rem 0.5rem;
-}
-
-@media (min-width: 640px) {
-  .profile-launcher {
-    grid-template-columns: repeat(7, minmax(0, 1fr));
-  }
-}
-
-.profile-app {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.4rem;
-  border-radius: var(--ylf-radius);
-  padding-block: 0.25rem;
-  outline: none;
-}
-
-.profile-app__icon {
-  display: grid;
-  width: 3rem;
-  aspect-ratio: 1;
-  place-items: center;
-  border-radius: 30%;
-  color: var(--on);
-  background: linear-gradient(160deg, rgb(255 255 255 / 28%), transparent 55%), var(--sky);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 45%),
-    inset 0 -3px 0 rgb(0 0 0 / 10%),
-    0 8px 16px -10px var(--sky);
-  transition:
-    translate var(--ylf-duration-slow) var(--ylf-ease-spring),
-    scale var(--ylf-duration-slow) var(--ylf-ease-spring);
-}
-
-.profile-app:hover .profile-app__icon {
-  translate: 0 -3px;
-  animation: ylf-squish 640ms var(--ylf-ease-standard);
-}
-
-.profile-app:active .profile-app__icon {
-  scale: 0.9;
-  transition-duration: var(--ylf-duration-press);
-}
-
-.profile-app:focus-visible .profile-app__icon {
-  outline: 2px solid var(--ui-primary);
-  outline-offset: 3px;
-}
-
-.profile-app__label {
-  max-width: 100%;
-  overflow: hidden;
-  color: var(--ui-text);
-  font-size: 0.75rem;
-  font-weight: 500;
-  line-height: 1.3;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .profile-greeting,
   .ylf-join-cta:hover .join-cloud {
     animation: none;
   }
 
-  .profile-stat:hover,
   .ylf-join-cta:hover,
-  .profile-app:hover .profile-app__icon,
+  .profile-shortcut:hover :deep(svg),
+  .profile-shortcut:hover :deep(.iconify),
   .workshop-open:hover :deep(svg),
   .workshop-open:hover :deep(.iconify) {
     translate: none;

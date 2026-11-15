@@ -20,6 +20,7 @@ const PAGE_LABELS: ReadonlyArray<[prefix: string, label: string]> = [
   ['/wallet', '钱包'],
   ['/settings', '账号设置'],
   ['/profile', '个人中心'],
+  ['/clouds', '我的天空'],
   ['/feed', '关注动态'],
   ['/pricing', '会员'],
   ['/claim', '领取奖励'],

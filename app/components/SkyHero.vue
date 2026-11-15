@@ -374,10 +374,10 @@ function poke(cloud: HeroCloud, event: MouseEvent) {
   width: clamp(90px, 15%, 124px);
 }
 
-/* mini：设置等页面的窄横幅，云都靠右，给标题让出位置 */
+/* mini：设置与个人中心等页面的云朵排布，给标题和右上角操作让出留白 */
 [data-clouds='mini'] .ylf-sky-hero__cloud--far {
-  top: 10%;
-  left: 50%;
+  top: 12%;
+  left: 42%;
   width: clamp(60px, 10%, 88px);
 }
 
@@ -388,8 +388,8 @@ function poke(cloud: HeroCloud, event: MouseEvent) {
 }
 
 [data-clouds='mini'] .ylf-sky-hero__cloud--puff {
-  top: 8%;
-  right: 8%;
+  top: 16%;
+  right: 26%;
   width: clamp(80px, 13%, 104px);
 }
 

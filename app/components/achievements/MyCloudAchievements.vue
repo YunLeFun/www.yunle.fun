@@ -11,6 +11,7 @@ onUserSession(() => refresh())
   </p>
   <CloudAchievementCollection
     v-else
+    title="云朵收藏"
     :collection="collection"
     :editable="!restricted"
     :loading="loading"

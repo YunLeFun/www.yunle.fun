@@ -10,6 +10,7 @@ describe('edgeOne client route rendering', () => {
     const routeRules = config.routeRules ?? {}
     const expectedRoutes = [
       '/profile',
+      '/clouds',
       '/wallet',
       '/settings',
       '/account-status',

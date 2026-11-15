@@ -73,6 +73,14 @@ describe('profile home entry', () => {
 
     const homeEntry = wrapper.get('a[href="/u/2078850644063563776"]')
     expect(homeEntry.text()).toContain('我的主页')
+    const cloudsEntry = wrapper.get('a[href="/clouds"]')
+    expect(cloudsEntry.text()).toContain('我的天空')
+    const walletShortcut = wrapper.findAll('a[href="/wallet"]').find(node => node.text().includes('我的钱包'))
+    expect(walletShortcut).toBeTruthy()
+    expect(wrapper.get('a[href="/feed"]').text()).toContain('关注动态')
+    expect(wrapper.find('[to="/settings"]').exists()).toBe(true)
+    expect(wrapper.find('a[href="/settings?tab=security"]').exists()).toBe(false)
+    expect(wrapper.findComponent({ name: 'MyCloudAchievements' }).exists()).toBe(false)
   })
 
   it('shows public homepage apps and the private workshop available to the account', async () => {

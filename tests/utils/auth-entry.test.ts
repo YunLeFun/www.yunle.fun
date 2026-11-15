@@ -38,6 +38,7 @@ describe('login entry context', () => {
   it('recognises desktop device authorization and labelled site pages', () => {
     expect(parseAuthEntry('/link?code=WXYZ-1234')).toEqual({ kind: 'device', redirect: '/link?code=WXYZ-1234', userCode: 'WXYZ-1234' })
     expect(parseAuthEntry('/wallet?tab=coins')).toEqual({ kind: 'page', redirect: '/wallet?tab=coins', label: '钱包' })
+    expect(parseAuthEntry('/clouds')).toEqual({ kind: 'page', redirect: '/clouds', label: '我的天空' })
     expect(parseAuthEntry('/settings/')).toMatchObject({ kind: 'page', label: '账号设置' })
     expect(parseAuthEntry('/somewhere-new')).toMatchObject({ kind: 'page', label: null })
     expect(parseAuthEntry('/auth/sso')).toMatchObject({ kind: 'page', label: null })

@@ -36,7 +36,7 @@ export const defaultDownloads: Downloads = {
   items: [
     { platform: 'ios', version: '', url: '', requirements: 'iOS 14.0 或更高版本', enabled: false },
     { platform: 'android', version: '', url: '', requirements: 'Android 8.0 或更高版本', enabled: false },
-    { platform: 'web', version: '', url: 'https://apps.yunle.fun/', requirements: '现代浏览器', enabled: true },
+    { platform: 'web', version: '', url: 'https://www.yunle.fun/explore', requirements: '现代浏览器', enabled: true },
   ],
 }
 export function parseKind(value: unknown): ContentKind {

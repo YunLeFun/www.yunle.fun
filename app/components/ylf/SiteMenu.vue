@@ -20,7 +20,7 @@ const menuItems = [
   },
   {
     label: '应用',
-    to: 'https://apps.yunle.fun/',
+    to: '/explore',
   },
   {
     label: '博客',

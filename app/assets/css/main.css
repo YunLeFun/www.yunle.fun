@@ -733,23 +733,26 @@ body {
     inset 0 1px 0 rgba(255, 255, 255, 0.28);
 }
 
-/* frost 变体 —— 会员药丸叠在晴空蓝 / 深色 hero 上：同款落日实底 + 一圈白描边，
-   与晴空清晰分离，仍是白字。（实底不透明，浅色晴空底也不糊。） */
+/* frost 变体 —— 会员药丸叠在晴空蓝 / 深色 hero 上：克制的深暮蓝磨砂玻璃底 + 细白描边，
+   保证白字高对比度同时自然融进晴空，图标可单独用暖金点缀。 */
 .ylf-member-frost {
   color: #fff;
-  background: var(--ylf-gradient-member);
+  background: color-mix(in srgb, #0a244d 46%, transparent);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
   box-shadow:
-    0 4px 14px -6px color-mix(in srgb, #f4516a 55%, transparent),
-    inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    0 0 0 1px rgba(255, 255, 255, 0.5);
-  text-shadow: 0 1px 2px rgba(120, 22, 36, 0.42);
+    0 4px 14px -6px rgba(8, 28, 64, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 0 0 1px rgba(255, 255, 255, 0.24);
+  text-shadow: 0 1px 4px rgba(0, 20, 50, 0.35);
 }
 
 .dark .ylf-member-frost {
+  background: color-mix(in srgb, #081838 56%, transparent);
   box-shadow:
-    0 4px 16px -6px color-mix(in srgb, #f4516a 55%, transparent),
-    inset 0 1px 0 rgba(255, 255, 255, 0.34),
-    0 0 0 1px rgba(255, 255, 255, 0.4);
+    0 4px 16px -6px rgba(4, 12, 32, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 0 0 1px rgba(255, 255, 255, 0.2);
 }
 
 /* Soft member wash — for highlighting an active-member surface */

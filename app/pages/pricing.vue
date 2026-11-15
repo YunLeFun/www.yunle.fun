@@ -287,7 +287,7 @@ onMounted(() => {
               v-if="plan.highlight"
               class="ylf-member-frost absolute top-3 right-3 z-[2] inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold"
             >
-              <Icon name="i-lucide-sparkles" class="size-3.5" />
+              <Icon name="i-lucide-sparkles" class="size-3.5 text-[var(--ylf-sun-300)]" />
               省 ¥{{ yearSaving }} · 最划算
             </span>
 
