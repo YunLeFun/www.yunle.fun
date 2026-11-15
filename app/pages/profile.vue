@@ -16,7 +16,7 @@ useSeoMeta({
   description: '管理您的个人信息',
 })
 
-const { user, isAuthenticated, loading } = useTcbAuth()
+const { user, isAuthenticated, loading, authReady } = useTcbAuth()
 const { equipped: equippedCloud } = useCloudAchievementDisplay()
 const { getMyApps, getMyWorkshops } = useApps()
 const { isActive: isMember, state: membershipState, refresh: refreshMembership } = useMembership()
@@ -24,8 +24,8 @@ const { balance: coinBalance, refresh: refreshAccount } = useCoin()
 const { getProfile, syncRestricted } = useUserProfile()
 const router = useRouter()
 
-watch(isAuthenticated, (value) => {
-  if (!value) {
+watch([isAuthenticated, () => authReady?.value ?? true], ([authed, ready]) => {
+  if (import.meta.client && ready && !authed) {
     router.push('/login')
   }
 }, { immediate: true })

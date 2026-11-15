@@ -87,8 +87,11 @@ export default defineNuxtConfig({
     appsPlatformApiUrl: process.env.NUXT_APPS_PLATFORM_API_URL || DEFAULT_APPS_PLATFORM_API_URL,
     // 领取页服务端只用它把可信来源 IP 签成短时匿名凭证；必须与 account-api 配置一致。
     rewardClaimRateTicketSecret: process.env.NUXT_REWARD_CLAIM_RATE_TICKET_SECRET || '',
+    // Nuxt 4.6+ / nuxt-auth-utils 0.6+ 使用 runtimeConfig.appSecret（NUXT_APP_SECRET）派生会话密钥；
+    // 兼容沿用 NUXT_SESSION_PASSWORD 作为构建期回退，运行时仍以 NUXT_APP_SECRET 覆盖优先。
+    appSecret: process.env.NUXT_APP_SECRET || process.env.NUXT_SESSION_PASSWORD || '',
     // nuxt-auth-utils sealed httpOnly cookie 会话（见 docs/cookie-session-migration.md · Phase 5）。
-    // password 由 NUXT_SESSION_PASSWORD env 注入（≥32 字符）；以下显式收口 cookie flags。
+    // 以下显式收口 cookie flags。
     session: {
       name: 'ylf_session',
       maxAge: 60 * 60 * 24 * 30, // 30 天持久会话（cookie 过期即需重新登录）

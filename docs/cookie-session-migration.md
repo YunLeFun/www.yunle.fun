@@ -64,10 +64,10 @@
 
 ### Phase 0 · 上服务端运行时（基建）
 
-- **改动**：构建从 `nuxt generate` → `nuxt build`（Nitro，preset `node-server`）；装 `nuxt-auth-utils`、注册模块、配 `NUXT_SESSION_PASSWORD`。
+- **改动**：构建从 `nuxt generate` → `nuxt build`（Nitro，preset `node-server`）；装 `nuxt-auth-utils`、注册模块、配 `NUXT_APP_SECRET`（Nuxt 4.6+ / nuxt-auth-utils 0.6+ 主密钥；构建期兼容回退 `NUXT_SESSION_PASSWORD`）。
 - **已验证**：`pnpm build` → `.output/nitro.json` preset 由 `static` 翻为 `node-server`，产出 `.output/server/index.mjs`，三个 `/api/session/*` 端点打进 server bundle；起 `node .output/server/index.mjs` 实测端点 400/401/200 + httpOnly Set-Cookie，首页 SSR 200。
 - **EdgeOne 部署（平台侧动作）——✅ 服务端运行时已生效**：生产 `/api/session/*` 已进入 EdgeOne 服务端函数；继续保持 `pnpm build` 与 `.output/server` 托管。
-  - EdgeOne env 必须保留 `NUXT_SESSION_PASSWORD`（≥32 字符）；生产激活 cookie 会话时再配 `NUXT_PUBLIC_COOKIE_SESSION=true`。
+  - EdgeOne env 必须保留 `NUXT_APP_SECRET`（≥32 字符，取代旧版 `NUXT_SESSION_PASSWORD`）；生产激活 cookie 会话时再配 `NUXT_PUBLIC_COOKIE_SESSION=true`。
   - 新增依赖服务端签名的功能时，发布预览必须核对 EdgeOne 与下游服务的共享密钥一致性。
 - **风险**：EdgeOne SSR 冷启动、`/u` SSR 同时真正生效。
 
@@ -114,12 +114,13 @@
 
 ## 6. 新增环境变量
 
-| 变量                                | 用途                                                | 位置                      |
-| ----------------------------------- | --------------------------------------------------- | ------------------------- |
-| `NUXT_SESSION_PASSWORD`             | nuxt-auth-utils 封 sealed cookie 的密钥（≥32 字符） | Nuxt 服务端 / EdgeOne env |
-| `NUXT_PUBLIC_COOKIE_SESSION`        | 生产激活 cookie 会话启动恢复                        | EdgeOne env               |
-| `NUXT_PUBLIC_COOKIE_SESSION_MEMORY` | 生产激活内存 token，不落 localStorage               | EdgeOne env               |
-| `SSO_TICKET_INTERNAL_TOKEN`         | sso-ticket 服务端代签路径的内部调用鉴权             | CloudBase 函数 env        |
+| 变量                                | 用途                                                                     | 位置                      |
+| ----------------------------------- | ------------------------------------------------------------------------ | ------------------------- |
+| `NUXT_APP_SECRET`                   | Nuxt 4.6+ / nuxt-auth-utils 0.6+ 派生 sealed cookie 的主密钥（≥32 字符） | Nuxt 服务端 / EdgeOne env |
+| `NUXT_SESSION_PASSWORD`             | 旧版密钥名（仅作 `nuxt.config.ts` 构建期兼容回退）                       | Nuxt 服务端 / EdgeOne env |
+| `NUXT_PUBLIC_COOKIE_SESSION`        | 生产激活 cookie 会话启动恢复                                             | EdgeOne env               |
+| `NUXT_PUBLIC_COOKIE_SESSION_MEMORY` | 生产激活内存 token，不落 localStorage                                    | EdgeOne env               |
+| `SSO_TICKET_INTERNAL_TOKEN`         | sso-ticket 服务端代签路径的内部调用鉴权                                  | CloudBase 函数 env        |
 
 ## 7. 影响清单
 
@@ -165,7 +166,7 @@
     - **附带观察（与本条无关，留痕）**：prod `/apps` 在本地有有效 owner 凭证时仍被守卫跳 `/login`（已部署的旧构建早于 onUserSession/useRequireAuth 会话恢复改造）——属会话恢复/守卫问题，本迁移上线后即解。
   - [x] `/session/*` 基础防护：SameSite=Lax + Origin 同源校验 + 进程内限速（见 [server/utils/session-security.ts](../server/utils/session-security.ts)）
   - [ ] 纵深防御（Phase 5）：严格 CSP + 短 token TTL + 全局共享限速（KV/Redis）+ 安全 review
-  - [ ] **prod 激活**：EdgeOne env 置 `NUXT_PUBLIC_COOKIE_SESSION=true` + `NUXT_PUBLIC_COOKIE_SESSION_MEMORY=true` + `NUXT_SESSION_PASSWORD`
+  - [ ] **prod 激活**：EdgeOne env 置 `NUXT_PUBLIC_COOKIE_SESSION=true` + `NUXT_PUBLIC_COOKIE_SESSION_MEMORY=true` + `NUXT_APP_SECRET`
 - [ ] Phase 2：OTP/密码种 cookie + OAuth code 交换服务端化
 - [ ] Phase 3：账号页 routeRules 翻回 SSR，灭闪
 - [ ] Phase 4：SSO 桥只发 ticket + 桌面端联调

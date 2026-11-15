@@ -34,6 +34,7 @@ export function useTcbAuth() {
     user: readonly(core.user),
     loading: readonly(core.loading),
     error: readonly(core.error),
+    authReady: readonly(core.authReady),
     isAuthenticated: core.isAuthenticated,
     // 新用户首次引导（OnboardingModal 消费）
     needsOnboarding: core.needsOnboarding,

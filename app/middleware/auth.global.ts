@@ -44,9 +44,9 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const { useTcbAuthSession } = await import('~/composables/auth/useAuthSession')
   const { checkAuthStatus, isAuthenticated, authReady } = useTcbAuthSession()
 
-  // 首次访问时从持久化会话恢复登录态；authReady 完成后信任内存登录态，
-  // 不再每次导航重复 getSession（checkAuthStatus 内部亦会折叠并发调用）
-  if (!authReady.value)
+  // 首次访问或访客路由切入后存在可恢复会话时恢复登录态；authReady 且无待恢复会话时
+  // 信任内存登录态，不再每次导航重复 getSession（checkAuthStatus 内部亦会折叠并发调用）
+  if (!authReady.value || (!isAuthenticated.value && hasRestorableSession))
     await checkAuthStatus()
 
   if (isAuthenticated.value) {

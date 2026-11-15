@@ -39,10 +39,13 @@ export function useTcbAuthCore() {
   const authStatus = computed<'pending' | 'authenticated' | 'guest'>(() =>
     !authReady.value ? 'pending' : user.value ? 'authenticated' : 'guest',
   )
+  // 认证代次（登出 / 清理时递增），用于阻止在途 fetchUser/setServerSession 晚归后复活已退出状态
+  const authEpoch = useState<number>('auth_epoch', () => 0)
   // 新手机号用户首次登录时置位，由全局 OnboardingModal 接住弹一次引导（localStorage 按 uid 防重）
   const needsOnboarding = useState<boolean>('needs_onboarding', () => false)
 
   const clearAuth = () => {
+    authEpoch.value += 1
     user.value = null
     error.value = null
     clearAccountAccess()
@@ -71,10 +74,13 @@ export function useTcbAuthCore() {
   }
 
   const fetchUser = async () => {
+    const startEpoch = authEpoch.value
     try {
       loading.value = true
       error.value = null
       const { data, error: authError } = await auth.getUser()
+      if (authEpoch.value !== startEpoch)
+        return null
       if (authError || !data?.user) {
         clearAuth()
         return null
@@ -85,19 +91,31 @@ export function useTcbAuthCore() {
         return null
       }
 
-      // 立即就绪：头像 / 昵称等展示字段无需等待网络，先填充登录态
-      user.value = mapCloudbaseUser(rawUser)
-      if (user.value) {
-        user.value = {
-          ...user.value,
-          // 新资料保存 fileID；旧资料若保存了已过期的 CloudBase 临时 URL，
-          // 则在登录恢复时还原为 fileID，随后由展示层实时换取可访问 URL。
-          avatar: normalizeAvatarSource(user.value.avatar, String(config.public.cloudbaseEnvId || '')),
-        }
-      }
+      const mapped = mapCloudbaseUser(rawUser)
+      const nextUser = mapped
+        ? {
+            ...mapped,
+            // 新资料保存 fileID；旧资料若保存了已过期的 CloudBase 临时 URL，
+            // 则在登录恢复时还原为 fileID，随后由展示层实时换取可访问 URL。
+            avatar: normalizeAvatarSource(mapped.avatar, String(config.public.cloudbaseEnvId || '')),
+          }
+        : null
+
+      // 双层会话：在 user.value 就绪并触发登录页 watch(isAuthenticated) 跳转前，
+      // 先完成 httpOnly cookie 封签（若 bootstrap 已成功封过同对令牌，内部会自动跳过，若失败则借此重试）。
+      if (nextUser && cookieSession)
+        await setServerSession().catch(() => false)
+
+      if (authEpoch.value !== startEpoch)
+        return null
+
+      // 立即就绪：头像 / 昵称等展示字段无需等待后续资料同步，先填充登录态
+      user.value = nextUser
 
       if (user.value) {
         const accountAccess = await refreshAccountAccess(user.value.id, true)
+        if (authEpoch.value !== startEpoch)
+          return null
         if (accountAccess.restricted)
           return user.value
 
@@ -109,13 +127,16 @@ export function useTcbAuthCore() {
             const { error: usernameError } = await auth.updateUser({ username: temporaryUsername })
             if (usernameError)
               throw usernameError
-            user.value = { ...user.value, login: temporaryUsername }
+            if (authEpoch.value === startEpoch && user.value)
+              user.value = { ...user.value, login: temporaryUsername }
           }
           catch (usernameError) {
             // 临时用户名写回失败不应阻塞登录或领取；公开资料允许 login 为空。
             console.warn('[auth] 写回临时用户名失败:', usernameError)
           }
         }
+        if (authEpoch.value !== startEpoch || !user.value)
+          return null
 
         // 手机 OTP 默认昵称＝完整手机号（PII 且不体面）。首次登录检测到裸手机号昵称，
         // 换成品牌默认名（如「云游者_k7m2」）并写回 CloudBase auth，从源头根治。
@@ -134,17 +155,18 @@ export function useTcbAuthCore() {
           avatar: user.value.avatar,
           description: user.value.description,
         })
+        if (authEpoch.value !== startEpoch)
+          return null
         if (!syncedProfile && !syncRestricted.value)
           console.warn('[auth] 公开资料同步未完成，将在下次登录重试')
         // 密码状态异步补充，不阻塞登录态恢复
         enrichPasswordStatus(user.value.id).catch(e => console.warn('[auth] 获取密码状态失败:', e))
-        // 双层会话：登录成功后种 / 续 httpOnly cookie（fire-and-forget）
-        if (cookieSession)
-          setServerSession().catch(() => {})
       }
       return user.value
     }
     catch (err: unknown) {
+      if (authEpoch.value !== startEpoch)
+        return null
       console.error('获取用户信息失败:', err)
       error.value = getErrorMessage(err)
       clearAuth()
@@ -162,22 +184,30 @@ export function useTcbAuthCore() {
     if (inflight)
       return inflight
     const run = (async () => {
+      const startEpoch = authEpoch.value
       try {
-        let data: Awaited<ReturnType<typeof auth.getSession>>['data'] | undefined
-        // 双层会话：首轮检查优先用 httpOnly cookie 恢复，避免 SDK 在无 localStorage
-        // 时先落入空/匿名会话，导致保护路由误判未登录并跳转登录页。
-        if (cookieSession) {
-          const restored = await bootstrapFromCookie()
-          if (restored)
+        // 双层会话：先查当前内存/本地 SDK 会话；仅当无有效非匿名会话时才用 httpOnly cookie 恢复，
+        // 避免已有活跃会话时被旧 cookie 中的一次性 refresh_token 刷新覆盖或二次消费。
+        let { data } = await auth.getSession()
+        if (authEpoch.value !== startEpoch)
+          return
+        let restoredFromCookie = false
+        if (cookieSession && (!data?.session || isAnonymousSession(data.session))) {
+          restoredFromCookie = await bootstrapFromCookie()
+          if (authEpoch.value !== startEpoch)
+            return
+          if (restoredFromCookie) {
             data = (await auth.getSession()).data
+            if (authEpoch.value !== startEpoch)
+              return
+          }
         }
-        if (!data?.session)
-          data = (await auth.getSession()).data
         if (data?.session && !isAnonymousSession(data.session)) {
           await fetchUser()
-          void resumeAfterSessionRecovery(user.value?.id)
+          if (authEpoch.value === startEpoch && user.value?.id)
+            void resumeAfterSessionRecovery(user.value.id)
         }
-        else {
+        else if (authEpoch.value === startEpoch) {
           clearAuth()
         }
       }
@@ -199,12 +229,13 @@ export function useTcbAuthCore() {
 
   const logout = async () => {
     try {
+      authEpoch.value += 1
       loading.value = true
       await auth.signOut()
-      // 双层会话：清 httpOnly cookie（CloudBase signOut 已清内存/会话存储 token）
+      clearAuth()
+      // 双层会话：清 httpOnly cookie（若此时仍有封签请求在途，内部会等其落地后再清，防止旧 cookie 复活）
       if (cookieSession)
         await clearServerSession()
-      clearAuth()
       toast.add({ title: '已退出登录', description: '期待您的再次光临', color: 'neutral' })
       await router.push('/login')
     }

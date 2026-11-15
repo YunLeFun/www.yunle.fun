@@ -10,24 +10,68 @@
  */
 export function useServerSession() {
   const { auth } = useCloudbase()
+  const nuxtApp = useNuxtApp()
+  const config = useRuntimeConfig()
+  const serverSession = (!import.meta.server && config.public.cookieSession)
+    ? useUserSession()
+    : null
 
-  /** 登录成功后封原始令牌到 cookie。非阻塞：失败不影响既有登录态。 */
+  function getSessionEpoch(): number {
+    return (nuxtApp._serverSessionEpoch as number | undefined) ?? 0
+  }
+
+  function enqueueCookieMutation<T>(task: () => Promise<T>): Promise<T> {
+    const previous = (nuxtApp._serverSessionQueue as Promise<unknown> | undefined) ?? Promise.resolve()
+    const next = previous.catch(() => {}).then(task)
+    nuxtApp._serverSessionQueue = next
+    return next
+  }
+
+  async function sealCurrentSession(enqueuedEpoch: number): Promise<boolean> {
+    if (getSessionEpoch() !== enqueuedEpoch)
+      return false
+    const { data } = await auth.getSession()
+    if (getSessionEpoch() !== enqueuedEpoch)
+      return false
+    const accessToken = data?.session?.access_token
+    const refreshToken = data?.session?.refresh_token
+    if (!accessToken || !refreshToken)
+      return false
+    const pairKey = `${accessToken}:${refreshToken}`
+    if (nuxtApp._serverSessionLastSealedPair === pairKey)
+      return true
+    const res = await $fetch<{ ok?: boolean, user?: { uid: string, name?: string }, loggedInAt?: number }>(
+      '/api/session/login',
+      { method: 'POST', body: { accessToken, refreshToken } },
+    )
+    // 若封签期间已触发 clearServerSession / 登出，丢弃过期响应避免回填登录态
+    if (getSessionEpoch() !== enqueuedEpoch)
+      return false
+    nuxtApp._serverSessionLastSealedPair = pairKey
+    if (serverSession && res?.user?.uid) {
+      serverSession.session.value = {
+        ...serverSession.session.value,
+        user: res.user,
+        loggedInAt: res.loggedInAt,
+      }
+    }
+    return true
+  }
+
+  /** 登录成功后封原始令牌到 cookie。所有封签与清理按 FIFO 串行，防止乱序覆盖或漏删。 */
   async function setServerSession(): Promise<boolean> {
     if (import.meta.server)
       return false
-    try {
-      const { data } = await auth.getSession()
-      const accessToken = data?.session?.access_token
-      const refreshToken = data?.session?.refresh_token
-      if (!accessToken || !refreshToken)
+    const enqueuedEpoch = getSessionEpoch()
+    return await enqueueCookieMutation(async () => {
+      try {
+        return await sealCurrentSession(enqueuedEpoch)
+      }
+      catch (e) {
+        console.warn('[session] setServerSession 失败（回退既有登录态）:', e)
         return false
-      await $fetch('/api/session/login', { method: 'POST', body: { accessToken, refreshToken } })
-      return true
-    }
-    catch (e) {
-      console.warn('[session] setServerSession 失败（回退既有登录态）:', e)
-      return false
-    }
+      }
+    })
   }
 
   /**
@@ -38,38 +82,57 @@ export function useServerSession() {
   async function bootstrapFromCookie(): Promise<boolean> {
     if (import.meta.server)
       return false
-    try {
-      const res = await $fetch<{ accessToken?: string, refreshToken?: string }>(
-        '/api/session/bootstrap',
-        { method: 'POST' },
-      )
-      if (!res?.accessToken || !res?.refreshToken)
+    const inflight = nuxtApp._serverSessionBootstrapInflight as Promise<boolean> | undefined
+    if (inflight)
+      return inflight
+
+    const run = (async () => {
+      const startEpoch = getSessionEpoch()
+      try {
+        const res = await $fetch<{ accessToken?: string, refreshToken?: string }>(
+          '/api/session/bootstrap',
+          { method: 'POST' },
+        )
+        if (getSessionEpoch() !== startEpoch || !res?.accessToken || !res?.refreshToken)
+          return false
+        // setSession 内部用 refresh_token 刷新并恢复会话
+        const { data, error } = await auth.setSession({
+          access_token: res.accessToken,
+          refresh_token: res.refreshToken,
+        })
+        if (getSessionEpoch() !== startEpoch || error || !data?.session)
+          return false
+        // 刷新会轮换一次性 refresh_token：必须等重封落地再继续，但即便重封暂时失败，
+        // 只要期间未登出且 auth.setSession 已恢复 SDK 会话，仍应返回 true 避免误清当前登录态。
+        await setServerSession().catch(() => false)
+        return getSessionEpoch() === startEpoch
+      }
+      catch {
         return false
-      // setSession 内部用 refresh_token 刷新并恢复会话
-      const { data, error } = await auth.setSession({
-        access_token: res.accessToken,
-        refresh_token: res.refreshToken,
-      })
-      if (error || !data?.session)
-        return false
-      // setSession 已恢复可用登录态，页头无需继续等待服务端二次校验。
-      // 刷新可能轮换 refresh_token，后台重新封 cookie 供下次启动使用。
-      void setServerSession()
-      return true
-    }
-    catch {
-      return false
-    }
+      }
+    })().finally(() => {
+      if (nuxtApp._serverSessionBootstrapInflight === run)
+        nuxtApp._serverSessionBootstrapInflight = undefined
+    })
+    nuxtApp._serverSessionBootstrapInflight = run
+    return await run
   }
 
-  /** 登出清 cookie（CloudBase signOut 由调用方另行处理）。 */
+  /** 登出清 cookie 并同步清理前端 serverSession 缓存态（CloudBase signOut 由调用方另行处理）。 */
   async function clearServerSession(): Promise<void> {
     if (import.meta.server)
       return
-    try {
-      await $fetch('/api/session/logout', { method: 'POST' })
-    }
-    catch {}
+    nuxtApp._serverSessionEpoch = getSessionEpoch() + 1
+    nuxtApp._serverSessionLastSealedPair = undefined
+    if (serverSession)
+      serverSession.session.value = null
+    // 纳入统一 FIFO 队列：等待在途封签结束后再发 logout，同时确保后续新登录在 logout 完成后再封 cookie
+    await enqueueCookieMutation(async () => {
+      try {
+        await $fetch('/api/session/logout', { method: 'POST' })
+      }
+      catch {}
+    })
   }
 
   return { setServerSession, bootstrapFromCookie, clearServerSession }

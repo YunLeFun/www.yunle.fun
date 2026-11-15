@@ -25,11 +25,11 @@ useSeoMeta({
   description: '管理您的账户设置',
 })
 
-const { user, isAuthenticated, loading } = useTcbAuth()
+const { user, isAuthenticated, loading, authReady } = useTcbAuth()
 const router = useRouter()
 
-watch(isAuthenticated, (value) => {
-  if (!value) {
+watch([isAuthenticated, () => authReady?.value ?? true], ([authed, ready]) => {
+  if (import.meta.client && ready && !authed) {
     router.push('/login')
   }
 }, { immediate: true })

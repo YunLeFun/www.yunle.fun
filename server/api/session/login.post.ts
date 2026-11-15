@@ -29,14 +29,16 @@ export default defineEventHandler(async (event) => {
   if (!uid)
     throw createError({ statusCode: 401, statusMessage: 'invalid CloudBase session' })
 
+  const sessionUser = {
+    uid,
+    name: (profile?.name || profile?.nickname) as string | undefined,
+  }
+  const loggedInAt = Date.now()
   await setUserSession(event, {
-    user: {
-      uid,
-      name: (profile?.name || profile?.nickname) as string | undefined,
-    },
-    loggedInAt: Date.now(),
+    user: sessionUser,
+    loggedInAt,
     // secure：仅服务端可读，封原始令牌供启动时 setSession 恢复原始会话
     secure: { accessToken, refreshToken },
   })
-  return { ok: true }
+  return { ok: true, user: sessionUser, loggedInAt }
 })
