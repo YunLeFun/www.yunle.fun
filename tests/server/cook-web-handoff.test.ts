@@ -39,8 +39,8 @@ const { default: redirect } = await import('../../server/api/session/cook-handof
 const { default: redeem } = await import('../../server/api/session/cook-handoff.post')
 const serve = toWebHandler(createApp().use(createRouter().get(path, start).get(`${path}/:request/:binding`, redirect).post(path, redeem)))
 
-async function browserStart() {
-  const res = await serve(new Request(`${origin}${path}?request=${request}`))
+async function browserStart(transport = '') {
+  const res = await serve(new Request(`${origin}${path}?request=${request}${transport ? `&transport=${transport}` : ''}`))
   const cookie = res.headers.get('set-cookie')!
   const pair = cookie.split(';')[0]!
   const proof = pair.split('=')[1]!
@@ -68,10 +68,26 @@ describe('cook account website handoff endpoints', () => {
     expect(landing.headers.get('location')).toBe(`/auth/cook-account?request=${request}&binding=${binding}`)
 
     const supported = await serve(new Request(origin + path))
-    expect(await supported.json()).toEqual({ supported: true })
+    expect(await supported.json()).toEqual({ supported: true, systemBrowser: true })
     expect(supported.headers.has('set-cookie')).toBe(false)
     config.cookWebHandoffToken = ''
     expect((await serve(new Request(origin + path))).status).toBe(404)
+  })
+
+  it('binds a system browser to the existing Cook HTTPS callback without putting the cookie proof in the URL', async () => {
+    const { res, cookie, proof } = await browserStart('browser')
+    const binding = createHash('sha256').update(proof).digest('base64url')
+    expect(res.status).toBe(303)
+    expect(res.headers.get('location')).toBe(
+      `https://cook.yunyoujun.cn/auth/callback?platform=native#cook_handoff=${request}.${binding}`,
+    )
+    expect(res.headers.get('location')).not.toContain(proof)
+    expect(cookie).toContain('HttpOnly')
+    expect(cookie).toContain('SameSite=Strict')
+    expect(res.headers.get('cache-control')).toContain('no-store')
+    const invalid = await serve(new Request(`${origin}${path}?request=${request}&transport=browser&transport=other`))
+    expect(invalid.status).toBe(400)
+    expect(invalid.headers.has('set-cookie')).toBe(false)
   })
 
   it('requires the proof cookie and exact website origin and passes the verified cookie identity on only the private relay', async () => {
