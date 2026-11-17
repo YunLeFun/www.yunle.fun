@@ -1,6 +1,7 @@
 import type { CookHandoffReply } from '~~/shared/utils/cook-web-handoff'
 import { isAnonymousSession } from '@yunlefun/sso'
 import { useTcbAuthSession } from './useAuthSession'
+import { useServerSession } from './useServerSession'
 
 const TOKEN = /^[\w-]{43}$/
 const destination = '/settings?tab=account'
@@ -10,6 +11,8 @@ type ViewState = 'opening' | 'switch' | 'switching' | 'cancelled' | 'failed'
 export function useCookAccountHandoff() {
   const { auth } = useCloudbase()
   const { user, checkAuthStatus } = useTcbAuthSession()
+  const { bootstrapFromCookie } = useServerSession()
+  const config = useRuntimeConfig()
   const router = useRouter()
   const state = shallowRef<ViewState>('opening')
   const abort = new AbortController()
@@ -81,6 +84,21 @@ export function useCookAccountHandoff() {
     state.value = 'failed'
   }
 
+  async function open() {
+    try {
+      // The production SDK stores tokens in memory. A new Safari document must
+      // restore its own existing website session before comparing accounts.
+      if (config.public.cookieSession && !await browserAccessToken())
+        await bootstrapFromCookie()
+      if (!abort.signal.aborted)
+        await complete('')
+    }
+    catch {
+      if (!abort.signal.aborted)
+        state.value = 'failed'
+    }
+  }
+
   onMounted(() => {
     const params = new URLSearchParams(window.location.search)
     window.history.replaceState(window.history.state, '', window.location.pathname)
@@ -92,7 +110,7 @@ export function useCookAccountHandoff() {
       return
     }
     request = requests[0]!
-    void complete('')
+    void open()
   })
 
   onScopeDispose(() => abort.abort())

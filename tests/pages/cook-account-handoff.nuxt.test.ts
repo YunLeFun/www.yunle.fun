@@ -10,6 +10,7 @@ const h = vi.hoisted(() => ({
   getSession: vi.fn(),
   signIn: vi.fn(),
   checkAuthStatus: vi.fn(),
+  bootstrapFromCookie: vi.fn(),
   router: { afterEach: vi.fn(), beforeEach: vi.fn(), beforeResolve: vi.fn(), replace: vi.fn() },
 }))
 const user = shallowRef<{ id: string } | null>(null)
@@ -23,6 +24,9 @@ mockNuxtImport('useCloudbase', () => () => ({
 mockNuxtImport('useRouter', () => () => h.router)
 vi.mock('../../app/composables/auth/useAuthSession', () => ({
   useTcbAuthSession: () => ({ user, checkAuthStatus: h.checkAuthStatus }),
+}))
+vi.mock('../../app/composables/auth/useServerSession', () => ({
+  useServerSession: () => ({ bootstrapFromCookie: h.bootstrapFromCookie }),
 }))
 registerEndpoint('/api/session/cook-handoff', {
   method: 'POST',
@@ -42,10 +46,12 @@ async function mountPage() {
 
 describe('opening the current Cook account website', () => {
   beforeEach(() => {
+    useRuntimeConfig().public.cookieSession = false
     user.value = null
     h.redeem.mockReset()
     h.getSession.mockReset().mockResolvedValue({ data: { session: null }, error: null })
     h.signIn.mockReset()
+    h.bootstrapFromCookie.mockReset()
     h.router.replace.mockReset()
     h.checkAuthStatus.mockReset().mockImplementation(() => {
       user.value = { id: 'cook-user' }
@@ -71,6 +77,21 @@ describe('opening the current Cook account website', () => {
     h.redeem.mockResolvedValue({ state: 'reuse', subject: 'cook-user' })
     const wrapper = await mountPage()
     await vi.waitFor(() => expect(h.router.replace).toHaveBeenCalledWith('/settings?tab=account'))
+    expect(h.redeem).toHaveBeenCalledWith({ request, confirmation: '' }, 'Bearer token-cook-user')
+    expect(h.signIn).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('restores a cookie-only website session before deciding whether to switch', async () => {
+    useRuntimeConfig().public.cookieSession = true
+    h.bootstrapFromCookie.mockImplementation(async () => {
+      h.getSession.mockResolvedValue(browserSession('cook-user'))
+      return true
+    })
+    h.redeem.mockResolvedValue({ state: 'reuse', subject: 'cook-user' })
+    const wrapper = await mountPage()
+    await vi.waitFor(() => expect(h.router.replace).toHaveBeenCalledWith('/settings?tab=account'))
+    expect(h.bootstrapFromCookie).toHaveBeenCalledTimes(1)
     expect(h.redeem).toHaveBeenCalledWith({ request, confirmation: '' }, 'Bearer token-cook-user')
     expect(h.signIn).not.toHaveBeenCalled()
     wrapper.unmount()
