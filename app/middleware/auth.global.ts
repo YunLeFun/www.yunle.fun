@@ -7,7 +7,8 @@ import { captureBrowserAcquisition } from '~/utils/acquisition-storage'
 
 export default defineNuxtRouteMiddleware(async (to) => {
   // 仅在客户端运行
-  if (import.meta.server)
+  // Compare the existing browser account before any recovery can update its session cookie.
+  if (import.meta.server || to.path === '/auth/cook-account')
     return
 
   const hasUtmQuery = ['utm_source', 'utm_medium', 'utm_campaign'].some(key => to.query[key])

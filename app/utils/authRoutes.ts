@@ -5,6 +5,7 @@ const PUBLIC_AUTH_ROUTE_EXACT = [
   '/auth/sso',
   '/auth/github',
   '/auth/callback',
+  '/auth/cook-account',
   '/pricing',
   '/explore',
   '/download',
@@ -25,6 +26,7 @@ const POST_LOGIN_REDIRECT_BLOCKLIST = [
   '/signup',
   '/auth/github',
   '/auth/callback',
+  '/auth/cook-account',
 ]
 
 export type AuthRestorationState = 'anonymous' | 'pending' | 'restorable'

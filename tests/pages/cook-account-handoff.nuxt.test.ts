@@ -1,0 +1,106 @@
+// @vitest-environment nuxt
+import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
+import { getHeader, readBody } from 'h3'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { shallowRef } from 'vue'
+import CookAccountHandoffPage from '../../app/pages/auth/cook-account.vue'
+
+const h = vi.hoisted(() => ({
+  redeem: vi.fn(),
+  getSession: vi.fn(),
+  signIn: vi.fn(),
+  checkAuthStatus: vi.fn(),
+  router: { afterEach: vi.fn(), beforeEach: vi.fn(), beforeResolve: vi.fn(), replace: vi.fn() },
+}))
+const user = shallowRef<{ id: string } | null>(null)
+const request = 'r'.repeat(43)
+const binding = 'b'.repeat(43)
+const confirmation = 'c'.repeat(43)
+
+mockNuxtImport('useCloudbase', () => () => ({
+  auth: { getSession: h.getSession, signInWithCustomTicket: h.signIn },
+}))
+mockNuxtImport('useRouter', () => () => h.router)
+vi.mock('../../app/composables/auth/useAuthSession', () => ({
+  useTcbAuthSession: () => ({ user, checkAuthStatus: h.checkAuthStatus }),
+}))
+registerEndpoint('/api/session/cook-handoff', {
+  method: 'POST',
+  handler: async event => h.redeem(await readBody(event), getHeader(event, 'authorization')),
+})
+
+function browserSession(uid: string) {
+  return { data: { session: { access_token: `token-${uid}`, user: { id: uid } } }, error: null }
+}
+
+async function mountPage() {
+  window.history.replaceState(window.history.state, '', `/auth/cook-account?request=${request}&binding=${binding}`)
+  return await mountSuspended(CookAccountHandoffPage, {
+    global: { stubs: { AppButton: { template: '<button><slot /></button>' } } },
+  })
+}
+
+describe('opening the current Cook account website', () => {
+  beforeEach(() => {
+    user.value = null
+    h.redeem.mockReset()
+    h.getSession.mockReset().mockResolvedValue({ data: { session: null }, error: null })
+    h.signIn.mockReset()
+    h.router.replace.mockReset()
+    h.checkAuthStatus.mockReset().mockImplementation(() => {
+      user.value = { id: 'cook-user' }
+    })
+  })
+
+  it('signs in a fresh browser and opens the fixed management page without prompting', async () => {
+    h.redeem.mockResolvedValue({ state: 'issued', subject: 'cook-user', ticket: 'once-ticket' })
+    h.signIn.mockImplementation(async (takeTicket: () => Promise<string>) => {
+      expect(await takeTicket()).toBe('once-ticket')
+      await expect(takeTicket()).rejects.toThrow()
+    })
+    const wrapper = await mountPage()
+    await vi.waitFor(() => expect(h.router.replace).toHaveBeenCalledWith('/settings?tab=account'))
+    expect(wrapper.text()).not.toContain('确认切换')
+    expect(window.location.search).toBe('')
+    expect(h.signIn).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
+
+  it('reuses the same browser login without signing in again', async () => {
+    h.getSession.mockResolvedValue(browserSession('cook-user'))
+    h.redeem.mockResolvedValue({ state: 'reuse', subject: 'cook-user' })
+    const wrapper = await mountPage()
+    await vi.waitFor(() => expect(h.router.replace).toHaveBeenCalledWith('/settings?tab=account'))
+    expect(h.redeem).toHaveBeenCalledWith({ request, confirmation: '' }, 'Bearer token-cook-user')
+    expect(h.signIn).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('leaves the existing browser account alone when the user declines to switch', async () => {
+    h.getSession.mockResolvedValue(browserSession('other-user'))
+    h.redeem.mockResolvedValue({ state: 'switch', confirmation })
+    const wrapper = await mountPage()
+    await vi.waitFor(() => expect(wrapper.text()).toContain('切换网页账号？'))
+    await wrapper.findAll('button').find(button => button.text() === '取消')!.trigger('click')
+    expect(wrapper.text()).toContain('已保留原来的网页登录状态')
+    expect(h.redeem).toHaveBeenCalledTimes(1)
+    expect(h.signIn).not.toHaveBeenCalled()
+    expect(h.router.replace).not.toHaveBeenCalledWith('/settings?tab=account')
+    wrapper.unmount()
+  })
+
+  it('switches only after the confirmation button is pressed', async () => {
+    h.getSession.mockResolvedValue(browserSession('other-user'))
+    h.redeem
+      .mockResolvedValueOnce({ state: 'switch', confirmation })
+      .mockResolvedValueOnce({ state: 'issued', subject: 'cook-user', ticket: 'switch-ticket' })
+    const wrapper = await mountPage()
+    await vi.waitFor(() => expect(wrapper.text()).toContain('确认切换'))
+    expect(h.signIn).not.toHaveBeenCalled()
+    await wrapper.findAll('button').find(button => button.text() === '确认切换')!.trigger('click')
+    await vi.waitFor(() => expect(h.router.replace).toHaveBeenCalledWith('/settings?tab=account'))
+    expect(h.redeem).toHaveBeenLastCalledWith({ request, confirmation }, 'Bearer token-other-user')
+    expect(h.signIn).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
+})

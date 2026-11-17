@@ -80,6 +80,7 @@ export default defineNuxtConfig({
   },
 
   runtimeConfig: {
+    cookWebHandoffToken: '',
     publicContentApiUrl: process.env.NUXT_PUBLIC_CONTENT_API_URL || 'https://admin.yunle.fun/api/public-content',
     // CloudBase account-api 的公开 HTTP 访问地址（server 端 SSR 代理 getProfile 用）。
     // 官方生产域名是安全的只读默认值；本地/预发可用环境变量覆盖到对应环境。
@@ -132,6 +133,15 @@ export default defineNuxtConfig({
       },
     },
     '/auth/app': {
+      prerender: true,
+      ssr: false,
+      headers: {
+        'cache-control': 'no-store',
+        'referrer-policy': 'no-referrer',
+        'x-robots-tag': 'noindex, nofollow, noarchive',
+      },
+    },
+    '/auth/cook-account': {
       prerender: true,
       ssr: false,
       headers: {
@@ -239,7 +249,7 @@ export default defineNuxtConfig({
     prerender: {
       // 显式列出内容页 + 关 crawlLinks（不爬 /apps、/wallet 等重的账号页），配合 build 脚本调高的 Node 堆避免预渲染 OOM。
       crawlLinks: false,
-      routes: ['/', '/pricing', '/blog', '/blog/yunle-fun', '/changelog', '/developer', '/explore', '/download', '/docs/getting-started', '/docs/getting-started/account', '/docs/getting-started/usage', '/docs/privacy-policy', '/docs/terms-of-service', '/docs/contact', '/docs/sitemap', '/login', '/signup', '/link', '/claim', '/auth/sso', '/auth/app', '/auth/github', '/auth/callback', ...EDGEONE_ACCOUNT_CLIENT_SHELL_ROUTES],
+      routes: ['/', '/pricing', '/blog', '/blog/yunle-fun', '/changelog', '/developer', '/explore', '/download', '/docs/getting-started', '/docs/getting-started/account', '/docs/getting-started/usage', '/docs/privacy-policy', '/docs/terms-of-service', '/docs/contact', '/docs/sitemap', '/login', '/signup', '/link', '/claim', '/auth/sso', '/auth/app', '/auth/cook-account', '/auth/github', '/auth/callback', ...EDGEONE_ACCOUNT_CLIENT_SHELL_ROUTES],
       failOnError: false,
     },
   },

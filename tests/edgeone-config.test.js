@@ -85,6 +85,8 @@ describe('edgeOne production configuration', () => {
     const sso = config.headers.find(rule => rule.source === '/auth/sso')
     const app = config.headers.find(rule => rule.source === '/auth/app')
     expect(app?.headers).toEqual(sso.headers)
+    const cook = config.headers.find(rule => rule.source === '/auth/cook-account')
+    expect(cook?.headers).toEqual(sso.headers)
   })
 
   it('permanently redirects the apex domain to www', () => {

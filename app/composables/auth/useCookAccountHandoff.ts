@@ -1,0 +1,113 @@
+import type { CookHandoffReply } from '~~/shared/utils/cook-web-handoff'
+import { isAnonymousSession } from '@yunlefun/sso'
+import { useTcbAuthSession } from './useAuthSession'
+
+const TOKEN = /^[\w-]{43}$/
+const destination = '/settings?tab=account'
+
+type ViewState = 'opening' | 'switch' | 'switching' | 'cancelled' | 'failed'
+
+export function useCookAccountHandoff() {
+  const { auth } = useCloudbase()
+  const { user, checkAuthStatus } = useTcbAuthSession()
+  const router = useRouter()
+  const state = shallowRef<ViewState>('opening')
+  const abort = new AbortController()
+  let request = ''
+  let confirmation = ''
+
+  async function browserAccessToken() {
+    const { data, error } = await auth.getSession()
+    if (error)
+      throw new Error('Could not check the browser session')
+    return data?.session && !isAnonymousSession(data.session) ? data.session.access_token : ''
+  }
+
+  async function complete(confirmed: string) {
+    try {
+      const deadline = Date.now() + 20_000
+      while (!abort.signal.aborted) {
+        const accessToken = await browserAccessToken()
+        const reply = await $fetch<CookHandoffReply>('/api/session/cook-handoff', {
+          method: 'POST',
+          body: { request, confirmation: confirmed },
+          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+          retry: 0,
+          timeout: 12_000,
+          signal: abort.signal,
+        })
+        if (abort.signal.aborted)
+          return
+        if (reply.state === 'pending') {
+          if (Date.now() >= deadline)
+            break
+          await new Promise(resolve => setTimeout(resolve, 750))
+          continue
+        }
+        if (reply.state === 'switch') {
+          confirmation = reply.confirmation
+          state.value = 'switch'
+          return
+        }
+
+        const subject = reply.subject
+        if (reply.state === 'issued') {
+          // Recheck after the request so a concurrent tab switch isn't silently overwritten.
+          if (await browserAccessToken() !== accessToken || abort.signal.aborted)
+            break
+          let ticket: string | undefined = reply.ticket
+          await auth.signInWithCustomTicket(async () => {
+            if (!ticket)
+              throw new Error('Account handoff ticket already used')
+            const value = ticket
+            ticket = undefined
+            return value
+          })
+        }
+        await checkAuthStatus()
+        if (abort.signal.aborted)
+          return
+        if (user.value?.id !== subject)
+          break
+        await router.replace(destination)
+        return
+      }
+    }
+    catch {
+      // Do not emit fetch errors: the browser Authorization header is sensitive.
+      if (abort.signal.aborted)
+        return
+    }
+    state.value = 'failed'
+  }
+
+  onMounted(() => {
+    const params = new URLSearchParams(window.location.search)
+    window.history.replaceState(window.history.state, '', window.location.pathname)
+    const requests = params.getAll('request')
+    const bindings = params.getAll('binding')
+    if (params.size !== 2 || requests.length !== 1 || bindings.length !== 1
+      || !TOKEN.test(requests[0]!) || !TOKEN.test(bindings[0]!)) {
+      state.value = 'failed'
+      return
+    }
+    request = requests[0]!
+    void complete('')
+  })
+
+  onScopeDispose(() => abort.abort())
+
+  function switchAccount() {
+    if (state.value !== 'switch')
+      return
+    state.value = 'switching'
+    void complete(confirmation)
+  }
+
+  function cancelSwitch() {
+    if (state.value === 'switch')
+      state.value = 'cancelled'
+  }
+
+  return { state: readonly(state), switchAccount, cancelSwitch }
+}
