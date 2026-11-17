@@ -97,14 +97,39 @@ describe('opening the current Cook account website', () => {
     wrapper.unmount()
   })
 
+  it('finishes after CloudBase discards an expired browser SDK session', async () => {
+    useRuntimeConfig().public.cookieSession = true
+    h.getSession.mockResolvedValueOnce({ data: { session: null }, error: { status: 'unauthenticated' } })
+    h.bootstrapFromCookie.mockResolvedValue(false)
+    h.redeem.mockResolvedValue({ state: 'issued', subject: 'cook-user', ticket: 'fresh-ticket' })
+    const wrapper = await mountPage()
+    await vi.waitFor(() => expect(h.router.replace).toHaveBeenCalledWith('/settings?tab=account'))
+    expect(h.redeem).toHaveBeenCalledWith({ request, confirmation: '' }, undefined)
+    expect(h.signIn).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
+
+  it('does not treat a browser session that remains unreadable as signed out', async () => {
+    h.getSession.mockResolvedValue({ data: { session: null }, error: { status: 'temporarily_unavailable' } })
+    const wrapper = await mountPage()
+    await vi.waitFor(() => expect(wrapper.text()).toContain('暂时无法打开'))
+    expect(h.getSession).toHaveBeenCalledTimes(2)
+    expect(h.redeem).not.toHaveBeenCalled()
+    expect(h.signIn).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
   it('leaves the existing browser account alone when the user declines to switch', async () => {
-    h.getSession.mockResolvedValue(browserSession('other-user'))
+    h.getSession
+      .mockResolvedValueOnce({ data: { session: null }, error: { status: 'unauthenticated' } })
+      .mockResolvedValue(browserSession('other-user'))
     h.redeem.mockResolvedValue({ state: 'switch', confirmation })
     const wrapper = await mountPage()
     await vi.waitFor(() => expect(wrapper.text()).toContain('切换网页账号？'))
     await wrapper.findAll('button').find(button => button.text() === '取消')!.trigger('click')
     expect(wrapper.text()).toContain('已保留原来的网页登录状态')
     expect(h.redeem).toHaveBeenCalledTimes(1)
+    expect(h.redeem).toHaveBeenCalledWith({ request, confirmation: '' }, 'Bearer token-other-user')
     expect(h.signIn).not.toHaveBeenCalled()
     expect(h.router.replace).not.toHaveBeenCalledWith('/settings?tab=account')
     wrapper.unmount()
