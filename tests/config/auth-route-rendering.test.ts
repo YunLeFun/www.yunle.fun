@@ -28,7 +28,7 @@ describe('edgeOne client route rendering', () => {
   it('prerenders authentication entry points with client modules for EdgeOne', async () => {
     const config = await loadNuxtConfig({ cwd: rootDir })
     const routeRules = config.routeRules ?? {}
-    const expectedRoutes = ['/login', '/signup', '/link', '/auth/sso', '/auth/github', '/auth/callback']
+    const expectedRoutes = ['/login', '/signup', '/link', '/auth/sso', '/auth/github', '/auth/callback', '/auth/cook-account']
 
     for (const route of expectedRoutes)
       expect(routeRules[route]).toMatchObject({ prerender: true, ssr: false })

@@ -48,6 +48,7 @@ const {
   fetchCurrentAccount,
   handleCookWeChat,
 } = require('./cook-mobile-wechat')
+const { ACTIONS: COOK_HANDOFF_ACTIONS, createCookWebHandoffStore, handleCookWebHandoff } = require('./cook-web-handoff')
 const { ACTIONS: COOK_SIGNUP_ACTIONS, createCookSignupAuth, handleCookWeChatSignup, lookupCookSignupPhone } = require('./cook-wechat-signup')
 const { resolveFixedTestIdentityAdmission } = require('./fixed-test-identity-admission')
 const { IdentityAdmissionError, resolvePhoneVerificationAdmission } = require('./identity-admission')
@@ -74,6 +75,7 @@ const DEFAULT_REFRESH_SEC = 60 * 60 * 24 * 30 // 30 天可续期
 const contextApp = cloudbase.init({ env: ENV })
 const db = contextApp.database()
 const ssoCodeStore = createSsoCodeStore(db)
+const cookWebHandoffStore = createCookWebHandoffStore(db)
 const ssoRateLimiter = createSsoRateLimiter(db)
 const cookWeChatBindings = createCookWeChatBindingStore(db)
 const COOK_MOBILE_REDIRECT = `${COOK_ORIGIN}/auth/callback?platform=native`
@@ -479,6 +481,23 @@ exports.main = async function main(event) {
       const status = reason === 'payload_too_large' ? 413 : reason === 'invalid_content_type' ? 415 : reason === 'https_required' ? 403 : 400
       return httpJson(status, { ok: false, reason })
     }
+  }
+
+  if (COOK_HANDOFF_ACTIONS.has(payload?.action)) {
+    if (!isHttp)
+      return { ok: false, reason: 'invalid_request' }
+    const result = await handleCookWebHandoff(payload, {
+      origin: requestOrigin,
+      authorization: header(event, 'authorization'),
+      deviceId: header(event, 'x-device-id'),
+      serviceToken: header(event, 'x-cook-handoff-key'),
+      ip: clientAddress(event, true),
+    }, {
+      ...cookWeChatDependencies(),
+      store: cookWebHandoffStore,
+      serviceToken: process.env.COOK_WEB_HANDOFF_INTERNAL_TOKEN,
+    })
+    return httpJson(result.status, result.body)
   }
 
   const cookSignup = COOK_SIGNUP_ACTIONS.has(payload?.action)

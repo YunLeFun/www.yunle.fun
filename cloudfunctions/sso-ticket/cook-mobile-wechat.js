@@ -176,7 +176,7 @@ async function fetchCurrentAccount(authUrl, bearer, deviceId, fetcher = globalTh
   let response
   try {
     response = await fetcher(authUrl, {
-      headers: { 'Authorization': bearer, 'Accept': 'application/json', 'x-device-id': deviceId },
+      headers: { Authorization: bearer, Accept: 'application/json', ...(deviceId ? { 'x-device-id': deviceId } : {}) },
       redirect: 'error',
       signal: AbortSignal.timeout(1800),
     })
