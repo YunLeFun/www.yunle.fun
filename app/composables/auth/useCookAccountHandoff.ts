@@ -20,7 +20,11 @@ export function useCookAccountHandoff() {
   let confirmation = ''
 
   async function browserAccessToken() {
-    const { data, error } = await auth.getSession()
+    let { data, error } = await auth.getSession()
+    // The SDK can discard an expired refresh token and still report that first
+    // read as an error. Re-read so an unknown identity is never treated as absent.
+    if (error && !abort.signal.aborted)
+      ({ data, error } = await auth.getSession())
     if (error)
       throw new Error('Could not check the browser session')
     return data?.session && !isAnonymousSession(data.session) ? data.session.access_token : ''
