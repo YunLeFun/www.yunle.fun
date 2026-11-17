@@ -332,6 +332,7 @@ CSS 绘制的晴空，填充到 `position:relative;overflow:hidden` 的父容器
 
 ## 6. 明暗模式
 
+- 页头外观菜单提供「跟随系统」「浅色」「深色」。未保存偏好时默认跟随系统，手动选择保存在当前浏览器。
 - 所有 `--ui-*` / `--ylf-*` 令牌在 `.dark` 下整组切换；用变量写样式即自动适配。
 - 组件（`SkyHero` / `MemberPass`）内部用 `useColorMode()` 自动决定晴空白日/黄昏，**调用方无需传 theme**。
 - 白字叠在晴空上时加 `.ylf-hero-shadow` + 文案侧 `scrim` 保证可读。

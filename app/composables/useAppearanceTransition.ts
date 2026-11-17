@@ -1,6 +1,6 @@
 // 切换明暗主题时的场景过渡，与 YunLeFun/design 的 vitepress-theme-yunlefun/appearance 保持一致：
 // - 切到深色：夜幕从屏幕顶端带着柔和下缘垂落，白天的页面随之暗下来；
-// - 切到浅色：晴空从点击处向外柔和铺开，新画面带一点刚放晴的明亮；
+// - 切到浅色：晴空从外观按钮向外柔和铺开，新画面带一点刚放晴的明亮；
 // - 不支持 CSS mask 时退回圆形扩散，不支持 View Transitions 时退回颜色淡入淡出；
 // - 系统要求减少动态效果时直接切换。
 
@@ -8,6 +8,8 @@ const fadeClass = 'ylf-appearance-fade'
 const revealClass = 'ylf-appearance-reveal'
 const nightClass = 'ylf-appearance-night'
 const dayClass = 'ylf-appearance-day'
+
+type AppearancePreference = 'system' | 'light' | 'dark'
 
 interface ViewTransitionDocument {
   startViewTransition?: (update: () => Promise<void>) => { ready: Promise<void>, finished: Promise<void> }
@@ -17,29 +19,26 @@ let fadeTimer: ReturnType<typeof setTimeout> | undefined
 
 export function useAppearanceTransition() {
   const colorMode = useColorMode()
-  const isDark = computed(() => colorMode.value === 'dark')
+  const preference = computed(() => colorMode.preference)
 
-  async function apply(dark: boolean) {
-    colorMode.preference = dark ? 'dark' : 'light'
+  async function apply(mode: AppearancePreference) {
+    colorMode.preference = mode
     // color-mode 在侦听器里更新 <html> 的 class，等它落地后再让 View Transition 截取新画面。
     await nextTick()
   }
 
-  function origin(event?: MouseEvent) {
-    const target = event?.currentTarget instanceof Element ? event.currentTarget.getBoundingClientRect() : null
-    // 键盘触发（detail 为 0）没有指针坐标，从开关中心展开；都没有时从右上角开始。
-    if (event && event.detail > 0)
-      return { x: event.clientX, y: event.clientY }
+  function origin(trigger?: HTMLElement) {
+    const target = trigger?.getBoundingClientRect()
     if (target)
       return { x: target.left + target.width / 2, y: target.top + target.height / 2 }
     return { x: window.innerWidth - 64, y: 32 }
   }
 
-  function reveal(dark: boolean, event: MouseEvent | undefined, startViewTransition: NonNullable<ViewTransitionDocument['startViewTransition']>) {
+  function reveal(mode: AppearancePreference, dark: boolean, trigger: HTMLElement | undefined, startViewTransition: NonNullable<ViewTransitionDocument['startViewTransition']>) {
     const root = document.documentElement
     const width = window.innerWidth
     const height = window.innerHeight
-    const { x, y } = origin(event)
+    const { x, y } = origin(trigger)
     const softMask = CSS.supports?.('mask-image', 'linear-gradient(#000, #000)')
     const sceneClass = softMask ? (dark ? nightClass : dayClass) : undefined
 
@@ -48,7 +47,7 @@ export function useAppearanceTransition() {
     if (sceneClass)
       root.classList.add(sceneClass)
 
-    const transition = startViewTransition(() => apply(dark))
+    const transition = startViewTransition(() => apply(mode))
     // fill: forwards 的动画会一直挂在 html 的 ::view-transition-* 上；不取消的话会叠到下一次切换，
     // 例如晴空展开留下的 maskSize 会盖住夜幕的遮罩尺寸，让夜色一下子铺满。
     const animations: Animation[] = []
@@ -103,31 +102,37 @@ export function useAppearanceTransition() {
     })
   }
 
-  function setAppearance(dark: boolean, event?: MouseEvent) {
-    if (isDark.value === dark)
+  function setAppearance(mode: AppearancePreference, trigger?: HTMLElement) {
+    if (colorMode.preference === mode || colorMode.forced)
       return
 
-    if (!import.meta.client || !window.matchMedia('(prefers-reduced-motion: no-preference)').matches) {
-      void apply(dark)
+    if (!import.meta.client) {
+      void apply(mode)
+      return
+    }
+
+    const dark = mode === 'system'
+      ? window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false
+      : mode === 'dark'
+
+    // 偏好变了但画面没变时（例如系统是深色，手动选深色），仍需保存选择。
+    if (dark === (colorMode.value === 'dark') || !window.matchMedia?.('(prefers-reduced-motion: no-preference)').matches) {
+      void apply(mode)
       return
     }
 
     const startViewTransition = (document as ViewTransitionDocument).startViewTransition?.bind(document)
     if (startViewTransition) {
-      reveal(dark, event, startViewTransition)
+      reveal(mode, dark, trigger, startViewTransition)
       return
     }
 
-    // 连点可立即反转当前主题；普通过渡保持页面控件可交互。
+    // 不支持 View Transition 时使用 CSS 淡入淡出，保持页面控件可交互。
     clearTimeout(fadeTimer)
     document.documentElement.classList.add(fadeClass)
-    void apply(dark)
+    void apply(mode)
     fadeTimer = setTimeout(() => document.documentElement.classList.remove(fadeClass), 450)
   }
 
-  function toggleAppearance(event?: MouseEvent) {
-    setAppearance(!isDark.value, event)
-  }
-
-  return { isDark, setAppearance, toggleAppearance }
+  return { preference, setAppearance }
 }

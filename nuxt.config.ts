@@ -62,7 +62,7 @@ export default defineNuxtConfig({
   colorMode: {
     classSuffix: '',
     fallback: 'light',
-    preference: 'light',
+    preference: 'system',
   },
 
   // 当前 content/ 公开内容没有代码块；关闭 MDC 的 Shiki 高亮器，避免为普通内容页加载 wasm/语言包。
