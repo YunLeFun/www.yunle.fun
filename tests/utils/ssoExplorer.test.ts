@@ -3,16 +3,17 @@ import {
   buildSsoExplorerApps,
   catalogAppIconBase,
   isSsoExplorerAppSlug,
+  resolveSsoClientPresentation,
   ssoExplorerApps,
 } from '../../app/config/sso-explorer'
 import { productionRegistry } from '../../packages/authorization-core/src/registry'
 
 describe('sso explorer configuration', () => {
   it('derives only active Web SSO clients from the authorization registry', () => {
-    const controlPlaneClients = new Set(['admin-web', 'advjs-studio-ios', 'cook-mobile', 'life-ios', 'studio-web'])
+    const nonDiscoverableClients = new Set(['admin-web', 'advjs-studio-ios', 'cms-ios', 'cook-mobile', 'life-ios', 'studio-web'])
     const expectedAppIds = productionRegistry.clients
       .filter(client => client.status === 'active')
-      .filter(client => !controlPlaneClients.has(client.clientId))
+      .filter(client => !nonDiscoverableClients.has(client.clientId))
       .filter(client => client.adapters.some(adapter => adapter.kind === 'web-sso'))
       .map(client => client.appId)
 
@@ -118,6 +119,34 @@ describe('sso explorer configuration', () => {
     expect(buildSsoExplorerApps(nextRegistry).filter(app => app.appId === 'advjs-studio')
       .map(app => app.clientId)).toEqual(['advjs-studio-web'])
     expect(buildSsoExplorerApps(nextRegistry)).toEqual(ssoExplorerApps)
+  })
+
+  it('keeps 云栈 iOS available for consent without adding a second explorer entry', () => {
+    const callback = 'https://cms.yunle.fun/ios-auth/callback'
+    const nextRegistry = {
+      ...productionRegistry,
+      clients: productionRegistry.clients.map(client => client.clientId === 'cms-ios'
+        ? {
+            ...client,
+            iconUrl: 'https://cms.yunle.fun/icon.svg',
+            adapters: [
+              ...client.adapters.filter(adapter => adapter.kind !== 'web-sso'),
+              {
+                kind: 'web-sso' as const,
+                consent: 'explicit' as const,
+                allowedScopes: ['identity:bootstrap'],
+                origins: ['https://cms.yunle.fun'],
+                redirectUris: [callback],
+              },
+            ],
+          }
+        : client),
+    }
+
+    expect(buildSsoExplorerApps(nextRegistry).filter(app => app.appId === 'cms').map(app => app.clientId))
+      .toEqual(['cms-web'])
+    expect(resolveSsoClientPresentation('cms-ios', callback, [nextRegistry]))
+      .toMatchObject({ appId: 'cms', verified: true })
   })
 
   it('prepares ADV.JS Studio presentation before activating its Web SSO client', () => {
