@@ -32,6 +32,7 @@ const process = require('node:process')
 const cloudbase = require('@cloudbase/node-sdk')
 const { assertActiveAccountForUid } = require('./account-access')
 const { recordSsoAcquisition } = require('./acquisition')
+const { ACTIONS: APPS_IOS_WECHAT_ACTIONS, createAppsIOSWeChatStore, exchangeAppsIOSWeChatCode, handleAppsIOSWeChat } = require('./apps-ios-wechat')
 const {
   buildAuthorizationResolvedAudit,
   buildSsoCodeConsumedAudit,
@@ -78,6 +79,7 @@ const ssoCodeStore = createSsoCodeStore(db)
 const cookWebHandoffStore = createCookWebHandoffStore(db)
 const ssoRateLimiter = createSsoRateLimiter(db)
 const cookWeChatBindings = createCookWeChatBindingStore(db)
+const appsIOSWeChatStore = createAppsIOSWeChatStore(db)
 const COOK_MOBILE_REDIRECT = `${COOK_ORIGIN}/auth/callback?platform=native`
 const callAccountApi = data => contextApp.callFunction({ name: 'account-api', data }).then(r => r.result)
 // Analytics gets its own short request budget; account access checks keep their existing policy.
@@ -481,6 +483,31 @@ exports.main = async function main(event) {
       const status = reason === 'payload_too_large' ? 413 : reason === 'invalid_content_type' ? 415 : reason === 'https_required' ? 403 : 400
       return httpJson(status, { ok: false, reason })
     }
+  }
+
+  if (APPS_IOS_WECHAT_ACTIONS.has(payload?.action)) {
+    if (!isHttp)
+      return { ok: false, reason: 'invalid_request' }
+    const bindingKey = process.env.APPS_IOS_WECHAT_BINDING_KEY || ''
+    const result = await handleAppsIOSWeChat(payload, {
+      origin: requestOrigin,
+      authorization: header(event, 'authorization'),
+      deviceId: header(event, 'x-device-id'),
+      ip: clientAddress(event, true),
+    }, {
+      appSecret: process.env.APPS_IOS_WECHAT_APP_SECRET,
+      bindingKey: /^[a-f\d]{64}$/i.test(bindingKey) ? Buffer.from(bindingKey, 'hex') : null,
+      store: appsIOSWeChatStore,
+      signingReady: () => Boolean(getSignAuth()),
+      rateLimit: input => ssoRateLimiter.consume(input),
+      claimCode: key => ssoRateLimiter.claimWeChatCode(key, 'apps-ios'),
+      exchangeCode: exchangeAppsIOSWeChatCode,
+      currentAccount: (bearer, deviceId) => fetchCurrentAccount(cookWeChatAccountUrl(cloudbase.getCloudbaseContext()), bearer, deviceId),
+      loadAccount: async uid => (await contextApp.auth().getEndUserInfo(uid))?.userInfo,
+      requireAdmission: requireSsoAdmission,
+      mintTicket,
+    })
+    return httpJson(result.status, result.body)
   }
 
   if (COOK_HANDOFF_ACTIONS.has(payload?.action)) {

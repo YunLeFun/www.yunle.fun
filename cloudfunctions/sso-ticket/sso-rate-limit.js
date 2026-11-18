@@ -66,11 +66,13 @@ function limitId(scope, key, windowStart) {
 function createSsoRateLimiter(database, options = {}) {
   const now = typeof options.now === 'function' ? options.now : () => Date.now()
   return {
-    async claimCookWeChatCode(key) {
+    async claimWeChatCode(key, lane) {
       if (typeof key !== 'string' || !/^[a-f0-9]{64}$/.test(key))
-        throw new TypeError('invalid Cook WeChat code digest')
+        throw new TypeError('invalid WeChat code digest')
       // A claim spans clock-window boundaries; the ordinary sweeper owns expiry.
-      const scope = 'cook-wechat-code'
+      if (lane !== 'cook' && lane !== 'apps-ios')
+        throw new TypeError('invalid WeChat code lane')
+      const scope = `${lane}-wechat-code`
       const id = limitId(scope, key, 0)
       await database.runTransaction(async (transaction) => {
         const ref = transaction.collection(SSO_RATE_LIMIT_COLLECTION).doc(id)
@@ -84,6 +86,10 @@ function createSsoRateLimiter(database, options = {}) {
           expiresAt: now() + 86_400_000,
         }))
       })
+    },
+
+    claimCookWeChatCode(key) {
+      return this.claimWeChatCode(key, 'cook')
     },
 
     async consume(input) {
