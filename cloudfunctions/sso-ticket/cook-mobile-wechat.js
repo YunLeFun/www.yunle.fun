@@ -137,9 +137,9 @@ function createCookWeChatBindingStore(db) {
   }
 }
 
-async function exchangeWeChatCode(code, appSecret, fetcher = globalThis.fetch) {
+async function exchangeWeChatCode(code, appSecret, fetcher = globalThis.fetch, appId = COOK_APP_ID) {
   const url = new URL('https://api.weixin.qq.com/sns/oauth2/access_token')
-  url.search = new URLSearchParams({ appid: COOK_APP_ID, secret: appSecret, code, grant_type: 'authorization_code' })
+  url.search = new URLSearchParams({ appid: appId, secret: appSecret, code, grant_type: 'authorization_code' })
   let response
   let identity
   try {

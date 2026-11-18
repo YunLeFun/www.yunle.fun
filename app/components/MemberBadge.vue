@@ -7,12 +7,12 @@
  * 若需换成「云」字徽章，只改此处即可全站生效。
  */
 type MarkSize = 'xs' | 'sm' | 'md'
-type MarkVariant = 'fill' | 'frost'
+type MarkVariant = 'fill' | 'frost' | 'soft'
 
 const props = withDefaults(defineProps<{
-  /** 尺寸 */
+  /** Size for branded variants; soft uses the standard AppBadge size. */
   size?: MarkSize
-  /** 配色：fill 落日实底（默认，白底面板上用）/ frost 云朵白（叠在晴空 / 深色 hero 上更素雅） */
+  /** Branded fill / frost, or the standard soft badge for functional surfaces. */
   variant?: MarkVariant
   /** 到期时间戳（ms），传入则附带「至 …」 */
   expireAt?: number | null
@@ -42,7 +42,12 @@ function formatExpire(ts: number) {
 </script>
 
 <template>
+  <AppBadge v-if="variant === 'soft'" tone="sun" icon="i-lucide-cloud">
+    <span v-if="label">{{ label }}</span>
+    <span v-if="expireAt">{{ label ? '· ' : '' }}{{ formatExpire(expireAt) }}</span>
+  </AppBadge>
   <span
+    v-else
     class="inline-flex shrink-0 items-center whitespace-nowrap rounded-full font-semibold leading-none"
     :class="[props.variant === 'frost' ? 'ylf-member-frost' : 'ylf-member-mark', cls.wrap]"
   >

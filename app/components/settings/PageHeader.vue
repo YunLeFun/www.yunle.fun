@@ -31,7 +31,7 @@ defineProps<{
   overflow: hidden;
   padding: 1.875rem;
   border-radius: var(--ylf-radius-xl);
-  background: var(--ylf-c-brand-soft);
+  background: var(--ylf-c-sky);
 }
 .settings-header__copy {
   position: relative;
@@ -94,7 +94,6 @@ defineProps<{
   .settings-header:not(.settings-header--security) .settings-header__art {
     width: 8rem;
     height: 5.25rem;
-    opacity: 0.65;
   }
 }
 </style>
