@@ -10,9 +10,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
@@ -118,6 +115,12 @@ const memberDaysLeft = computed(() => {
   return Math.max(0, Math.ceil(ms / (24 * 60 * 60 * 1000)))
 })
 const memberExpiringSoon = computed(() => memberDaysLeft.value != null && memberDaysLeft.value <= 7)
+const memberExpiryDate = computed(() => {
+  const expireAt = membershipState.value?.expireAt
+  return expireAt
+    ? new Date(expireAt).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })
+    : ''
+})
 
 const liveRemainingMs = computed(() => {
   if (deletionState.value.status !== 'pending' || !deletionState.value.scheduledAt)
@@ -191,111 +194,95 @@ async function handleLogout() {
 </script>
 
 <template>
-  <div class="space-y-6">
-    <Card class="overflow-hidden p-0">
-      <div class="account-status-header border-b border-default px-5 py-5 sm:px-6">
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h3 class="ylf-section-title">
-              账户状态
-            </h3>
-            <p class="ylf-caption mt-1">
-              身份、会员和注销进度都在这里确认
-            </p>
+  <div class="flex flex-col gap-6">
+    <AppSection title="账户状态" description="身份、会员和注销进度都在这里确认">
+      <template #actions>
+        <AppBadge v-if="deletionStatusLoading" color="neutral">
+          <Spinner />
+          正在读取
+        </AppBadge>
+        <AppBadge v-else-if="deletionState.status === 'pending'" color="warning">
+          注销冷静期
+        </AppBadge>
+        <AppBadge v-else-if="deletionState.status === 'finalizing'" color="warning">
+          正在完成注销
+        </AppBadge>
+        <AppBadge v-else-if="deletionState.status === 'attention_required'" color="error">
+          需要人工核对
+        </AppBadge>
+        <AppBadge v-else-if="deletionState.status === 'completed'" color="neutral" icon="i-lucide-user-x">
+          注销已完成
+        </AppBadge>
+        <AppBadge v-else color="success">
+          正常使用
+        </AppBadge>
+      </template>
+
+      <div class="divide-y divide-border">
+        <div class="account-row account-membership">
+          <div class="account-membership__details">
+            <span class="text-sm text-muted">会员状态</span>
+            <div class="account-membership__status">
+              <MemberBadge v-if="isMember" variant="soft" label="已开通" />
+              <AppBadge v-else color="neutral" label="未开通" />
+              <span v-if="isMember && memberExpiryDate" class="ylf-caption inline-flex flex-wrap gap-x-2">
+                <span class="whitespace-nowrap">{{ memberExpiryDate }}到期</span>
+                <span v-if="memberExpiringSoon" class="whitespace-nowrap text-warning">剩 {{ memberDaysLeft }} 天</span>
+              </span>
+            </div>
           </div>
-          <Badge v-if="deletionStatusLoading" variant="outline">
-            <Spinner />
-            正在读取
-          </Badge>
-          <Badge v-else-if="deletionState.status === 'pending'" variant="outline" class="border-warning/35 bg-warning/10 text-warning">
-            <Icon name="i-lucide-clock-3" />
-            注销冷静期
-          </Badge>
-          <Badge v-else-if="deletionState.status === 'finalizing'" variant="destructive">
-            <Spinner />
-            正在完成注销
-          </Badge>
-          <Badge v-else-if="deletionState.status === 'attention_required'" variant="destructive">
-            <Icon name="i-lucide-triangle-alert" />
-            需要人工核对
-          </Badge>
-          <Badge v-else-if="deletionState.status === 'completed'" variant="secondary">
-            <Icon name="i-lucide-user-x" />
-            注销已完成
-          </Badge>
-          <Badge v-else variant="outline" class="border-success/35 bg-success/10 text-success">
-            <Icon name="i-lucide-circle-check" />
-            正常使用
-          </Badge>
+          <AppButton
+            v-if="!isMember || memberExpiringSoon"
+            to="/pricing"
+            variant="link"
+            size="lg"
+            trailing-icon="i-lucide-chevron-right"
+          >
+            {{ isMember ? '续费' : '去开通' }}
+          </AppButton>
         </div>
-      </div>
 
-      <div class="px-6 py-2">
-        <div class="divide-y divide-default">
-          <div class="flex items-center justify-between gap-3 py-4">
-            <span class="shrink-0 text-sm text-muted">会员状态</span>
-            <div v-if="isMember" class="flex flex-wrap items-center justify-end gap-2">
-              <MemberBadge size="sm" variant="fill" :expire-at="membershipState?.expireAt ?? null" />
-              <Button v-if="memberExpiringSoon" as-child variant="secondary" size="xs">
-                <NuxtLink to="/pricing">
-                  <Icon name="i-lucide-clock-alert" />
-                  {{ memberDaysLeft }} 天后到期 · 续费
-                </NuxtLink>
-              </Button>
-            </div>
-            <div v-else class="flex items-center gap-2">
-              <span class="text-sm text-muted">未开通</span>
-              <Button as-child variant="secondary" size="xs">
-                <NuxtLink to="/pricing">
-                  <Icon name="i-lucide-sparkles" />
-                  去开通
-                </NuxtLink>
-              </Button>
-            </div>
-          </div>
+        <div v-if="isAdmin" class="account-row">
+          <span class="shrink-0 text-sm text-muted">管理权限</span>
+          <AppBadge icon="i-lucide-shield-check">
+            管理员
+          </AppBadge>
+        </div>
 
-          <div v-if="isAdmin" class="flex items-center justify-between gap-3 py-4">
-            <span class="shrink-0 text-sm text-muted">管理权限</span>
-            <Badge variant="secondary">
-              <Icon name="i-lucide-shield-check" />
-              管理员
-            </Badge>
-          </div>
-
-          <div class="flex items-center justify-between gap-3 py-4">
-            <span class="shrink-0 text-sm text-muted">用户 ID</span>
-            <div class="flex min-w-0 items-center gap-1.5">
-              <span class="truncate font-mono text-sm text-muted">{{ user?.id }}</span>
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                :aria-label="uidCopied ? '已复制用户 ID' : '复制用户 ID'"
-                class="shrink-0"
-                :class="uidCopied ? 'text-success' : ''"
-                @click="copyUid"
-              >
-                <Transition name="uid-copy" mode="out-in">
-                  <Icon v-if="uidCopied" key="done" name="i-lucide-check" />
-                  <Icon v-else key="copy" name="i-lucide-copy" />
-                </Transition>
-              </Button>
-              <span class="sr-only" role="status">{{ uidCopied ? '已复制用户 ID' : '' }}</span>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between gap-3 py-4">
-            <span class="shrink-0 text-sm text-muted">注册时间</span>
-            <span class="text-sm">{{ joinDate }}</span>
+        <div class="account-row">
+          <span class="shrink-0 text-sm text-muted">用户 ID</span>
+          <div class="flex min-w-0 items-center gap-1.5">
+            <span class="truncate font-mono text-sm text-muted">{{ user?.id }}</span>
+            <AppButton
+              color="neutral"
+              variant="ghost"
+              size="icon-lg"
+              :aria-label="uidCopied ? '已复制用户 ID' : '复制用户 ID'"
+              class="shrink-0"
+              :class="uidCopied ? 'text-success' : ''"
+              @click="copyUid"
+            >
+              <Transition name="uid-copy" mode="out-in">
+                <Icon v-if="uidCopied" key="done" name="i-lucide-check" data-icon="inline-start" aria-hidden="true" />
+                <Icon v-else key="copy" name="i-lucide-copy" data-icon="inline-start" aria-hidden="true" />
+              </Transition>
+            </AppButton>
+            <span class="sr-only" role="status">{{ uidCopied ? '已复制用户 ID' : '' }}</span>
           </div>
         </div>
-      </div>
-    </Card>
 
-    <Card v-if="deletionState.status === 'pending'" class="overflow-hidden border border-warning/30 p-0 ring-0">
-      <div class="grid gap-6 p-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+        <div class="account-row">
+          <span class="shrink-0 text-sm text-muted">注册时间</span>
+          <span class="text-sm">{{ joinDate }}</span>
+        </div>
+      </div>
+    </AppSection>
+
+    <AppSection v-if="deletionState.status === 'pending'">
+      <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
         <div>
           <div class="flex items-start gap-3">
-            <div class="rounded-xl bg-warning-50 p-2.5 dark:bg-warning-950/50">
+            <div class="account-warning-icon rounded-[var(--ylf-radius)] p-2.5">
               <Icon name="i-lucide-hourglass" class="size-5 text-warning" />
             </div>
             <div>
@@ -312,23 +299,23 @@ async function handleLogout() {
           </div>
 
           <div class="mt-5 h-1.5 overflow-hidden rounded-full bg-elevated">
-            <div class="h-full rounded-full bg-warning transition-[width] duration-500" :style="{ width: `${deletionProgress}%` }" />
+            <div class="account-deletion-progress h-full rounded-full bg-warning" :style="{ width: `${deletionProgress}%` }" />
           </div>
 
           <ol class="mt-5 grid gap-3 text-sm sm:grid-cols-3">
-            <li class="rounded-lg bg-elevated/60 p-3">
+            <li class="rounded-[var(--ylf-radius-sm)] bg-elevated p-3">
               <span class="text-xs text-muted">01 · 已完成</span>
               <p class="mt-1 font-medium">
                 提交注销申请
               </p>
             </li>
-            <li class="rounded-lg border border-warning/30 bg-warning-50/60 p-3 dark:bg-warning-950/20">
+            <li class="account-warning-step rounded-[var(--ylf-radius-sm)] border p-3">
               <span class="text-xs text-warning">02 · 当前</span>
               <p class="mt-1 font-medium">
                 冷静期，可撤回
               </p>
             </li>
-            <li class="rounded-lg bg-elevated/60 p-3">
+            <li class="rounded-[var(--ylf-radius-sm)] bg-elevated p-3">
               <span class="text-xs text-muted">03 · 到期后</span>
               <p class="mt-1 font-medium">
                 删除账号与认证绑定
@@ -341,14 +328,11 @@ async function handleLogout() {
           </p>
         </div>
 
-        <Button as-child variant="secondary" class="justify-center lg:min-w-32">
-          <NuxtLink to="/account-status">
-            前往账号状态页
-            <Icon name="i-lucide-arrow-right" />
-          </NuxtLink>
-        </Button>
+        <AppButton to="/account-status" variant="soft" size="lg" trailing-icon="i-lucide-arrow-right" class="lg:min-w-32">
+          前往账号状态页
+        </AppButton>
       </div>
-    </Card>
+    </AppSection>
 
     <Alert v-else-if="deletionState.status === 'finalizing'" variant="destructive">
       <Spinner />
@@ -373,19 +357,10 @@ async function handleLogout() {
       <AlertDescription>认证身份与登录绑定已经删除；依法需要保留的交易记录将继续受到访问控制。</AlertDescription>
     </Alert>
 
-    <Card class="p-6">
-      <div class="mb-4 flex items-center justify-between gap-3">
-        <div>
-          <h3 class="ylf-section-title">
-            账户操作
-          </h3>
-        </div>
-        <Icon name="i-lucide-shield-alert" class="size-5 text-error" />
-      </div>
-
-      <div class="divide-y divide-default">
+    <AppSection title="账户操作">
+      <div class="divide-y divide-border">
         <div class="flex flex-col gap-3 pb-4 sm:flex-row sm:items-center sm:justify-between">
-          <div class="space-y-1">
+          <div class="flex flex-col gap-1">
             <p class="text-sm font-medium">
               退出登录
             </p>
@@ -393,14 +368,13 @@ async function handleLogout() {
               只退出当前设备，不影响账号与其他设备
             </p>
           </div>
-          <Button variant="outline" size="sm" class="self-start sm:self-auto" @click="showLogoutConfirm = true">
-            <Icon name="i-lucide-log-out" />
+          <AppButton color="neutral" variant="outline" size="lg" icon="i-lucide-log-out" class="self-start sm:self-auto" @click="showLogoutConfirm = true">
             退出登录
-          </Button>
+          </AppButton>
         </div>
 
         <div v-if="deletionState.status === 'none'" class="flex flex-col gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between">
-          <div class="space-y-1">
+          <div class="flex flex-col gap-1">
             <p class="text-sm font-medium">
               注销账号
             </p>
@@ -408,13 +382,12 @@ async function handleLogout() {
               先进入 30 天冷静期，到期后删除账号和登录绑定
             </p>
           </div>
-          <Button variant="destructive" size="sm" class="self-start sm:self-auto" @click="openDeleteConfirm">
-            <Icon name="i-lucide-user-x" />
+          <AppButton color="error" variant="soft" size="lg" icon="i-lucide-user-x" class="self-start sm:self-auto" @click="openDeleteConfirm">
             申请注销
-          </Button>
+          </AppButton>
         </div>
       </div>
-    </Card>
+    </AppSection>
 
     <AlertDialog v-model:open="showLogoutConfirm">
       <AlertDialogContent>
@@ -430,10 +403,10 @@ async function handleLogout() {
           </div>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>
+          <AlertDialogCancel size="lg">
             取消
           </AlertDialogCancel>
-          <AlertDialogAction variant="destructive" @click="handleLogout">
+          <AlertDialogAction variant="destructive" size="lg" @click="handleLogout">
             确认退出
           </AlertDialogAction>
         </AlertDialogFooter>
@@ -444,7 +417,7 @@ async function handleLogout() {
       <AlertDialogContent class="sm:max-w-lg">
         <AlertDialogHeader>
           <div class="flex items-start gap-3">
-            <div class="rounded-full bg-error-50 p-2 dark:bg-error-950">
+            <div class="account-danger-icon rounded-full p-2">
               <Icon name="i-lucide-user-x" class="size-5 text-error" />
             </div>
             <div class="min-w-0">
@@ -454,8 +427,8 @@ async function handleLogout() {
           </div>
         </AlertDialogHeader>
 
-        <div class="space-y-5 px-6 pb-6">
-          <div class="space-y-3 rounded-xl bg-elevated/60 p-4 text-sm">
+        <div class="flex flex-col gap-5 px-6 pb-6">
+          <div class="flex flex-col gap-3 rounded-[var(--ylf-radius)] bg-elevated p-4 text-sm">
             <div class="flex gap-2">
               <Icon name="i-lucide-calendar-clock" class="mt-0.5 size-4 shrink-0 text-warning" />
               <p><strong>冷静期内：</strong>资料、会员、云币和登录绑定保持不变，但账号功能会立即冻结；需要前往账号状态页明确恢复。</p>
@@ -478,13 +451,12 @@ async function handleLogout() {
           </Field>
         </div>
         <AlertDialogFooter>
-          <AlertDialogCancel :disabled="deleting">
+          <AlertDialogCancel size="lg" :disabled="deleting">
             暂不注销
           </AlertDialogCancel>
-          <Button variant="destructive" :disabled="!canDelete || deleting" @click="handleDeleteAccount">
-            <Spinner v-if="deleting" />
+          <AppButton color="error" variant="soft" size="lg" :disabled="!canDelete" :loading="deleting" @click="handleDeleteAccount">
             进入 30 天冷静期
-          </Button>
+          </AppButton>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
@@ -492,8 +464,56 @@ async function handleLogout() {
 </template>
 
 <style scoped>
-.account-status-header {
-  background: var(--ylf-c-surface);
+.account-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ylf-space-3);
+  padding-block: var(--ylf-space-4);
+}
+
+.account-row:first-child {
+  padding-top: 0;
+}
+
+.account-row:last-child {
+  padding-bottom: 0;
+}
+
+.account-membership {
+  gap: var(--ylf-space-6);
+}
+
+.account-membership__details {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--ylf-space-2);
+}
+
+.account-membership__status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ylf-space-1) var(--ylf-space-2);
+}
+
+.account-warning-icon,
+.account-warning-step {
+  color: var(--ylf-status-warning-text);
+  background: var(--ylf-status-warning-soft);
+}
+
+.account-warning-step {
+  border-color: var(--ylf-status-warning);
+}
+
+.account-danger-icon {
+  background: var(--ylf-status-danger-soft);
+}
+
+.account-deletion-progress {
+  transition: width var(--ylf-duration-slow) var(--ylf-ease-standard);
 }
 
 .uid-copy-enter-active {
