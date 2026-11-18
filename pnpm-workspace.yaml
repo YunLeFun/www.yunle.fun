@@ -2,7 +2,6 @@ minimumReleaseAgeExcludePrune: true
 minimumReleaseAgeExclude:
   - nanoid@3.3.18
   - '@yunlefun/ui@0.0.7'
-  - '@nuxtjs/mdc@0.23.2'
   - '@types/node@24.19.1'
   - '@vue/language-core@3.3.12'
   - '@yunlefun/vue@0.6.0'
@@ -48,9 +47,13 @@ overrides:
   '@tiptap/vue-3': 3.30.5
   devalue: 5.9.4
   fontless>esbuild: ^0.28.1
+  glob@^13: 14.0.6
   js-yaml: 4.3.2
+  micromark-extension-math>katex: 0.18.2
   minimatch>brace-expansion: 5.0.12
+  minimatch@^10: 11.0.8
   nanoid: 3.3.18
+  oxfmt>tinypool: 2.1.2
   postcss: 8.5.23
   prosemirror-view: 1.42.9
   qs: 6.17.1
@@ -69,18 +72,19 @@ allowBuilds:
 catalog:
   '@antfu/eslint-config': ^9.5.1
   '@apple/app-store-server-library': ^3.1.0
-  '@cloudbase/js-sdk': ^3.11.0
+  # 3.11.1 throws while loading graceful-fs in its Node ESM build.
+  '@cloudbase/js-sdk': 3.11.0
   '@cloudbase/node-sdk': ^3.18.7
   '@cloudbase/signature-nodejs': ^2.2.2
-  '@iconify-json/lucide': ^1.2.153
+  '@iconify-json/lucide': ^1.2.156
   '@iconify-json/ri': ^1.2.10
-  '@lucide/vue': ^1.71.0
+  '@lucide/vue': ^1.74.0
   '@nuxt/eslint': ^1.17.0
   '@nuxt/icon': ^2.6.2
   '@nuxt/test-utils': ^4.4.0
-  '@nuxt/ui': ^4.12.0
+  '@nuxt/ui': ^4.12.2
   '@nuxtjs/i18n': ^10.6.0
-  '@nuxtjs/mdc': ^0.23.2
+  '@nuxtjs/mdc': ^0.23.3
   '@oxc-minify/binding-linux-x64-gnu': 0.152.0
   '@oxc-parser/binding-linux-x64-gnu': 0.152.0
   '@oxc-transform/binding-linux-x64-gnu': 0.152.0
