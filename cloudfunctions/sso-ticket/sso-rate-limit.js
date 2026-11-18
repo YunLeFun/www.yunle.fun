@@ -1,4 +1,4 @@
-/** Durable fixed-window limits for SSO issue and exchange operations. */
+/** Durable fixed-window limits for SSO resolve, issue and exchange operations. */
 
 'use strict'
 
@@ -52,6 +52,54 @@ function assertWrite(result, requireModified = false) {
     throw new Error('rate limit database write did not modify a document')
 }
 
+function checkedCount(record, bucket, limit) {
+  if (record.recordType !== bucket.recordType || record.schemaVersion !== bucket.schemaVersion || record.scope !== bucket.scope)
+    throw new Error('invalid rate limit record')
+  const count = Number(record.count)
+  if (!Number.isSafeInteger(count) || count < 1)
+    throw new Error('invalid rate limit count')
+  if (count >= limit)
+    throw new SsoRateLimitError()
+  return count
+}
+
+async function tryConsumeResolveBucket(collection, id, bucket, limit) {
+  const ref = collection.doc(id)
+  const record = firstDocument(await ref.get())
+  if (!record) {
+    try {
+      const created = await ref.create({ ...bucket, count: 1 })
+      assertWrite(created)
+      if (created.id !== id)
+        throw new Error('rate limit bucket creation returned an unexpected ID')
+      return true
+    }
+    catch (error) {
+      // CloudBase's insert-only create rejects an existing ID. An ambiguous
+      // network error must fail closed instead of spending quota twice.
+      if (/\bE11000\b|duplicate key/i.test(error?.message ?? ''))
+        return false
+      throw error
+    }
+  }
+  const count = checkedCount(record, bucket, limit)
+  // Let the atomic update win only if the record still matches the read.
+  // Preserve the transaction path for concurrent changes and legacy counts.
+  if (record.count !== count)
+    return false
+  const result = await collection.where({
+    _id: id,
+    recordType: bucket.recordType,
+    schemaVersion: bucket.schemaVersion,
+    scope: bucket.scope,
+    count,
+  }).update({ count: count + 1 })
+  assertWrite(result)
+  if (result.updated !== 0 && result.updated !== 1)
+    throw new Error('rate limit bucket update returned an unexpected count')
+  return result.updated === 1
+}
+
 function limitId(scope, key, windowStart) {
   return createHash('sha256')
     .update('ylf-sso-rate-v1\0')
@@ -102,27 +150,23 @@ function createSsoRateLimiter(database, options = {}) {
       const current = now()
       const windowStart = Math.floor(current / input.windowMs) * input.windowMs
       const id = limitId(input.scope, input.key, windowStart)
+      const bucket = {
+        recordType: 'sso_rate_limit',
+        schemaVersion: SSO_RATE_LIMIT_SCHEMA_VERSION,
+        scope: input.scope,
+        windowStart,
+        expiresAt: windowStart + input.windowMs + 86_400_000,
+      }
+      if (input.scope === 'resolve-ip' && await tryConsumeResolveBucket(database.collection(SSO_RATE_LIMIT_COLLECTION), id, bucket, input.limit))
+        return
       await database.runTransaction(async (transaction) => {
         const ref = transaction.collection(SSO_RATE_LIMIT_COLLECTION).doc(id)
         const record = firstDocument(await ref.get())
         if (!record) {
-          assertWrite(await ref.set({
-            recordType: 'sso_rate_limit',
-            schemaVersion: SSO_RATE_LIMIT_SCHEMA_VERSION,
-            scope: input.scope,
-            count: 1,
-            windowStart,
-            expiresAt: windowStart + input.windowMs + 86_400_000,
-          }))
+          assertWrite(await ref.set({ ...bucket, count: 1 }))
           return
         }
-        if (record.recordType !== 'sso_rate_limit' || record.schemaVersion !== SSO_RATE_LIMIT_SCHEMA_VERSION || record.scope !== input.scope)
-          throw new Error('invalid rate limit record')
-        const count = Number(record.count)
-        if (!Number.isSafeInteger(count) || count < 1)
-          throw new Error('invalid rate limit count')
-        if (count >= input.limit)
-          throw new SsoRateLimitError()
+        const count = checkedCount(record, bucket, input.limit)
         assertWrite(await ref.update({ count: count + 1 }), true)
       })
     },

@@ -28,6 +28,7 @@
 'use strict'
 
 const { Buffer } = require('node:buffer')
+const { performance } = require('node:perf_hooks')
 const process = require('node:process')
 const cloudbase = require('@cloudbase/node-sdk')
 const { assertActiveAccountForUid } = require('./account-access')
@@ -222,15 +223,19 @@ function securityLimits() {
 
 // 路径 0：无需业务登录，只解析并返回服务端 Registry 认可的请求与展示信息。
 // 该结果不会签发任何凭证；签发阶段仍会重新执行完整 Registry 校验。
-async function resolveSsoAuthorization(payload, clientAddress = 'unknown') {
+async function resolveSsoAuthorization(payload, clientAddress = 'unknown', timing = {}) {
   const limits = securityLimits()
+  const started = performance.now()
   await ssoRateLimiter.consume({
     scope: 'resolve-ip',
     key: clientAddress,
     limit: limits.resolvePerIp,
     windowMs: 60_000,
   })
+  const rateLimited = performance.now()
+  timing.rateLimitMs = Math.round(rateLimited - started)
   const resolved = resolveAuthorizationRequest(payload, ssoRequestOptions())
+  timing.policyMs = Math.round(performance.now() - rateLimited)
   emitSecurityAudit(buildAuthorizationResolvedAudit(resolved))
   return { ok: true, ...resolved }
 }
@@ -362,7 +367,7 @@ function corsHeaders(origin) {
     : {}
 }
 
-function httpJson(statusCode, obj, origin = '') {
+function httpJson(statusCode, obj, origin = '', timing = {}) {
   return {
     statusCode,
     headers: {
@@ -371,6 +376,11 @@ function httpJson(statusCode, obj, origin = '') {
       'Content-Type': 'application/json',
       'Pragma': 'no-cache',
       'Referrer-Policy': 'no-referrer',
+      ...(timing.policyMs === undefined
+        ? {}
+        : {
+            'Server-Timing': `sso-rate-limit;dur=${timing.rateLimitMs}, sso-policy;dur=${timing.policyMs}`,
+          }),
     },
     body: JSON.stringify(obj),
   }
@@ -551,12 +561,13 @@ exports.main = async function main(event) {
   }
 
   let result
+  const timing = {}
   try {
     assertNoCallerSelectedSubject(payload)
     if (payload && payload.action === 'mintForTestLease')
       result = await mintForTestLease(payload)
     else if (payload && payload.action === 'resolveSsoAuthorization')
-      result = await resolveSsoAuthorization(payload, clientAddress(event, isHttp))
+      result = await resolveSsoAuthorization(payload, clientAddress(event, isHttp), timing)
     else if (isHttp && payload && payload.action === 'exchangeSsoCode')
       result = await exchangeSsoCode(payload, requestOrigin, clientAddress(event, true))
     else if (!isHttp && payload && payload.action === 'issueSsoCode')
@@ -602,7 +613,7 @@ exports.main = async function main(event) {
     && isAllowedRequestOrigin(requestOrigin, ssoRequestOptions())
     ? requestOrigin
     : ''
-  return isHttp ? httpJson(status, result, responseOrigin) : result
+  return isHttp ? httpJson(status, result, responseOrigin, timing) : result
 }
 
 exports._private = {

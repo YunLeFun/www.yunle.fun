@@ -8,13 +8,25 @@ import {
 
 class FakeDatabase {
   documents = new Map()
+  requests = []
   #queue = Promise.resolve()
 
   collection(name) {
     if (name !== SSO_RATE_LIMIT_COLLECTION)
       throw new Error(`unexpected collection ${name}`)
     return { doc: id => ({
-      get: async () => ({ data: this.documents.has(id) ? [{ ...this.documents.get(id), _id: id }] : [] }),
+      get: async () => {
+        this.requests.push('get')
+        return { data: this.documents.has(id) ? [{ ...this.documents.get(id), _id: id }] : [] }
+      },
+      create: async (value) => {
+        this.requests.push('create')
+        await this.#queue
+        if (this.documents.has(id))
+          throw new Error('E11000 duplicate key')
+        this.documents.set(id, structuredClone(value))
+        return { id }
+      },
       set: async (value) => {
         this.documents.set(id, structuredClone(value))
         // CloudBase reports a successful first-time doc.set() as an upsert with
@@ -25,10 +37,21 @@ class FakeDatabase {
         this.documents.set(id, { ...this.documents.get(id), ...structuredClone(value) })
         return { updated: 1 }
       },
+    }), where: ({ _id, ...match }) => ({
+      update: async (value) => {
+        this.requests.push('compare-and-update')
+        await this.#queue
+        const record = this.documents.get(_id)
+        if (!record || !Object.entries(match).every(([key, field]) => record[key] === field))
+          return { updated: 0 }
+        this.documents.set(_id, { ...record, ...structuredClone(value) })
+        return { updated: 1 }
+      },
     }) }
   }
 
   async runTransaction(operation) {
+    this.requests.push('transaction')
     const previous = this.#queue
     let release = () => undefined
     this.#queue = new Promise(resolve => release = resolve)
@@ -65,6 +88,46 @@ describe('sso durable rate limits', () => {
     expect(attempts.find(result => result.status === 'rejected')?.reason).toMatchObject({ reason: 'rate_limited' })
     expect(JSON.stringify([...database.documents.values()])).not.toContain('sensitive-client-address')
     expect(database.documents.has(limitId('exchange-ip', 'sensitive-client-address', 0))).toBe(true)
+  })
+
+  const resolve = { scope: 'resolve-ip', key: 'edge-address', limit: 3, windowMs: 60_000 }
+
+  it('spends two database calls for a new or existing resolve bucket and rejects a full one after one read', async () => {
+    const database = new FakeDatabase()
+    const limiter = createSsoRateLimiter(database, { now: () => 10_000 })
+    await limiter.consume(resolve)
+    await limiter.consume(resolve)
+    await limiter.consume(resolve)
+    await expect(limiter.consume(resolve)).rejects.toMatchObject({ reason: 'rate_limited' })
+    expect(database.requests).toEqual(['get', 'create', 'get', 'compare-and-update', 'get', 'compare-and-update', 'get'])
+    expect([...database.documents.values()]).toEqual([expect.objectContaining({ count: 3, windowStart: 0 })])
+  })
+
+  it.each([0, 1])('cannot overspend quota when simultaneous resolves race on a bucket starting at %d', async (initialCount) => {
+    const database = new FakeDatabase()
+    const limiter = createSsoRateLimiter(database, { now: () => 10_000 })
+    if (initialCount)
+      await limiter.consume(resolve)
+    const outcomes = await Promise.allSettled(Array.from({ length: 4 }, () => limiter.consume(resolve)))
+    expect(outcomes.filter(outcome => outcome.status === 'fulfilled')).toHaveLength(3 - initialCount)
+    expect(outcomes.filter(outcome => outcome.status === 'rejected').map(outcome => outcome.reason)).toEqual(
+      Array.from({ length: 1 + initialCount }, () => expect.objectContaining({ reason: 'rate_limited' })),
+    )
+    expect(database.requests).toContain('transaction')
+    expect([...database.documents.values()]).toEqual([expect.objectContaining({ count: 3 })])
+  })
+
+  it('never replays a resolve write with an ambiguous outcome', async () => {
+    const database = new FakeDatabase()
+    const collection = database.collection.bind(database)
+    database.collection = name => ({
+      ...collection(name),
+      where: () => ({ update: async () => { throw new Error('connection lost') } }),
+    })
+    const limiter = createSsoRateLimiter(database, { now: () => 10_000 })
+    await limiter.consume(resolve)
+    await expect(limiter.consume(resolve)).rejects.toThrow('connection lost')
+    expect(database.requests).not.toContain('transaction')
   })
 
   it('exports a server-only cleanup manifest', () => {
