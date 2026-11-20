@@ -44,8 +44,6 @@ export const EXTRA_CHARACTERS = [
  * 改动这些数据源时，记得同步这里并重跑 `node scripts/subset-display-font.mjs`。
  */
 const DYNAMIC_TEXT = {
-  // 首页标题逐字弹入，字来自同文件的 headlineText。
-  'app/pages/index.vue::char.text': ({ resolve }) => resolve('headlineText'),
   // 会员卡剩余天数：数字（兜底的「—」由字面量自动收集）。
   'app/components/MemberPass.vue::daysLeft': '0123456789',
   // 会员页价格来自 content/2.pricing.yml 的 plans[].price。

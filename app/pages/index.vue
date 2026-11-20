@@ -24,23 +24,12 @@ useSeoMeta({
   ogDescription: description,
 })
 
+useHead({
+  link: [{ rel: 'preload', as: 'font', type: 'font/woff2', href: '/fonts/zcool-xiaowei-display.woff2', crossorigin: '' }],
+})
+
 const hero = shallowRef<HTMLElement | null>(null)
 useSkyParallax(hero)
-
-// 标题逐字弹入；读屏软件读取完整的隐藏标题，不逐字朗读。
-const headlineText = '云之彼端，乐趣无限'
-const headline = [
-  { text: '云之彼端，', accent: false },
-  { text: '乐趣', accent: true },
-  { text: '无限', accent: false },
-].reduce<{ chars: { text: string, index: number }[], accent: boolean }[]>((segments, segment) => {
-  const offset = segments.reduce((count, item) => count + item.chars.length, 0)
-  segments.push({
-    accent: segment.accent,
-    chars: [...segment.text].map((text, index) => ({ text, index: offset + index })),
-  })
-  return segments
-}, [])
 
 function scrollToApps() {
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -146,24 +135,14 @@ onMounted(() => {
             {{ page.headline }}
           </span>
           <h1 class="ylf-display ylf-hero-shadow mt-5 text-white">
-            <span class="sr-only">{{ headlineText }}</span>
-            <span aria-hidden="true">
-              <span
-                v-for="(segment, segmentIndex) in headline"
-                :key="segmentIndex"
-                :class="{ 'ylf-home-hero__accent': segment.accent }"
-              >
-                <span
-                  v-for="char in segment.chars"
-                  :key="char.index"
-                  class="home-hero__char"
-                  :class="{ 'ylf-gradient-text home-hero__char--accent': segment.accent }"
-                  :style="{ '--i': char.index }"
-                >{{ char.text }}</span>
-              </span>
+            <span>云之彼端，</span>
+            <span class="ylf-home-hero__accent">
+              <span class="ylf-gradient-text home-hero__accent-char">乐</span>
+              <span class="ylf-gradient-text home-hero__accent-char">趣</span>
             </span>
+            <span>无限</span>
           </h1>
-          <p class="ylf-hero-shadow home-hero__lead mt-5 max-w-xl text-base/relaxed text-white/90 sm:text-lg/relaxed">
+          <p class="ylf-hero-shadow mt-5 max-w-xl text-base/relaxed text-white/90 sm:text-lg/relaxed">
             {{ page.description }}
           </p>
           <div class="home-hero__actions mt-7 flex flex-wrap items-center gap-2.5 sm:mt-8">
@@ -245,7 +224,7 @@ onMounted(() => {
   text-shadow: none;
 }
 
-/* 「乐趣」下方画出一道六色彩虹，标题落定后再从左向右展开。 */
+/* 「乐趣」下方的六色彩虹从左向右展开。 */
 .ylf-home-hero__accent::after {
   content: '';
   position: absolute;
@@ -256,37 +235,28 @@ onMounted(() => {
   border-radius: 999px;
   background: linear-gradient(90deg, var(--ylf-spectrum-stops));
   transform-origin: 0 50%;
-  animation: home-underline 900ms var(--ylf-ease-spring) 1150ms backwards;
+  animation: home-underline 900ms var(--ylf-ease-spring) 250ms backwards;
 }
 
-.home-hero__char {
+.home-hero__accent-char {
   display: inline-block;
-  animation: home-char-in 900ms var(--ylf-ease-spring) calc(var(--i) * 60ms + 120ms) backwards;
-}
-
-.home-hero__char--accent {
   background-image: linear-gradient(115deg, #fff1b8, #ffd4b0);
   text-shadow: none;
   cursor: default;
 }
 
-.dark .home-hero__char--accent {
+.dark .home-hero__accent-char {
   background-image: linear-gradient(115deg, #fff4c9, #ffe0cc);
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .home-hero__char--accent:hover {
+  .home-hero__accent-char:hover {
     animation: home-char-jelly 700ms var(--ylf-ease-standard);
   }
 }
 
-.home-hero__badge,
-.home-hero__lead {
+.home-hero__badge {
   animation: home-rise 900ms var(--ylf-ease-spring) backwards;
-}
-
-.home-hero__lead {
-  animation-delay: 650ms;
 }
 
 .home-hero__pulse {
@@ -378,13 +348,6 @@ onMounted(() => {
   background: linear-gradient(to bottom, transparent, var(--home-page-top));
 }
 
-@keyframes home-char-in {
-  from {
-    opacity: 0;
-    transform: translateY(0.55em) rotate(-10deg) scale(0.7);
-  }
-}
-
 @keyframes home-char-jelly {
   20% {
     transform: scale(1.25, 0.8) translateY(0.06em);
@@ -438,10 +401,8 @@ onMounted(() => {
 @media (prefers-reduced-motion: reduce) {
   .home-progress,
   .ylf-home-hero__accent::after,
-  .home-hero__char,
+  .home-hero__accent-char,
   .home-hero__badge,
-  .home-hero__lead,
-  .home-hero__actions,
   .home-hero__pulse::after,
   .home-hero__scroll span {
     animation: none !important;
