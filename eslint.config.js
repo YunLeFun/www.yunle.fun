@@ -15,8 +15,11 @@ export default antfu(
 )
   .append(nuxt())
   .overrideRules({
+    // Preserve existing formatting and error types when upgrading the shared config.
+    'antfu/reasonable-newline': 'off',
     'jsdoc/require-returns-description': 'off',
     'pnpm/yaml-no-unused-catalog-item': 'off',
+    'unicorn/prefer-type-error': 'off',
     'vue/v-on-event-hyphenation': 'off',
   })
   // CloudBase 云函数是独立部署单元，各自 npm install，不能用 pnpm 的 catalog: 协议，

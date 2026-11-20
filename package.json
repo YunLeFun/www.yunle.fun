@@ -2,7 +2,7 @@
   "name": "www-yunle-fun",
   "type": "module",
   "private": true,
-  "packageManager": "pnpm@11.22.0",
+  "packageManager": "pnpm@11.28.12",
   "license": "MIT",
   "engines": {
     "node": "^22.22.3 || ^24.15.0 || >=26.0.0",
