@@ -13,7 +13,7 @@ const REGISTER_FN = '__ylfAddIcon'
 /** 只给会被打进客户端模块图的源码注入图标；Markdown 走 `?raw` + 运行时 MDC，没有可注入的模块。 */
 const COLOCATED_FILE_RE = /\/(?:app\/.+\.(?:vue|ts|js|mjs)|content\/.+\.ya?ml)$/
 /** Markdown 正文与 Nuxt UI Prose 默认图标由渲染 Markdown 的页面携带 */
-const RENDERS_MARKDOWN_RE = /<MDCRenderer\b/
+const RENDERS_MARKDOWN_RE = /<AppMarkdown\b/
 
 /** 用与 Nuxt Icon `clientBundle.scan` 相同的规则找出源码里引用的图标（`prefix:name`）。 */
 export function scanIcons(scanner: Pick<IconUsageScanner, 'extractFromCode'>, source: string, shared: ReadonlySet<string>) {
@@ -46,7 +46,7 @@ export function iconRegistrationCode(icons: [name: string, data: IconifyIcon][])
  * 入口里的组件（AppHeader、app.vue 等）引用的图标仍然留在入口 chunk。
  *
  * Markdown 正文（运行时由 MDC 渲染）里的图标和 Nuxt UI Prose 的默认图标没有可注入的源码模块，
- * 改挂到渲染 `<MDCRenderer>` 的页面上；全局 `icon.clientBundle` 只剩手动列出的 `icons`。
+ * 改挂到渲染 `<AppMarkdown>` 的页面上；全局 `icon.clientBundle` 只剩手动列出的 `icons`。
  */
 export default defineNuxtModule({
   meta: { name: 'icon-colocation' },

@@ -106,7 +106,7 @@ onBeforeUnmount(() => cancelAnimationFrame(frame))
         </figure>
 
         <div class="ylf-rise mt-8 sm:mt-10" style="--i: 3">
-          <MDCRenderer
+          <AppMarkdown
             v-if="post.body"
             :body="post.body"
             :data="post"

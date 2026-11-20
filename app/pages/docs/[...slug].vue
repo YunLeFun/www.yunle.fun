@@ -141,7 +141,7 @@ useSeoMeta({
       <div class="docs-layout">
         <article class="docs-article">
           <AppPageBody class="mt-0 pb-0">
-            <MDCRenderer
+            <AppMarkdown
               v-if="page.body"
               :body="page.body"
               :data="page"

@@ -1,9 +1,14 @@
 <script setup lang="ts">
-import CloudJourneySky from '~/components/clouds/CloudJourneySky.vue'
 import { getCloudJourneyPath } from '~/utils/cloud-journey'
 
 const route = useRoute()
 const hasSky = computed(() => getCloudJourneyPath(route.path) !== null)
+const showSky = shallowRef(hasSky.value)
+// Keep the same canvas and animation clock once a journey has started.
+watch(hasSky, (visible) => {
+  if (visible)
+    showSky.value = true
+})
 </script>
 
 <template>
@@ -19,7 +24,7 @@ const hasSky = computed(() => getCloudJourneyPath(route.path) !== null)
     <SiteAnnouncement />
 
     <main id="main-content" :class="{ 'site-main--sky': hasSky }" tabindex="-1">
-      <CloudJourneySky />
+      <LazyCloudsCloudJourneySky v-if="showSky" />
       <div class="site-main__content">
         <slot />
       </div>

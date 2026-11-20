@@ -39,7 +39,7 @@ useSeoMeta({
           :latest="index === 0"
         >
           <template #body>
-            <MDCRenderer
+            <AppMarkdown
               v-if="version.body"
               :body="version.body"
               :data="version"
