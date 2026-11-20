@@ -1,9 +1,17 @@
-import cloudbase from '@cloudbase/js-sdk'
+import cloudbase from '@cloudbase/js-sdk/app'
+import { registerAuth } from '@cloudbase/js-sdk/auth'
+import { registerFunctions } from '@cloudbase/js-sdk/functions'
 
-type TcbApp = ReturnType<typeof cloudbase.init>
+type CloudbaseApp = ReturnType<typeof cloudbase.init>
+type TcbApp = CloudbaseApp & Required<Pick<CloudbaseApp, 'callFunction'>>
 type TcbAuth = ReturnType<TcbApp['auth']>
 const TCB_API_PRECONNECT_ID = 'ylf-cloudbase-api-preconnect'
 const TCB_GATEWAY_DNS_PREFETCH_ID = 'ylf-cloudbase-gateway-dns-prefetch'
+
+if (import.meta.client) {
+  registerAuth(cloudbase)
+  registerFunctions(cloudbase)
+}
 
 /** @cloudbase/oauth 的 SimpleStorage 接口（SDK 用它读写 credentials_<env> 等） */
 interface SimpleStorage {
@@ -104,7 +112,7 @@ export function useCloudbase() {
   const authExtra = memoryStorage ? { storage: memoryStorage } : {}
 
   // 初始化 CloudBase SDK
-  const app: TcbApp = cloudbase.init({
+  const app = cloudbase.init({
     env: config.public.cloudbaseEnvId as string,
     region: config.public.cloudbaseRegion as string,
     accessKey: config.public.cloudbaseAccessKey as string,
@@ -118,7 +126,7 @@ export function useCloudbase() {
       detectSessionInUrl: false,
       ...authExtra,
     },
-  })
+  }) as TcbApp
   const auth: TcbAuth = app.auth({ persistence, ...authExtra })
 
   nuxtApp._cloudbaseApp = app
