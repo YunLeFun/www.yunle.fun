@@ -2,7 +2,7 @@
 import { useCookAccountHandoff } from '~/composables/auth/useCookAccountHandoff'
 
 definePageMeta({ layout: 'auth' })
-useSeoMeta({ title: '打开账号管理' })
+useSeoMeta({ title: '连接云乐坊账号' })
 
 const { state, switchAccount, cancelSwitch } = useCookAccountHandoff()
 </script>
@@ -28,9 +28,9 @@ const { state, switchAccount, cancelSwitch } = useCookAccountHandoff()
     已保留原来的网页登录状态，可以关闭网页返回云食册。
   </p>
   <p v-else-if="state === 'failed'" role="alert" class="text-sm">
-    暂时无法打开当前账号的管理页。请关闭网页，从云食册重试。
+    暂时无法打开云乐坊网页。请关闭网页，从云食册重试。
   </p>
   <p v-else role="status" class="text-sm text-muted-foreground">
-    正在打开账号管理…
+    正在连接云乐坊账号…
   </p>
 </template>
