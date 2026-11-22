@@ -4,7 +4,6 @@ import { useTcbAuthSession } from './useAuthSession'
 import { useServerSession } from './useServerSession'
 
 const TOKEN = /^[\w-]{43}$/
-const destination = '/settings?tab=account'
 
 type ViewState = 'opening' | 'switch' | 'switching' | 'cancelled' | 'failed'
 
@@ -18,6 +17,7 @@ export function useCookAccountHandoff() {
   const abort = new AbortController()
   let request = ''
   let confirmation = ''
+  let destination = '/settings?tab=account'
 
   async function browserAccessToken() {
     let { data, error } = await auth.getSession()
@@ -25,6 +25,9 @@ export function useCookAccountHandoff() {
     // read as an error. Re-read so an unknown identity is never treated as absent.
     if (error && !abort.signal.aborted)
       ({ data, error } = await auth.getSession())
+    // The SDK returns this exact error when there are no local credentials.
+    if (!data?.session && error?.code === 'unauthenticated' && error.message === 'credentials not found')
+      return ''
     if (error)
       throw new Error('Could not check the browser session')
     return data?.session && !isAnonymousSession(data.session) ? data.session.access_token : ''
@@ -105,6 +108,9 @@ export function useCookAccountHandoff() {
 
   onMounted(() => {
     const params = new URLSearchParams(window.location.search)
+    // A fixed client-side marker keeps the two handoff proofs and the redeem API unchanged.
+    if (window.location.hash === '#membership')
+      destination = '/pricing'
     window.history.replaceState(window.history.state, '', window.location.pathname)
     const requests = params.getAll('request')
     const bindings = params.getAll('binding')
