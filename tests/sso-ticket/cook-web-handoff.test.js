@@ -40,13 +40,13 @@ function fixture() {
     rateLimit: vi.fn(async () => {}),
     mintTicket: vi.fn(uid => ({ ok: true, ticket: `web-ticket-for-${uid}` })),
   }
-  const approve = overrides => handleCookWebHandoff({
+  const approve = (overrides, subject = 'cook-user') => handleCookWebHandoff({
     action: 'approveCookWebHandoff',
     clientId: 'cook-mobile',
     verifier,
     binding: digest(proof),
     ...overrides,
-  }, { authorization: 'Bearer cook-user', deviceId: 'fixture-device', origin, ip: 'test-ip' }, deps)
+  }, { authorization: `Bearer ${subject}`, deviceId: 'fixture-device', origin, ip: 'test-ip' }, deps)
   const redeem = (browserSubject = '', fields = {}, token = serviceToken) => handleCookWebHandoff({
     action: 'redeemCookWebHandoff',
     request: digest(verifier),
@@ -80,6 +80,20 @@ describe('cook app to account website handoff', () => {
     expect(deps.mintTicket).not.toHaveBeenCalled()
   })
 
+  it('retries approval for the same account until redemption without extending its validity', async () => {
+    const { approve, redeem, records, deps, advance } = fixture()
+    const first = await approve()
+    const original = [...records.values()][0]
+    advance(40_000)
+    expect(await approve()).toEqual(first)
+    expect([...records.values()]).toEqual([original])
+    expect((await approve(undefined, 'other-user')).status).toBe(409)
+    expect((await redeem()).body).toMatchObject({ state: 'issued', subject: 'cook-user' })
+    expect((await approve()).status).toBe(409)
+    expect((await redeem()).status).toBe(410)
+    expect(deps.mintTicket).toHaveBeenCalledExactlyOnceWith('cook-user')
+  })
+
   it('requires confirmation for a different browser or cookie account, and binds consent to that snapshot', async () => {
     const { approve, redeem, deps } = fixture()
     await approve()
@@ -100,6 +114,7 @@ describe('cook app to account website handoff', () => {
     expect((await redeem('', {}, 'wrong-key')).status).toBe(403)
     expect((await redeem('', { proof: 'x'.repeat(43) })).body).toEqual({ state: 'pending' })
     advance(120_000)
+    expect((await approve()).status).toBe(409)
     expect((await redeem()).status).toBe(410)
     expect(deps.mintTicket).not.toHaveBeenCalled()
   })

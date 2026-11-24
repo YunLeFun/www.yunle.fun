@@ -31,6 +31,12 @@ function checkResult(result, modifying = false) {
   return resultDocument(result)
 }
 
+function isRedeemableApproval(record, now) {
+  return record.recordType === TYPE && record.status === 'approved'
+    && Number.isSafeInteger(record.expiresAt) && record.expiresAt > now
+    && isValidTicketUid(record.subject)
+}
+
 function createCookWebHandoffStore(database, now = Date.now) {
   function reference(transaction, id) {
     return transaction.collection(SSO_LOGIN_CODE_COLLECTION).doc(id)
@@ -41,9 +47,11 @@ function createCookWebHandoffStore(database, now = Date.now) {
       const id = documentId(digest(verifier), binding)
       return await database.runTransaction(async (tx) => {
         const ref = reference(tx, id)
-        if (checkResult(await ref.get()))
-          return false
-        checkResult(await ref.set({ recordType: TYPE, status: 'approved', subject, expiresAt: now() + TTL_MS }))
+        const existing = checkResult(await ref.get())
+        const checkedAt = now()
+        if (existing)
+          return isRedeemableApproval(existing, checkedAt) && existing.subject === subject
+        checkResult(await ref.set({ recordType: TYPE, status: 'approved', subject, expiresAt: checkedAt + TTL_MS }))
         return true
       })
     },
@@ -55,9 +63,7 @@ function createCookWebHandoffStore(database, now = Date.now) {
         const record = checkResult(await ref.get())
         if (!record)
           return { state: 'pending' }
-        if (record.recordType !== TYPE || record.status !== 'approved'
-          || !Number.isSafeInteger(record.expiresAt) || record.expiresAt <= now()
-          || !isValidTicketUid(record.subject)) {
+        if (!isRedeemableApproval(record, now())) {
           return { state: 'unavailable' }
         }
         const subject = record.subject
