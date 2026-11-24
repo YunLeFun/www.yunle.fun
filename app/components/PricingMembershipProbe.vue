@@ -6,6 +6,7 @@ interface PricingMembershipView {
   name: string
   expire: string
   expireAt: number | null
+  paidExpireAt: number | null
   cycle: 'month' | 'year'
   serial: string
 }
@@ -38,6 +39,7 @@ function emitView() {
     name: user.value?.nickname || user.value?.login || '晴空会员',
     expire: formatExpire(state.value?.expireAt),
     expireAt: state.value?.expireAt ?? null,
+    paidExpireAt: state.value?.paidExpireAt ?? null,
     cycle: state.value?.activeCycle === 'year' ? 'year' : 'month',
     serial: formatSerial(user.value?.id),
   })
@@ -51,7 +53,7 @@ onMounted(async () => {
 })
 
 watch(
-  [() => user.value?.id, isActive, () => state.value?.expireAt],
+  [() => user.value?.id, isActive, () => state.value?.expireAt, () => state.value?.paidExpireAt],
   () => emitView(),
 )
 </script>

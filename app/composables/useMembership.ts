@@ -1,4 +1,5 @@
 import type { MembershipRecord, MembershipState } from '~/types/membership'
+import { useIntervalFn, useTimestamp } from '@vueuse/core'
 
 /**
  * 由会员记录派生出前端可直接消费的会员状态。
@@ -6,9 +7,12 @@ import type { MembershipRecord, MembershipState } from '~/types/membership'
 function deriveState(record: MembershipRecord | null, now: number): MembershipState | null {
   if (!record)
     return null
-  const remainingMs = Math.max(0, record.expireAt - now)
+  const expireAt = Math.max(record.expireAt, record.accessExpireAt ?? 0)
+  const remainingMs = Math.max(0, expireAt - now)
   return {
     ...record,
+    paidExpireAt: record.expireAt,
+    expireAt,
     active: remainingMs > 0,
     remainingMs,
   }
@@ -28,8 +32,9 @@ export function useMembership() {
   const record = useState<MembershipRecord | null>('membership_record', () => null)
   const loading = ref(false)
   const error = ref<string | null>(null)
+  const now = useTimestamp({ scheduler: update => useIntervalFn(update, 60_000) })
 
-  const state = computed(() => deriveState(record.value, Date.now()))
+  const state = computed(() => deriveState(record.value, now.value))
   const isActive = computed(() => !!state.value?.active)
 
   async function refresh(options: { throwOnError?: boolean } = {}): Promise<MembershipRecord | null> {
@@ -42,16 +47,21 @@ export function useMembership() {
     }
     loading.value = true
     error.value = null
+    const requestedUserId = user.value.id
     try {
       const response = await app.callFunction({
         name: 'account-api',
         data: { action: 'getMembership' },
       })
+      if (user.value?.id !== requestedUserId)
+        return null
       const value = response.result
       record.value = value && typeof value === 'object' ? value as MembershipRecord : null
       return record.value
     }
     catch (err) {
+      if (user.value?.id !== requestedUserId)
+        return null
       error.value = err instanceof Error ? err.message : '获取会员状态失败'
       console.warn('[useMembership] refresh failed:', err)
       if (options.throwOnError)
@@ -59,13 +69,15 @@ export function useMembership() {
       return record.value
     }
     finally {
-      loading.value = false
+      if (user.value?.id === requestedUserId)
+        loading.value = false
     }
   }
 
   function clear() {
     record.value = null
     error.value = null
+    loading.value = false
   }
 
   // 用户变化时自动刷新
@@ -73,10 +85,9 @@ export function useMembership() {
     () => user.value?.id,
     (newId, oldId) => {
       if (newId !== oldId) {
+        clear()
         if (newId)
           refresh()
-        else
-          clear()
       }
     },
     { immediate: false },

@@ -22,6 +22,7 @@ interface PricingMembershipView {
   name: string
   expire: string
   expireAt: number | null
+  paidExpireAt: number | null
   cycle: BillingCycle
   serial: string
 }
@@ -44,6 +45,7 @@ const membershipView = reactive<PricingMembershipView>({
   name: '晴空会员',
   expire: '—— / ——',
   expireAt: null,
+  paidExpireAt: null,
   cycle: 'month',
   serial: '',
 })
@@ -80,9 +82,9 @@ function yuan(fen: number, digits = 2) {
 
 /** 续费从当前到期时间顺延；这里只做展示用的粗略推算（精确到月） */
 function extendedExpire(cycle: BillingCycle) {
-  if (!membershipView.expireAt)
+  if (!membershipView.isMember)
     return ''
-  const d = new Date(membershipView.expireAt)
+  const d = new Date(Math.max(Date.now(), membershipView.paidExpireAt ?? 0))
   if (cycle === 'year')
     d.setFullYear(d.getFullYear() + 1)
   else

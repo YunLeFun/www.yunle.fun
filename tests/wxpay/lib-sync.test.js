@@ -9,6 +9,7 @@ import { readdir, readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { syncMembershipAccess } from '../../scripts/sync-membership-access.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const ROOT = resolve(__filename, '../../../')
@@ -33,6 +34,10 @@ async function listFiles(dir) {
 }
 
 describe('wxpay lib 同步守护', () => {
+  it('检查 API 导入的会员访问快照及支付、存储副本', () => {
+    expect(() => syncMembershipAccess({ checkOnly: true })).not.toThrow()
+  })
+
   it.each(MIRRORS)('镜像 %s 文件列表与权威源完全相同', async (mirror) => {
     const a = await listFiles(SOURCE)
     const b = await listFiles(mirror)

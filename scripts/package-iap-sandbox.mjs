@@ -6,11 +6,13 @@ import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
+import { syncMembershipAccess } from './sync-membership-access.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const output = process.argv[2]
 if (!output || process.argv.length !== 3)
   throw new Error('Usage: node scripts/package-iap-sandbox.mjs <new-output-directory>')
+syncMembershipAccess({ checkOnly: true })
 const destination = resolve(output)
 // Refuse replacement of an existing package; each review artifact is immutable.
 await mkdir(destination)

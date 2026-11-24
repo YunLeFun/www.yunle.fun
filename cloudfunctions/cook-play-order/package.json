@@ -1,0 +1,9 @@
+{
+  "name": "cook-play-order",
+  "version": "1.0.0",
+  "main": "index.js",
+  "dependencies": {
+    "@cloudbase/node-sdk": "^3.18.3",
+    "google-auth-library": "^10.5.0"
+  }
+}
