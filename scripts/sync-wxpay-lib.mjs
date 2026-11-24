@@ -1,14 +1,10 @@
 #!/usr/bin/env node
 /**
- * 同步微信支付纯函数库到两个云函数目录。
+ * 同步官网支付库和 API 导入的会员访问规则。
  *
- * 「权威源」: cloudfunctions/wxpay-order/lib/
- * 「镜像」:   cloudfunctions/wxpay-notify/lib/
- *
- * CloudBase 云函数部署单元相互隔离（各自打包 node_modules），无法跨函数 require，
- * 因此必须保持两份代码内容字节一致。本脚本：
- *
- *   - 默认模式：把权威源覆盖到 wxpay-notify/lib
+ * `wxpay-order/lib` 提供同仓支付库源代码和从 API 导入的会员访问快照。
+ * CloudBase 函数独立打包，镜像要与源文件字节一致。
+ *   - 默认模式：同步支付镜像和存储函数的会员访问副本
  *   - --check：仅比对，发现差异时返回非零退出码，给 CI 用
  *
  * 使用：
@@ -21,6 +17,7 @@ import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname, join, relative, resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
+import { syncMembershipAccess } from './sync-membership-access.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
@@ -32,6 +29,7 @@ const TARGETS = [
 ]
 
 const checkOnly = process.argv.includes('--check')
+syncMembershipAccess({ checkOnly })
 
 /** @returns {Promise<string[]>} 源目录下所有相对路径（递归） */
 async function listFiles(dir) {

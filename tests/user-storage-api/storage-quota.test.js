@@ -61,6 +61,24 @@ describe('user-storage-api storage quota', () => {
     expect(vip.membership).toMatchObject({ isActive: true, level: 'basic', expireAt: NOW + 86_400_000 })
   })
 
+  it('宽限期内保留 Play 会员配额，到期后恢复普通配额', async () => {
+    const graceExpiry = NOW + 90_000
+    const db = makeFakeDb({
+      [MEMBERSHIPS_COLLECTION]: [{
+        _id: 'vip',
+        planId: 'basic',
+        expireAt: NOW - 1,
+        playSubscriptionAccess: [{ expiresAt: graceExpiry }],
+      }],
+    })
+    const grace = await getStorageQuota(db, { userId: 'vip', now: NOW })
+    expect(grace.quotaBytes).toBe(MEMBER_STORAGE_QUOTA_BYTES)
+    expect(grace.membership).toMatchObject({ isActive: true, expireAt: graceExpiry })
+    const expired = await getStorageQuota(db, { userId: 'vip', now: graceExpiry })
+    expect(expired.quotaBytes).toBe(NORMAL_STORAGE_QUOTA_BYTES)
+    expect(expired.membership.isActive).toBe(false)
+  })
+
   it('配额记录使用 uid 作为 _id，重复懒同步不会创建第二条', async () => {
     const db = makeFakeDb()
 

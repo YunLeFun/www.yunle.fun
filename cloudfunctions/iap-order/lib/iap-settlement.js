@@ -2,9 +2,17 @@
 'use strict'
 
 const crypto = require('node:crypto')
-const { computeNewMembershipPeriod } = require('./membership')
+const { computeNewMembershipPeriod, resolveBillingAnchor } = require('./membership')
 const { MEMBERSHIPS_COLLECTION, ORDERS_COLLECTION } = require('./orders')
 const { creditCoinInTransaction, prepareCoinCredit } = require('./wallet')
+
+const PLAY_PURCHASE_STATES = 'play_purchase_states'
+
+function googlePlayOrderKey({ orderId, purchaseReference, subscription }) {
+  if (subscription)
+    return `play_sub_${crypto.createHash('sha256').update(orderId).digest('hex').slice(0, 40)}`
+  return `play_${purchaseReference.slice(0, 40)}`
+}
 
 /** 与原生 PurchaseAccountToken.forUser 的 UTF-8 / SHA-256 / UUID v8 格式一致。 */
 function purchaseAccountToken(userId) {
@@ -49,11 +57,13 @@ function assertOrderMatch(order, base) {
   if (order.userId !== base.userId)
     throw new Error('该交易已绑定其他账号')
   if (
-    order.payType !== 'iap' || order.outTradeNo !== base.outTradeNo
+    order.payType !== base.payType || order.outTradeNo !== base.outTradeNo
     || order.transactionId !== base.transactionId || order.appId !== base.appId
     || order.orderType !== base.orderType || order.meta?.productId !== base.meta.productId
     || order.meta?.environment !== base.meta.environment
     || (order.meta?.bundleId && order.meta.bundleId !== base.meta.bundleId)
+    || (base.payType === 'google_play' && (order.meta?.purchaseReference !== base.meta.purchaseReference
+      || (order.meta?.basePlanId ?? null) !== (base.meta.basePlanId ?? null)))
     || (order.orderType === 'membership' && (
       order.billingCycle !== base.billingCycle || (order.level || order.planId) !== base.level
       || order.providerPurchasedAt !== base.providerPurchasedAt
@@ -102,10 +112,13 @@ async function grantMembership(transaction, order, knownMembership, now) {
   if (current?.lastOrderId === order.outTradeNo)
     throw new Error('IAP 待付款订单与会员凭据状态不一致')
 
+  const playPeriodStart = order.payType === 'google_play' && order.meta?.basePlanId
+    ? order.meta.providerServicePeriodStartAt
+    : null
   const period = computeNewMembershipPeriod({
     current: current?.expireAt,
     cycle: order.billingCycle,
-    now: order.providerPurchasedAt,
+    now: playPeriodStart ?? order.providerPurchasedAt,
     billingAnchorDay: current?.billingAnchorDay,
     billingAnchorIsMonthEnd: current?.billingAnchorIsMonthEnd,
   })
@@ -139,7 +152,7 @@ async function grantMembership(transaction, order, knownMembership, now) {
  * 没有额外集合，也不修改 / 合并有歧义的历史重复订单。
  * 部署时须排空旧版 IAP 写入，并同步升级微信侧补发入口的 IAP 拒绝保护。
  */
-async function settleIapOrder(db, base, now) {
+async function settleStoreOrder(db, base, now, allowNew) {
   const query = await db.collection(ORDERS_COLLECTION).where({ outTradeNo: base.outTradeNo }).limit(2).get()
   assertResult(query)
   const matches = Array.isArray(query?.data) ? query.data : []
@@ -161,6 +174,24 @@ async function settleIapOrder(db, base, now) {
   let outcome
   const committed = await db.runTransaction(async (transaction) => {
     const canonicalRef = transaction.collection(ORDERS_COLLECTION).doc(base.outTradeNo)
+    const playState = base.payType === 'google_play'
+      ? {
+          purchaseReference: base.meta.purchaseReference,
+          orderId: base.transactionId,
+          packageName: base.meta.bundleId,
+          ledgerEnvironment: base.meta.environment,
+          ...(base.meta.basePlanId ? { subscription: true } : {}),
+        }
+      : null
+    const playRef = playState ? transaction.collection(PLAY_PURCHASE_STATES).doc(base.outTradeNo) : null
+    if (playRef) {
+      const state = await readDoc(playRef)
+      assertPlayState(state, playState)
+      if (state?.status === 'voided') {
+        outcome = { revoked: true, outTradeNo: base.outTradeNo }
+        return outcome
+      }
+    }
     const canonical = await readDoc(canonicalRef)
     const legacy = knownOrder?._id && knownOrder._id !== base.outTradeNo
       ? await readDoc(transaction.collection(ORDERS_COLLECTION).doc(knownOrder._id))
@@ -171,6 +202,12 @@ async function settleIapOrder(db, base, now) {
       throw new Error('IAP 历史订单发生变化，需重新核对')
     const existing = canonical || legacy
     assertOrderMatch(existing, base)
+    if (playRef && existing?.status === 'refunded') {
+      outcome = { revoked: true, outTradeNo: base.outTradeNo }
+      return outcome
+    }
+    if (!allowNew && !(existing?.status === 'paid' && Number.isFinite(existing.grantedAt)))
+      throw new Error('已结束的商店交易没有已发放的会员凭据')
     // 旧订单仅在重新验签并核对一致后补齐应用标识，保留其余历史字段。
     const order = existing
       ? { ...existing, meta: { ...existing.meta, bundleId: base.meta.bundleId } }
@@ -194,6 +231,8 @@ async function settleIapOrder(db, base, now) {
     else {
       grant = await creditCoinInTransaction(transaction, coinInput, preparedCoin)
     }
+    if (playRef)
+      await setDoc(playRef, { ...playState, status: 'settled', updatedAt: now })
     await setDoc(orderRef, {
       ...order,
       status: 'paid',
@@ -212,4 +251,121 @@ async function settleIapOrder(db, base, now) {
   return outcome
 }
 
-module.exports = { assertPurchaseOwner, purchaseAccountToken, settleIapOrder }
+function settleIapOrder(db, base, now) {
+  if (base.payType !== 'iap')
+    throw new Error('IAP 订单支付渠道不匹配')
+  return settleStoreOrder(db, base, now, true)
+}
+
+function settleGooglePlayOrder(db, base, now, { alreadyConsumed }) {
+  if (base.payType !== 'google_play' || base.appId !== 'cook' || base.orderType !== 'membership')
+    throw new Error('Google Play 订单应用或支付渠道不匹配')
+  const key = googlePlayOrderKey({
+    orderId: base.transactionId,
+    purchaseReference: base.meta.purchaseReference,
+    subscription: Boolean(base.meta.basePlanId),
+  })
+  if (key !== base.outTradeNo)
+    throw new Error('Google Play 订单标识不一致')
+  return settleStoreOrder(db, base, now, !alreadyConsumed)
+}
+
+function assertPlayState(state, expected) {
+  if (state && (state.purchaseReference !== expected.purchaseReference || state.orderId !== expected.orderId
+    || state.packageName !== expected.packageName || state.ledgerEnvironment !== expected.ledgerEnvironment
+    || (state.subscription === true) !== (expected.subscription === true)
+    || !['settled', 'voided'].includes(state.status))) {
+    throw new Error('Google Play 购买状态与渠道凭据不一致')
+  }
+}
+
+/**
+ * Both settlement and revocation write the same receipt state document.
+ * This also fences off an in-flight purchase when a void arrives before its first order.
+ */
+async function revokeGooglePlayOrder(db, proof, now, recordWhenMissing = false) {
+  const outTradeNo = googlePlayOrderKey(proof)
+  let outcome
+  const committed = await db.runTransaction(async (transaction) => {
+    const stateRef = transaction.collection(PLAY_PURCHASE_STATES).doc(outTradeNo)
+    const state = await readDoc(stateRef)
+    assertPlayState(state, proof)
+    const orderRef = transaction.collection(ORDERS_COLLECTION).doc(outTradeNo)
+    const order = await readDoc(orderRef)
+    if (order && (order.payType !== 'google_play' || order.appId !== 'cook' || order.orderType !== 'membership'
+      || order.meta?.purchaseReference !== proof.purchaseReference || order.transactionId !== proof.orderId
+      || Boolean(order.meta?.basePlanId) !== (proof.subscription === true)
+      || order.meta?.bundleId !== proof.packageName || order.meta?.environment !== proof.ledgerEnvironment)) {
+      throw new Error('Google Play 退款与原订单不一致')
+    }
+    if (!order && !recordWhenMissing && state?.status !== 'voided') {
+      outcome = 'unknown'
+      return outcome
+    }
+    if (state?.status === 'voided') {
+      outcome = order?.refundEntitlementStatus || 'voided'
+      return outcome
+    }
+    if (order && order.status !== 'paid')
+      throw new Error('Google Play 退款订单状态异常')
+
+    let refundStatus = 'voided'
+    if (order) {
+      const membershipRef = transaction.collection(MEMBERSHIPS_COLLECTION).doc(order.userId)
+      const membership = await readDoc(membershipRef)
+      const grant = order.membershipGrant
+      const ownsMembership = membership && (!membership.userId || membership.userId === order.userId)
+      let updates
+      if (ownsMembership && proof.subscription && Array.isArray(membership.playSubscriptionAccess)) {
+        const access = membership.playSubscriptionAccess.filter(entry =>
+          (entry?.paidPurchaseReference ?? entry?.purchaseReference) !== proof.purchaseReference || entry?.orderId !== proof.orderId,
+        )
+        if (access.length !== membership.playSubscriptionAccess.length)
+          updates = { playSubscriptionAccess: access }
+      }
+      const canRestore = ownsMembership && grant
+        && membership.lastOrderId === outTradeNo && membership.expireAt === grant.expireAfter
+      const previousOrder = canRestore && grant.lastOrderIdBefore
+        ? await readDoc(transaction.collection(ORDERS_COLLECTION).doc(grant.lastOrderIdBefore))
+        : null
+      if (canRestore && previousOrder?.status !== 'refunded') {
+        const expireAt = Number.isFinite(grant.expireBefore) ? grant.expireBefore : now
+        const fallback = resolveBillingAnchor({ base: expireAt })
+        updates = {
+          ...updates,
+          expireAt,
+          planId: grant.planIdBefore,
+          level: grant.levelBefore,
+          activeCycle: grant.activeCycleBefore || 'refunded',
+          billingAnchorDay: grant.billingAnchorDayBefore ?? fallback.billingAnchorDay,
+          billingAnchorIsMonthEnd: grant.billingAnchorIsMonthEndBefore ?? fallback.billingAnchorIsMonthEnd,
+          lastOrderId: grant.lastOrderIdBefore,
+        }
+        refundStatus = 'reverted'
+      }
+      else {
+        refundStatus = 'manual_review_required'
+      }
+      if (updates)
+        await setDoc(membershipRef, { ...membership, ...updates, updatedAt: now })
+      await setDoc(orderRef, { ...order, status: 'refunded', refundEntitlementStatus: refundStatus, updatedAt: now })
+    }
+    await setDoc(stateRef, { ...proof, status: 'voided', updatedAt: now })
+    outcome = refundStatus
+    return outcome
+  })
+  assertResult(committed)
+  if (!outcome)
+    throw new Error('Google Play 退款事务没有返回结果')
+  return outcome
+}
+
+module.exports = {
+  PLAY_PURCHASE_STATES,
+  assertPurchaseOwner,
+  googlePlayOrderKey,
+  purchaseAccountToken,
+  revokeGooglePlayOrder,
+  settleGooglePlayOrder,
+  settleIapOrder,
+}

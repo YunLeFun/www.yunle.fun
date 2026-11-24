@@ -12,6 +12,7 @@ import {
 import { dirname, join, resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
+import { membershipAccessFunctions, syncMembershipAccess } from './sync-membership-access.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const ARTIFACT_ROOT = resolve(ROOT, '.cloudbase/artifacts')
@@ -85,6 +86,8 @@ export function buildCloudFunctionArtifacts(functionNames) {
   const names = [...functionNames]
   if (names.includes('account-api'))
     throw new Error('account-api 已迁至 YunLeFun/api；请在该仓库运行 pnpm build:account-api')
+  if (names.some(name => membershipAccessFunctions.includes(name)))
+    syncMembershipAccess({ checkOnly: true })
   if (names.some(functionName => CORE_FUNCTIONS.has(functionName)))
     run('pnpm', ['build:authorization-core'])
 

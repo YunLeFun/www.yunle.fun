@@ -698,7 +698,7 @@ onMounted(async () => {
               </div>
             </div>
             <div class="shrink-0 text-right font-semibold tabular-nums">
-              {{ formatPrice(order.amount) }}
+              {{ order.payType === 'google_play' ? 'Google Play' : formatPrice(order.amount) }}
             </div>
           </div>
         </div>

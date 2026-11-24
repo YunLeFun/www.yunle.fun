@@ -12,7 +12,7 @@
 const { Buffer } = require('node:buffer')
 const crypto = require('node:crypto')
 
-const { isMembershipActive } = require('./lib/membership')
+const { membershipAccessExpiry } = require('./lib/membership')
 const { readMembership } = require('./lib/orders')
 const { assertAppId } = require('./lib/validation')
 
@@ -309,7 +309,8 @@ function normalizeQuotaDoc(doc) {
 }
 
 function computeQuotaFields(existing, membership, now) {
-  const memberActive = isMembershipActive(membership?.expireAt, now)
+  const expireAt = membershipAccessExpiry(membership)
+  const memberActive = expireAt > now
   const baseQuotaBytes = memberActive ? MEMBER_STORAGE_QUOTA_BYTES : NORMAL_STORAGE_QUOTA_BYTES
   const addonQuotaBytes = safeNonNegativeInteger(existing?.addonQuotaBytes)
   const bonusQuotaBytes = safeNonNegativeInteger(existing?.bonusQuotaBytes)
@@ -320,7 +321,7 @@ function computeQuotaFields(existing, membership, now) {
     quotaBytes: baseQuotaBytes + addonQuotaBytes + bonusQuotaBytes,
     membershipActive: memberActive,
     membershipLevel: membership?.level || membership?.planId || null,
-    membershipExpireAt: typeof membership?.expireAt === 'number' ? membership.expireAt : null,
+    membershipExpireAt: expireAt,
   }
 }
 

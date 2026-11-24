@@ -12,8 +12,9 @@
 
 ## 共享代码
 
-- 支付库仍以本仓 `cloudfunctions/wxpay-order/lib` 为源，API 保留有哈希校验的独立部署快照。
+- 支付库以本仓 `cloudfunctions/wxpay-order/lib` 为源，API 保留有哈希校验的独立部署快照。该目录中的 `membership-access.js` 由 API 仓导出，`scripts/membership-access.lock.json` 锁定其 SHA-256。支付和存储的会员访问副本由同步脚本生成。
 - `server/vendor/account-api` 是 API 导出的领取凭证 HMAC 协议副本，供 Nuxt BFF 签发凭证，不含账户服务逻辑，请勿手改。
 - 更新共享源码后，从 API 仓库运行 `pnpm sync:account-api:shared --www-root=<本仓绝对路径> --update`，再运行两仓测试并提交生成产物。不带 `--update` 可检查跨仓库一致性。
+- 单独修改会员访问规则时，使用 `--membership-access-only --update`。官网支付和存储函数的构建会检查规则快照和副本是否一致。
 
 AI 资源规划/检查脚本及账户测试也归 API 仓库。支付、通知、SSO 等调用方测试仍留在本仓。

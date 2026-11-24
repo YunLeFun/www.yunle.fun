@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 import WalletPage from '../../app/pages/wallet.vue'
 
-const h = vi.hoisted(() => ({ navigateTo: vi.fn(), rewardHistory: vi.fn() }))
+const h = vi.hoisted(() => ({ navigateTo: vi.fn(), rewardHistory: vi.fn(), listOrders: vi.fn() }))
 
 mockNuxtImport('navigateTo', () => h.navigateTo)
 mockNuxtImport('useTcbAuth', () => () => ({ user: ref({ id: 'user-1' }) }))
@@ -17,7 +17,7 @@ mockNuxtImport('useCoin', () => () => ({
   refresh: vi.fn(async () => undefined),
   listTransactions: vi.fn(async () => ({ items: [], nextSkip: null })),
   listRewardHistory: h.rewardHistory,
-  listOrders: vi.fn(async () => ({ items: [], nextSkip: null })),
+  listOrders: h.listOrders,
 }))
 mockNuxtImport('useCoinRecharge', () => () => ({
   resumePending: vi.fn(() => false),
@@ -37,6 +37,29 @@ describe('wallet asset navigation', () => {
   beforeEach(() => {
     h.navigateTo.mockReset()
     h.rewardHistory.mockReset().mockResolvedValue({ items: [], nextSkip: null })
+    h.listOrders.mockReset().mockResolvedValue({ items: [], nextSkip: null })
+  })
+
+  it('labels Play orders by channel and displays WeChat order amounts in yuan', async () => {
+    const order = {
+      orderType: 'membership',
+      appId: 'cook',
+      billingCycle: 'month',
+      status: 'paid',
+      createdAt: Date.UTC(2026, 10, 25),
+    }
+    h.listOrders.mockResolvedValue({
+      items: [
+        { ...order, id: 'play', payType: 'google_play', amount: 0 },
+        { ...order, id: 'wechat', payType: 'native', amount: 1200 },
+      ],
+      nextSkip: null,
+    })
+    const wrapper = await mountSuspended(WalletPage, { route: '/wallet' })
+    await flushPromises()
+    expect(wrapper.text()).toContain('Google Play')
+    expect(wrapper.text()).toContain('¥12.00')
+    wrapper.unmount()
   })
 
   it('shows an account limitation without a service alert or retry control', async () => {

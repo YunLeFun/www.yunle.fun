@@ -5,8 +5,10 @@ export interface MembershipRecord {
   _id: string
   planId: PlanId
   activeCycle: BillingCycle
-  /** 会员到期时间戳（ms） */
+  /** 已付费会员到期时间戳（ms），用于购买顺延 */
   expireAt: number
+  /** 店铺允许继续访问的有效期（ms） */
+  accessExpireAt?: number
   lastOrderId?: string
   createdAt: number
   updatedAt: number
@@ -14,6 +16,7 @@ export interface MembershipRecord {
 
 /** 前端会员状态（含派生字段） */
 export interface MembershipState extends MembershipRecord {
+  paidExpireAt: number
   /** 是否仍然有效 */
   active: boolean
   /** 距离到期剩余毫秒数（>=0） */
