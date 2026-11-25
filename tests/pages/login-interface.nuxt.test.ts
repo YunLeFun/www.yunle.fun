@@ -86,8 +86,14 @@ describe('login interface', () => {
   })
 
   it('keeps the selected mode and prevents OAuth submission while authentication is pending', async () => {
+    let finishSignIn!: () => void
+    h.state.auth.signInWithPassword.mockReturnValue(new Promise<void>((resolve) => {
+      finishSignIn = resolve
+    }))
     const wrapper = await mount()
-    h.state.auth.loading.value = true
+    await wrapper.get('input[name="username"]').setValue('test-user')
+    await wrapper.get('input[name="password"]').setValue('test-password')
+    await wrapper.get('form').trigger('submit')
     await flushPromises()
 
     const phone = button(wrapper, '短信登录')
@@ -100,7 +106,11 @@ describe('login interface', () => {
 
     expect(button(wrapper, '密码登录').attributes('data-state')).toBe('on')
     expect(wrapper.find('input[autocomplete="current-password"]').exists()).toBe(true)
+    expect(h.state.auth.signInWithPassword).toHaveBeenCalledExactlyOnceWith({ username: 'test-user', password: 'test-password' })
     expect(h.state.auth.loginWithGitHub).not.toHaveBeenCalled()
     expect(h.state.auth.sendPhoneOtp).not.toHaveBeenCalled()
+
+    finishSignIn()
+    await flushPromises()
   })
 })

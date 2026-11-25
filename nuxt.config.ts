@@ -41,7 +41,7 @@ export default defineNuxtConfig({
   ],
 
   // Hybrid 渲染：默认 SSR。公开内容页（首页/文档/博客/定价/更新日志/开发者）走预渲染拿 SEO 与首屏；
-  // 认证入口预渲染 client-only 壳并在浏览器接管登录态，其他账号 / 数据驱动页也继续走 client-only。各类策略都在 routeRules 声明。
+  // 普通登录表单同样预渲染，认证回调和账号数据页保留 client-only 壳。各类策略都在 routeRules 声明。
   ssr: true,
 
   // shadcn-vue 组件由业务代码显式导入；避免 Nuxt 把目录中的 barrel 与同名 Vue 文件重复注册。
@@ -194,8 +194,9 @@ export default defineNuxtConfig({
       },
     },
     // EdgeOne 的 Nuxt SSR 适配器不会为动态 client-only 页面注入客户端入口；
-    // 固定认证入口预渲染 SPA 壳，保留客户端模块，查询参数继续由 onMounted / 客户端登录态处理。
-    '/login': { prerender: true, ssr: false },
+    // 登录表单可直接预渲染；来路参数与已有会话在接管后处理。
+    '/login': { prerender: true },
+    // 其他固定认证入口预渲染 SPA 壳，保留客户端模块与各自的回调流程。
     '/signup': { prerender: true, ssr: false },
     '/link': { prerender: true, ssr: false },
     '/auth/**': { ssr: false },

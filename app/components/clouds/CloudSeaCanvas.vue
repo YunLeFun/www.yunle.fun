@@ -171,11 +171,6 @@ onBeforeUnmount(() => {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background:
-    radial-gradient(ellipse 46% 20% at 4% 74%, var(--cloud-light), transparent),
-    radial-gradient(ellipse 49% 18% at 84% 75%, var(--cloud-light), transparent),
-    radial-gradient(ellipse 55% 20% at 40% 85%, var(--cloud-shade), transparent),
-    linear-gradient(0deg, var(--cloud-light), transparent 46%);
 }
 .cloud-sea canvas {
   display: block;

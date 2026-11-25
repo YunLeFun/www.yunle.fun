@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { TcbSignUpData } from '~/composables/useTcbAuth'
 import { withAuthRedirect } from '~/utils/auth-entry'
+import { navigateAfterAuth } from '~/utils/authNavigation'
 import { getSafeLoginRedirect } from '~/utils/authRoutes'
 
 const RE_CN_PHONE = /^1[3-9]\d{9}$/
@@ -22,17 +23,18 @@ const {
   isAuthenticated,
 } = useTcbAuth()
 const router = useRouter()
+const toast = useAppToast()
 const { entry, ssoClient } = useAuthEntry()
 const loginLink = computed(() => withAuthRedirect('/login', entry.value))
 const appName = computed(() => ssoClient.value?.name ?? null)
 
-// 如果已登录，重定向（优先 redirect 查询参数，回退首页；与登录页同一套站内白名单）
-watch(isAuthenticated, (value) => {
-  if (value) {
+// 已有会话由中间件恢复，新注册的跳转由验证码流程完成。
+onMounted(() => {
+  if (isAuthenticated.value) {
     const redirect = getSafeLoginRedirect(router.currentRoute.value.query.redirect)
-    router.replace(redirect)
+    void navigateAfterAuth(router, toast, redirect, 'replace')
   }
-}, { immediate: true })
+})
 
 // 注册步骤
 type Step = 'info' | 'verify'

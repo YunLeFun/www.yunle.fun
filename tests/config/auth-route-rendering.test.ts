@@ -28,7 +28,7 @@ describe('edgeOne client route rendering', () => {
   it('prerenders authentication entry points with client modules for EdgeOne', async () => {
     const config = await loadNuxtConfig({ cwd: rootDir })
     const routeRules = config.routeRules ?? {}
-    const expectedRoutes = ['/login', '/signup', '/link', '/auth/sso', '/auth/github', '/auth/callback', '/auth/cook-account']
+    const expectedRoutes = ['/signup', '/link', '/auth/sso', '/auth/github', '/auth/callback', '/auth/cook-account']
 
     for (const route of expectedRoutes)
       expect(routeRules[route]).toMatchObject({ prerender: true, ssr: false })
@@ -53,6 +53,15 @@ describe('edgeOne client route rendering', () => {
       },
     })
     expect(config.nitro?.prerender?.routes).toEqual(expect.arrayContaining(expectedRoutes))
+  })
+
+  it('serves the login form as prerendered HTML', async () => {
+    const config = await loadNuxtConfig({ cwd: rootDir })
+
+    expect(config.ssr).toBe(true)
+    expect(config.routeRules?.['/login']?.prerender).toBe(true)
+    expect(config.routeRules?.['/login']?.ssr).not.toBe(false)
+    expect(config.nitro?.prerender?.routes).toContain('/login')
   })
 
   it('prerenders the fixed reward claim shell without exposing it to caches or crawlers', async () => {

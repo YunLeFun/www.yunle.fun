@@ -23,14 +23,12 @@ const clientShellRoutes = Object.entries(routeRules)
 if (clientShellRoutes.length === 0)
   throw new Error('No prerendered client-only routes were found in Nuxt routeRules')
 
-const outputRootSentinel = clientShellRoutes.includes('/login')
-  ? '/login'
-  : clientShellRoutes[0]
+const verifiedRoutes = ['/login', ...clientShellRoutes]
 let selectedOutputRoot = ''
 
 for (const outputRoot of outputRoots) {
   try {
-    await access(join(outputRoot, outputRootSentinel.slice(1), 'index.html'))
+    await access(join(outputRoot, 'login/index.html'))
     selectedOutputRoot = outputRoot
     break
   }
@@ -42,7 +40,7 @@ if (!selectedOutputRoot)
 
 const failures = []
 
-for (const route of clientShellRoutes) {
+for (const route of verifiedRoutes) {
   const outputPath = join(selectedOutputRoot, route.slice(1), 'index.html')
 
   try {
@@ -54,6 +52,8 @@ for (const route of clientShellRoutes) {
     )
     if (!hasClientEntry)
       failures.push(`${route}: missing /_nuxt/ module entry in ${outputPath}`)
+    if (route === '/login' && !/<input\b[^>]*\sname=["']username["']/i.test(html))
+      failures.push(`${route}: missing prerendered login form in ${outputPath}`)
   }
   catch (error) {
     failures.push(`${route}: ${error instanceof Error ? error.message : String(error)}`)
@@ -63,4 +63,4 @@ for (const route of clientShellRoutes) {
 if (failures.length > 0)
   throw new Error(`Invalid EdgeOne client shells:\n${failures.join('\n')}`)
 
-console.log(`Verified ${clientShellRoutes.length} EdgeOne client shells with module entry scripts`)
+console.log(`Verified the prerendered /login form and ${clientShellRoutes.length} EdgeOne client shells with module entry scripts`)

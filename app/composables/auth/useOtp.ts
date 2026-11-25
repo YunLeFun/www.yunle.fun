@@ -2,6 +2,7 @@
  * OTP 认证（手机号可登录/注册，邮箱仅允许已绑定账号登录）
  */
 import type { TcbOtpData, TcbSignUpData } from './types'
+import { navigateAfterAuth } from '~/utils/authNavigation'
 import { getSafeLoginRedirect } from '~/utils/authRoutes'
 import { getAuthErrorPresentation, getEmailLoginErrorPresentation } from './types'
 import { useAuthAcquisition } from './useAcquisition'
@@ -69,7 +70,7 @@ export function useTcbOtp(core: ReturnType<typeof import('./useAuthCore').useTcb
       await recordAfterAuthentication('phone_otp', core.user.value?.id)
       toast.add({ title: '登录成功', description: '欢迎回来！', color: 'success' })
       if (router.currentRoute.value.fullPath === loginRoute)
-        await router.push(redirect)
+        await navigateAfterAuth(router, toast, redirect)
       return data
     }
     catch (err: unknown) {
@@ -122,7 +123,7 @@ export function useTcbOtp(core: ReturnType<typeof import('./useAuthCore').useTcb
       await recordAfterAuthentication('phone_otp', core.user.value?.id)
       toast.add({ title: '注册成功', description: '欢迎加入！', color: 'success' })
       if (router.currentRoute.value.fullPath === loginRoute)
-        await router.push(redirect)
+        await navigateAfterAuth(router, toast, redirect)
       return data
     }
     catch (err: unknown) {
@@ -178,7 +179,7 @@ export function useTcbOtp(core: ReturnType<typeof import('./useAuthCore').useTcb
       await recordAfterAuthentication('email_otp', core.user.value?.id)
       toast.add({ title: '登录成功', description: '欢迎回来！', color: 'success' })
       if (router.currentRoute.value.fullPath === loginRoute)
-        await router.push(redirect)
+        await navigateAfterAuth(router, toast, redirect)
       return data
     }
     catch (err: unknown) {
