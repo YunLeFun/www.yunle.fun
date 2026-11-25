@@ -75,12 +75,6 @@ function rememberLoginMode(mode: LoginMode) {
   }
 }
 
-// 区号选项（当前仅支持中国大陆）
-const phoneAreaCodes = [
-  { label: '+86', value: '+86', hint: '中国大陆' },
-]
-const phoneAreaCode = ref('+86')
-
 // 手机号登录状态
 const phone = ref('')
 const phoneOtpCode = ref('')
@@ -139,13 +133,8 @@ async function handleOAuth(provider: 'loginWithGitHub' | 'loginWithWeChat') {
   }
 }
 
-// 手机号校验（根据区号匹配规则）
-const phoneValid = computed(() => {
-  if (phoneAreaCode.value === '+86') {
-    return RE_CN_PHONE.test(phone.value)
-  }
-  return phone.value.length >= 6
-})
+// 短信登录仅支持中国大陆手机号。
+const phoneValid = computed(() => RE_CN_PHONE.test(phone.value))
 
 // 邮箱校验
 const emailValid = computed(() => RE_EMAIL.test(email.value))
@@ -341,34 +330,25 @@ function openResetPassword() {
           label="手机号"
           name="login-phone"
           :error="phoneInvalid ? '请输入正确的手机号' : undefined"
-          hint="仅支持中国大陆手机号，首次验证自动创建账号"
+          hint="仅支持中国大陆（+86）手机号，首次验证自动创建账号"
         >
-          <div class="flex gap-2">
-            <AppSelect
-              id="login-phone-area"
-              v-model="phoneAreaCode"
-              :items="phoneAreaCodes"
-              value-key="value"
-              size="lg"
-              class="w-24 shrink-0"
-              :disabled="loading"
-              aria-label="国家或地区代码"
-            />
-            <AppInput
-              id="login-phone"
-              v-model.trim="phone"
-              type="tel"
-              inputmode="numeric"
-              autocomplete="tel"
-              maxlength="11"
-              placeholder="请输入手机号"
-              size="lg"
-              icon="i-lucide-smartphone"
-              :disabled="loading"
-              class="flex-1"
-              @keyup.enter="phoneCodeSent ? handleVerifyPhoneOtp() : handleSendPhoneOtp()"
-            />
-          </div>
+          <AppInput
+            id="login-phone"
+            v-model.trim="phone"
+            type="tel"
+            inputmode="numeric"
+            autocomplete="tel-national"
+            maxlength="11"
+            placeholder="请输入手机号"
+            size="lg"
+            :disabled="loading"
+            class="w-full"
+            @keyup.enter="phoneCodeSent ? handleVerifyPhoneOtp() : handleSendPhoneOtp()"
+          >
+            <template #leading>
+              <span class="tabular-nums" aria-hidden="true">+86</span>
+            </template>
+          </AppInput>
         </AppFormField>
 
         <!-- 验证码输入 -->

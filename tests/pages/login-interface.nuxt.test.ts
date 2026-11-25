@@ -72,7 +72,8 @@ describe('login interface', () => {
 
     expect(wrapper.find('input[autocomplete="current-password"]').exists()).toBe(false)
     expect(wrapper.find('input[name="username"]').exists()).toBe(false)
-    expect(wrapper.find('input[autocomplete="tel"]').exists()).toBe(true)
+    expect(wrapper.find('input[autocomplete="tel-national"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('+86')
     expect(button(wrapper, '短信登录').attributes('data-state')).toBe('on')
   })
 
@@ -83,6 +84,22 @@ describe('login interface', () => {
     expect(button(wrapper, '邮箱登录').attributes('data-state')).toBe('on')
     expect(wrapper.get<HTMLInputElement>('input[type="email"]').element.value).toBe('')
     expect(wrapper.find('input[autocomplete="current-password"]').exists()).toBe(false)
+  })
+
+  it('sends the mainland number entered after the fixed +86 prefix', async () => {
+    h.state.auth.sendPhoneOtp.mockResolvedValue({})
+    const wrapper = await mount()
+    await button(wrapper, '短信登录').trigger('click')
+
+    const phone = wrapper.get('input[type="tel"]')
+    await phone.setValue('1380000000')
+    expect(button(wrapper, '获取验证码').attributes('disabled')).toBeDefined()
+
+    await phone.setValue('13800000000')
+    await button(wrapper, '获取验证码').trigger('click')
+    await flushPromises()
+    expect(h.state.auth.sendPhoneOtp).toHaveBeenCalledExactlyOnceWith('13800000000')
+    expect(wrapper.find('input[autocomplete="one-time-code"]').exists()).toBe(true)
   })
 
   it('keeps the selected mode and prevents OAuth submission while authentication is pending', async () => {

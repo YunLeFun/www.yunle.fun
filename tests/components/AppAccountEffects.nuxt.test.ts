@@ -40,7 +40,7 @@ async function mount() {
         NuxtLayout: { template: '<div><slot /></div>' },
         NuxtPage: true,
         NuxtLoadingIndicator: true,
-        AppToaster: true,
+        AppToastHost: true,
         ClientOnly: { template: '<slot />' },
         LazyOnboardingModal: { template: '<div data-testid="onboarding" />' },
         LazyCloudCollectorBadge: true,

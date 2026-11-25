@@ -3,12 +3,6 @@ import { MenuIcon } from '@lucide/vue'
 import { useMediaQuery } from '@vueuse/core'
 import { defineAsyncComponent, shallowRef } from 'vue'
 import { Button } from '@/components/ui/button'
-import {
-  NavigationMenu,
-  NavigationMenuItem,
-  NavigationMenuLink,
-  NavigationMenuList,
-} from '@/components/ui/navigation-menu'
 import { Sheet, SheetTrigger } from '@/components/ui/sheet'
 
 // 抽屉内容（遮罩、焦点陷阱、滚动锁）不进入每个页面的入口 chunk：首次打开时才挂载，之后常驻以保留收起动画
@@ -29,11 +23,10 @@ watch(isDesktop, (desktop) => {
   if (desktop)
     mobileOpen.value = false
 })
-// 窄屏在空闲时预取抽屉 chunk，首次点开时无需等网络
-onNuxtReady(() => {
-  if (!isDesktop.value)
-    loadDrawer()
-})
+function preloadDrawer() {
+  // 按下或键盘聚焦时启动下载，避免窄屏首访就拉取抽屉内容。
+  void loadDrawer().catch(() => {})
+}
 
 const items = computed(() => [
   {
@@ -88,17 +81,20 @@ const items = computed(() => [
         <YlfSiteMenu />
       </div>
 
-      <NavigationMenu :viewport="false" class="hidden flex-none md:flex" aria-label="主导航">
-        <NavigationMenuList class="gap-2">
-          <NavigationMenuItem v-for="item in items" :key="item.to">
-            <NavigationMenuLink as-child :active="item.active" class="ylf-header__link ylf-header__link--desktop">
-              <NuxtLink :to="item.to">
-                {{ item.label }}
-              </NuxtLink>
-            </NavigationMenuLink>
-          </NavigationMenuItem>
-        </NavigationMenuList>
-      </NavigationMenu>
+      <nav class="hidden flex-none md:block" aria-label="主导航">
+        <ul class="flex items-center gap-2">
+          <li v-for="item in items" :key="item.to">
+            <NuxtLink
+              :to="item.to"
+              :aria-current="item.active ? 'page' : undefined"
+              :data-active="item.active ? '' : undefined"
+              class="ylf-header__link ylf-header__link--desktop"
+            >
+              {{ item.label }}
+            </NuxtLink>
+          </li>
+        </ul>
+      </nav>
 
       <div class="ylf-header__actions ml-auto flex items-center gap-1.5">
         <AppColorModeButton />
@@ -121,7 +117,7 @@ const items = computed(() => [
 
         <Sheet v-model:open="mobileOpen">
           <SheetTrigger as-child>
-            <Button variant="ghost" size="icon-lg" class="md:hidden" aria-label="打开主导航">
+            <Button variant="ghost" size="icon-lg" class="md:hidden" aria-label="打开主导航" @pointerdown="preloadDrawer" @focus="preloadDrawer">
               <MenuIcon class="size-5" />
             </Button>
           </SheetTrigger>
