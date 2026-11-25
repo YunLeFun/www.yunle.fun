@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import YlfProgress from '@yunlefun/vue/components/YlfProgress.vue'
 import { useAuthAcquisition } from '~/composables/auth/useAcquisition'
+import { navigateAfterAuth } from '~/utils/authNavigation'
+import { getSafeLoginRedirect } from '~/utils/authRoutes'
 
 /**
  * 通用 OAuth 回调页面
@@ -176,9 +178,9 @@ onMounted(async () => {
           description: `已成功绑定${provider === 'github' ? ' GitHub' : '微信'}账号`,
           color: 'success',
         })
-        const redirect = localStorage.getItem('auth_redirect') || '/settings?tab=security'
+        const redirect = getSafeLoginRedirect(localStorage.getItem('auth_redirect') || '/settings?tab=security')
         localStorage.removeItem('auth_redirect')
-        await router.push(redirect)
+        await navigateAfterAuth(router, toast, redirect)
       }
     }
     else {
@@ -200,10 +202,10 @@ onMounted(async () => {
         color: 'success',
       })
 
-      const redirect = localStorage.getItem('auth_redirect') || '/profile'
+      const redirect = getSafeLoginRedirect(localStorage.getItem('auth_redirect') || '/profile')
       localStorage.removeItem('auth_redirect')
 
-      await router.push(redirect)
+      await navigateAfterAuth(router, toast, redirect)
     }
   }
   catch (err: unknown) {

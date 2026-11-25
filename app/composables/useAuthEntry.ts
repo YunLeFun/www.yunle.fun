@@ -7,7 +7,13 @@ import { parseAuthEntry, readableHost } from '~/utils/auth-entry'
  */
 export function useAuthEntry() {
   const route = useRoute()
-  const entry = computed(() => parseAuthEntry(route.query.redirect))
+  const nuxtApp = useNuxtApp()
+  // 预渲染的 /login HTML 在所有查询参数下共用，接管后再显示实际来路。
+  const canReadQuery = shallowRef(import.meta.client && (!nuxtApp.isHydrating || nuxtApp.payload.serverRendered !== true))
+  onMounted(() => {
+    canReadQuery.value = true
+  })
+  const entry = computed(() => parseAuthEntry(canReadQuery.value ? route.query.redirect : undefined))
 
   const resolvedClient = computed(() => entry.value.kind === 'sso'
     ? resolveSsoClientPresentation(entry.value.clientId, entry.value.redirectUri)

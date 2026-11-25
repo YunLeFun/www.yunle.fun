@@ -3,6 +3,7 @@
  */
 import type { SignInWithPasswordCredentials } from '@cloudbase/js-sdk/auth'
 import type { EmailBindingPhase, TcbBindVerificationData, TcbResetPasswordData } from './types'
+import { navigateAfterAuth } from '~/utils/authNavigation'
 import { getSafeLoginRedirect } from '~/utils/authRoutes'
 import { getAuthErrorPresentation, getErrorMessage, toEmailBindingError } from './types'
 
@@ -37,10 +38,9 @@ export function useTcbPassword(core: ReturnType<typeof import('./useAuthCore').u
         throw signInError
       await fetchUser()
       toast.add({ title: '登录成功', description: '欢迎回来！', color: 'success' })
-      // The login page may already resume SSO as soon as fetchUser sets the user.
-      // Never override that navigation after the remaining profile requests finish.
+      // Keep the current page if the user navigated away during profile sync.
       if (router.currentRoute.value.fullPath === loginRoute)
-        await router.push(redirect)
+        await navigateAfterAuth(router, toast, redirect)
       return data
     }
     catch (err: unknown) {

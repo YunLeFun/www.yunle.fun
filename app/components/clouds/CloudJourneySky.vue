@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { CloudTrainBounds } from '~/utils/cloud-sea'
 import { getCloudJourneyPath } from '~/utils/cloud-journey'
-import CloudSeaCanvas from './CloudSeaCanvas.vue'
 
 // 位于默认布局内，两个页面只更新边界；Canvas、相机时间和远处列车始终是同一份。
 const route = useRoute()
@@ -16,7 +15,12 @@ const visible = useElementVisibility(root)
 const { traveling } = useCloudTravel()
 const { active: entering, begin, finish } = useHomeEntrance()
 const ready = shallowRef(false)
+const canStartCanvas = shallowRef(false)
 const nuxtApp = useNuxtApp()
+
+onNuxtReady(() => {
+  canStartCanvas.value = true
+})
 
 function measure() {
   const target = anchor.value
@@ -67,7 +71,15 @@ onBeforeUnmount(removePageHook)
     :style="height ? { height: `${height}px` } : undefined"
     aria-hidden="true"
   >
-    <CloudSeaCanvas :train="train" :playing="enabled" :paused="!visible" :traveling="traveling" :entering="entering" @ready="onReady" />
+    <LazyCloudsCloudSeaCanvas
+      v-if="canStartCanvas"
+      :train="train"
+      :playing="enabled"
+      :paused="!visible"
+      :traveling="traveling"
+      :entering="entering"
+      @ready="onReady"
+    />
   </div>
 </template>
 
@@ -79,7 +91,12 @@ onBeforeUnmount(removePageHook)
   height: clamp(42rem, 65vw, 52rem);
   overflow: clip;
   pointer-events: none;
-  background: linear-gradient(180deg, var(--cloud-sky-top), var(--cloud-sky-horizon));
+  background:
+    radial-gradient(ellipse 46% 20% at 4% 74%, var(--cloud-light), transparent),
+    radial-gradient(ellipse 49% 18% at 84% 75%, var(--cloud-light), transparent),
+    radial-gradient(ellipse 55% 20% at 40% 85%, var(--cloud-shade), transparent),
+    linear-gradient(0deg, var(--cloud-light), transparent 46%),
+    linear-gradient(180deg, var(--cloud-sky-top), var(--cloud-sky-horizon));
   mask-image: linear-gradient(#000 0 78%, transparent 100%);
 }
 </style>

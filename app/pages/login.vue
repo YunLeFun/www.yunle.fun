@@ -2,6 +2,8 @@
 import type { SignInWithPasswordCredentials } from '@cloudbase/js-sdk/auth'
 import type { TcbOtpData, TcbResetPasswordData } from '~/composables/useTcbAuth'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { useLazyLoginAuth } from '~/composables/auth/useLazyLoginAuth'
+import { navigateAfterAuth } from '~/utils/authNavigation'
 import { GITHUB_PROVIDER_ID, isOAuthProviderEnabled, WECHAT_PROVIDER_ID } from '~/utils/authProviders'
 import { getSafeLoginRedirect } from '~/utils/authRoutes'
 import { isAuthUsernameCompatible } from '~/utils/username'
@@ -19,19 +21,8 @@ useSeoMeta({
   description: '登录或创建您的云乐坊账号',
 })
 
-const {
-  sendPhoneOtp,
-  verifyPhoneOtp,
-  sendEmailOtp,
-  verifyEmailOtp,
-  signInWithPassword,
-  resetPassword,
-  confirmResetPassword,
-  loginWithGitHub,
-  loginWithWeChat,
-  loading,
-  isAuthenticated,
-} = useTcbAuth()
+const { loading, runAuthAction } = useLazyLoginAuth()
+const user = useState<{ id?: string } | null>('auth_user', () => null)
 const router = useRouter()
 const toast = useAppToast()
 const { entry, ssoClient } = useAuthEntry()
@@ -49,14 +40,6 @@ const heading = computed(() => {
 const hasJourney = computed(() => entry.value.kind === 'sso' || entry.value.kind === 'device')
 const submitLabel = computed(() => entry.value.kind === 'direct' ? '登录' : '登录并继续')
 
-// 如果已登录，重定向（优先 redirect 查询参数，回退首页）
-watch(isAuthenticated, (value) => {
-  if (value) {
-    const redirect = getSafeLoginRedirect(router.currentRoute.value.query.redirect)
-    router.replace(redirect)
-  }
-}, { immediate: true })
-
 // 登录方式切换
 type LoginMode = 'phone' | 'email' | 'password'
 const loginMode = shallowRef<LoginMode>('password')
@@ -69,6 +52,11 @@ function selectLoginMode(value: unknown) {
 }
 
 onMounted(() => {
+  // 已有会话由中间件恢复，本次登录的跳转由认证流程完成。
+  if (user.value?.id) {
+    void navigateAfterAuth(router, toast, getSafeLoginRedirect(router.currentRoute.value.query.redirect), 'replace')
+  }
+
   try {
     const stored = localStorage.getItem(loginModeStorageKey)
     selectLoginMode(stored)
@@ -130,17 +118,26 @@ const allProviders = [
     id: GITHUB_PROVIDER_ID,
     label: '使用 GitHub 继续',
     icon: 'i-ri-github-fill',
-    onClick: () => loginWithGitHub(),
+    onClick: () => handleOAuth('loginWithGitHub'),
   },
   {
     id: WECHAT_PROVIDER_ID,
     label: '微信登录',
     icon: 'i-ri-wechat-fill',
-    onClick: () => loginWithWeChat(),
+    onClick: () => handleOAuth('loginWithWeChat'),
   },
 ]
 // 仅展示当前线上实际可用的第三方登录（微信等未就绪的先隐藏，见 ENABLED_OAUTH_PROVIDERS）
 const providers = computed(() => allProviders.filter(p => isOAuthProviderEnabled(p.id)))
+
+async function handleOAuth(provider: 'loginWithGitHub' | 'loginWithWeChat') {
+  try {
+    await runAuthAction(auth => auth[provider]())
+  }
+  catch {
+    // 模块加载和认证异常已分别提示。
+  }
+}
 
 // 手机号校验（根据区号匹配规则）
 const phoneValid = computed(() => {
@@ -183,7 +180,7 @@ async function handleSendPhoneOtp() {
   if (!phoneValid.value)
     return
   try {
-    phoneOtpData.value = await sendPhoneOtp(phone.value)
+    phoneOtpData.value = await runAuthAction(auth => auth.sendPhoneOtp(phone.value))
     phoneCodeSent.value = true
     startPhoneCountdown()
   }
@@ -194,10 +191,11 @@ async function handleSendPhoneOtp() {
 
 // 验证手机验证码
 async function handleVerifyPhoneOtp() {
-  if (!phoneOtpData.value || !phoneOtpCode.value)
+  const data = phoneOtpData.value
+  if (!data || !phoneOtpCode.value)
     return
   try {
-    await verifyPhoneOtp(phoneOtpData.value, phoneOtpCode.value)
+    await runAuthAction(auth => auth.verifyPhoneOtp(data, phoneOtpCode.value))
     rememberLoginMode('phone')
   }
   catch {
@@ -210,7 +208,7 @@ async function handleSendEmailOtp() {
   if (!emailValid.value)
     return
   try {
-    emailOtpData.value = await sendEmailOtp(email.value)
+    emailOtpData.value = await runAuthAction(auth => auth.sendEmailOtp(email.value))
     emailCodeSent.value = true
     startEmailCountdown()
   }
@@ -221,10 +219,11 @@ async function handleSendEmailOtp() {
 
 // 验证邮箱验证码
 async function handleVerifyEmailOtp() {
-  if (!emailOtpData.value || !emailOtpCode.value)
+  const data = emailOtpData.value
+  if (!data || !emailOtpCode.value)
     return
   try {
-    await verifyEmailOtp(emailOtpData.value, emailOtpCode.value)
+    await runAuthAction(auth => auth.verifyEmailOtp(data, emailOtpCode.value))
     rememberLoginMode('email')
   }
   catch {
@@ -247,7 +246,7 @@ async function handlePasswordLogin() {
     else {
       params = { username: passwordAccount.value, password: password.value }
     }
-    await signInWithPassword(params)
+    await runAuthAction(auth => auth.signInWithPassword(params))
     rememberLoginMode('password')
   }
   catch {
@@ -260,7 +259,7 @@ async function handleSendReset() {
   if (!resetAccountValid.value)
     return
   try {
-    resetData.value = await resetPassword(resetAccount.value)
+    resetData.value = await runAuthAction(auth => auth.resetPassword(resetAccount.value))
     resetStep.value = 'verify'
     startResetCountdown()
   }
@@ -271,10 +270,11 @@ async function handleSendReset() {
 
 // 忘记密码 - 验证并设置新密码
 async function handleConfirmReset() {
-  if (!resetData.value || !resetOtpCode.value || !newPasswordValid.value)
+  const data = resetData.value
+  if (!data || !resetOtpCode.value || !newPasswordValid.value)
     return
   try {
-    await confirmResetPassword(resetData.value, resetOtpCode.value, newPassword.value)
+    await runAuthAction(auth => auth.confirmResetPassword(data, resetOtpCode.value, newPassword.value))
     showResetPassword.value = false
     resetStep.value = 'input'
     resetAccount.value = ''
@@ -618,7 +618,7 @@ function openResetPassword() {
     </p>
 
     <!-- 忘记密码弹窗 -->
-    <AppModal v-model:open="showResetPassword" title="重置密码">
+    <LazyAppModal v-if="showResetPassword" v-model:open="showResetPassword" title="重置密码">
       <template #content>
         <div class="p-6 space-y-4">
           <div class="flex items-center gap-3">
@@ -742,7 +742,7 @@ function openResetPassword() {
           </form>
         </div>
       </template>
-    </AppModal>
+    </LazyAppModal>
   </div>
 </template>
 

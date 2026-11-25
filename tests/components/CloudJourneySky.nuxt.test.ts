@@ -6,12 +6,15 @@ import CloudSeaCanvas from '../../app/components/clouds/CloudSeaCanvas.vue'
 import DefaultLayout from '../../app/layouts/default.vue'
 
 const currentRoute = vi.hoisted(() => ({ path: '/' }))
+const readyCallbacks = vi.hoisted(() => [] as (() => void)[])
 mockNuxtImport('useRoute', () => () => currentRoute)
+mockNuxtImport('onNuxtReady', () => (callback: () => void) => readyCallbacks.push(callback))
 
 const wrappers: Awaited<ReturnType<typeof mountSuspended>>[] = []
 
 afterEach(() => {
   wrappers.splice(0).forEach(wrapper => wrapper.unmount())
+  readyCallbacks.length = 0
 })
 
 describe('cloud journey on static hosting', () => {
@@ -47,6 +50,10 @@ describe('cloud journey on static hosting', () => {
 
     expect(wrapper.get('#main-content').classes()).toContain('site-main--sky')
     expect(wrapper.get('.cloud-journey').attributes('style')).not.toContain('display: none')
+    expect(wrapper.findComponent(CloudSeaCanvas).exists()).toBe(false)
+
+    readyCallbacks.splice(0).forEach(callback => callback())
+    await vi.waitFor(() => expect(wrapper.findComponent(CloudSeaCanvas).exists()).toBe(true))
     const canvas = wrapper.getComponent(CloudSeaCanvas)
     expect(canvas.props('playing')).toBe(true)
     expect(canvas.props('train')).toMatchObject({ coaches: 3 })

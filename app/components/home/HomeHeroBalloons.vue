@@ -44,7 +44,7 @@ const layout = [
         class="home-hero-balloons__link"
       >
         <span class="home-hero-balloons__bubble">
-          <img :src="appIcons[balloon.appId]" alt="" width="48" height="48">
+          <img :src="appIcons[balloon.appId]" alt="" width="48" height="48" fetchpriority="low" decoding="async">
         </span>
         <svg class="home-hero-balloons__string" viewBox="0 0 12 44" fill="none" aria-hidden="true">
           <path d="M6 0 C 1 11, 11 22, 6 32 S 3 40, 6 44" stroke-width="1.3" stroke-linecap="round" />

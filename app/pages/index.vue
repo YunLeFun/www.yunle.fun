@@ -4,7 +4,7 @@ import HomeHeroBalloons from '~/components/home/HomeHeroBalloons.vue'
 import HomeHeroSky from '~/components/home/HomeHeroSky.vue'
 import HomeJourney from '~/components/home/HomeJourney.vue'
 import { useSkyParallax } from '~/composables/useSkyParallax'
-import { homePage as page } from '~/config'
+import { homePage as page } from '~/config/home'
 
 const title = page.seo.title || page.title
 const description = page.seo.description || page.description
