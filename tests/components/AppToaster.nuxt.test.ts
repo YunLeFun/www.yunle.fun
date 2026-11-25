@@ -1,13 +1,13 @@
 // @vitest-environment nuxt
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { flushPromises } from '@vue/test-utils'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { defineComponent } from 'vue'
-import AppToaster from '../../app/components/AppToaster.vue'
+import AppToastHost from '../../app/components/AppToastHost.vue'
 import { useAppToast } from '../../app/composables/useAppToast'
 
 const ToastHarness = defineComponent({
-  components: { AppToaster },
+  components: { AppToastHost },
   setup() {
     const toast = useAppToast()
     toast.clear()
@@ -30,7 +30,7 @@ const ToastHarness = defineComponent({
   template: `
     <div>
       <button type="button" @click="notify">显示通知</button>
-      <AppToaster />
+      <AppToastHost />
     </div>
   `,
 })
@@ -39,8 +39,11 @@ describe('app toaster', () => {
   it('renders local reka-ui notifications and exposes an accessible close action', async () => {
     const wrapper = await mountSuspended(ToastHarness)
 
+    expect(document.body.querySelector('[data-slot="toast-viewport"]')).toBeNull()
+
     await wrapper.get('button').trigger('click')
     await flushPromises()
+    await vi.waitFor(() => expect(document.body.querySelector('[data-slot="toast-viewport"]')).not.toBeNull())
 
     const viewport = document.body.querySelector<HTMLElement>('[data-slot="toast-viewport"]')
     expect(viewport).not.toBeNull()

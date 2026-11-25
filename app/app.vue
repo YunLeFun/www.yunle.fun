@@ -88,7 +88,7 @@ onMounted(() => {
     <NuxtPage />
   </NuxtLayout>
 
-  <AppToaster />
+  <AppToastHost />
 
   <!--
     登录态会在客户端路由中间件中于 hydration 前恢复，而首页预渲染时 auth_user 恒为空。

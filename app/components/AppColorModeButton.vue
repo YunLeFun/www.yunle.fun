@@ -1,14 +1,6 @@
 <script setup lang="ts">
-import { MonitorIcon, MoonIcon, SunIcon } from '@lucide/vue'
+import { CheckIcon, MonitorIcon, MoonIcon, SunIcon } from '@lucide/vue'
 import { useMounted } from '@vueuse/core'
-import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { useAppearanceTransition } from '~/composables/useAppearanceTransition'
 
 const options = [
@@ -22,36 +14,34 @@ const mounted = useMounted()
 // 浏览器保存的偏好只在客户端可见，挂载后再显示对应的图标和标签。
 const current = computed(() => mounted.value ? options.find(option => option.value === preference.value) : undefined)
 const label = computed(() => current.value ? `外观：${current.value.label}` : '外观')
-const trigger = useTemplateRef<InstanceType<typeof Button>>('trigger')
+
+function chooseAppearance(value: typeof options[number]['value'], trigger: HTMLElement | null, select: () => void) {
+  select()
+  setAppearance(value, trigger ?? undefined)
+}
 </script>
 
 <template>
-  <DropdownMenu :modal="false">
-    <DropdownMenuTrigger as-child>
-      <Button
-        ref="trigger"
-        type="button"
-        variant="ghost"
-        size="icon-lg"
-        :title="label"
-        :aria-label="label"
-      >
-        <component :is="current?.icon ?? MonitorIcon" class="size-5" aria-hidden="true" />
-      </Button>
-    </DropdownMenuTrigger>
-    <DropdownMenuContent align="end" :side-offset="8" class="w-auto min-w-36">
-      <DropdownMenuRadioGroup :model-value="preference">
-        <DropdownMenuRadioItem
+  <HeaderDisclosure :label="label" align="end" icon-only>
+    <template #trigger>
+      <component :is="current?.icon ?? MonitorIcon" class="size-5" aria-hidden="true" />
+    </template>
+
+    <template #default="{ select, trigger }">
+      <div role="group" aria-label="外观">
+        <button
           v-for="option in options"
           :key="option.value"
-          :value="option.value"
-          class="min-h-11"
-          @select="setAppearance(option.value, trigger?.$el)"
+          type="button"
+          :aria-pressed="current?.value === option.value"
+          class="flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-[var(--ylf-radius-menu-item)] px-2 py-2 text-sm whitespace-nowrap hover:bg-[var(--ylf-c-brand-soft)] hover:text-primary focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring aria-pressed:bg-[var(--ylf-c-brand-soft)] aria-pressed:text-primary"
+          @click="chooseAppearance(option.value, trigger, select)"
         >
-          <component :is="option.icon" aria-hidden="true" />
+          <component :is="option.icon" class="size-4 shrink-0" aria-hidden="true" />
           {{ option.label }}
-        </DropdownMenuRadioItem>
-      </DropdownMenuRadioGroup>
-    </DropdownMenuContent>
-  </DropdownMenu>
+          <CheckIcon v-if="current?.value === option.value" class="ml-auto size-4 shrink-0" aria-hidden="true" />
+        </button>
+      </div>
+    </template>
+  </HeaderDisclosure>
 </template>

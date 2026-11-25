@@ -17,10 +17,6 @@ const globalStubs = {
       </header>
     `,
   },
-  UNavigationMenu: {
-    props: ['items'],
-    template: '<nav><a v-for="item in items" :key="item.to" :href="item.to">{{ item.label }}</a></nav>',
-  },
   UColorModeButton: { template: '<button type="button" />' },
   ClientOnly: { template: '<slot />' },
   HeaderAuthArea: { template: '<div />' },
@@ -53,5 +49,16 @@ describe('app header', () => {
     expect(authSlot.classes()).toContain('lg:min-w-48')
     expect(authSlot.classes()).toContain('shrink-0')
     expect(authSlot.classes().some(className => /(?:^|:)w-/.test(className))).toBe(false)
+  })
+
+  it('exposes the desktop links and the current section in a native navigation landmark', async () => {
+    const wrapper = await mountSuspended(AppHeader, {
+      route: '/blog',
+      global: { stubs: globalStubs },
+    })
+
+    const nav = wrapper.get('nav[aria-label="主导航"]')
+    expect(nav.findAll('ul > li > a')).toHaveLength(4)
+    expect(nav.get('a[aria-current="page"]').attributes('href')).toBe('/blog')
   })
 })
